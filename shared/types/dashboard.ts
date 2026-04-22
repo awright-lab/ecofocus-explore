@@ -81,9 +81,12 @@ export interface DashboardCanvasElement {
     gradientTo: string;
     textColor: string;
     borderColor: string;
+    borderWidth: number;
+    borderStyle: "solid" | "dashed" | "dotted" | "none";
     borderRadius: number;
     opacity: number;
     shadow: boolean;
+    objectFit: "cover" | "contain" | "fill";
     fontFamily: string;
     fontSize: number;
     fontWeight: string;
@@ -102,6 +105,10 @@ export interface DashboardPage {
   showCanvasGrid: boolean;
   snapToGrid: boolean;
   gridSize: number;
+  background: string;
+  backgroundMode: "solid" | "gradient";
+  gradientFrom: string;
+  gradientTo: string;
   elements: DashboardCanvasElement[];
   tiles: DashboardTile[];
 }

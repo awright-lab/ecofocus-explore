@@ -245,6 +245,20 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add richer text styling controls for font family, weight, italic, underline, alignment, line height, padding, color, and size.
 - Preserve these page and element design settings in the dashboard draft model and local storage.
 
+### Phase 8D - Page And Element Styling
+
+- Add page-level solid and gradient background controls.
+- Add richer element border controls for color, width, solid/dashed/dotted/none styles, and rounded corners.
+- Add image fit controls for cover, contain, and stretch behavior.
+- Keep page and element styling in the dashboard draft model so designed dashboards can be saved and published later.
+
+### Phase 8E - Tool Tray Layout And Canvas Zoom
+
+- Move layers into a focused left-panel tray that can be opened and closed instead of always occupying page space.
+- Convert the right settings panel into a compact menu with focused Page, Arrange, Element/Tile, and Container tool views.
+- Add zoom controls for the design canvas, including zoom buttons, a slider, and scaled drag/resize behavior.
+- Lock the builder shell to the viewport so the design suite feels like an app workspace rather than a long scrolling page.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.

@@ -76,6 +76,8 @@ const defaultAppearance: TileAppearance = {
 const storageKey = "ecofocus_explore_dashboard_v1";
 const historyLimit = 40;
 const defaultGridSize = 40;
+const canvasWidth = 1280;
+const canvasHeight = 760;
 const fontFamilies = [
   { label: "Inter", value: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif" },
   { label: "System", value: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif" },
@@ -83,6 +85,18 @@ const fontFamilies = [
   { label: "Times", value: "\"Times New Roman\", Times, serif" },
   { label: "Courier", value: "\"Courier New\", Courier, monospace" }
 ];
+
+function defaultPageDesign() {
+  return {
+    showCanvasGrid: true,
+    snapToGrid: false,
+    gridSize: defaultGridSize,
+    background: "#ffffff",
+    backgroundMode: "solid" as const,
+    gradientFrom: "#ffffff",
+    gradientTo: "#eef7ef"
+  };
+}
 
 const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
@@ -93,9 +107,7 @@ const initialDashboard: DashboardDraft = {
       id: "page_overview",
       title: "Overview",
       order: 1,
-      showCanvasGrid: true,
-      snapToGrid: false,
-      gridSize: defaultGridSize,
+      ...defaultPageDesign(),
       elements: [],
       tiles: []
     }
@@ -110,9 +122,12 @@ function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasE
     gradientTo: "#9fc9a7",
     textColor: "#17211b",
     borderColor: "#438757",
+    borderWidth: type === "rectangle" || type === "circle" ? 2 : 1,
+    borderStyle: "solid",
     borderRadius: type === "rectangle" ? 8 : 0,
     opacity: 100,
     shadow: false,
+    objectFit: "cover",
     fontFamily: fontFamilies[0].value,
     fontSize: 24,
     fontWeight: "700",
@@ -126,6 +141,14 @@ function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasE
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
   return mode === "gradient" ? `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : solid;
+}
+
+function canvasBackground(page: DashboardPage) {
+  const pageBackground = backgroundStyle(page.backgroundMode, page.background, page.gradientFrom, page.gradientTo);
+
+  if (!page.showCanvasGrid) return pageBackground;
+
+  return `linear-gradient(#eef3eb 1px, transparent 1px), linear-gradient(90deg, #eef3eb 1px, transparent 1px), ${pageBackground}`;
 }
 
 function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
@@ -382,13 +405,15 @@ function CanvasElementRenderer({
         className={selected ? "canvas-element selected" : "canvas-element"}
         style={{
           borderColor: element.style.borderColor,
+          borderWidth: element.style.borderWidth,
+          borderStyle: element.style.borderStyle,
           borderRadius: element.style.borderRadius,
           opacity: element.style.opacity / 100,
           boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
         }}
         onClick={onSelect}
       >
-        {element.content ? <img src={element.content} alt="" /> : <div className="image-placeholder">Image URL</div>}
+        {element.content ? <img src={element.content} alt="" style={{ objectFit: element.style.objectFit }} /> : <div className="image-placeholder">Image URL</div>}
       </div>
     );
   }
@@ -409,6 +434,8 @@ function CanvasElementRenderer({
           padding: element.style.padding,
           background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
           borderColor: element.style.borderColor,
+          borderWidth: element.style.borderWidth,
+          borderStyle: element.style.borderStyle,
           borderRadius: element.style.borderRadius,
           opacity: element.style.opacity / 100,
           boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
@@ -426,6 +453,8 @@ function CanvasElementRenderer({
       style={{
         background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
         borderColor: element.style.borderColor,
+        borderWidth: element.style.borderWidth,
+        borderStyle: element.style.borderStyle,
         borderRadius: element.type === "circle" ? 999 : element.style.borderRadius,
         opacity: element.style.opacity / 100,
         boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
@@ -462,9 +491,8 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
     ...dashboard,
     pages: dashboard.pages.map((page) => ({
       ...page,
-      showCanvasGrid: page.showCanvasGrid ?? true,
-      snapToGrid: page.snapToGrid ?? false,
-      gridSize: page.gridSize ?? defaultGridSize,
+      ...defaultPageDesign(),
+      ...page,
       elements: page.elements.map((element) => ({
         ...element,
         name: element.name ?? (element.type === "text" ? "Text" : element.type === "image" ? "Image" : element.type === "circle" ? "Circle" : "Rectangle"),
@@ -505,6 +533,9 @@ export default function App() {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
+  const [leftPanelView, setLeftPanelView] = useState<"main" | "layers">("main");
+  const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
+  const [canvasZoom, setCanvasZoom] = useState(85);
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
@@ -532,6 +563,7 @@ export default function App() {
       ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
       : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [];
   const selectedChartPart = selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null;
+  const canvasScale = canvasZoom / 100;
   const layerItems: LayerItem[] = [
     ...activePage.tiles.map((tile) => ({
       id: tile.id,
@@ -774,9 +806,6 @@ export default function App() {
     const layout = selectedTile?.layout ?? selectedElement?.layout;
     if (!layout) return;
 
-    const canvasWidth = 1280;
-    const canvasHeight = 760;
-
     if (direction === "left") updateSelectedLayout({ x: 0 });
     if (direction === "center") updateSelectedLayout({ x: Math.round((canvasWidth - layout.width) / 2) });
     if (direction === "right") updateSelectedLayout({ x: canvasWidth - layout.width });
@@ -840,9 +869,7 @@ export default function App() {
       id: makePageId(),
       title: `Page ${dashboard.pages.length + 1}`,
       order: dashboard.pages.length + 1,
-      showCanvasGrid: true,
-      snapToGrid: false,
-      gridSize: defaultGridSize,
+      ...defaultPageDesign(),
       elements: [],
       tiles: []
     };
@@ -948,6 +975,18 @@ export default function App() {
     setSelectedTileId(null);
     setSelectedElementId(null);
     setSelectedChartPartId("all");
+    setSettingsView("home");
+    setLeftPanelView("main");
+  }
+
+  function chooseLayer(item: LayerItem) {
+    selectLayer(item);
+    setLeftPanelView("main");
+    setSettingsView(item.type === "tile" ? "chart" : "element");
+  }
+
+  function updateCanvasZoom(value: number) {
+    setCanvasZoom(Math.min(160, Math.max(35, value)));
   }
 
   useEffect(() => {
@@ -1031,139 +1070,143 @@ export default function App() {
 
       <section className="builder-workspace">
         <aside className="panel controls" aria-label="Data controls">
-          <div className="panel-title">
-            <h2>Pages</h2>
-          </div>
-          <div className="page-list">
-            {sortedPages.map((page) => (
-              <button
-                type="button"
-                key={page.id}
-                className={page.id === activePage.id ? "page-tab active" : "page-tab"}
-                onClick={() => {
-                  setActivePageId(page.id);
-                  setSelectedTileId(null);
-                  setSelectedElementId(null);
-                  setSelectedChartPartId("all");
-                }}
-              >
-                <span>{page.order}</span>
-                {page.title}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="secondary" onClick={addPage}>
-            New page
-          </button>
-
-          <div className="panel-title">
-            <h2>Layers</h2>
-          </div>
-          <div className="layers-list">
-            {layerItems.length === 0 ? (
-              <div className="empty-state compact">No layers yet.</div>
-            ) : (
-              layerItems.map((item) => (
-                <div
-                  className={(item.type === "tile" && item.id === selectedTileId) || (item.type === "element" && item.id === selectedElementId) ? "layer-row active" : "layer-row"}
-                  key={`${item.type}-${item.id}`}
-                >
-                  <button type="button" className="layer-name" onClick={() => selectLayer(item)}>
-                    <span>{item.type === "tile" ? "Chart" : "Item"}</span>
-                    {item.name}
-                  </button>
+          {leftPanelView === "layers" ? (
+            <>
+              <div className="panel-title with-action">
+                <h2>Layers</h2>
+                <button type="button" className="mini-button" onClick={() => setLeftPanelView("main")}>Close</button>
+              </div>
+              <div className="layers-list expanded">
+                {layerItems.length === 0 ? (
+                  <div className="empty-state compact">No layers yet.</div>
+                ) : (
+                  layerItems.map((item) => (
+                    <div
+                      className={(item.type === "tile" && item.id === selectedTileId) || (item.type === "element" && item.id === selectedElementId) ? "layer-row active" : "layer-row"}
+                      key={`${item.type}-${item.id}`}
+                    >
+                      <button type="button" className="layer-name" onClick={() => chooseLayer(item)}>
+                        <span>{item.type === "tile" ? "Chart" : "Item"}</span>
+                        {item.name}
+                      </button>
+                      <button
+                        type="button"
+                        className="mini-button"
+                        onClick={() => (item.type === "tile" ? updateTile(item.id, { hidden: !item.hidden }) : updateElement(item.id, { hidden: !item.hidden }))}
+                      >
+                        {item.hidden ? "Show" : "Hide"}
+                      </button>
+                      <button
+                        type="button"
+                        className="mini-button"
+                        onClick={() => (item.type === "tile" ? updateTile(item.id, { locked: !item.locked }) : updateElement(item.id, { locked: !item.locked }))}
+                      >
+                        {item.locked ? "Unlock" : "Lock"}
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="panel-title">
+                <h2>Pages</h2>
+              </div>
+              <div className="page-list">
+                {sortedPages.map((page) => (
                   <button
                     type="button"
-                    className="mini-button"
-                    onClick={() => (item.type === "tile" ? updateTile(item.id, { hidden: !item.hidden }) : updateElement(item.id, { hidden: !item.hidden }))}
+                    key={page.id}
+                    className={page.id === activePage.id ? "page-tab active" : "page-tab"}
+                    onClick={() => {
+                      setActivePageId(page.id);
+                      setSelectedTileId(null);
+                      setSelectedElementId(null);
+                      setSelectedChartPartId("all");
+                    }}
                   >
-                    {item.hidden ? "Show" : "Hide"}
+                    <span>{page.order}</span>
+                    {page.title}
                   </button>
-                  <button
-                    type="button"
-                    className="mini-button"
-                    onClick={() => (item.type === "tile" ? updateTile(item.id, { locked: !item.locked }) : updateElement(item.id, { locked: !item.locked }))}
-                  >
-                    {item.locked ? "Unlock" : "Lock"}
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="panel-title">
-            <h2>Insert</h2>
-          </div>
-          <div className="insert-grid">
-            <button type="button" className="secondary" onClick={() => addCanvasElement("text")}>Text</button>
-            <button type="button" className="secondary" onClick={() => addCanvasElement("rectangle")}>Rectangle</button>
-            <button type="button" className="secondary" onClick={() => addCanvasElement("circle")}>Circle</button>
-            <button type="button" className="secondary" onClick={() => addCanvasElement("image")}>Image</button>
-          </div>
-
-          <div className="panel-title">
-            <h2>Data</h2>
-          </div>
-          <label>
-            Dataset
-            <select value={defaultDataset.id} disabled>
-              <option value={defaultDataset.id}>{defaultDataset.label}</option>
-            </select>
-          </label>
-          <label>
-            Variable set
-            <select
-              value={question}
-              onChange={(event) => {
-                const nextQuestion = defaultDataset.questions.find((item) => item.id === event.target.value) ?? defaultQuestion;
-                setQuestion(nextQuestion.id);
-                setBreakBy(nextQuestion.allowedBreakBys[0]);
-                setMetric(nextQuestion.defaultMetric);
-                setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
-              }}
-            >
-              {defaultDataset.questions.map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.shortLabel}
-                </option>
-              ))}
-            </select>
-            <span>{selectedQuestion.topic}</span>
-          </label>
-          <label>
-            Columns
-            <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
-              {bannerDimensions
-                .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
-                .map((item) => (
-                  <option value={item.id} key={item.id}>
-                    {item.label}
-                  </option>
                 ))}
-            </select>
-          </label>
-          <label>
-            Cells
-            <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
-              {selectedQuestion.allowedMetrics.map((item) => (
-                <option value={item} key={item}>
-                  {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Weight
-            <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
-              <option value="none">Unweighted</option>
-              {defaultDataset.weights.map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedFilterDimension && (
+              </div>
+              <button type="button" className="secondary" onClick={addPage}>
+                New page
+              </button>
+              <button type="button" className="secondary" onClick={() => setLeftPanelView("layers")}>
+                Layers ({layerItems.length})
+              </button>
+
+              <div className="panel-title">
+                <h2>Insert</h2>
+              </div>
+              <div className="insert-grid">
+                <button type="button" className="secondary" onClick={() => addCanvasElement("text")}>Text</button>
+                <button type="button" className="secondary" onClick={() => addCanvasElement("rectangle")}>Rectangle</button>
+                <button type="button" className="secondary" onClick={() => addCanvasElement("circle")}>Circle</button>
+                <button type="button" className="secondary" onClick={() => addCanvasElement("image")}>Image</button>
+              </div>
+
+              <div className="panel-title">
+                <h2>Data</h2>
+              </div>
+              <label>
+                Variable set
+                <select
+                  value={question}
+                  onChange={(event) => {
+                    const nextQuestion = defaultDataset.questions.find((item) => item.id === event.target.value) ?? defaultQuestion;
+                    setQuestion(nextQuestion.id);
+                    setBreakBy(nextQuestion.allowedBreakBys[0]);
+                    setMetric(nextQuestion.defaultMetric);
+                    setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+                  }}
+                >
+                  {defaultDataset.questions.map((item) => (
+                    <option value={item.id} key={item.id}>
+                      {item.shortLabel}
+                    </option>
+                  ))}
+                </select>
+                <span>{selectedQuestion.topic}</span>
+              </label>
+              <label>
+                Columns
+                <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
+                  {bannerDimensions
+                    .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
+                    .map((item) => (
+                      <option value={item.id} key={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <div className="compact-grid">
+                <label>
+                  Cells
+                  <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
+                    {selectedQuestion.allowedMetrics.map((item) => (
+                      <option value={item} key={item}>
+                        {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Weight
+                  <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
+                    <option value="none">Unweighted</option>
+                    {defaultDataset.weights.map((item) => (
+                      <option value={item.id} key={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {selectedFilterDimension && (
             <label>
               Filter
               <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
@@ -1175,31 +1218,33 @@ export default function App() {
                 ))}
               </select>
             </label>
+              )}
+              <div className="segmented" aria-label="View mode">
+                <button type="button" className={viewMode === "chart" ? "active" : ""} onClick={() => setViewMode("chart")}>
+                  Chart
+                </button>
+                <button type="button" className={viewMode === "table" ? "active" : ""} onClick={() => setViewMode("table")}>
+                  Table
+                </button>
+              </div>
+              {viewMode === "chart" && (
+                <label>
+                  Chart type
+                  <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                    {selectedChartTypes.map((item) => (
+                      <option value={item} key={item}>
+                        {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add tile"}
+              </button>
+              {error && <div className="error">{error}</div>}
+            </>
           )}
-          <div className="segmented" aria-label="View mode">
-            <button type="button" className={viewMode === "chart" ? "active" : ""} onClick={() => setViewMode("chart")}>
-              Chart
-            </button>
-            <button type="button" className={viewMode === "table" ? "active" : ""} onClick={() => setViewMode("table")}>
-              Table
-            </button>
-          </div>
-          {viewMode === "chart" && (
-            <label>
-              Chart type
-              <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
-                {selectedChartTypes.map((item) => (
-                  <option value={item} key={item}>
-                    {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
-            {isLoading ? "Adding..." : "Add tile"}
-          </button>
-          {error && <div className="error">{error}</div>}
         </aside>
 
         <section className="canvas" aria-label="Dashboard canvas">
@@ -1208,91 +1253,111 @@ export default function App() {
               <p className="eyebrow">Page {activePage.order}</p>
               <h2>{activePage.title}</h2>
             </div>
-            <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
+            <div className="canvas-toolbar">
+              <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
+              <div className="zoom-control" aria-label="Canvas zoom">
+                <button type="button" className="mini-button" onClick={() => updateCanvasZoom(canvasZoom - 10)}>-</button>
+                <input type="range" min="35" max="160" step="5" value={canvasZoom} onChange={(event) => updateCanvasZoom(Number(event.target.value))} />
+                <button type="button" className="mini-button" onClick={() => updateCanvasZoom(canvasZoom + 10)}>+</button>
+                <strong>{canvasZoom}%</strong>
+              </div>
+            </div>
           </div>
-          <div
-            className={activePage.showCanvasGrid ? "freeform-canvas" : "freeform-canvas no-grid"}
-            style={{ backgroundSize: `${activePage.gridSize}px ${activePage.gridSize}px` }}
-          >
-            {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
-              <div className="empty-state">Add charts, tables, text, shapes, or images to start building this page.</div>
-            )}
-            {activePage.elements.filter((element) => !element.hidden).map((element) => (
-              <Rnd
-                key={element.id}
-                bounds="parent"
-                size={{ width: element.layout.width, height: element.layout.height }}
-                position={{ x: element.layout.x, y: element.layout.y }}
-                style={{ zIndex: element.layout.zIndex }}
-                dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                disableDragging={element.locked}
-                enableResizing={!element.locked}
-                onDragStart={() => {
-                  setSelectedElementId(element.id);
-                  setSelectedTileId(null);
-                  setSelectedChartPartId("all");
+          <div className="canvas-viewport">
+            <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>
+              <div
+                className="freeform-canvas"
+                style={{
+                  width: canvasWidth,
+                  height: canvasHeight,
+                  background: canvasBackground(activePage),
+                  backgroundSize: activePage.showCanvasGrid ? `${activePage.gridSize}px ${activePage.gridSize}px` : undefined,
+                  transform: `scale(${canvasScale})`
                 }}
-                onDragStop={(_, data) => updateElementLayout(element.id, { x: data.x, y: data.y })}
-                onResizeStop={(_, __, ref, ___, position) =>
-                  updateElementLayout(element.id, {
-                    width: ref.offsetWidth,
-                    height: ref.offsetHeight,
-                    x: position.x,
-                    y: position.y
-                  })
-                }
               >
-                <CanvasElementRenderer
-                  element={element}
-                  selected={element.id === selectedElementId}
-                  onSelect={() => {
-                    setSelectedElementId(element.id);
-                    setSelectedTileId(null);
-                    setSelectedChartPartId("all");
-                  }}
-                />
-              </Rnd>
-            ))}
-            {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
-              <Rnd
-                key={tile.id}
-                bounds="parent"
-                minWidth={320}
-                minHeight={220}
-                size={{ width: tile.layout.width, height: tile.layout.height }}
-                position={{ x: tile.layout.x, y: tile.layout.y }}
-                style={{ zIndex: tile.layout.zIndex }}
-                dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                disableDragging={tile.locked}
-                enableResizing={!tile.locked}
-                onDragStart={() => {
-                  setSelectedTileId(tile.id);
-                  setSelectedElementId(null);
-                  setSelectedChartPartId("all");
-                }}
-                onDragStop={(_, data) => updateTileLayout(tile.id, { x: data.x, y: data.y })}
-                onResizeStop={(_, __, ref, ___, position) =>
-                  updateTileLayout(tile.id, {
-                    width: ref.offsetWidth,
-                    height: ref.offsetHeight,
-                    x: position.x,
-                    y: position.y
-                  })
-                }
-              >
-                <TileRenderer
-                  tile={tile}
-                  selected={tile.id === selectedTileId}
-                  onSelect={() => {
-                    setSelectedTileId(tile.id);
-                    setSelectedElementId(null);
-                    setSelectedChartPartId("all");
-                  }}
-                />
-              </Rnd>
-            ))}
+                {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
+                  <div className="empty-state">Add charts, tables, text, shapes, or images to start building this page.</div>
+                )}
+                {activePage.elements.filter((element) => !element.hidden).map((element) => (
+                  <Rnd
+                    key={element.id}
+                    bounds="parent"
+                    scale={canvasScale}
+                    size={{ width: element.layout.width, height: element.layout.height }}
+                    position={{ x: element.layout.x, y: element.layout.y }}
+                    style={{ zIndex: element.layout.zIndex }}
+                    dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                    resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                    disableDragging={element.locked}
+                    enableResizing={!element.locked}
+                    onDragStart={() => {
+                      setSelectedElementId(element.id);
+                      setSelectedTileId(null);
+                      setSelectedChartPartId("all");
+                    }}
+                    onDragStop={(_, data) => updateElementLayout(element.id, { x: data.x, y: data.y })}
+                    onResizeStop={(_, __, ref, ___, position) =>
+                      updateElementLayout(element.id, {
+                        width: ref.offsetWidth,
+                        height: ref.offsetHeight,
+                        x: position.x,
+                        y: position.y
+                      })
+                    }
+                  >
+                    <CanvasElementRenderer
+                      element={element}
+                      selected={element.id === selectedElementId}
+                      onSelect={() => {
+                        setSelectedElementId(element.id);
+                        setSelectedTileId(null);
+                        setSelectedChartPartId("all");
+                      }}
+                    />
+                  </Rnd>
+                ))}
+                {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
+                  <Rnd
+                    key={tile.id}
+                    bounds="parent"
+                    scale={canvasScale}
+                    minWidth={320}
+                    minHeight={220}
+                    size={{ width: tile.layout.width, height: tile.layout.height }}
+                    position={{ x: tile.layout.x, y: tile.layout.y }}
+                    style={{ zIndex: tile.layout.zIndex }}
+                    dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                    resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                    disableDragging={tile.locked}
+                    enableResizing={!tile.locked}
+                    onDragStart={() => {
+                      setSelectedTileId(tile.id);
+                      setSelectedElementId(null);
+                      setSelectedChartPartId("all");
+                    }}
+                    onDragStop={(_, data) => updateTileLayout(tile.id, { x: data.x, y: data.y })}
+                    onResizeStop={(_, __, ref, ___, position) =>
+                      updateTileLayout(tile.id, {
+                        width: ref.offsetWidth,
+                        height: ref.offsetHeight,
+                        x: position.x,
+                        y: position.y
+                      })
+                    }
+                  >
+                    <TileRenderer
+                      tile={tile}
+                      selected={tile.id === selectedTileId}
+                      onSelect={() => {
+                        setSelectedTileId(tile.id);
+                        setSelectedElementId(null);
+                        setSelectedChartPartId("all");
+                      }}
+                    />
+                  </Rnd>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1300,6 +1365,33 @@ export default function App() {
           <div className="panel-title">
             <h2>Settings</h2>
           </div>
+          {settingsView === "home" ? (
+            <div className="settings-menu">
+              <button type="button" className="menu-card" onClick={() => setSettingsView("page")}>
+                <strong>Page</strong>
+                <span>Title, grid, snap, and background</span>
+              </button>
+              <button type="button" className="menu-card" onClick={() => setSettingsView("layout")} disabled={!selectedTile && !selectedElement}>
+                <strong>Arrange</strong>
+                <span>Layer order, alignment, size, and position</span>
+              </button>
+              <button type="button" className="menu-card" onClick={() => setSettingsView(selectedElement ? "element" : "chart")} disabled={!selectedTile && !selectedElement}>
+                <strong>{selectedElement ? "Element" : "Tile"}</strong>
+                <span>{selectedElement ? "Shape, image, and text styling" : "Chart design and visualization"}</span>
+              </button>
+              <button type="button" className="menu-card" onClick={() => setSettingsView("container")} disabled={!selectedTile}>
+                <strong>Container</strong>
+                <span>Tile background, borders, and notes</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="panel-title with-action">
+                <h2>{settingsView === "page" ? "Page" : settingsView === "layout" ? "Arrange" : settingsView === "container" ? "Container" : selectedElement ? "Element" : "Tile"}</h2>
+                <button type="button" className="mini-button" onClick={() => setSettingsView("home")}>Back</button>
+              </div>
+          {settingsView === "page" && (
+            <>
           <label>
             Page title
             <input value={activePage.title} onChange={(event) => updateActivePage({ title: event.target.value })} />
@@ -1326,10 +1418,39 @@ export default function App() {
               <input type="checkbox" checked={activePage.snapToGrid} onChange={(event) => updateActivePage({ snapToGrid: event.target.checked })} /> Snap to grid
             </label>
           </div>
+          <label>
+            Page background
+            <select
+              value={activePage.backgroundMode}
+              onChange={(event) => updateActivePage({ backgroundMode: event.target.value as "solid" | "gradient" })}
+            >
+              <option value="solid">Solid</option>
+              <option value="gradient">Gradient</option>
+            </select>
+          </label>
+          {activePage.backgroundMode === "solid" ? (
+            <label>
+              Background
+              <input type="color" value={activePage.background} onChange={(event) => updateActivePage({ background: event.target.value })} />
+            </label>
+          ) : (
+            <>
+              <label>
+                Gradient start
+                <input type="color" value={activePage.gradientFrom} onChange={(event) => updateActivePage({ gradientFrom: event.target.value })} />
+              </label>
+              <label>
+                Gradient end
+                <input type="color" value={activePage.gradientTo} onChange={(event) => updateActivePage({ gradientTo: event.target.value })} />
+              </label>
+            </>
+          )}
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
           </button>
-          {(selectedTile || selectedElement) && (
+            </>
+          )}
+          {settingsView === "layout" && (selectedTile || selectedElement) && (
             <>
               <div className="panel-title subtle">
                 <h2>Layers</h2>
@@ -1371,22 +1492,37 @@ export default function App() {
               </div>
             </>
           )}
+          {(settingsView === "element" || settingsView === "chart" || settingsView === "container") && (
+            <>
           <div className="panel-title subtle">
             <h2>{selectedElement ? "Element" : "Tile"}</h2>
           </div>
           {selectedElement ? (
             <>
+              <label>
+                Layer name
+                <input value={selectedElement.name} onChange={(event) => updateSelectedElement({ name: event.target.value })} />
+              </label>
               {selectedElement.type !== "rectangle" && selectedElement.type !== "circle" && (
                 <>
-                  <label>
-                    Layer name
-                    <input value={selectedElement.name} onChange={(event) => updateSelectedElement({ name: event.target.value })} />
-                  </label>
                   <label>
                     {selectedElement.type === "image" ? "Image URL" : "Text"}
                     <input value={selectedElement.content} onChange={(event) => updateSelectedElement({ content: event.target.value })} />
                   </label>
                 </>
+              )}
+              {selectedElement.type === "image" && (
+                <label>
+                  Image fit
+                  <select
+                    value={selectedElement.style.objectFit}
+                    onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, objectFit: event.target.value as DashboardCanvasElement["style"]["objectFit"] } })}
+                  >
+                    <option value="cover">Crop to fill</option>
+                    <option value="contain">Fit inside</option>
+                    <option value="fill">Stretch</option>
+                  </select>
+                </label>
               )}
               {selectedElement.type === "text" && (
                 <>
@@ -1538,6 +1674,28 @@ export default function App() {
                       value={selectedElement.style.borderColor}
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderColor: event.target.value } })}
                     />
+                  </label>
+                  <label>
+                    Border width
+                    <input
+                      type="range"
+                      min="0"
+                      max="16"
+                      value={selectedElement.style.borderWidth}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderWidth: Number(event.target.value), borderStyle: Number(event.target.value) === 0 ? "none" : selectedElement.style.borderStyle === "none" ? "solid" : selectedElement.style.borderStyle } })}
+                    />
+                  </label>
+                  <label>
+                    Border style
+                    <select
+                      value={selectedElement.style.borderStyle}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderStyle: event.target.value as DashboardCanvasElement["style"]["borderStyle"] } })}
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="dashed">Dashed</option>
+                      <option value="dotted">Dotted</option>
+                      <option value="none">None</option>
+                    </select>
                   </label>
                   {selectedElement.type !== "circle" && (
                     <label>
@@ -1789,6 +1947,10 @@ export default function App() {
               >
                 Remove tile
               </button>
+            </>
+          )}
+            </>
+          )}
             </>
           )}
         </aside>
