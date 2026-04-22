@@ -1,11 +1,22 @@
 import { useMemo, useState } from "react";
 import { runAnalyticsQuery } from "./lib/api";
-import { datasets } from "./lib/metadata";
-import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, DimensionId, Metric, QuestionId } from "../shared/types/analytics";
+import { datasets, getBannerDimensions, getFilterDimensions } from "./lib/metadata";
+import type {
+  AnalyticsQueryRequest,
+  AnalyticsQueryResponse,
+  BreakById,
+  ChartType,
+  FilterFieldId,
+  Metric,
+  QuestionId
+} from "../shared/types/analytics";
 
 const defaultDataset = datasets[0];
-const defaultQuestion = defaultDataset.questions[0];
-const defaultBreakBy = defaultDataset.dimensions[0];
+const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
+const bannerDimensions = getBannerDimensions(defaultDataset.id);
+const filterDimensions = getFilterDimensions(defaultDataset.id);
+const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
+const defaultFilterDimension = filterDimensions[0];
 
 function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
   return format === "percent" ? `${value}%` : value.toLocaleString();
@@ -77,9 +88,11 @@ function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
 
 export default function App() {
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
-  const [breakBy, setBreakBy] = useState<DimensionId>(defaultBreakBy.id);
-  const [metric, setMetric] = useState<Metric>("column_percent");
+  const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
+  const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
   const [chartType, setChartType] = useState<ChartType>("grouped_bar");
+  const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
+  const [filterValue, setFilterValue] = useState("all");
   const [result, setResult] = useState<AnalyticsQueryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,11 +101,15 @@ export default function App() {
     return defaultDataset.questions.find((item) => item.id === question) ?? defaultQuestion;
   }, [question]);
 
+  const selectedFilterDimension = useMemo(() => {
+    return filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
+  }, [filterField]);
+
   const query: AnalyticsQueryRequest = {
     dataset: defaultDataset.id,
     question,
     breakBy,
-    filters: [],
+    filters: filterField && filterValue !== "all" ? [{ field: filterField, values: [filterValue] }] : [],
     metric,
     chartType
   };
@@ -132,19 +149,30 @@ export default function App() {
 
           <label>
             Question
-            <select value={question} onChange={(event) => setQuestion(event.target.value as QuestionId)}>
+            <select
+              value={question}
+              onChange={(event) => {
+                const nextQuestion = defaultDataset.questions.find((item) => item.id === event.target.value) ?? defaultQuestion;
+                setQuestion(nextQuestion.id);
+                setMetric(nextQuestion.defaultMetric);
+                setChartType(nextQuestion.allowedChartTypes[0]);
+              }}
+            >
               {defaultDataset.questions.map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.shortLabel}
                 </option>
               ))}
             </select>
+            <span>{selectedQuestion.topic} · {selectedQuestion.universe}</span>
           </label>
 
           <label>
             Break by
-            <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as DimensionId)}>
-              {defaultDataset.dimensions.map((item) => (
+            <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
+              {bannerDimensions
+                .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
+                .map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.label}
                 </option>
@@ -157,7 +185,7 @@ export default function App() {
             <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
               {selectedQuestion.allowedMetrics.map((item) => (
                 <option value={item} key={item}>
-                  {item === "column_percent" ? "Column %" : "Count"}
+                  {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
                 </option>
               ))}
             </select>
@@ -168,11 +196,25 @@ export default function App() {
             <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
               {selectedQuestion.allowedChartTypes.map((item) => (
                 <option value={item} key={item}>
-                  {item === "grouped_bar" ? "Grouped bar" : "Table"}
+                  {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
                 </option>
               ))}
             </select>
           </label>
+
+          {selectedFilterDimension && (
+            <label>
+              Filter
+              <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
+                <option value="all">All {selectedFilterDimension.label.toLowerCase()}s</option>
+                {selectedFilterDimension.values.map((item) => (
+                  <option value={item.id} key={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <button type="button" onClick={handleRunQuery} disabled={isLoading}>
             {isLoading ? "Running..." : "Run query"}
@@ -200,6 +242,13 @@ export default function App() {
             <>
               <MiniGroupedBarChart result={result} />
               <ResultsTable result={result} />
+              {result.warnings.length > 0 && (
+                <div className="warnings">
+                  {result.warnings.map((warning) => (
+                    <p key={warning}>{warning}</p>
+                  ))}
+                </div>
+              )}
               <div className="notes">
                 {result.notes.map((note) => (
                   <p key={note}>{note}</p>

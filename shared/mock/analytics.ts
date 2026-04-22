@@ -1,4 +1,4 @@
-import { ecofocus2025Metadata } from "../metadata/ecofocus2025";
+import { ecofocus2025Metadata, getMetricMetadata } from "../metadata/ecofocus2025";
 import type {
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
@@ -122,8 +122,9 @@ const mockPercentData: Record<string, Record<string, MockQuestionData>> = {
 export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
   const question = ecofocus2025Metadata.questions.find((item) => item.id === query.question);
   const dimension = ecofocus2025Metadata.dimensions.find((item) => item.id === query.breakBy);
+  const metric = getMetricMetadata(query.dataset, query.metric);
 
-  if (!question || !dimension) {
+  if (!question || !dimension || !metric) {
     throw new Error("Unsupported mock query metadata.");
   }
 
@@ -164,11 +165,8 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
     labels,
     series,
     table,
-    metric: {
-      id: query.metric,
-      label: query.metric === "column_percent" ? "Column %" : "Count",
-      valueFormat: query.metric === "column_percent" ? "percent" : "number"
-    },
+    metric,
+    warnings: collectBaseWarnings(series, ecofocus2025Metadata.minBaseWarning),
     notes: [
       "Mock data for internal MVP validation.",
       "Filters are accepted by the contract but not applied by the mock provider yet."
@@ -179,4 +177,14 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       breakBy: query.breakBy
     }
   };
+}
+
+function collectBaseWarnings(series: AnalyticsSeries[], minBase: number) {
+  const lowBases = series.flatMap((item) => item.bases).filter((base) => base > 0 && base < minBase);
+
+  if (lowBases.length === 0) {
+    return [];
+  }
+
+  return [`Some cells have a base below ${minBase}; interpret those comparisons cautiously.`];
 }

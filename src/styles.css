@@ -92,6 +92,13 @@ label {
   font-weight: 700;
 }
 
+label span {
+  color: #68776e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 select {
   width: 100%;
   min-height: 42px;
@@ -260,7 +267,8 @@ td span {
   font-size: 0.82rem;
 }
 
-.notes {
+.notes,
+.warnings {
   display: grid;
   gap: 6px;
   margin-top: 18px;
@@ -268,7 +276,15 @@ td span {
   font-size: 0.92rem;
 }
 
-.notes p {
+.warnings {
+  border-radius: 8px;
+  background: #fff8e6;
+  color: #725211;
+  padding: 12px;
+}
+
+.notes p,
+.warnings p {
   margin: 0;
 }
 

@@ -138,10 +138,12 @@ The frontend renders from this response instead of receiving static chart HTML o
 
 ### Phase 3 - Metadata Layer
 
-- Expand metadata for datasets, questions, options, dimensions, filters, chart rules, and survey wave details.
-- Add metadata-driven selector constraints.
-- Add base-size warnings and chart compatibility rules.
-- Keep raw survey codes behind human-readable labels.
+- Expand metadata for datasets, questions, options, dimensions, filters, chart rules, and survey wave details. Initial pass complete.
+- Add metadata-driven selector constraints. Initial question, banner, metric, chart, and filter constraints are wired.
+- Add base-size warnings and chart compatibility rules. Initial backend validation and warning fields are in place.
+- Keep raw survey codes behind human-readable labels. Initial metadata labels are used in selectors and output.
+
+Current metadata fields include source columns, question topics, question universes, default metrics, banner/filter dimension roles, chart compatibility, metric formatting, and minimum-base warning thresholds.
 
 ### Phase 4 - Frontend Rendering
 

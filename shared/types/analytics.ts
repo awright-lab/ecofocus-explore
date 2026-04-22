@@ -2,21 +2,25 @@ export type DatasetId = "ecofocus_2025";
 
 export type QuestionId = "Q_PACKAGING_TRUST" | "Q_SUSTAINABILITY_IMPORTANCE";
 
-export type DimensionId = "GENERATION" | "REGION";
+export type BreakById = "GENERATION" | "REGION";
+
+export type FilterFieldId = BreakById | "SHOPPER_SEGMENT";
+
+export type DimensionId = FilterFieldId;
 
 export type Metric = "column_percent" | "count";
 
 export type ChartType = "grouped_bar" | "table";
 
 export interface AnalyticsFilter {
-  field: DimensionId | QuestionId;
+  field: FilterFieldId | QuestionId;
   values: string[];
 }
 
 export interface AnalyticsQueryRequest {
   dataset: DatasetId;
   question: QuestionId;
-  breakBy: DimensionId;
+  breakBy: BreakById;
   filters: AnalyticsFilter[];
   metric: Metric;
   chartType: ChartType;
@@ -46,11 +50,12 @@ export interface AnalyticsQueryResponse {
     label: string;
     valueFormat: "percent" | "number";
   };
+  warnings: string[];
   notes: string[];
   metadataRefs: {
     dataset: DatasetId;
     question: QuestionId;
-    breakBy: DimensionId;
+    breakBy: BreakById;
   };
 }
 

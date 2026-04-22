@@ -1,3 +1,9 @@
-import { datasets } from "../../shared/metadata/ecofocus2025";
-
-export { datasets };
+export {
+  datasets,
+  getBannerDimensions,
+  getChartTypeMetadata,
+  getDatasetMetadata,
+  getFilterDimensions,
+  getMetricMetadata,
+  getQuestionMetadata
+} from "../../shared/metadata/ecofocus2025";
