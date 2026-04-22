@@ -899,9 +899,7 @@ export default function App() {
         status: "draft",
         pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
       }));
-      setSelectedTileId(tile.id);
-      setSelectedElementId(null);
-      setSelectedChartPartId("all");
+      selectTile(tile.id);
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
     } finally {
@@ -990,14 +988,26 @@ export default function App() {
 
   function selectLayer(item: LayerItem) {
     if (item.type === "tile") {
-      setSelectedTileId(item.id);
-      setSelectedElementId(null);
+      selectTile(item.id);
     } else {
-      setSelectedElementId(item.id);
-      setSelectedTileId(null);
+      selectElement(item.id);
     }
 
     setSelectedChartPartId("all");
+  }
+
+  function selectTile(tileId: string) {
+    setSelectedTileId(tileId);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+    setSettingsView("chart");
+  }
+
+  function selectElement(elementId: string) {
+    setSelectedElementId(elementId);
+    setSelectedTileId(null);
+    setSelectedChartPartId("all");
+    setSettingsView("element");
   }
 
   function updateElementLayout(elementId: string, layout: Partial<CanvasLayout>) {
@@ -1076,9 +1086,7 @@ export default function App() {
       status: "draft",
       pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, element] } : page))
     }));
-    setSelectedElementId(element.id);
-    setSelectedTileId(null);
-    setSelectedChartPartId("all");
+    selectElement(element.id);
   }
 
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
@@ -1213,9 +1221,7 @@ export default function App() {
         status: "draft",
         pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, duplicate] } : page))
       }));
-      setSelectedTileId(duplicate.id);
-      setSelectedElementId(null);
-      setSelectedChartPartId("all");
+      selectTile(duplicate.id);
       return;
     }
 
@@ -1238,9 +1244,7 @@ export default function App() {
         status: "draft",
         pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, duplicate] } : page))
       }));
-      setSelectedElementId(duplicate.id);
-      setSelectedTileId(null);
-      setSelectedChartPartId("all");
+      selectElement(duplicate.id);
     }
   }
 
@@ -1607,9 +1611,7 @@ export default function App() {
                     disableDragging={element.locked}
                     enableResizing={!element.locked}
                     onDragStart={() => {
-                      setSelectedElementId(element.id);
-                      setSelectedTileId(null);
-                      setSelectedChartPartId("all");
+                      selectElement(element.id);
                     }}
                     onDragStop={(_, data) => updateElementLayout(element.id, { x: data.x, y: data.y })}
                     onResizeStop={(_, __, ref, ___, position) =>
@@ -1625,9 +1627,7 @@ export default function App() {
                       element={element}
                       selected={element.id === selectedElementId}
                       onSelect={() => {
-                        setSelectedElementId(element.id);
-                        setSelectedTileId(null);
-                        setSelectedChartPartId("all");
+                        selectElement(element.id);
                       }}
                     />
                   </Rnd>
@@ -1648,9 +1648,7 @@ export default function App() {
                     disableDragging={tile.locked}
                     enableResizing={!tile.locked}
                     onDragStart={() => {
-                      setSelectedTileId(tile.id);
-                      setSelectedElementId(null);
-                      setSelectedChartPartId("all");
+                      selectTile(tile.id);
                     }}
                     onDragStop={(_, data) => updateTileLayout(tile.id, { x: data.x, y: data.y })}
                     onResizeStop={(_, __, ref, ___, position) =>
@@ -1666,9 +1664,7 @@ export default function App() {
                       tile={tile}
                       selected={tile.id === selectedTileId}
                       onSelect={() => {
-                        setSelectedTileId(tile.id);
-                        setSelectedElementId(null);
-                        setSelectedChartPartId("all");
+                        selectTile(tile.id);
                       }}
                     />
                   </Rnd>
