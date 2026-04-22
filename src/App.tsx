@@ -533,7 +533,7 @@ export default function App() {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
-  const [leftPanelView, setLeftPanelView] = useState<"main" | "layers">("main");
+  const [leftPanelView, setLeftPanelView] = useState<"pages" | "layers" | "insert" | "data">("pages");
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
   const [canvasZoom, setCanvasZoom] = useState(85);
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
@@ -976,12 +976,12 @@ export default function App() {
     setSelectedElementId(null);
     setSelectedChartPartId("all");
     setSettingsView("home");
-    setLeftPanelView("main");
+    setLeftPanelView("pages");
   }
 
   function chooseLayer(item: LayerItem) {
     selectLayer(item);
-    setLeftPanelView("main");
+    setLeftPanelView("pages");
     setSettingsView(item.type === "tile" ? "chart" : "element");
   }
 
@@ -1040,10 +1040,13 @@ export default function App() {
   return (
     <main className="builder-shell">
       <header className="builder-header">
-        <div>
-          <p className="eyebrow">EcoFocus Explore</p>
-          <h1>{dashboard.title}</h1>
+        <div className="top-nav">
+          <span className="app-mark">EF</span>
+          <button type="button">File</button>
+          <button type="button">Resize</button>
+          <button type="button">Editing</button>
         </div>
+        <h1>{dashboard.title}</h1>
         <div className="publish-controls">
           <span className="save-state">{saveState}</span>
           <button type="button" className="secondary" onClick={undo} disabled={history.length === 0}>
@@ -1069,12 +1072,30 @@ export default function App() {
       </header>
 
       <section className="builder-workspace">
+        <nav className="tool-rail" aria-label="Design tools">
+          <button type="button" className={leftPanelView === "pages" ? "active" : ""} onClick={() => setLeftPanelView("pages")}>
+            <span>▦</span>
+            Pages
+          </button>
+          <button type="button" className={leftPanelView === "insert" ? "active" : ""} onClick={() => setLeftPanelView("insert")}>
+            <span>＋</span>
+            Elements
+          </button>
+          <button type="button" className={leftPanelView === "data" ? "active" : ""} onClick={() => setLeftPanelView("data")}>
+            <span>▥</span>
+            Charts
+          </button>
+          <button type="button" className={leftPanelView === "layers" ? "active" : ""} onClick={() => setLeftPanelView("layers")}>
+            <span>☰</span>
+            Layers
+          </button>
+        </nav>
         <aside className="panel controls" aria-label="Data controls">
           {leftPanelView === "layers" ? (
             <>
               <div className="panel-title with-action">
                 <h2>Layers</h2>
-                <button type="button" className="mini-button" onClick={() => setLeftPanelView("main")}>Close</button>
+                <button type="button" className="mini-button" onClick={() => setLeftPanelView("pages")}>Close</button>
               </div>
               <div className="layers-list expanded">
                 {layerItems.length === 0 ? (
@@ -1110,6 +1131,8 @@ export default function App() {
             </>
           ) : (
             <>
+              {leftPanelView === "pages" && (
+                <>
               <div className="panel-title">
                 <h2>Pages</h2>
               </div>
@@ -1134,10 +1157,11 @@ export default function App() {
               <button type="button" className="secondary" onClick={addPage}>
                 New page
               </button>
-              <button type="button" className="secondary" onClick={() => setLeftPanelView("layers")}>
-                Layers ({layerItems.length})
-              </button>
+                </>
+              )}
 
+              {leftPanelView === "insert" && (
+                <>
               <div className="panel-title">
                 <h2>Insert</h2>
               </div>
@@ -1147,7 +1171,11 @@ export default function App() {
                 <button type="button" className="secondary" onClick={() => addCanvasElement("circle")}>Circle</button>
                 <button type="button" className="secondary" onClick={() => addCanvasElement("image")}>Image</button>
               </div>
+                </>
+              )}
 
+              {leftPanelView === "data" && (
+                <>
               <div className="panel-title">
                 <h2>Data</h2>
               </div>
@@ -1243,6 +1271,8 @@ export default function App() {
                 {isLoading ? "Adding..." : "Add tile"}
               </button>
               {error && <div className="error">{error}</div>}
+                </>
+              )}
             </>
           )}
         </aside>
@@ -1262,6 +1292,14 @@ export default function App() {
                 <strong>{canvasZoom}%</strong>
               </div>
             </div>
+          </div>
+          <div className="floating-format-bar" aria-label="Quick actions">
+            <button type="button" onClick={() => setSettingsView("page")}>Design</button>
+            <span />
+            <button type="button" onClick={() => setSettingsView("layout")} disabled={!selectedTile && !selectedElement}>Position</button>
+            <button type="button" onClick={() => changeSelectedLayer("front")} disabled={!selectedTile && !selectedElement}>Front</button>
+            <button type="button" onClick={duplicateSelectedItem} disabled={!selectedTile && !selectedElement}>Duplicate</button>
+            <button type="button" onClick={deleteSelectedItem} disabled={!selectedTile && !selectedElement}>Delete</button>
           </div>
           <div className="canvas-viewport">
             <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>
@@ -1358,6 +1396,28 @@ export default function App() {
                 ))}
               </div>
             </div>
+          </div>
+          <div className="page-strip" aria-label="Dashboard pages">
+            {sortedPages.map((page) => (
+              <button
+                type="button"
+                key={page.id}
+                className={page.id === activePage.id ? "page-thumb active" : "page-thumb"}
+                onClick={() => {
+                  setActivePageId(page.id);
+                  setSelectedTileId(null);
+                  setSelectedElementId(null);
+                  setSelectedChartPartId("all");
+                }}
+              >
+                <span>{page.order}</span>
+                <div>
+                  <strong>{page.title}</strong>
+                  <small>{page.tiles.length + page.elements.length} items</small>
+                </div>
+              </button>
+            ))}
+            <button type="button" className="page-thumb add" onClick={addPage}>+</button>
           </div>
         </section>
 

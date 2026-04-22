@@ -259,6 +259,14 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add zoom controls for the design canvas, including zoom buttons, a slider, and scaled drag/resize behavior.
 - Lock the builder shell to the viewport so the design suite feels like an app workspace rather than a long scrolling page.
 
+### Phase 8F - Premium Design Workspace Polish
+
+- Add a Canva-inspired top app bar with project controls and a clearer publishing area.
+- Add a vertical tool rail for Pages, Elements, Charts, and Layers so the left drawer stays focused.
+- Center the canvas on a neutral stage with a floating quick-action toolbar.
+- Add a bottom page strip for fast page switching and page creation.
+- Keep overflow inside drawers and the canvas stage instead of scrolling the whole app.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.
