@@ -155,8 +155,15 @@ h2 {
   gap: 8px;
 }
 
-.insert-grid button {
+.insert-grid button,
+.layer-grid button {
   min-height: 36px;
+}
+
+.layer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .canvas {
@@ -227,6 +234,10 @@ input:not([type="checkbox"]) {
 input[type="color"] {
   min-height: 40px;
   padding: 3px;
+}
+
+input[type="range"] {
+  width: 100%;
 }
 
 button {
@@ -333,7 +344,7 @@ code {
   border: 1px solid #edf0ea;
   border-radius: 8px;
   padding: 12px 8px 0;
-  background: #fbfcfa;
+  background: rgba(251, 252, 250, 0.82);
 }
 
 .canvas-element {

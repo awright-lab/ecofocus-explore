@@ -5,6 +5,15 @@ export type DashboardStatus = "draft" | "published";
 export interface TileAppearance {
   primaryColor: string;
   palette: string[];
+  background: string;
+  backgroundMode: "solid" | "gradient";
+  gradientFrom: string;
+  gradientTo: string;
+  borderColor: string;
+  borderRadius: number;
+  opacity: number;
+  shadow: boolean;
+  showGrid: boolean;
   showValueLabels: boolean;
   showTable: boolean;
   showBases: boolean;
@@ -39,8 +48,14 @@ export interface DashboardCanvasElement {
   content: string;
   style: {
     fill: string;
+    fillMode: "solid" | "gradient";
+    gradientFrom: string;
+    gradientTo: string;
     textColor: string;
     borderColor: string;
+    borderRadius: number;
+    opacity: number;
+    shadow: boolean;
     fontSize: number;
   };
 }

@@ -43,12 +43,25 @@ const palettes = [
 const defaultAppearance: TileAppearance = {
   primaryColor: palettes[0].colors[0],
   palette: palettes[0].colors,
+  background: "#ffffff",
+  backgroundMode: "solid",
+  gradientFrom: "#ffffff",
+  gradientTo: "#eef7ef",
+  borderColor: "#dfe6dc",
+  borderRadius: 8,
+  opacity: 100,
+  shadow: false,
+  showGrid: true,
   showValueLabels: true,
   showTable: true,
   showBases: true,
   showNotes: true,
   showAnnotations: true
 };
+
+function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
+  return mode === "gradient" ? `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : solid;
+}
 
 function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
   return format === "percent" ? `${value}%` : value.toLocaleString();
@@ -108,13 +121,20 @@ function VerticalBarChartView({ result, appearance }: { result: AnalyticsQueryRe
     <div className="chart-card" aria-label="Query-driven vertical bar chart">
       <ResponsiveContainer width="100%" height={390}>
         <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 92 }}>
-          <CartesianGrid stroke="#e6ebe4" vertical={false} />
+          {appearance.showGrid && <CartesianGrid stroke="#e6ebe4" vertical={false} />}
           <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={94} />
           <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Bar dataKey="value" radius={[2, 2, 0, 0]}>
             {chartData.map((item, index) => (
-              <Cell key={item.optionId} fill={appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor} />
+              <Cell
+                key={item.optionId}
+                fill={
+                  appearance.backgroundMode === "gradient"
+                    ? appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor
+                    : appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor
+                }
+              />
             ))}
             <LabelList content={(props) => <ValueLabel {...props} result={result} appearance={appearance} />} />
           </Bar>
@@ -135,7 +155,7 @@ function GroupedBarChartView({ result, appearance }: { result: AnalyticsQueryRes
     <div className="chart-card" aria-label="Query-driven grouped bar chart">
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 84 }}>
-          <CartesianGrid stroke="#e6ebe4" vertical={false} />
+          {appearance.showGrid && <CartesianGrid stroke="#e6ebe4" vertical={false} />}
           <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={88} />
           <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
@@ -192,7 +212,17 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
   const result = tile.result;
 
   return (
-    <article className={selected ? "dashboard-tile selected" : "dashboard-tile"} onClick={onSelect}>
+    <article
+      className={selected ? "dashboard-tile selected" : "dashboard-tile"}
+      style={{
+        background: backgroundStyle(tile.appearance.backgroundMode, tile.appearance.background, tile.appearance.gradientFrom, tile.appearance.gradientTo),
+        borderColor: tile.appearance.borderColor,
+        borderRadius: tile.appearance.borderRadius,
+        opacity: tile.appearance.opacity / 100,
+        boxShadow: tile.appearance.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+      }}
+      onClick={onSelect}
+    >
       <div className="tile-header">
         <div>
           <p className="eyebrow">{result.metadataRefs.question}</p>
@@ -225,7 +255,16 @@ function CanvasElementRenderer({
 }) {
   if (element.type === "image") {
     return (
-      <div className={selected ? "canvas-element selected" : "canvas-element"} onClick={onSelect}>
+      <div
+        className={selected ? "canvas-element selected" : "canvas-element"}
+        style={{
+          borderColor: element.style.borderColor,
+          borderRadius: element.style.borderRadius,
+          opacity: element.style.opacity / 100,
+          boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+        }}
+        onClick={onSelect}
+      >
         {element.content ? <img src={element.content} alt="" /> : <div className="image-placeholder">Image URL</div>}
       </div>
     );
@@ -235,7 +274,15 @@ function CanvasElementRenderer({
     return (
       <div
         className={selected ? "canvas-element text-element selected" : "canvas-element text-element"}
-        style={{ color: element.style.textColor, fontSize: element.style.fontSize }}
+        style={{
+          color: element.style.textColor,
+          fontSize: element.style.fontSize,
+          background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
+          borderColor: element.style.borderColor,
+          borderRadius: element.style.borderRadius,
+          opacity: element.style.opacity / 100,
+          boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+        }}
         onClick={onSelect}
       >
         {element.content}
@@ -246,7 +293,13 @@ function CanvasElementRenderer({
   return (
     <div
       className={selected ? `canvas-element shape-element ${element.type} selected` : `canvas-element shape-element ${element.type}`}
-      style={{ background: element.style.fill, borderColor: element.style.borderColor }}
+      style={{
+        background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
+        borderColor: element.style.borderColor,
+        borderRadius: element.type === "circle" ? 999 : element.style.borderRadius,
+        opacity: element.style.opacity / 100,
+        boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+      }}
       onClick={onSelect}
     />
   );
@@ -268,6 +321,10 @@ function nextZIndex(page: DashboardPage) {
   const tileZ = page.tiles.map((tile) => tile.layout.zIndex);
   const elementZ = page.elements.map((element) => element.layout.zIndex);
   return Math.max(0, ...tileZ, ...elementZ) + 1;
+}
+
+function clampZIndex(value: number) {
+  return Math.max(1, value);
 }
 
 export default function App() {
@@ -415,6 +472,28 @@ export default function App() {
     }));
   }
 
+  function changeSelectedLayer(direction: "front" | "back" | "forward" | "backward") {
+    const currentZ = selectedTile?.layout.zIndex ?? selectedElement?.layout.zIndex;
+    if (!currentZ) return;
+
+    const nextZ =
+      direction === "front"
+        ? nextZIndex(activePage)
+        : direction === "back"
+          ? 1
+          : direction === "forward"
+            ? currentZ + 1
+            : clampZIndex(currentZ - 1);
+
+    if (selectedTile) {
+      updateTileLayout(selectedTile.id, { zIndex: nextZ });
+    }
+
+    if (selectedElement) {
+      updateElementLayout(selectedElement.id, { zIndex: nextZ });
+    }
+  }
+
   function addCanvasElement(type: DashboardCanvasElementType) {
     const element: DashboardCanvasElement = {
       id: makeElementId(),
@@ -423,8 +502,14 @@ export default function App() {
       content: type === "text" ? "Text box" : "",
       style: {
         fill: type === "circle" || type === "rectangle" ? "#dfeee2" : "transparent",
+        fillMode: "solid",
+        gradientFrom: "#dfeee2",
+        gradientTo: "#9fc9a7",
         textColor: "#17211b",
         borderColor: "#438757",
+        borderRadius: type === "rectangle" ? 8 : 0,
+        opacity: 100,
+        shadow: false,
         fontSize: 24
       }
     };
@@ -718,6 +803,19 @@ export default function App() {
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
           </button>
+          {(selectedTile || selectedElement) && (
+            <>
+              <div className="panel-title subtle">
+                <h2>Layers</h2>
+              </div>
+              <div className="layer-grid">
+                <button type="button" className="secondary" onClick={() => changeSelectedLayer("front")}>Front</button>
+                <button type="button" className="secondary" onClick={() => changeSelectedLayer("forward")}>Forward</button>
+                <button type="button" className="secondary" onClick={() => changeSelectedLayer("backward")}>Backward</button>
+                <button type="button" className="secondary" onClick={() => changeSelectedLayer("back")}>Back</button>
+              </div>
+            </>
+          )}
           <div className="panel-title subtle">
             <h2>{selectedElement ? "Element" : "Tile"}</h2>
           </div>
@@ -751,16 +849,50 @@ export default function App() {
                   </label>
                 </>
               )}
-              {(selectedElement.type === "rectangle" || selectedElement.type === "circle") && (
+              {selectedElement.type !== "image" && (
+                <label>
+                  Fill style
+                  <select
+                    value={selectedElement.style.fillMode}
+                    onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fillMode: event.target.value as "solid" | "gradient" } })}
+                  >
+                    <option value="solid">Solid</option>
+                    <option value="gradient">Gradient</option>
+                  </select>
+                </label>
+              )}
+              {selectedElement.type !== "image" && selectedElement.style.fillMode === "solid" && (
+                <label>
+                  Fill
+                  <input
+                    type="color"
+                    value={selectedElement.style.fill === "transparent" ? "#ffffff" : selectedElement.style.fill}
+                    onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fill: event.target.value } })}
+                  />
+                </label>
+              )}
+              {selectedElement.type !== "image" && selectedElement.style.fillMode === "gradient" && (
                 <>
                   <label>
-                    Fill
+                    Gradient start
                     <input
                       type="color"
-                      value={selectedElement.style.fill}
-                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fill: event.target.value } })}
+                      value={selectedElement.style.gradientFrom}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: event.target.value } })}
                     />
                   </label>
+                  <label>
+                    Gradient end
+                    <input
+                      type="color"
+                      value={selectedElement.style.gradientTo}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, gradientTo: event.target.value } })}
+                    />
+                  </label>
+                </>
+              )}
+              {(selectedElement.type === "rectangle" || selectedElement.type === "circle" || selectedElement.type === "image" || selectedElement.type === "text") && (
+                <>
                   <label>
                     Border
                     <input
@@ -769,6 +901,37 @@ export default function App() {
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderColor: event.target.value } })}
                     />
                   </label>
+                  {selectedElement.type !== "circle" && (
+                    <label>
+                      Rounded corners
+                      <input
+                        type="range"
+                        min="0"
+                        max="48"
+                        value={selectedElement.style.borderRadius}
+                        onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderRadius: Number(event.target.value) } })}
+                      />
+                    </label>
+                  )}
+                  <label>
+                    Transparency
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={selectedElement.style.opacity}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, opacity: Number(event.target.value) } })}
+                    />
+                  </label>
+                  <div className="toggle-list">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selectedElement.style.shadow}
+                        onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadow: event.target.checked } })}
+                      /> Shadow
+                    </label>
+                  </div>
                 </>
               )}
               <button
@@ -824,7 +987,48 @@ export default function App() {
                 Primary color
                 <input type="color" value={selectedTile.appearance.primaryColor} onChange={(event) => updateSelectedAppearance({ primaryColor: event.target.value, palette: [event.target.value, ...selectedTile.appearance.palette.slice(1)] })} />
               </label>
+              <label>
+                Background style
+                <select
+                  value={selectedTile.appearance.backgroundMode}
+                  onChange={(event) => updateSelectedAppearance({ backgroundMode: event.target.value as "solid" | "gradient" })}
+                >
+                  <option value="solid">Solid</option>
+                  <option value="gradient">Gradient</option>
+                </select>
+              </label>
+              {selectedTile.appearance.backgroundMode === "solid" ? (
+                <label>
+                  Background
+                  <input type="color" value={selectedTile.appearance.background} onChange={(event) => updateSelectedAppearance({ background: event.target.value })} />
+                </label>
+              ) : (
+                <>
+                  <label>
+                    Gradient start
+                    <input type="color" value={selectedTile.appearance.gradientFrom} onChange={(event) => updateSelectedAppearance({ gradientFrom: event.target.value })} />
+                  </label>
+                  <label>
+                    Gradient end
+                    <input type="color" value={selectedTile.appearance.gradientTo} onChange={(event) => updateSelectedAppearance({ gradientTo: event.target.value })} />
+                  </label>
+                </>
+              )}
+              <label>
+                Border
+                <input type="color" value={selectedTile.appearance.borderColor} onChange={(event) => updateSelectedAppearance({ borderColor: event.target.value })} />
+              </label>
+              <label>
+                Rounded corners
+                <input type="range" min="0" max="36" value={selectedTile.appearance.borderRadius} onChange={(event) => updateSelectedAppearance({ borderRadius: Number(event.target.value) })} />
+              </label>
+              <label>
+                Transparency
+                <input type="range" min="20" max="100" value={selectedTile.appearance.opacity} onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })} />
+              </label>
               <div className="toggle-list">
+                <label><input type="checkbox" checked={selectedTile.appearance.shadow} onChange={(event) => updateSelectedAppearance({ shadow: event.target.checked })} /> Shadow</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> Chart grid</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> Value labels</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showTable} onChange={(event) => updateSelectedAppearance({ showTable: event.target.checked })} /> Table below chart</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showBases} onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })} /> Bases</label>

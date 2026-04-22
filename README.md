@@ -207,6 +207,13 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add element-level settings for text, image URL, fill, border, and font size.
 - Keep analytics tiles query-driven while allowing visual layout customization.
 
+### Phase 7D - Advanced Canvas Styling
+
+- Add Canva-style styling controls for solid and gradient fills.
+- Add rounded-corner, transparency, border, and shadow controls for shapes, images, text, and analytics tiles.
+- Add layer ordering controls for moving selected items forward/backward or to front/back.
+- Add chart tile styling controls for palette, background, borders, shadows, labels, bases, notes, annotations, and grid lines.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.
