@@ -44,6 +44,21 @@ const palettes = [
   { id: "slate", label: "Slate", colors: ["#3d4a57", "#657483", "#8a775d", "#5d7a67", "#7a657c"] }
 ];
 
+const effectPresets = {
+  soft: { label: "Soft", shadowBlur: 24, shadowOffsetX: 0, shadowOffsetY: 12, shadowOpacity: 20 },
+  lifted: { label: "Lifted", shadowBlur: 36, shadowOffsetX: 0, shadowOffsetY: 18, shadowOpacity: 24 },
+  dramatic: { label: "Dramatic", shadowBlur: 52, shadowOffsetX: 0, shadowOffsetY: 28, shadowOpacity: 34 },
+  glow: { label: "Glow", shadowBlur: 28, shadowOffsetX: 0, shadowOffsetY: 0, shadowOpacity: 28 }
+} as const;
+
+type EffectPreset = keyof typeof effectPresets;
+type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "elementEffects" | "tileEffects" | null;
+
+function effectPresetValues(preset: EffectPreset) {
+  const { shadowBlur, shadowOffsetX, shadowOffsetY, shadowOpacity } = effectPresets[preset];
+  return { shadowBlur, shadowOffsetX, shadowOffsetY, shadowOpacity };
+}
+
 const defaultAppearance: TileAppearance = {
   primaryColor: palettes[0].colors[0],
   palette: palettes[0].colors,
@@ -55,6 +70,15 @@ const defaultAppearance: TileAppearance = {
   borderRadius: 8,
   opacity: 100,
   shadow: false,
+  shadowPreset: "soft",
+  shadowColor: "#142019",
+  shadowOpacity: 20,
+  shadowBlur: 24,
+  shadowOffsetX: 0,
+  shadowOffsetY: 12,
+  glow: false,
+  glowColor: "#16c9c3",
+  glowSize: 24,
   showGrid: true,
   gridColor: "#e6ebe4",
   axisColor: "#69776e",
@@ -140,6 +164,15 @@ function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasE
     borderRadius: type === "rectangle" ? 8 : 0,
     opacity: 100,
     shadow: false,
+    shadowPreset: "soft",
+    shadowColor: "#142019",
+    shadowOpacity: 20,
+    shadowBlur: 24,
+    shadowOffsetX: 0,
+    shadowOffsetY: 12,
+    glow: false,
+    glowColor: "#16c9c3",
+    glowSize: 24,
     objectFit: "cover",
     fontFamily: fontFamilies[0].value,
     fontSize: 24,
@@ -154,6 +187,38 @@ function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasE
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
   return mode === "gradient" ? `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : solid;
+}
+
+function hexToRgb(color: string) {
+  const normalized = color.replace("#", "");
+  const expanded = normalized.length === 3 ? normalized.split("").map((item) => item + item).join("") : normalized;
+  const value = Number.parseInt(expanded, 16);
+  if (Number.isNaN(value)) return "20, 32, 25";
+  return `${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}`;
+}
+
+function effectShadow(style: {
+  shadow: boolean;
+  shadowColor: string;
+  shadowOpacity: number;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  glow: boolean;
+  glowColor: string;
+  glowSize: number;
+}) {
+  const effects: string[] = [];
+
+  if (style.shadow) {
+    effects.push(`${style.shadowOffsetX}px ${style.shadowOffsetY}px ${style.shadowBlur}px rgba(${hexToRgb(style.shadowColor)}, ${style.shadowOpacity / 100})`);
+  }
+
+  if (style.glow) {
+    effects.push(`0 0 ${style.glowSize}px rgba(${hexToRgb(style.glowColor)}, 0.42)`);
+  }
+
+  return effects.length ? effects.join(", ") : undefined;
 }
 
 function canvasBackground(page: DashboardPage) {
@@ -653,7 +718,7 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
         borderColor: tile.appearance.borderColor,
         borderRadius: tile.appearance.borderRadius,
         opacity: tile.appearance.opacity / 100,
-        boxShadow: tile.appearance.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+        boxShadow: effectShadow(tile.appearance)
       }}
       onClick={onSelect}
     >
@@ -699,7 +764,7 @@ function CanvasElementRenderer({
           borderStyle: element.style.borderStyle,
           borderRadius: element.style.borderRadius,
           opacity: element.style.opacity / 100,
-          boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+          boxShadow: effectShadow(element.style)
         }}
         onClick={onSelect}
       >
@@ -728,7 +793,7 @@ function CanvasElementRenderer({
           borderStyle: element.style.borderStyle,
           borderRadius: element.style.borderRadius,
           opacity: element.style.opacity / 100,
-          boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+          boxShadow: effectShadow(element.style)
         }}
         onClick={onSelect}
       >
@@ -747,7 +812,7 @@ function CanvasElementRenderer({
         borderStyle: element.style.borderStyle,
         borderRadius: element.type === "circle" ? 999 : element.style.borderRadius,
         opacity: element.style.opacity / 100,
-        boxShadow: element.style.shadow ? "0 18px 36px rgba(20, 32, 25, 0.18)" : undefined
+        boxShadow: effectShadow(element.style)
       }}
       onClick={onSelect}
     />
@@ -832,6 +897,7 @@ export default function App() {
   const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
   const [leftPanelView, setLeftPanelView] = useState<"pages" | "layers" | "insert" | "data">("pages");
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
+  const [designModal, setDesignModal] = useState<DesignModal>(null);
   const [canvasZoom, setCanvasZoom] = useState(85);
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
@@ -1144,6 +1210,29 @@ export default function App() {
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
     if (!selectedTile) return;
     updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
+  }
+
+  function applySelectedElementEffectPreset(preset: EffectPreset) {
+    if (!selectedElement) return;
+    updateSelectedElement({
+      style: {
+        ...selectedElement.style,
+        shadowPreset: preset,
+        shadow: true,
+        ...effectPresetValues(preset),
+        glow: preset === "glow" ? true : selectedElement.style.glow
+      }
+    });
+  }
+
+  function applySelectedTileEffectPreset(preset: EffectPreset) {
+    if (!selectedTile) return;
+    updateSelectedAppearance({
+      shadowPreset: preset,
+      shadow: true,
+      ...effectPresetValues(preset),
+      glow: preset === "glow" ? true : selectedTile.appearance.glow
+    });
   }
 
   function updateSelectedBarStyle(updates: Partial<TileAppearance["barStyles"][string]>) {
@@ -1821,13 +1910,10 @@ export default function App() {
               <input type="color" value={activePage.background} onChange={(event) => updateActivePage({ background: event.target.value })} />
             </label>
           ) : (
-            <GradientEditor
-              label="Page gradient"
-              from={activePage.gradientFrom}
-              to={activePage.gradientTo}
-              onFromChange={(value) => updateActivePage({ gradientFrom: value })}
-              onToChange={(value) => updateActivePage({ gradientTo: value })}
-            />
+            <button type="button" className="design-popover-button" onClick={() => setDesignModal("pageGradient")}>
+              <span className="gradient-button-preview" style={{ background: `linear-gradient(90deg, ${activePage.gradientFrom}, ${activePage.gradientTo})` }} />
+              <span>Edit page gradient</span>
+            </button>
           )}
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
@@ -2032,13 +2118,10 @@ export default function App() {
                 </label>
               )}
               {selectedElement.type !== "image" && selectedElement.style.fillMode === "gradient" && (
-                <GradientEditor
-                  label="Fill gradient"
-                  from={selectedElement.style.gradientFrom}
-                  to={selectedElement.style.gradientTo}
-                  onFromChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: value } })}
-                  onToChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientTo: value } })}
-                />
+                <button type="button" className="design-popover-button" onClick={() => setDesignModal("elementGradient")}>
+                  <span className="gradient-button-preview" style={{ background: `linear-gradient(90deg, ${selectedElement.style.gradientFrom}, ${selectedElement.style.gradientTo})` }} />
+                  <span>Edit fill gradient</span>
+                </button>
               )}
               {(selectedElement.type === "rectangle" || selectedElement.type === "circle" || selectedElement.type === "image" || selectedElement.type === "text") && (
                 <>
@@ -2097,15 +2180,11 @@ export default function App() {
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, opacity: Number(event.target.value) } })}
                     />
                   </label>
-                  <div className="toggle-list">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={selectedElement.style.shadow}
-                        onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadow: event.target.checked } })}
-                      /> Shadow
-                    </label>
-                  </div>
+                  <button type="button" className="design-popover-button" onClick={() => setDesignModal("elementEffects")}>
+                    <span className="effect-button-preview" style={{ boxShadow: effectShadow({ ...selectedElement.style, shadow: selectedElement.style.shadow || selectedElement.style.glow }) }} />
+                    <span>Effects</span>
+                    <small>{selectedElement.style.shadow || selectedElement.style.glow ? "On" : "None"}</small>
+                  </button>
                 </>
               )}
               <button
@@ -2198,19 +2277,17 @@ export default function App() {
                       <option value="gradient">Gradient</option>
                     </select>
                   </label>
-                  <GradientEditor
-                    label={selectedChartPart ? "Selected bar gradient" : "Bar gradient"}
-                    from={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
-                    to={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo}
-                    onFromChange={(value) =>
-                      selectedChartPart
-                        ? updateSelectedBarStyle({ color: value })
-                        : updateSelectedAppearance({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
-                    }
-                    onToChange={(value) =>
-                      selectedChartPart ? updateSelectedBarStyle({ gradientTo: value }) : updateSelectedAppearance({ barGradientTo: value })
-                    }
-                  />
+                  <button type="button" className="design-popover-button" onClick={() => setDesignModal("barGradient")}>
+                    <span
+                      className="gradient-button-preview"
+                      style={{
+                        background: `linear-gradient(90deg, ${
+                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor
+                        }, ${selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo})`
+                      }}
+                    />
+                    <span>{selectedChartPart ? "Edit selected bar gradient" : "Edit bar gradient"}</span>
+                  </button>
                   <label>
                     Bar roundness
                     <input
@@ -2335,13 +2412,10 @@ export default function App() {
                   <input type="color" value={selectedTile.appearance.background} onChange={(event) => updateSelectedAppearance({ background: event.target.value })} />
                 </label>
               ) : (
-                <GradientEditor
-                  label="Tile gradient"
-                  from={selectedTile.appearance.gradientFrom}
-                  to={selectedTile.appearance.gradientTo}
-                  onFromChange={(value) => updateSelectedAppearance({ gradientFrom: value })}
-                  onToChange={(value) => updateSelectedAppearance({ gradientTo: value })}
-                />
+                <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileGradient")}>
+                  <span className="gradient-button-preview" style={{ background: `linear-gradient(90deg, ${selectedTile.appearance.gradientFrom}, ${selectedTile.appearance.gradientTo})` }} />
+                  <span>Edit tile gradient</span>
+                </button>
               )}
               <label>
                 Border
@@ -2356,7 +2430,6 @@ export default function App() {
                 <input type="range" min="20" max="100" value={selectedTile.appearance.opacity} style={{ "--range-fill": rangeFill(selectedTile.appearance.opacity, 20, 100) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })} />
               </label>
               <div className="toggle-list">
-                <label><input type="checkbox" checked={selectedTile.appearance.shadow} onChange={(event) => updateSelectedAppearance({ shadow: event.target.checked })} /> Shadow</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> Chart grid</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> Value labels</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showTable} onChange={(event) => updateSelectedAppearance({ showTable: event.target.checked })} /> Table below chart</label>
@@ -2364,6 +2437,11 @@ export default function App() {
                 <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> Arrows</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>
+              <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileEffects")}>
+                <span className="effect-button-preview" style={{ boxShadow: effectShadow({ ...selectedTile.appearance, shadow: selectedTile.appearance.shadow || selectedTile.appearance.glow }) }} />
+                <span>Effects</span>
+                <small>{selectedTile.appearance.shadow || selectedTile.appearance.glow ? "On" : "None"}</small>
+              </button>
               <button
                 type="button"
                 className="secondary"
@@ -2379,6 +2457,131 @@ export default function App() {
           )}
         </aside>
       </section>
+      {designModal && (
+        <div className="design-modal-backdrop" role="presentation" onMouseDown={() => setDesignModal(null)}>
+          <div className="design-modal" role="dialog" aria-modal="true" aria-label="Design settings" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="design-modal-header">
+              <div>
+                <span>Design</span>
+                <h2>
+                  {designModal.includes("Gradient") ? "Gradient settings" : "Effects"}
+                </h2>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setDesignModal(null)} aria-label="Close design settings">
+                x
+              </button>
+            </div>
+
+            {designModal === "pageGradient" && (
+              <GradientEditor
+                label="Page gradient"
+                from={activePage.gradientFrom}
+                to={activePage.gradientTo}
+                onFromChange={(value) => updateActivePage({ gradientFrom: value })}
+                onToChange={(value) => updateActivePage({ gradientTo: value })}
+              />
+            )}
+
+            {designModal === "elementGradient" && selectedElement && (
+              <GradientEditor
+                label="Fill gradient"
+                from={selectedElement.style.gradientFrom}
+                to={selectedElement.style.gradientTo}
+                onFromChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: value } })}
+                onToChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientTo: value } })}
+              />
+            )}
+
+            {designModal === "tileGradient" && selectedTile && (
+              <GradientEditor
+                label="Tile gradient"
+                from={selectedTile.appearance.gradientFrom}
+                to={selectedTile.appearance.gradientTo}
+                onFromChange={(value) => updateSelectedAppearance({ gradientFrom: value })}
+                onToChange={(value) => updateSelectedAppearance({ gradientTo: value })}
+              />
+            )}
+
+            {designModal === "barGradient" && selectedTile && (
+              <GradientEditor
+                label={selectedChartPart ? "Selected bar gradient" : "Bar gradient"}
+                from={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
+                to={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo}
+                onFromChange={(value) =>
+                  selectedChartPart
+                    ? updateSelectedBarStyle({ color: value })
+                    : updateSelectedAppearance({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
+                }
+                onToChange={(value) =>
+                  selectedChartPart ? updateSelectedBarStyle({ gradientTo: value }) : updateSelectedAppearance({ barGradientTo: value })
+                }
+              />
+            )}
+
+            {designModal === "elementEffects" && selectedElement && (
+              <div className="modal-control-stack">
+                <div className="effect-preview-card" style={{ boxShadow: effectShadow({ ...selectedElement.style, shadow: selectedElement.style.shadow || selectedElement.style.glow }) }}>
+                  {selectedElement.name}
+                </div>
+                <div className="preset-grid">
+                  {(Object.keys(effectPresets) as EffectPreset[]).map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      className={selectedElement.style.shadowPreset === preset ? "active" : ""}
+                      onClick={() => applySelectedElementEffectPreset(preset)}
+                    >
+                      {effectPresets[preset].label}
+                    </button>
+                  ))}
+                </div>
+                <div className="toggle-list">
+                  <label><input type="checkbox" checked={selectedElement.style.shadow} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadow: event.target.checked } })} /> Drop shadow</label>
+                  <label><input type="checkbox" checked={selectedElement.style.glow} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, glow: event.target.checked } })} /> Glow</label>
+                </div>
+                <label>Shadow color<input type="color" value={selectedElement.style.shadowColor} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadowColor: event.target.value } })} /></label>
+                <label>Shadow opacity<input type="range" min="0" max="70" value={selectedElement.style.shadowOpacity} style={{ "--range-fill": rangeFill(selectedElement.style.shadowOpacity, 0, 70) } as React.CSSProperties} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadowOpacity: Number(event.target.value) } })} /></label>
+                <label>Blur<input type="range" min="0" max="80" value={selectedElement.style.shadowBlur} style={{ "--range-fill": rangeFill(selectedElement.style.shadowBlur, 0, 80) } as React.CSSProperties} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadowBlur: Number(event.target.value) } })} /></label>
+                <label>Offset X<input type="range" min="-40" max="40" value={selectedElement.style.shadowOffsetX} style={{ "--range-fill": rangeFill(selectedElement.style.shadowOffsetX, -40, 40) } as React.CSSProperties} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadowOffsetX: Number(event.target.value) } })} /></label>
+                <label>Offset Y<input type="range" min="-40" max="60" value={selectedElement.style.shadowOffsetY} style={{ "--range-fill": rangeFill(selectedElement.style.shadowOffsetY, -40, 60) } as React.CSSProperties} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, shadowOffsetY: Number(event.target.value) } })} /></label>
+                <label>Glow color<input type="color" value={selectedElement.style.glowColor} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, glowColor: event.target.value } })} /></label>
+                <label>Glow size<input type="range" min="0" max="90" value={selectedElement.style.glowSize} style={{ "--range-fill": rangeFill(selectedElement.style.glowSize, 0, 90) } as React.CSSProperties} onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, glowSize: Number(event.target.value) } })} /></label>
+              </div>
+            )}
+
+            {designModal === "tileEffects" && selectedTile && (
+              <div className="modal-control-stack">
+                <div className="effect-preview-card" style={{ boxShadow: effectShadow({ ...selectedTile.appearance, shadow: selectedTile.appearance.shadow || selectedTile.appearance.glow }) }}>
+                  {selectedTile.name}
+                </div>
+                <div className="preset-grid">
+                  {(Object.keys(effectPresets) as EffectPreset[]).map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      className={selectedTile.appearance.shadowPreset === preset ? "active" : ""}
+                      onClick={() => applySelectedTileEffectPreset(preset)}
+                    >
+                      {effectPresets[preset].label}
+                    </button>
+                  ))}
+                </div>
+                <div className="toggle-list">
+                  <label><input type="checkbox" checked={selectedTile.appearance.shadow} onChange={(event) => updateSelectedAppearance({ shadow: event.target.checked })} /> Drop shadow</label>
+                  <label><input type="checkbox" checked={selectedTile.appearance.glow} onChange={(event) => updateSelectedAppearance({ glow: event.target.checked })} /> Glow</label>
+                </div>
+                <label>Shadow color<input type="color" value={selectedTile.appearance.shadowColor} onChange={(event) => updateSelectedAppearance({ shadowColor: event.target.value })} /></label>
+                <label>Shadow opacity<input type="range" min="0" max="70" value={selectedTile.appearance.shadowOpacity} style={{ "--range-fill": rangeFill(selectedTile.appearance.shadowOpacity, 0, 70) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ shadowOpacity: Number(event.target.value) })} /></label>
+                <label>Blur<input type="range" min="0" max="80" value={selectedTile.appearance.shadowBlur} style={{ "--range-fill": rangeFill(selectedTile.appearance.shadowBlur, 0, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ shadowBlur: Number(event.target.value) })} /></label>
+                <label>Offset X<input type="range" min="-40" max="40" value={selectedTile.appearance.shadowOffsetX} style={{ "--range-fill": rangeFill(selectedTile.appearance.shadowOffsetX, -40, 40) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ shadowOffsetX: Number(event.target.value) })} /></label>
+                <label>Offset Y<input type="range" min="-40" max="60" value={selectedTile.appearance.shadowOffsetY} style={{ "--range-fill": rangeFill(selectedTile.appearance.shadowOffsetY, -40, 60) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ shadowOffsetY: Number(event.target.value) })} /></label>
+                <label>Glow color<input type="color" value={selectedTile.appearance.glowColor} onChange={(event) => updateSelectedAppearance({ glowColor: event.target.value })} /></label>
+                <label>Glow size<input type="range" min="0" max="90" value={selectedTile.appearance.glowSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.glowSize, 0, 90) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ glowSize: Number(event.target.value) })} /></label>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
