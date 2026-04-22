@@ -228,6 +228,15 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add basic undo/redo history for dashboard edits.
 - Add local save status in the top toolbar.
 
+### Phase 8B - Layer Panel And Arrange Tools
+
+- Add a visible layer list for the active page.
+- Support selecting layers from the panel, renaming layers, hiding/showing, and locking/unlocking.
+- Locked items remain visible but cannot be dragged or resized.
+- Hidden items are removed from the canvas but remain accessible from the layer panel.
+- Add basic arrange controls for align left, center, right, top, middle, and bottom.
+- Add direct X, Y, width, and height controls for selected items.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.

@@ -417,11 +417,36 @@ function clampZIndex(value: number) {
   return Math.max(1, value);
 }
 
+function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
+  return {
+    ...dashboard,
+    pages: dashboard.pages.map((page) => ({
+      ...page,
+      elements: page.elements.map((element) => ({
+        ...element,
+        name: element.name ?? (element.type === "text" ? "Text" : element.type === "image" ? "Image" : element.type === "circle" ? "Circle" : "Rectangle"),
+        locked: element.locked ?? false,
+        hidden: element.hidden ?? false
+      })),
+      tiles: page.tiles.map((tile) => ({
+        ...tile,
+        name: tile.name ?? tile.title,
+        locked: tile.locked ?? false,
+        hidden: tile.hidden ?? false
+      }))
+    }))
+  };
+}
+
+type LayerItem =
+  | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
+  | { id: string; type: "element"; name: string; hidden: boolean; locked: boolean; zIndex: number };
+
 export default function App() {
   const [dashboard, setDashboardState] = useState<DashboardDraft>(() => {
     try {
       const savedDashboard = window.localStorage.getItem(storageKey);
-      return savedDashboard ? (JSON.parse(savedDashboard) as DashboardDraft) : initialDashboard;
+      return savedDashboard ? normalizeDashboard(JSON.parse(savedDashboard) as DashboardDraft) : initialDashboard;
     } catch {
       return initialDashboard;
     }
@@ -460,6 +485,24 @@ export default function App() {
       ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
       : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [];
   const selectedChartPart = selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null;
+  const layerItems: LayerItem[] = [
+    ...activePage.tiles.map((tile) => ({
+      id: tile.id,
+      type: "tile" as const,
+      name: tile.name,
+      hidden: tile.hidden,
+      locked: tile.locked,
+      zIndex: tile.layout.zIndex
+    })),
+    ...activePage.elements.map((element) => ({
+      id: element.id,
+      type: "element" as const,
+      name: element.name,
+      hidden: element.hidden,
+      locked: element.locked,
+      zIndex: element.layout.zIndex
+    }))
+  ].sort((a, b) => b.zIndex - a.zIndex);
 
   const query: AnalyticsQueryRequest = {
     dataset: defaultDataset.id,
@@ -516,7 +559,10 @@ export default function App() {
       const response = await runAnalyticsQuery(query);
       const tile: DashboardTile = {
         id: makeTileId(),
+        name: selectedQuestion.shortLabel,
         title: selectedQuestion.shortLabel,
+        locked: false,
+        hidden: false,
         layout: { x: 48, y: 72 + activePage.tiles.length * 28, width: 760, height: activeChartType === "table" ? 360 : 560, zIndex: nextZIndex(activePage) },
         query,
         visualization: activeChartType,
@@ -556,6 +602,21 @@ export default function App() {
     }));
   }
 
+  function updateTile(tileId: string, updates: Partial<DashboardTile>) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) => (tile.id === tileId ? { ...tile, ...updates } : tile))
+            }
+          : page
+      )
+    }));
+  }
+
   function updateTileLayout(tileId: string, layout: Partial<CanvasLayout>) {
     setDashboard((current) => ({
       ...current,
@@ -586,6 +647,33 @@ export default function App() {
           : page
       )
     }));
+  }
+
+  function updateElement(elementId: string, updates: Partial<DashboardCanvasElement>) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              elements: page.elements.map((element) => (element.id === elementId ? { ...element, ...updates } : element))
+            }
+          : page
+      )
+    }));
+  }
+
+  function selectLayer(item: LayerItem) {
+    if (item.type === "tile") {
+      setSelectedTileId(item.id);
+      setSelectedElementId(null);
+    } else {
+      setSelectedElementId(item.id);
+      setSelectedTileId(null);
+    }
+
+    setSelectedChartPartId("all");
   }
 
   function updateElementLayout(elementId: string, layout: Partial<CanvasLayout>) {
@@ -625,10 +713,38 @@ export default function App() {
     }
   }
 
+  function updateSelectedLayout(layout: Partial<CanvasLayout>) {
+    if (selectedTile) {
+      updateTileLayout(selectedTile.id, layout);
+    }
+
+    if (selectedElement) {
+      updateElementLayout(selectedElement.id, layout);
+    }
+  }
+
+  function alignSelected(direction: "left" | "center" | "right" | "top" | "middle" | "bottom") {
+    const layout = selectedTile?.layout ?? selectedElement?.layout;
+    if (!layout) return;
+
+    const canvasWidth = 1280;
+    const canvasHeight = 760;
+
+    if (direction === "left") updateSelectedLayout({ x: 0 });
+    if (direction === "center") updateSelectedLayout({ x: Math.round((canvasWidth - layout.width) / 2) });
+    if (direction === "right") updateSelectedLayout({ x: canvasWidth - layout.width });
+    if (direction === "top") updateSelectedLayout({ y: 0 });
+    if (direction === "middle") updateSelectedLayout({ y: Math.round((canvasHeight - layout.height) / 2) });
+    if (direction === "bottom") updateSelectedLayout({ y: canvasHeight - layout.height });
+  }
+
   function addCanvasElement(type: DashboardCanvasElementType) {
     const element: DashboardCanvasElement = {
       id: makeElementId(),
+      name: type === "text" ? "Text" : type === "image" ? "Image" : type === "circle" ? "Circle" : "Rectangle",
       type,
+      locked: false,
+      hidden: false,
       layout: { x: 64, y: 64, width: type === "text" ? 280 : 220, height: type === "text" ? 80 : 160, zIndex: nextZIndex(activePage) },
       content: type === "text" ? "Text box" : "",
       style: {
@@ -736,6 +852,7 @@ export default function App() {
       const duplicate: DashboardTile = {
         ...selectedTile,
         id: makeTileId(),
+        name: `${selectedTile.name} copy`,
         title: `${selectedTile.title} copy`,
         layout: {
           ...selectedTile.layout,
@@ -765,6 +882,7 @@ export default function App() {
       const duplicate: DashboardCanvasElement = {
         ...selectedElement,
         id: makeElementId(),
+        name: `${selectedElement.name} copy`,
         layout: {
           ...selectedElement.layout,
           x: selectedElement.layout.x + 24,
@@ -882,6 +1000,41 @@ export default function App() {
           <button type="button" className="secondary" onClick={addPage}>
             New page
           </button>
+
+          <div className="panel-title">
+            <h2>Layers</h2>
+          </div>
+          <div className="layers-list">
+            {layerItems.length === 0 ? (
+              <div className="empty-state compact">No layers yet.</div>
+            ) : (
+              layerItems.map((item) => (
+                <div
+                  className={(item.type === "tile" && item.id === selectedTileId) || (item.type === "element" && item.id === selectedElementId) ? "layer-row active" : "layer-row"}
+                  key={`${item.type}-${item.id}`}
+                >
+                  <button type="button" className="layer-name" onClick={() => selectLayer(item)}>
+                    <span>{item.type === "tile" ? "Chart" : "Item"}</span>
+                    {item.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="mini-button"
+                    onClick={() => (item.type === "tile" ? updateTile(item.id, { hidden: !item.hidden }) : updateElement(item.id, { hidden: !item.hidden }))}
+                  >
+                    {item.hidden ? "Show" : "Hide"}
+                  </button>
+                  <button
+                    type="button"
+                    className="mini-button"
+                    onClick={() => (item.type === "tile" ? updateTile(item.id, { locked: !item.locked }) : updateElement(item.id, { locked: !item.locked }))}
+                  >
+                    {item.locked ? "Unlock" : "Lock"}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
 
           <div className="panel-title">
             <h2>Insert</h2>
@@ -1006,13 +1159,15 @@ export default function App() {
             {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
               <div className="empty-state">Add charts, tables, text, shapes, or images to start building this page.</div>
             )}
-            {activePage.elements.map((element) => (
+            {activePage.elements.filter((element) => !element.hidden).map((element) => (
               <Rnd
                 key={element.id}
                 bounds="parent"
                 size={{ width: element.layout.width, height: element.layout.height }}
                 position={{ x: element.layout.x, y: element.layout.y }}
                 style={{ zIndex: element.layout.zIndex }}
+                disableDragging={element.locked}
+                enableResizing={!element.locked}
                 onDragStart={() => {
                   setSelectedElementId(element.id);
                   setSelectedTileId(null);
@@ -1039,7 +1194,7 @@ export default function App() {
                 />
               </Rnd>
             ))}
-            {activePage.tiles.map((tile) => (
+            {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
               <Rnd
                 key={tile.id}
                 bounds="parent"
@@ -1048,6 +1203,8 @@ export default function App() {
                 size={{ width: tile.layout.width, height: tile.layout.height }}
                 position={{ x: tile.layout.x, y: tile.layout.y }}
                 style={{ zIndex: tile.layout.zIndex }}
+                disableDragging={tile.locked}
+                enableResizing={!tile.locked}
                 onDragStart={() => {
                   setSelectedTileId(tile.id);
                   setSelectedElementId(null);
@@ -1099,6 +1256,35 @@ export default function App() {
                 <button type="button" className="secondary" onClick={() => changeSelectedLayer("backward")}>Backward</button>
                 <button type="button" className="secondary" onClick={() => changeSelectedLayer("back")}>Back</button>
               </div>
+              <div className="panel-title subtle">
+                <h2>Arrange</h2>
+              </div>
+              <div className="layer-grid">
+                <button type="button" className="secondary" onClick={() => alignSelected("left")}>Left</button>
+                <button type="button" className="secondary" onClick={() => alignSelected("center")}>Center</button>
+                <button type="button" className="secondary" onClick={() => alignSelected("right")}>Right</button>
+                <button type="button" className="secondary" onClick={() => alignSelected("top")}>Top</button>
+                <button type="button" className="secondary" onClick={() => alignSelected("middle")}>Middle</button>
+                <button type="button" className="secondary" onClick={() => alignSelected("bottom")}>Bottom</button>
+              </div>
+              <div className="layout-grid">
+                <label>
+                  X
+                  <input type="number" value={selectedTile?.layout.x ?? selectedElement?.layout.x ?? 0} onChange={(event) => updateSelectedLayout({ x: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Y
+                  <input type="number" value={selectedTile?.layout.y ?? selectedElement?.layout.y ?? 0} onChange={(event) => updateSelectedLayout({ y: Number(event.target.value) })} />
+                </label>
+                <label>
+                  W
+                  <input type="number" value={selectedTile?.layout.width ?? selectedElement?.layout.width ?? 0} onChange={(event) => updateSelectedLayout({ width: Number(event.target.value) })} />
+                </label>
+                <label>
+                  H
+                  <input type="number" value={selectedTile?.layout.height ?? selectedElement?.layout.height ?? 0} onChange={(event) => updateSelectedLayout({ height: Number(event.target.value) })} />
+                </label>
+              </div>
             </>
           )}
           <div className="panel-title subtle">
@@ -1107,10 +1293,16 @@ export default function App() {
           {selectedElement ? (
             <>
               {selectedElement.type !== "rectangle" && selectedElement.type !== "circle" && (
-                <label>
-                  {selectedElement.type === "image" ? "Image URL" : "Text"}
-                  <input value={selectedElement.content} onChange={(event) => updateSelectedElement({ content: event.target.value })} />
-                </label>
+                <>
+                  <label>
+                    Layer name
+                    <input value={selectedElement.name} onChange={(event) => updateSelectedElement({ name: event.target.value })} />
+                  </label>
+                  <label>
+                    {selectedElement.type === "image" ? "Image URL" : "Text"}
+                    <input value={selectedElement.content} onChange={(event) => updateSelectedElement({ content: event.target.value })} />
+                  </label>
+                </>
               )}
               {selectedElement.type === "text" && (
                 <>
@@ -1231,6 +1423,10 @@ export default function App() {
             <div className="empty-state compact">Select a canvas item to edit its display.</div>
           ) : (
             <>
+              <label>
+                Layer name
+                <input value={selectedTile.name} onChange={(event) => updateSelectedTile({ name: event.target.value })} />
+              </label>
               <label>
                 Title
                 <input value={selectedTile.title} onChange={(event) => updateSelectedTile({ title: event.target.value })} />

@@ -53,7 +53,10 @@ export interface CanvasLayout {
 
 export interface DashboardTile {
   id: string;
+  name: string;
   title: string;
+  locked: boolean;
+  hidden: boolean;
   layout: CanvasLayout;
   query: AnalyticsQueryRequest;
   visualization: ChartType;
@@ -65,7 +68,10 @@ export type DashboardCanvasElementType = "text" | "rectangle" | "circle" | "imag
 
 export interface DashboardCanvasElement {
   id: string;
+  name: string;
   type: DashboardCanvasElementType;
+  locked: boolean;
+  hidden: boolean;
   layout: CanvasLayout;
   content: string;
   style: {
