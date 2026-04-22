@@ -84,7 +84,14 @@ export interface DashboardCanvasElement {
     borderRadius: number;
     opacity: number;
     shadow: boolean;
+    fontFamily: string;
     fontSize: number;
+    fontWeight: string;
+    fontStyle: "normal" | "italic";
+    textDecoration: "none" | "underline";
+    textAlign: "left" | "center" | "right";
+    lineHeight: number;
+    padding: number;
   };
 }
 
@@ -92,6 +99,9 @@ export interface DashboardPage {
   id: string;
   title: string;
   order: number;
+  showCanvasGrid: boolean;
+  snapToGrid: boolean;
+  gridSize: number;
   elements: DashboardCanvasElement[];
   tiles: DashboardTile[];
 }

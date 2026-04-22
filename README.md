@@ -34,7 +34,8 @@ Vite + Netlify Functions is intentionally lighter than Next.js for this internal
 │   ├── mock/
 │   │   └── analytics.ts
 │   └── types/
-│       └── analytics.ts
+│       ├── analytics.ts
+│       └── dashboard.ts
 ├── src/
 │   ├── App.tsx
 │   ├── main.tsx
@@ -236,6 +237,13 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Hidden items are removed from the canvas but remain accessible from the layer panel.
 - Add basic arrange controls for align left, center, right, top, middle, and bottom.
 - Add direct X, Y, width, and height controls for selected items.
+
+### Phase 8C - Canvas Grid And Typography
+
+- Add page-level grid controls for grid visibility, grid size, and snap-to-grid behavior.
+- Add keyboard nudging for selected canvas items with arrow keys and larger Shift+Arrow movement.
+- Add richer text styling controls for font family, weight, italic, underline, alignment, line height, padding, color, and size.
+- Preserve these page and element design settings in the dashboard draft model and local storage.
 
 ## Product Notes
 

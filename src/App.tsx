@@ -75,6 +75,14 @@ const defaultAppearance: TileAppearance = {
 
 const storageKey = "ecofocus_explore_dashboard_v1";
 const historyLimit = 40;
+const defaultGridSize = 40;
+const fontFamilies = [
+  { label: "Inter", value: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif" },
+  { label: "System", value: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Times", value: "\"Times New Roman\", Times, serif" },
+  { label: "Courier", value: "\"Courier New\", Courier, monospace" }
+];
 
 const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
@@ -85,11 +93,36 @@ const initialDashboard: DashboardDraft = {
       id: "page_overview",
       title: "Overview",
       order: 1,
+      showCanvasGrid: true,
+      snapToGrid: false,
+      gridSize: defaultGridSize,
       elements: [],
       tiles: []
     }
   ]
 };
+
+function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasElement["style"] {
+  return {
+    fill: type === "circle" || type === "rectangle" ? "#dfeee2" : "transparent",
+    fillMode: "solid",
+    gradientFrom: "#dfeee2",
+    gradientTo: "#9fc9a7",
+    textColor: "#17211b",
+    borderColor: "#438757",
+    borderRadius: type === "rectangle" ? 8 : 0,
+    opacity: 100,
+    shadow: false,
+    fontFamily: fontFamilies[0].value,
+    fontSize: 24,
+    fontWeight: "700",
+    fontStyle: "normal",
+    textDecoration: "none",
+    textAlign: "left",
+    lineHeight: 1.2,
+    padding: 10
+  };
+}
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
   return mode === "gradient" ? `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : solid;
@@ -366,7 +399,14 @@ function CanvasElementRenderer({
         className={selected ? "canvas-element text-element selected" : "canvas-element text-element"}
         style={{
           color: element.style.textColor,
+          fontFamily: element.style.fontFamily,
           fontSize: element.style.fontSize,
+          fontWeight: element.style.fontWeight,
+          fontStyle: element.style.fontStyle,
+          textDecoration: element.style.textDecoration,
+          textAlign: element.style.textAlign,
+          lineHeight: element.style.lineHeight,
+          padding: element.style.padding,
           background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
           borderColor: element.style.borderColor,
           borderRadius: element.style.borderRadius,
@@ -422,11 +462,18 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
     ...dashboard,
     pages: dashboard.pages.map((page) => ({
       ...page,
+      showCanvasGrid: page.showCanvasGrid ?? true,
+      snapToGrid: page.snapToGrid ?? false,
+      gridSize: page.gridSize ?? defaultGridSize,
       elements: page.elements.map((element) => ({
         ...element,
         name: element.name ?? (element.type === "text" ? "Text" : element.type === "image" ? "Image" : element.type === "circle" ? "Circle" : "Rectangle"),
         locked: element.locked ?? false,
-        hidden: element.hidden ?? false
+        hidden: element.hidden ?? false,
+        style: {
+          ...defaultElementStyle(element.type),
+          ...element.style
+        }
       })),
       tiles: page.tiles.map((tile) => ({
         ...tile,
@@ -747,18 +794,7 @@ export default function App() {
       hidden: false,
       layout: { x: 64, y: 64, width: type === "text" ? 280 : 220, height: type === "text" ? 80 : 160, zIndex: nextZIndex(activePage) },
       content: type === "text" ? "Text box" : "",
-      style: {
-        fill: type === "circle" || type === "rectangle" ? "#dfeee2" : "transparent",
-        fillMode: "solid",
-        gradientFrom: "#dfeee2",
-        gradientTo: "#9fc9a7",
-        textColor: "#17211b",
-        borderColor: "#438757",
-        borderRadius: type === "rectangle" ? 8 : 0,
-        opacity: 100,
-        shadow: false,
-        fontSize: 24
-      }
+      style: defaultElementStyle(type)
     };
 
     setDashboard((current) => ({
@@ -804,6 +840,9 @@ export default function App() {
       id: makePageId(),
       title: `Page ${dashboard.pages.length + 1}`,
       order: dashboard.pages.length + 1,
+      showCanvasGrid: true,
+      snapToGrid: false,
+      gridSize: defaultGridSize,
       elements: [],
       tiles: []
     };
@@ -917,6 +956,22 @@ export default function App() {
       const isEditingText = target?.tagName === "INPUT" || target?.tagName === "SELECT" || target?.tagName === "TEXTAREA";
 
       if (isEditingText) return;
+
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) && (selectedTile || selectedElement)) {
+        event.preventDefault();
+        const layout = selectedTile?.layout ?? selectedElement?.layout;
+        if (!layout) return;
+
+        const distance = event.shiftKey ? activePage.gridSize : activePage.snapToGrid ? activePage.gridSize : 1;
+        const nextPosition = {
+          x: event.key === "ArrowLeft" ? layout.x - distance : event.key === "ArrowRight" ? layout.x + distance : layout.x,
+          y: event.key === "ArrowUp" ? layout.y - distance : event.key === "ArrowDown" ? layout.y + distance : layout.y
+        };
+        updateSelectedLayout({
+          x: Math.max(0, nextPosition.x),
+          y: Math.max(0, nextPosition.y)
+        });
+      }
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
@@ -1155,7 +1210,10 @@ export default function App() {
             </div>
             <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
           </div>
-          <div className="freeform-canvas">
+          <div
+            className={activePage.showCanvasGrid ? "freeform-canvas" : "freeform-canvas no-grid"}
+            style={{ backgroundSize: `${activePage.gridSize}px ${activePage.gridSize}px` }}
+          >
             {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
               <div className="empty-state">Add charts, tables, text, shapes, or images to start building this page.</div>
             )}
@@ -1166,6 +1224,8 @@ export default function App() {
                 size={{ width: element.layout.width, height: element.layout.height }}
                 position={{ x: element.layout.x, y: element.layout.y }}
                 style={{ zIndex: element.layout.zIndex }}
+                dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
                 disableDragging={element.locked}
                 enableResizing={!element.locked}
                 onDragStart={() => {
@@ -1203,6 +1263,8 @@ export default function App() {
                 size={{ width: tile.layout.width, height: tile.layout.height }}
                 position={{ x: tile.layout.x, y: tile.layout.y }}
                 style={{ zIndex: tile.layout.zIndex }}
+                dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
                 disableDragging={tile.locked}
                 enableResizing={!tile.locked}
                 onDragStart={() => {
@@ -1242,6 +1304,28 @@ export default function App() {
             Page title
             <input value={activePage.title} onChange={(event) => updateActivePage({ title: event.target.value })} />
           </label>
+          <div className="panel-title subtle">
+            <h2>Canvas</h2>
+          </div>
+          <label>
+            Grid size
+            <input
+              type="number"
+              min="8"
+              max="96"
+              step="4"
+              value={activePage.gridSize}
+              onChange={(event) => updateActivePage({ gridSize: Math.min(96, Math.max(8, Number(event.target.value) || defaultGridSize)) })}
+            />
+          </label>
+          <div className="toggle-list">
+            <label>
+              <input type="checkbox" checked={activePage.showCanvasGrid} onChange={(event) => updateActivePage({ showCanvasGrid: event.target.checked })} /> Show grid
+            </label>
+            <label>
+              <input type="checkbox" checked={activePage.snapToGrid} onChange={(event) => updateActivePage({ snapToGrid: event.target.checked })} /> Snap to grid
+            </label>
+          </div>
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
           </button>
@@ -1306,6 +1390,22 @@ export default function App() {
               )}
               {selectedElement.type === "text" && (
                 <>
+                  <div className="panel-title subtle">
+                    <h2>Typography</h2>
+                  </div>
+                  <label>
+                    Font
+                    <select
+                      value={selectedElement.style.fontFamily}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fontFamily: event.target.value } })}
+                    >
+                      {fontFamilies.map((font) => (
+                        <option key={font.label} value={font.value}>
+                          {font.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Text color
                     <input
@@ -1324,6 +1424,67 @@ export default function App() {
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fontSize: Number(event.target.value) } })}
                     />
                   </label>
+                  <label>
+                    Weight
+                    <select
+                      value={selectedElement.style.fontWeight}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fontWeight: event.target.value } })}
+                    >
+                      <option value="400">Regular</option>
+                      <option value="600">Semibold</option>
+                      <option value="700">Bold</option>
+                      <option value="800">Heavy</option>
+                    </select>
+                  </label>
+                  <div className="segmented three" aria-label="Text alignment">
+                    {(["left", "center", "right"] as const).map((alignment) => (
+                      <button
+                        type="button"
+                        key={alignment}
+                        className={selectedElement.style.textAlign === alignment ? "active" : ""}
+                        onClick={() => updateSelectedElement({ style: { ...selectedElement.style, textAlign: alignment } })}
+                      >
+                        {alignment}
+                      </button>
+                    ))}
+                  </div>
+                  <label>
+                    Line height
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="2"
+                      step="0.05"
+                      value={selectedElement.style.lineHeight}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, lineHeight: Number(event.target.value) } })}
+                    />
+                  </label>
+                  <label>
+                    Padding
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      value={selectedElement.style.padding}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, padding: Number(event.target.value) } })}
+                    />
+                  </label>
+                  <div className="toggle-list">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selectedElement.style.fontStyle === "italic"}
+                        onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fontStyle: event.target.checked ? "italic" : "normal" } })}
+                      /> Italic
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selectedElement.style.textDecoration === "underline"}
+                        onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, textDecoration: event.target.checked ? "underline" : "none" } })}
+                      /> Underline
+                    </label>
+                  </div>
                 </>
               )}
               {selectedElement.type !== "image" && (

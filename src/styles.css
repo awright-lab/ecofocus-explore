@@ -251,10 +251,14 @@ h2 {
   border: 1px dashed #bfcbc0;
   border-radius: 8px;
   background:
-    linear-gradient(#f8faf7 39px, transparent 40px),
-    linear-gradient(90deg, #f8faf7 39px, transparent 40px),
+    linear-gradient(#eef3eb 1px, transparent 1px),
+    linear-gradient(90deg, #eef3eb 1px, transparent 1px),
     #ffffff;
   background-size: 40px 40px;
+}
+
+.freeform-canvas.no-grid {
+  background: #ffffff;
 }
 
 .page-header {
@@ -339,6 +343,10 @@ button:disabled {
   border-radius: 6px;
   padding: 4px;
   background: #f7faf6;
+}
+
+.segmented.three {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .segmented button {
@@ -431,11 +439,11 @@ code {
 }
 
 .text-element {
-  display: flex;
-  align-items: center;
-  padding: 10px;
+  display: block;
   background: rgba(255, 255, 255, 0.72);
   line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .shape-element {
