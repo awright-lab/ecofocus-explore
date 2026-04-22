@@ -1,14 +1,27 @@
 import { useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import { runAnalyticsQuery } from "./lib/api";
 import { datasets, getBannerDimensions, getFilterDimensions } from "./lib/metadata";
 import type {
+  AnalyticsAnnotation,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   BreakById,
   ChartType,
   FilterFieldId,
   Metric,
-  QuestionId
+  QuestionId,
+  WeightId
 } from "../shared/types/analytics";
 
 const defaultDataset = datasets[0];
@@ -17,54 +30,126 @@ const bannerDimensions = getBannerDimensions(defaultDataset.id);
 const filterDimensions = getFilterDimensions(defaultDataset.id);
 const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
 const defaultFilterDimension = filterDimensions[0];
+const chartColors = ["#39784d", "#6c9b4d", "#2d6f73", "#a06b3a", "#6f6697"];
 
 function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
   return format === "percent" ? `${value}%` : value.toLocaleString();
 }
 
-function MiniGroupedBarChart({ result }: { result: AnalyticsQueryResponse }) {
-  const maxValue = Math.max(...result.series.flatMap((series) => series.values), 1);
+function getAnnotation(annotations: AnalyticsAnnotation[], rowId: string, columnId: string) {
+  return annotations.find((annotation) => annotation.rowId === rowId && annotation.columnId === columnId);
+}
+
+function DirectionMarker({ annotation }: { annotation?: AnalyticsAnnotation }) {
+  if (!annotation) {
+    return null;
+  }
 
   return (
-    <div className="chart-panel" aria-label="Query-driven grouped bar chart">
-      {result.series.map((series) => (
-        <div className="chart-row" key={series.id}>
-          <div className="chart-row-label">{series.label}</div>
-          <div className="bar-group">
-            {series.values.map((value, index) => (
-              <div className="bar-cell" key={`${series.id}-${result.labels[index]}`}>
-                <div
-                  className="bar"
-                  style={{ width: `${Math.max((value / maxValue) * 100, 2)}%` }}
-                  title={`${series.label}, ${result.labels[index]}: ${formatValue(value, result.metric.valueFormat)}; base ${series.bases[index]}`}
-                />
-                <span>{formatValue(value, result.metric.valueFormat)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-      <div className="chart-legend">
-        {result.labels.map((label) => (
-          <span key={label}>{label}</span>
-        ))}
-      </div>
+    <span className={annotation.direction === "up" ? "direction direction-up" : "direction direction-down"}>
+      {annotation.direction === "up" ? "↑" : "↓"}
+    </span>
+  );
+}
+
+function ValueLabel(props: {
+  x?: unknown;
+  y?: unknown;
+  width?: unknown;
+  value?: unknown;
+  payload?: { optionId: string };
+  result: AnalyticsQueryResponse;
+}) {
+  const { payload, result } = props;
+  const x = Number(props.x ?? 0);
+  const y = Number(props.y ?? 0);
+  const width = Number(props.width ?? 0);
+  const value = Number(props.value ?? 0);
+  const annotation = payload ? getAnnotation(result.annotations, payload.optionId, result.columns[0]?.id) : undefined;
+
+  return (
+    <text x={x + width / 2} y={y - 8} textAnchor="middle" className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}>
+      {formatValue(value, result.metric.valueFormat)}
+      {annotation ? (annotation.direction === "up" ? "↑" : "↓") : ""}
+    </text>
+  );
+}
+
+function VerticalBarChartView({ result }: { result: AnalyticsQueryResponse }) {
+  const column = result.columns[0];
+  const chartData = result.table.map((row) => ({
+    optionId: row.optionId,
+    label: row.label,
+    value: row.values[column.id],
+    base: row.bases[column.id]
+  }));
+
+  return (
+    <div className="chart-card" aria-label="Query-driven vertical bar chart">
+      <ResponsiveContainer width="100%" height={420}>
+        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 92 }}>
+          <CartesianGrid stroke="#e6ebe4" vertical={false} />
+          <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={94} />
+          <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
+          <Tooltip
+            formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]}
+            labelStyle={{ color: "#17211b" }}
+          />
+          <Bar dataKey="value" fill="#438757" radius={[2, 2, 0, 0]}>
+            <LabelList content={(props) => <ValueLabel {...props} result={result} />} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
 
-function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
-  const dataset = datasets.find((item) => item.id === result.query.dataset);
-  const dimension = dataset?.dimensions.find((item) => item.id === result.query.breakBy);
+function GroupedBarChartView({ result }: { result: AnalyticsQueryResponse }) {
+  const chartData = result.table.map((row) => ({
+    optionId: row.optionId,
+    label: row.label,
+    ...row.values
+  }));
 
+  return (
+    <div className="chart-card" aria-label="Query-driven grouped bar chart">
+      <ResponsiveContainer width="100%" height={430}>
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 84 }}>
+          <CartesianGrid stroke="#e6ebe4" vertical={false} />
+          <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={88} />
+          <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Legend verticalAlign="top" height={36} />
+          {result.columns.map((column, index) => (
+            <Bar key={column.id} dataKey={column.id} name={column.label} fill={chartColors[index % chartColors.length]} radius={[2, 2, 0, 0]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartView({ result }: { result: AnalyticsQueryResponse }) {
+  if (result.query.chartType === "vertical_bar") {
+    return <VerticalBarChartView result={result} />;
+  }
+
+  if (result.query.chartType === "grouped_bar") {
+    return <GroupedBarChartView result={result} />;
+  }
+
+  return null;
+}
+
+function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Answer</th>
-            {dimension?.values.map((value) => (
-              <th key={value.id}>{value.label}</th>
+            {result.columns.map((column) => (
+              <th key={column.id}>{column.label}</th>
             ))}
           </tr>
         </thead>
@@ -72,10 +157,13 @@ function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
           {result.table.map((row) => (
             <tr key={row.optionId}>
               <th>{row.label}</th>
-              {dimension?.values.map((value) => (
-                <td key={value.id}>
-                  <strong>{formatValue(row.values[value.id], result.metric.valueFormat)}</strong>
-                  <span>Base {row.bases[value.id]}</span>
+              {result.columns.map((column) => (
+                <td key={column.id}>
+                  <strong>
+                    {formatValue(row.values[column.id], result.metric.valueFormat)}
+                    <DirectionMarker annotation={getAnnotation(result.annotations, row.optionId, column.id)} />
+                  </strong>
+                  <span>Base {row.bases[column.id]}</span>
                 </td>
               ))}
             </tr>
@@ -90,7 +178,9 @@ export default function App() {
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
-  const [chartType, setChartType] = useState<ChartType>("grouped_bar");
+  const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
+  const [chartType, setChartType] = useState<ChartType>(defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+  const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
   const [result, setResult] = useState<AnalyticsQueryResponse | null>(null);
@@ -105,13 +195,17 @@ export default function App() {
     return filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   }, [filterField]);
 
+  const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
+  const activeChartType = viewMode === "table" ? "table" : chartType;
+
   const query: AnalyticsQueryRequest = {
     dataset: defaultDataset.id,
     question,
     breakBy,
     filters: filterField && filterValue !== "all" ? [{ field: filterField, values: [filterValue] }] : [],
+    weight,
     metric,
-    chartType
+    chartType: activeChartType
   };
 
   async function handleRunQuery() {
@@ -154,8 +248,9 @@ export default function App() {
               onChange={(event) => {
                 const nextQuestion = defaultDataset.questions.find((item) => item.id === event.target.value) ?? defaultQuestion;
                 setQuestion(nextQuestion.id);
+                setBreakBy(nextQuestion.allowedBreakBys[0]);
                 setMetric(nextQuestion.defaultMetric);
-                setChartType(nextQuestion.allowedChartTypes[0]);
+                setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
               }}
             >
               {defaultDataset.questions.map((item) => (
@@ -192,15 +287,38 @@ export default function App() {
           </label>
 
           <label>
-            Chart
-            <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
-              {selectedQuestion.allowedChartTypes.map((item) => (
-                <option value={item} key={item}>
-                  {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
+            Weight
+            <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
+              <option value="none">Unweighted</option>
+              {defaultDataset.weights.map((item) => (
+                <option value={item.id} key={item.id}>
+                  {item.label}
                 </option>
               ))}
             </select>
           </label>
+
+          <div className="segmented" aria-label="View mode">
+            <button type="button" className={viewMode === "chart" ? "active" : ""} onClick={() => setViewMode("chart")}>
+              Chart
+            </button>
+            <button type="button" className={viewMode === "table" ? "active" : ""} onClick={() => setViewMode("table")}>
+              Table
+            </button>
+          </div>
+
+          {viewMode === "chart" && (
+            <label>
+              Chart type
+              <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                {selectedChartTypes.map((item) => (
+                <option value={item} key={item}>
+                  {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
+                </option>
+              ))}
+              </select>
+            </label>
+          )}
 
           {selectedFilterDimension && (
             <label>
@@ -227,7 +345,7 @@ export default function App() {
               <p className="eyebrow">Explore output</p>
               <h2>{selectedQuestion.shortLabel}</h2>
             </div>
-            <code>{query.question} by {query.breakBy}</code>
+            <code>{query.question} by {query.breakBy} · {query.weight ?? "unweighted"}</code>
           </div>
 
           {error && <div className="error">{error}</div>}
@@ -240,8 +358,9 @@ export default function App() {
 
           {result && (
             <>
-              <MiniGroupedBarChart result={result} />
-              <ResultsTable result={result} />
+              {result.query.chartType === "table" ? <ResultsTable result={result} /> : <ChartView result={result} />}
+              {result.query.chartType !== "table" && <ResultsTable result={result} />}
+              <div className="footnote">{result.weighting.applied ? result.weighting.label : "Unweighted"} · {result.metric.label}</div>
               {result.warnings.length > 0 && (
                 <div className="warnings">
                   {result.warnings.map((warning) => (

@@ -5,7 +5,8 @@ import {
   getDatasetMetadata,
   getDimensionMetadata,
   getMetricMetadata,
-  getQuestionMetadata
+  getQuestionMetadata,
+  getWeightMetadata
 } from "../../shared/metadata/ecofocus2025";
 import type { AnalyticsErrorResponse, AnalyticsQueryRequest, DimensionId } from "../../shared/types/analytics";
 
@@ -30,6 +31,7 @@ function validateQuery(input: Partial<AnalyticsQueryRequest>): string[] {
   const dimension = input.dataset && input.breakBy ? getDimensionMetadata(input.dataset, input.breakBy) : undefined;
   const metric = input.dataset && input.metric ? getMetricMetadata(input.dataset, input.metric) : undefined;
   const chartType = input.dataset && input.chartType ? getChartTypeMetadata(input.dataset, input.chartType) : undefined;
+  const weight = input.dataset && input.weight ? getWeightMetadata(input.dataset, input.weight) : undefined;
 
   if (!dataset) errors.push("Unknown dataset.");
   if (!question) errors.push("Unknown or unsupported question.");
@@ -38,6 +40,7 @@ function validateQuery(input: Partial<AnalyticsQueryRequest>): string[] {
   if (!metric || !input.metric || !question?.allowedMetrics.includes(input.metric)) errors.push("Unsupported metric.");
   if (!chartType || !input.chartType || !question?.allowedChartTypes.includes(input.chartType)) errors.push("Unsupported chartType.");
   if (chartType && input.metric && !chartType.supportedMetrics.includes(input.metric)) errors.push("Chart type does not support this metric.");
+  if (input.weight !== null && input.weight !== undefined && !weight) errors.push("Unsupported weight.");
   if (!Array.isArray(input.filters)) errors.push("filters must be an array.");
 
   if (dataset && Array.isArray(input.filters)) {

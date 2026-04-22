@@ -1,6 +1,6 @@
-import type { BreakById, ChartType, DatasetId, DimensionId, FilterFieldId, Metric, QuestionId } from "../types/analytics";
+import type { BreakById, ChartType, DatasetId, DimensionId, FilterFieldId, Metric, QuestionId, WeightId } from "../types/analytics";
 
-export type QuestionType = "single_select";
+export type QuestionType = "single_select" | "multi_binary_set";
 
 export type DimensionRole = "banner" | "filter";
 
@@ -17,6 +17,7 @@ export interface QuestionMetadata {
   topic: string;
   type: QuestionType;
   sourceColumn: string;
+  sourceVariables?: string[];
   universe: string;
   defaultMetric: Metric;
   options: QuestionOptionMetadata[];
@@ -41,6 +42,14 @@ export interface MetricMetadata {
   description: string;
 }
 
+export interface WeightMetadata {
+  id: WeightId;
+  label: string;
+  sourceColumn: string;
+  default: boolean;
+  description: string;
+}
+
 export interface ChartTypeMetadata {
   id: ChartType;
   label: string;
@@ -57,10 +66,12 @@ export interface DatasetMetadata {
   description: string;
   defaultQuestion: QuestionId;
   defaultBreakBy: BreakById;
+  defaultWeight: WeightId | null;
   minBaseWarning: number;
   questions: QuestionMetadata[];
   dimensions: DimensionMetadata[];
   metrics: MetricMetadata[];
+  weights: WeightMetadata[];
   chartTypes: ChartTypeMetadata[];
 }
 
@@ -69,8 +80,9 @@ export const ecofocus2025Metadata: DatasetMetadata = {
   label: "EcoFocus 2025",
   wave: "2025",
   description: "Mock survey metadata for the EcoFocus Explore internal MVP.",
-  defaultQuestion: "Q_PACKAGING_TRUST",
-  defaultBreakBy: "GENERATION",
+  defaultQuestion: "Q15_TOP2_BRAND_PRIORITIES",
+  defaultBreakBy: "SUMMARY",
+  defaultWeight: "weightvar",
   minBaseWarning: 100,
   metrics: [
     {
@@ -78,6 +90,12 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       label: "Column %",
       valueFormat: "percent",
       description: "Percent of respondents within each banner column."
+    },
+    {
+      id: "percent_selected",
+      label: "% selected",
+      valueFormat: "percent",
+      description: "Percent selecting each item in a multi-response variable set."
     },
     {
       id: "count",
@@ -91,17 +109,53 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       id: "grouped_bar",
       label: "Grouped bar",
       description: "Compare answer distributions across banner groups.",
-      supportedMetrics: ["column_percent", "count"],
+      supportedMetrics: ["column_percent", "percent_selected", "count"],
       minSeries: 2
+    },
+    {
+      id: "vertical_bar",
+      label: "Vertical bar",
+      description: "Show a single summary column as a vertical bar chart.",
+      supportedMetrics: ["percent_selected", "column_percent", "count"]
     },
     {
       id: "table",
       label: "Table",
       description: "Show crosstab values and bases.",
-      supportedMetrics: ["column_percent", "count"]
+      supportedMetrics: ["column_percent", "percent_selected", "count"]
+    }
+  ],
+  weights: [
+    {
+      id: "weightvar",
+      label: "EcoFocus respondent weight",
+      sourceColumn: "weightvar",
+      default: true,
+      description: "Respondent-level weight used to align the survey sample to the target population."
     }
   ],
   questions: [
+    {
+      id: "Q15_TOP2_BRAND_PRIORITIES",
+      label: "Consumer Priorities When Choosing Brands and Retailers (Top 2)",
+      shortLabel: "Brand and retailer priorities",
+      topic: "Brand Sustainability Perceptions",
+      type: "multi_binary_set",
+      sourceColumn: "Q15_TOP2",
+      sourceVariables: ["Q15r1", "Q15r2", "Q15r7", "Q15r8", "Q15r9"],
+      universe: "Total respondents",
+      defaultMetric: "percent_selected",
+      allowedChartTypes: ["vertical_bar", "table"],
+      allowedMetrics: ["percent_selected", "count"],
+      allowedBreakBys: ["SUMMARY"],
+      options: [
+        { id: "Q15r1", label: "To buy brands that support schools and children's education", sortOrder: 1 },
+        { id: "Q15r2", label: "To buy products that give some of their profits to charity", sortOrder: 2 },
+        { id: "Q15r7", label: "To change the brands you buy to make a more eco-friendly choice", sortOrder: 3 },
+        { id: "Q15r8", label: "To shop at retail stores that require that the products and brands sold in their store are eco-friendly", sortOrder: 4 },
+        { id: "Q15r9", label: "That retailers offer products that are responsibly sourced", sortOrder: 5 }
+      ]
+    },
     {
       id: "Q_PACKAGING_TRUST",
       label: "How much do you trust sustainability claims on food and beverage packaging?",
@@ -142,6 +196,13 @@ export const ecofocus2025Metadata: DatasetMetadata = {
     }
   ],
   dimensions: [
+    {
+      id: "SUMMARY",
+      label: "Summary",
+      role: "banner",
+      sourceColumn: "__summary",
+      values: [{ id: "summary", label: "Summary", sortOrder: 1 }]
+    },
     {
       id: "GENERATION",
       label: "Generation",
@@ -201,6 +262,14 @@ export function getMetricMetadata(datasetId: DatasetId, metricId: Metric) {
 
 export function getChartTypeMetadata(datasetId: DatasetId, chartTypeId: ChartType) {
   return getDatasetMetadata(datasetId)?.chartTypes.find((chartType) => chartType.id === chartTypeId);
+}
+
+export function getWeightMetadata(datasetId: DatasetId, weightId: WeightId | null) {
+  if (!weightId) {
+    return undefined;
+  }
+
+  return getDatasetMetadata(datasetId)?.weights.find((weight) => weight.id === weightId);
 }
 
 export function getBannerDimensions(datasetId: DatasetId) {

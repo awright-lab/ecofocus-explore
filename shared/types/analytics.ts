@@ -1,16 +1,18 @@
 export type DatasetId = "ecofocus_2025";
 
-export type QuestionId = "Q_PACKAGING_TRUST" | "Q_SUSTAINABILITY_IMPORTANCE";
+export type QuestionId = "Q_PACKAGING_TRUST" | "Q_SUSTAINABILITY_IMPORTANCE" | "Q15_TOP2_BRAND_PRIORITIES";
 
-export type BreakById = "GENERATION" | "REGION";
+export type BreakById = "SUMMARY" | "GENERATION" | "REGION";
 
 export type FilterFieldId = BreakById | "SHOPPER_SEGMENT";
 
 export type DimensionId = FilterFieldId;
 
-export type Metric = "column_percent" | "count";
+export type Metric = "column_percent" | "percent_selected" | "count";
 
-export type ChartType = "grouped_bar" | "table";
+export type ChartType = "vertical_bar" | "grouped_bar" | "table";
+
+export type WeightId = "weightvar";
 
 export interface AnalyticsFilter {
   field: FilterFieldId | QuestionId;
@@ -22,6 +24,7 @@ export interface AnalyticsQueryRequest {
   question: QuestionId;
   breakBy: BreakById;
   filters: AnalyticsFilter[];
+  weight: WeightId | null;
   metric: Metric;
   chartType: ChartType;
 }
@@ -40,16 +43,35 @@ export interface AnalyticsTableRow {
   bases: Record<string, number>;
 }
 
+export interface AnalyticsTableColumn {
+  id: string;
+  label: string;
+}
+
+export interface AnalyticsAnnotation {
+  rowId: string;
+  columnId: string;
+  direction: "up" | "down";
+  confidence: number;
+}
+
 export interface AnalyticsQueryResponse {
   query: AnalyticsQueryRequest;
   labels: string[];
   series: AnalyticsSeries[];
+  columns: AnalyticsTableColumn[];
   table: AnalyticsTableRow[];
   metric: {
     id: Metric;
     label: string;
     valueFormat: "percent" | "number";
   };
+  weighting: {
+    applied: boolean;
+    id: WeightId | null;
+    label: string;
+  };
+  annotations: AnalyticsAnnotation[];
   warnings: string[];
   notes: string[];
   metadataRefs: {

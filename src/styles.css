@@ -124,6 +124,28 @@ button:disabled {
   opacity: 0.7;
 }
 
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  border: 1px solid #cbd5c8;
+  border-radius: 6px;
+  padding: 4px;
+  background: #f7faf6;
+}
+
+.segmented button {
+  min-height: 34px;
+  border-radius: 4px;
+  background: transparent;
+  color: #405045;
+}
+
+.segmented button.active {
+  background: #275d3b;
+  color: #ffffff;
+}
+
 .output {
   min-height: 620px;
   border-radius: 8px;
@@ -166,64 +188,40 @@ code {
   color: #9d351a;
 }
 
-.chart-panel {
-  display: grid;
-  gap: 16px;
+.chart-card {
+  min-height: 460px;
   margin-top: 24px;
+  border: 1px solid #edf0ea;
+  border-radius: 8px;
+  padding: 16px 12px 4px;
+  background: #fbfcfa;
 }
 
-.chart-row {
-  display: grid;
-  grid-template-columns: minmax(130px, 190px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: center;
-}
-
-.chart-row-label {
-  color: #29382f;
+.chart-value {
+  fill: #3f4f45;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
-.bar-group {
-  display: grid;
-  gap: 8px;
+.chart-value.up {
+  fill: #1a3cff;
 }
 
-.bar-cell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px;
-  gap: 10px;
-  align-items: center;
+.chart-value.down {
+  fill: #e01818;
 }
 
-.bar {
-  height: 14px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #2c7a4b, #78a85d);
+.direction {
+  margin-left: 2px;
+  font-weight: 900;
 }
 
-.bar-cell span {
-  color: #4b5d52;
-  font-size: 0.88rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+.direction-up {
+  color: #1a3cff;
 }
 
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #edf0ea;
-}
-
-.chart-legend span {
-  border-radius: 999px;
-  background: #edf4ea;
-  color: #385242;
-  padding: 5px 9px;
-  font-size: 0.8rem;
-  font-weight: 700;
+.direction-down {
+  color: #e01818;
 }
 
 .table-wrap {
@@ -265,6 +263,13 @@ td span {
   margin-top: 3px;
   color: #6a766f;
   font-size: 0.82rem;
+}
+
+.footnote {
+  margin-top: 10px;
+  color: #69776e;
+  font-size: 0.82rem;
+  text-align: center;
 }
 
 .notes,

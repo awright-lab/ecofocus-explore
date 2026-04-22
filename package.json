@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@netlify/functions": "^4.2.5",

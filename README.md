@@ -147,10 +147,12 @@ Current metadata fields include source columns, question topics, question univer
 
 ### Phase 4 - Frontend Rendering
 
-- Add a frontend-native charting library.
-- Render grouped bars, stacked bars, and tables from normalized responses.
-- Add hover states, base labels, notes, and chart/table toggles.
-- Keep charts query-driven and rerenderable.
+- Add a frontend-native charting library. Initial Recharts integration complete.
+- Render grouped bars, vertical bars, and tables from normalized responses. Initial table-first rendering complete.
+- Add hover states, base labels, notes, and chart/table toggles. Initial view toggle, tooltips, bases, notes, weights, and annotations are wired.
+- Keep charts query-driven and rerenderable. Charts now render from the normalized table/series response rather than static output.
+
+Current Phase 4 scope includes a saved multi-binary variable set example for `Q15_TOP2_BRAND_PRIORITIES`, a `SUMMARY` breakout, weighted query metadata, and placeholder significance arrows.
 
 ### Phase 5 - Snowflake Readiness
 

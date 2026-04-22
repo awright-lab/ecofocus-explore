@@ -1,8 +1,10 @@
-import { ecofocus2025Metadata, getMetricMetadata } from "../metadata/ecofocus2025";
+import { ecofocus2025Metadata, getMetricMetadata, getWeightMetadata } from "../metadata/ecofocus2025";
 import type {
+  AnalyticsAnnotation,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   AnalyticsSeries,
+  AnalyticsTableColumn,
   AnalyticsTableRow
 } from "../types/analytics";
 
@@ -119,13 +121,25 @@ const mockPercentData: Record<string, Record<string, MockQuestionData>> = {
   }
 };
 
+const mockAnnotations: Record<string, AnalyticsAnnotation[]> = {
+  Q15_TOP2_BRAND_PRIORITIES: [
+    { rowId: "Q15r8", columnId: "summary", direction: "down", confidence: 0.95 },
+    { rowId: "Q15r9", columnId: "summary", direction: "up", confidence: 0.95 }
+  ]
+};
+
 export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
   const question = ecofocus2025Metadata.questions.find((item) => item.id === query.question);
   const dimension = ecofocus2025Metadata.dimensions.find((item) => item.id === query.breakBy);
   const metric = getMetricMetadata(query.dataset, query.metric);
+  const weight = getWeightMetadata(query.dataset, query.weight);
 
   if (!question || !dimension || !metric) {
     throw new Error("Unsupported mock query metadata.");
+  }
+
+  if (question.type === "multi_binary_set") {
+    return runMockMultiBinarySetQuery(query, question.options, metric, weight?.label);
   }
 
   const questionData = mockPercentData[query.question]?.[query.breakBy];
@@ -134,7 +148,8 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
     throw new Error("No mock data exists for this query.");
   }
 
-  const labels = dimension.values.map((value) => value.label);
+  const columns: AnalyticsTableColumn[] = dimension.values.map((value) => ({ id: value.id, label: value.label }));
+  const labels = columns.map((value) => value.label);
   const series: AnalyticsSeries[] = question.options.map((option) => {
     const values = dimension.values.map((dimensionValue) => {
       const cell = questionData[option.id]?.[dimensionValue.id];
@@ -164,12 +179,81 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
     query,
     labels,
     series,
+    columns,
     table,
     metric,
+    weighting: {
+      applied: Boolean(query.weight),
+      id: query.weight,
+      label: weight?.label ?? "Unweighted"
+    },
+    annotations: mockAnnotations[query.question] ?? [],
     warnings: collectBaseWarnings(series, ecofocus2025Metadata.minBaseWarning),
     notes: [
       "Mock data for internal MVP validation.",
+      query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted mock output.",
       "Filters are accepted by the contract but not applied by the mock provider yet."
+    ],
+    metadataRefs: {
+      dataset: query.dataset,
+      question: query.question,
+      breakBy: query.breakBy
+    }
+  };
+}
+
+function runMockMultiBinarySetQuery(
+  query: AnalyticsQueryRequest,
+  options: Array<{ id: string; label: string }>,
+  metric: AnalyticsQueryResponse["metric"],
+  weightLabel?: string
+): AnalyticsQueryResponse {
+  const summaryData: Record<string, { value: number; base: number }> = {
+    Q15r1: { value: 53, base: 3125 },
+    Q15r2: { value: 50, base: 3125 },
+    Q15r7: { value: 50, base: 3125 },
+    Q15r8: { value: 49, base: 3125 },
+    Q15r9: { value: 58, base: 3125 }
+  };
+
+  const columns: AnalyticsTableColumn[] = [{ id: "summary", label: "Summary" }];
+  const series: AnalyticsSeries[] = options.map((option) => {
+    const cell = summaryData[option.id] ?? { value: 0, base: 0 };
+    const value = query.metric === "count" ? Math.round((cell.value / 100) * cell.base) : cell.value;
+
+    return {
+      id: option.id,
+      label: option.label,
+      values: [value],
+      bases: [cell.base]
+    };
+  });
+
+  const table: AnalyticsTableRow[] = series.map((item) => ({
+    optionId: item.id,
+    label: item.label,
+    values: { summary: item.values[0] },
+    bases: { summary: item.bases[0] }
+  }));
+
+  return {
+    query,
+    labels: columns.map((column) => column.label),
+    series,
+    columns,
+    table,
+    metric,
+    weighting: {
+      applied: Boolean(query.weight),
+      id: query.weight,
+      label: weightLabel ?? "Unweighted"
+    },
+    annotations: mockAnnotations[query.question] ?? [],
+    warnings: collectBaseWarnings(series, ecofocus2025Metadata.minBaseWarning),
+    notes: [
+      "Mock saved variable set built from Q15r1, Q15r2, Q15r7, Q15r8, and Q15r9.",
+      query.weight ? `Weighted data using ${weightLabel ?? query.weight}; sample size = 3125.` : "Unweighted mock output; sample size = 3125.",
+      "Arrows are placeholder significance annotations for chart/table rendering."
     ],
     metadataRefs: {
       dataset: query.dataset,
