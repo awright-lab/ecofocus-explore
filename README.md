@@ -184,6 +184,14 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Document trend support requirements.
 - Add internal testing notes before client-facing rollout.
 
+### Phase 7 - Dashboard Builder Foundation
+
+- Add a dashboard draft model with query-driven tiles. Initial in-memory builder complete.
+- Add dashboard canvas, data panel, and tile settings panel.
+- Allow adding tiles from structured analytics queries.
+- Allow tile-level display customization for title, visualization, palette, labels, table, bases, notes, and annotations.
+- Add draft/published status toggle as a mock publishing workflow.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.

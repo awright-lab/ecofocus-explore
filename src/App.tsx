@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   Legend,
   ResponsiveContainer,
@@ -23,6 +24,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
+import type { DashboardDraft, DashboardTile, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -30,7 +32,22 @@ const bannerDimensions = getBannerDimensions(defaultDataset.id);
 const filterDimensions = getFilterDimensions(defaultDataset.id);
 const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
 const defaultFilterDimension = filterDimensions[0];
-const chartColors = ["#39784d", "#6c9b4d", "#2d6f73", "#a06b3a", "#6f6697"];
+
+const palettes = [
+  { id: "forest", label: "Forest", colors: ["#39784d", "#6c9b4d", "#2d6f73", "#9a7a38", "#6f6697"] },
+  { id: "ocean", label: "Ocean", colors: ["#1f6f8b", "#3b8ea5", "#5b7f95", "#74a7a0", "#4b6580"] },
+  { id: "slate", label: "Slate", colors: ["#3d4a57", "#657483", "#8a775d", "#5d7a67", "#7a657c"] }
+];
+
+const defaultAppearance: TileAppearance = {
+  primaryColor: palettes[0].colors[0],
+  palette: palettes[0].colors,
+  showValueLabels: true,
+  showTable: true,
+  showBases: true,
+  showNotes: true,
+  showAnnotations: true
+};
 
 function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
   return format === "percent" ? `${value}%` : value.toLocaleString();
@@ -40,10 +57,8 @@ function getAnnotation(annotations: AnalyticsAnnotation[], rowId: string, column
   return annotations.find((annotation) => annotation.rowId === rowId && annotation.columnId === columnId);
 }
 
-function DirectionMarker({ annotation }: { annotation?: AnalyticsAnnotation }) {
-  if (!annotation) {
-    return null;
-  }
+function DirectionMarker({ annotation, enabled }: { annotation?: AnalyticsAnnotation; enabled: boolean }) {
+  if (!annotation || !enabled) return null;
 
   return (
     <span className={annotation.direction === "up" ? "direction direction-up" : "direction direction-down"}>
@@ -59,13 +74,17 @@ function ValueLabel(props: {
   value?: unknown;
   payload?: { optionId: string };
   result: AnalyticsQueryResponse;
+  appearance: TileAppearance;
 }) {
-  const { payload, result } = props;
+  const { payload, result, appearance } = props;
+
+  if (!appearance.showValueLabels) return null;
+
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
   const width = Number(props.width ?? 0);
   const value = Number(props.value ?? 0);
-  const annotation = payload ? getAnnotation(result.annotations, payload.optionId, result.columns[0]?.id) : undefined;
+  const annotation = payload && appearance.showAnnotations ? getAnnotation(result.annotations, payload.optionId, result.columns[0]?.id) : undefined;
 
   return (
     <text x={x + width / 2} y={y - 8} textAnchor="middle" className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}>
@@ -75,7 +94,7 @@ function ValueLabel(props: {
   );
 }
 
-function VerticalBarChartView({ result }: { result: AnalyticsQueryResponse }) {
+function VerticalBarChartView({ result, appearance }: { result: AnalyticsQueryResponse; appearance: TileAppearance }) {
   const column = result.columns[0];
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
@@ -86,17 +105,17 @@ function VerticalBarChartView({ result }: { result: AnalyticsQueryResponse }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven vertical bar chart">
-      <ResponsiveContainer width="100%" height={420}>
+      <ResponsiveContainer width="100%" height={390}>
         <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 92 }}>
           <CartesianGrid stroke="#e6ebe4" vertical={false} />
           <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={94} />
           <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
-          <Tooltip
-            formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]}
-            labelStyle={{ color: "#17211b" }}
-          />
-          <Bar dataKey="value" fill="#438757" radius={[2, 2, 0, 0]}>
-            <LabelList content={(props) => <ValueLabel {...props} result={result} />} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Bar dataKey="value" radius={[2, 2, 0, 0]}>
+            {chartData.map((item, index) => (
+              <Cell key={item.optionId} fill={appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor} />
+            ))}
+            <LabelList content={(props) => <ValueLabel {...props} result={result} appearance={appearance} />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -104,7 +123,7 @@ function VerticalBarChartView({ result }: { result: AnalyticsQueryResponse }) {
   );
 }
 
-function GroupedBarChartView({ result }: { result: AnalyticsQueryResponse }) {
+function GroupedBarChartView({ result, appearance }: { result: AnalyticsQueryResponse; appearance: TileAppearance }) {
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
@@ -113,7 +132,7 @@ function GroupedBarChartView({ result }: { result: AnalyticsQueryResponse }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven grouped bar chart">
-      <ResponsiveContainer width="100%" height={430}>
+      <ResponsiveContainer width="100%" height={400}>
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 84 }}>
           <CartesianGrid stroke="#e6ebe4" vertical={false} />
           <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={88} />
@@ -121,7 +140,7 @@ function GroupedBarChartView({ result }: { result: AnalyticsQueryResponse }) {
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
-            <Bar key={column.id} dataKey={column.id} name={column.label} fill={chartColors[index % chartColors.length]} radius={[2, 2, 0, 0]} />
+            <Bar key={column.id} dataKey={column.id} name={column.label} fill={appearance.palette[index % appearance.palette.length]} radius={[2, 2, 0, 0]} />
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -129,19 +148,13 @@ function GroupedBarChartView({ result }: { result: AnalyticsQueryResponse }) {
   );
 }
 
-function ChartView({ result }: { result: AnalyticsQueryResponse }) {
-  if (result.query.chartType === "vertical_bar") {
-    return <VerticalBarChartView result={result} />;
-  }
-
-  if (result.query.chartType === "grouped_bar") {
-    return <GroupedBarChartView result={result} />;
-  }
-
+function ChartView({ tile }: { tile: DashboardTile }) {
+  if (tile.visualization === "vertical_bar") return <VerticalBarChartView result={tile.result} appearance={tile.appearance} />;
+  if (tile.visualization === "grouped_bar") return <GroupedBarChartView result={tile.result} appearance={tile.appearance} />;
   return null;
 }
 
-function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
+function ResultsTable({ result, appearance }: { result: AnalyticsQueryResponse; appearance: TileAppearance }) {
   return (
     <div className="table-wrap">
       <table>
@@ -161,9 +174,9 @@ function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
                 <td key={column.id}>
                   <strong>
                     {formatValue(row.values[column.id], result.metric.valueFormat)}
-                    <DirectionMarker annotation={getAnnotation(result.annotations, row.optionId, column.id)} />
+                    <DirectionMarker annotation={getAnnotation(result.annotations, row.optionId, column.id)} enabled={appearance.showAnnotations} />
                   </strong>
-                  <span>Base {row.bases[column.id]}</span>
+                  {appearance.showBases && <span>Base {row.bases[column.id]}</span>}
                 </td>
               ))}
             </tr>
@@ -174,7 +187,44 @@ function ResultsTable({ result }: { result: AnalyticsQueryResponse }) {
   );
 }
 
+function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selected: boolean; onSelect: () => void }) {
+  const result = tile.result;
+
+  return (
+    <article className={selected ? "dashboard-tile selected" : "dashboard-tile"} onClick={onSelect}>
+      <div className="tile-header">
+        <div>
+          <p className="eyebrow">{result.metadataRefs.question}</p>
+          <h2>{tile.title}</h2>
+        </div>
+        <code>{tile.visualization}</code>
+      </div>
+      {tile.visualization === "table" ? <ResultsTable result={result} appearance={tile.appearance} /> : <ChartView tile={tile} />}
+      {tile.appearance.showTable && tile.visualization !== "table" && <ResultsTable result={result} appearance={tile.appearance} />}
+      <div className="footnote">{result.weighting.applied ? result.weighting.label : "Unweighted"} · {result.metric.label}</div>
+      {tile.appearance.showNotes && (
+        <div className="notes">
+          {result.notes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function makeTileId() {
+  return `tile_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export default function App() {
+  const [dashboard, setDashboard] = useState<DashboardDraft>({
+    id: "internal_mvp",
+    title: "2025 EcoFocus Builder Draft",
+    status: "draft",
+    tiles: []
+  });
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
@@ -183,7 +233,6 @@ export default function App() {
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
-  const [result, setResult] = useState<AnalyticsQueryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -191,10 +240,8 @@ export default function App() {
     return defaultDataset.questions.find((item) => item.id === question) ?? defaultQuestion;
   }, [question]);
 
-  const selectedFilterDimension = useMemo(() => {
-    return filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
-  }, [filterField]);
-
+  const selectedTile = dashboard.tiles.find((tile) => tile.id === selectedTileId) ?? null;
+  const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
   const activeChartType = viewMode === "table" ? "table" : chartType;
 
@@ -208,13 +255,23 @@ export default function App() {
     chartType: activeChartType
   };
 
-  async function handleRunQuery() {
+  async function addTileFromQuery() {
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await runAnalyticsQuery(query);
-      setResult(response);
+      const tile: DashboardTile = {
+        id: makeTileId(),
+        title: selectedQuestion.shortLabel,
+        query,
+        visualization: activeChartType,
+        appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
+        result: response
+      };
+
+      setDashboard((current) => ({ ...current, status: "draft", tiles: [...current.tiles, tile] }));
+      setSelectedTileId(tile.id);
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
     } finally {
@@ -222,27 +279,49 @@ export default function App() {
     }
   }
 
-  return (
-    <main className="app-shell">
-      <section className="intro">
-        <p className="eyebrow">Internal MVP</p>
-        <h1>EcoFocus Explore</h1>
-        <p>
-          Query-driven survey exploration for crosstabs and charts. This environment is separate from the current EcoFocus portal and uses mock analytics data until Snowflake is connected.
-        </p>
-      </section>
+  function updateSelectedTile(updates: Partial<DashboardTile>) {
+    if (!selectedTileId) return;
 
-      <section className="workspace">
-        <aside className="controls" aria-label="Explore controls">
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      tiles: current.tiles.map((tile) => (tile.id === selectedTileId ? { ...tile, ...updates } : tile))
+    }));
+  }
+
+  function updateSelectedAppearance(updates: Partial<TileAppearance>) {
+    if (!selectedTile) return;
+    updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
+  }
+
+  return (
+    <main className="builder-shell">
+      <header className="builder-header">
+        <div>
+          <p className="eyebrow">EcoFocus Explore</p>
+          <h1>{dashboard.title}</h1>
+        </div>
+        <div className="publish-controls">
+          <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
+          <button type="button" onClick={() => setDashboard((current) => ({ ...current, status: current.status === "published" ? "draft" : "published" }))}>
+            {dashboard.status === "published" ? "Unpublish" : "Publish"}
+          </button>
+        </div>
+      </header>
+
+      <section className="builder-workspace">
+        <aside className="panel controls" aria-label="Data controls">
+          <div className="panel-title">
+            <h2>Data</h2>
+          </div>
           <label>
             Dataset
             <select value={defaultDataset.id} disabled>
               <option value={defaultDataset.id}>{defaultDataset.label}</option>
             </select>
           </label>
-
           <label>
-            Question
+            Variable set
             <select
               value={question}
               onChange={(event) => {
@@ -259,24 +338,22 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <span>{selectedQuestion.topic} · {selectedQuestion.universe}</span>
+            <span>{selectedQuestion.topic}</span>
           </label>
-
           <label>
-            Break by
+            Columns
             <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
               {bannerDimensions
                 .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
                 .map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.label}
-                </option>
-              ))}
+                  <option value={item.id} key={item.id}>
+                    {item.label}
+                  </option>
+                ))}
             </select>
           </label>
-
           <label>
-            Metric
+            Cells
             <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
               {selectedQuestion.allowedMetrics.map((item) => (
                 <option value={item} key={item}>
@@ -285,7 +362,6 @@ export default function App() {
               ))}
             </select>
           </label>
-
           <label>
             Weight
             <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
@@ -297,29 +373,6 @@ export default function App() {
               ))}
             </select>
           </label>
-
-          <div className="segmented" aria-label="View mode">
-            <button type="button" className={viewMode === "chart" ? "active" : ""} onClick={() => setViewMode("chart")}>
-              Chart
-            </button>
-            <button type="button" className={viewMode === "table" ? "active" : ""} onClick={() => setViewMode("table")}>
-              Table
-            </button>
-          </div>
-
-          {viewMode === "chart" && (
-            <label>
-              Chart type
-              <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
-                {selectedChartTypes.map((item) => (
-                <option value={item} key={item}>
-                  {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
-                </option>
-              ))}
-              </select>
-            </label>
-          )}
-
           {selectedFilterDimension && (
             <label>
               Filter
@@ -333,53 +386,102 @@ export default function App() {
               </select>
             </label>
           )}
-
-          <button type="button" onClick={handleRunQuery} disabled={isLoading}>
-            {isLoading ? "Running..." : "Run query"}
+          <div className="segmented" aria-label="View mode">
+            <button type="button" className={viewMode === "chart" ? "active" : ""} onClick={() => setViewMode("chart")}>
+              Chart
+            </button>
+            <button type="button" className={viewMode === "table" ? "active" : ""} onClick={() => setViewMode("table")}>
+              Table
+            </button>
+          </div>
+          {viewMode === "chart" && (
+            <label>
+              Chart type
+              <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                {selectedChartTypes.map((item) => (
+                  <option value={item} key={item}>
+                    {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
+            {isLoading ? "Adding..." : "Add tile"}
           </button>
+          {error && <div className="error">{error}</div>}
         </aside>
 
-        <section className="output" aria-live="polite">
-          <div className="output-header">
-            <div>
-              <p className="eyebrow">Explore output</p>
-              <h2>{selectedQuestion.shortLabel}</h2>
-            </div>
-            <code>{query.question} by {query.breakBy} · {query.weight ?? "unweighted"}</code>
-          </div>
-
-          {error && <div className="error">{error}</div>}
-
-          {!result && !error && (
-            <div className="empty-state">
-              Choose a question and banner, then run the query to generate normalized mock analytics output.
-            </div>
-          )}
-
-          {result && (
-            <>
-              {result.query.chartType === "table" ? <ResultsTable result={result} /> : <ChartView result={result} />}
-              {result.query.chartType !== "table" && <ResultsTable result={result} />}
-              <div className="footnote">{result.weighting.applied ? result.weighting.label : "Unweighted"} · {result.metric.label}</div>
-              {result.warnings.length > 0 && (
-                <div className="warnings">
-                  {result.warnings.map((warning) => (
-                    <p key={warning}>{warning}</p>
-                  ))}
-                </div>
-              )}
-              <div className="notes">
-                {result.notes.map((note) => (
-                  <p key={note}>{note}</p>
-                ))}
-              </div>
-              <details>
-                <summary>Structured query</summary>
-                <pre>{JSON.stringify(result.query, null, 2)}</pre>
-              </details>
-            </>
+        <section className="canvas" aria-label="Dashboard canvas">
+          {dashboard.tiles.length === 0 ? (
+            <div className="empty-state">Add a tile to start building this dashboard.</div>
+          ) : (
+            dashboard.tiles.map((tile) => (
+              <TileRenderer key={tile.id} tile={tile} selected={tile.id === selectedTileId} onSelect={() => setSelectedTileId(tile.id)} />
+            ))
           )}
         </section>
+
+        <aside className="panel settings" aria-label="Tile settings">
+          <div className="panel-title">
+            <h2>Settings</h2>
+          </div>
+          {!selectedTile ? (
+            <div className="empty-state compact">Select a tile to edit its display.</div>
+          ) : (
+            <>
+              <label>
+                Title
+                <input value={selectedTile.title} onChange={(event) => updateSelectedTile({ title: event.target.value })} />
+              </label>
+              <label>
+                Visualization
+                <select value={selectedTile.visualization} onChange={(event) => updateSelectedTile({ visualization: event.target.value as ChartType })}>
+                  {selectedTile.result.query.question === "Q15_TOP2_BRAND_PRIORITIES" && <option value="vertical_bar">Vertical bar</option>}
+                  {selectedTile.result.query.breakBy !== "SUMMARY" && <option value="grouped_bar">Grouped bar</option>}
+                  <option value="table">Table</option>
+                </select>
+              </label>
+              <label>
+                Palette
+                <select
+                  value={palettes.find((palette) => palette.colors.join(",") === selectedTile.appearance.palette.join(","))?.id ?? "custom"}
+                  onChange={(event) => {
+                    const nextPalette = palettes.find((palette) => palette.id === event.target.value) ?? palettes[0];
+                    updateSelectedAppearance({ palette: nextPalette.colors, primaryColor: nextPalette.colors[0] });
+                  }}
+                >
+                  {palettes.map((palette) => (
+                    <option key={palette.id} value={palette.id}>
+                      {palette.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Primary color
+                <input type="color" value={selectedTile.appearance.primaryColor} onChange={(event) => updateSelectedAppearance({ primaryColor: event.target.value, palette: [event.target.value, ...selectedTile.appearance.palette.slice(1)] })} />
+              </label>
+              <div className="toggle-list">
+                <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> Value labels</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showTable} onChange={(event) => updateSelectedAppearance({ showTable: event.target.checked })} /> Table below chart</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showBases} onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })} /> Bases</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> Arrows</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setDashboard((current) => ({ ...current, status: "draft", tiles: current.tiles.filter((tile) => tile.id !== selectedTile.id) }));
+                  setSelectedTileId(null);
+                }}
+              >
+                Remove tile
+              </button>
+            </>
+          )}
+        </aside>
       </section>
     </main>
   );
