@@ -1,0 +1,7 @@
+node_modules
+dist
+.netlify
+.env
+.DS_Store
+deno.lock
+npm-debug.log*
