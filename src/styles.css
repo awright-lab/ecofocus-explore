@@ -63,6 +63,19 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.publish-controls button {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.save-state {
+  color: #68776e;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .status {

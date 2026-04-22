@@ -220,6 +220,14 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add per-bar/per-series style targets so individual bars or grouped chart series can have custom colors, gradients, and roundness.
 - Keep chart styling metadata on the tile so dashboards can preserve design decisions separately from analytics queries.
 
+### Phase 8A - Saveable Design Workspace
+
+- Persist dashboard state to local storage. Initial local persistence complete.
+- Add reset dashboard, duplicate selected item, and delete selected item.
+- Add keyboard shortcuts for Delete/Backspace, Cmd/Ctrl+D, Cmd/Ctrl+Z, and redo.
+- Add basic undo/redo history for dashboard edits.
+- Add local save status in the top toolbar.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.

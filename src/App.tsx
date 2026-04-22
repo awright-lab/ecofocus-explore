@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Rnd } from "react-rnd";
 import {
   Bar,
@@ -71,6 +71,24 @@ const defaultAppearance: TileAppearance = {
   showBases: true,
   showNotes: true,
   showAnnotations: true
+};
+
+const storageKey = "ecofocus_explore_dashboard_v1";
+const historyLimit = 40;
+
+const initialDashboard: DashboardDraft = {
+  id: "internal_mvp",
+  title: "2025 EcoFocus Builder Draft",
+  status: "draft",
+  pages: [
+    {
+      id: "page_overview",
+      title: "Overview",
+      order: 1,
+      elements: [],
+      tiles: []
+    }
+  ]
 };
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
@@ -400,20 +418,17 @@ function clampZIndex(value: number) {
 }
 
 export default function App() {
-  const [dashboard, setDashboard] = useState<DashboardDraft>({
-    id: "internal_mvp",
-    title: "2025 EcoFocus Builder Draft",
-    status: "draft",
-    pages: [
-      {
-        id: "page_overview",
-        title: "Overview",
-        order: 1,
-        elements: [],
-        tiles: []
-      }
-    ]
+  const [dashboard, setDashboardState] = useState<DashboardDraft>(() => {
+    try {
+      const savedDashboard = window.localStorage.getItem(storageKey);
+      return savedDashboard ? (JSON.parse(savedDashboard) as DashboardDraft) : initialDashboard;
+    } catch {
+      return initialDashboard;
+    }
   });
+  const [history, setHistory] = useState<DashboardDraft[]>([]);
+  const [future, setFuture] = useState<DashboardDraft[]>([]);
+  const [saveState, setSaveState] = useState("Saved locally");
   const [activePageId, setActivePageId] = useState("page_overview");
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -455,6 +470,43 @@ export default function App() {
     metric,
     chartType: activeChartType
   };
+
+  useEffect(() => {
+    window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
+    setSaveState("Saved locally");
+  }, [dashboard]);
+
+  function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
+    setDashboardState((current) => {
+      const nextDashboard = typeof updater === "function" ? updater(current) : updater;
+
+      if (trackHistory) {
+        setHistory((items) => [...items.slice(-historyLimit + 1), current]);
+        setFuture([]);
+        setSaveState("Saving...");
+      }
+
+      return nextDashboard;
+    });
+  }
+
+  function undo() {
+    const previous = history.at(-1);
+    if (!previous) return;
+
+    setFuture((items) => [dashboard, ...items]);
+    setHistory((items) => items.slice(0, -1));
+    setDashboard(previous, false);
+  }
+
+  function redo() {
+    const nextDashboard = future[0];
+    if (!nextDashboard) return;
+
+    setHistory((items) => [...items, dashboard]);
+    setFuture((items) => items.slice(1));
+    setDashboard(nextDashboard, false);
+  }
 
   async function addTileFromQuery() {
     setIsLoading(true);
@@ -658,6 +710,121 @@ export default function App() {
     setSelectedChartPartId("all");
   }
 
+  function deleteSelectedItem() {
+    if (!selectedTile && !selectedElement) return;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: selectedTile ? page.tiles.filter((tile) => tile.id !== selectedTile.id) : page.tiles,
+              elements: selectedElement ? page.elements.filter((element) => element.id !== selectedElement.id) : page.elements
+            }
+          : page
+      )
+    }));
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+  }
+
+  function duplicateSelectedItem() {
+    if (selectedTile) {
+      const duplicate: DashboardTile = {
+        ...selectedTile,
+        id: makeTileId(),
+        title: `${selectedTile.title} copy`,
+        layout: {
+          ...selectedTile.layout,
+          x: selectedTile.layout.x + 24,
+          y: selectedTile.layout.y + 24,
+          zIndex: nextZIndex(activePage)
+        },
+        appearance: {
+          ...selectedTile.appearance,
+          palette: [...selectedTile.appearance.palette],
+          barStyles: { ...selectedTile.appearance.barStyles }
+        }
+      };
+
+      setDashboard((current) => ({
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, duplicate] } : page))
+      }));
+      setSelectedTileId(duplicate.id);
+      setSelectedElementId(null);
+      setSelectedChartPartId("all");
+      return;
+    }
+
+    if (selectedElement) {
+      const duplicate: DashboardCanvasElement = {
+        ...selectedElement,
+        id: makeElementId(),
+        layout: {
+          ...selectedElement.layout,
+          x: selectedElement.layout.x + 24,
+          y: selectedElement.layout.y + 24,
+          zIndex: nextZIndex(activePage)
+        },
+        style: { ...selectedElement.style }
+      };
+
+      setDashboard((current) => ({
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, duplicate] } : page))
+      }));
+      setSelectedElementId(duplicate.id);
+      setSelectedTileId(null);
+      setSelectedChartPartId("all");
+    }
+  }
+
+  function resetDashboard() {
+    setDashboard(initialDashboard);
+    setActivePageId("page_overview");
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isEditingText = target?.tagName === "INPUT" || target?.tagName === "SELECT" || target?.tagName === "TEXTAREA";
+
+      if (isEditingText) return;
+
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        deleteSelectedItem();
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        duplicateSelectedItem();
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      }
+
+      if ((event.metaKey || event.ctrlKey) && (event.key.toLowerCase() === "y" || (event.shiftKey && event.key.toLowerCase() === "z"))) {
+        event.preventDefault();
+        redo();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [dashboard, history, future, selectedTile, selectedElement, activePage]);
+
   return (
     <main className="builder-shell">
       <header className="builder-header">
@@ -666,6 +833,22 @@ export default function App() {
           <h1>{dashboard.title}</h1>
         </div>
         <div className="publish-controls">
+          <span className="save-state">{saveState}</span>
+          <button type="button" className="secondary" onClick={undo} disabled={history.length === 0}>
+            Undo
+          </button>
+          <button type="button" className="secondary" onClick={redo} disabled={future.length === 0}>
+            Redo
+          </button>
+          <button type="button" className="secondary" onClick={duplicateSelectedItem} disabled={!selectedTile && !selectedElement}>
+            Duplicate
+          </button>
+          <button type="button" className="secondary" onClick={deleteSelectedItem} disabled={!selectedTile && !selectedElement}>
+            Delete
+          </button>
+          <button type="button" className="secondary" onClick={resetDashboard}>
+            Reset
+          </button>
           <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
           <button type="button" onClick={() => setDashboard((current) => ({ ...current, status: current.status === "published" ? "draft" : "published" }))}>
             {dashboard.status === "published" ? "Unpublish" : "Publish"}
@@ -1039,17 +1222,7 @@ export default function App() {
               <button
                 type="button"
                 className="secondary"
-                onClick={() => {
-                  setDashboard((current) => ({
-                    ...current,
-                    status: "draft",
-                    pages: current.pages.map((page) =>
-                      page.id === activePage.id ? { ...page, elements: page.elements.filter((element) => element.id !== selectedElement.id) } : page
-                    )
-                  }));
-                  setSelectedElementId(null);
-                  setSelectedChartPartId("all");
-                }}
+                onClick={deleteSelectedItem}
               >
                 Remove element
               </button>
@@ -1255,18 +1428,7 @@ export default function App() {
               <button
                 type="button"
                 className="secondary"
-                onClick={() => {
-                  setDashboard((current) => ({
-                    ...current,
-                    status: "draft",
-                    pages: current.pages.map((page) =>
-                      page.id === activePage.id ? { ...page, tiles: page.tiles.filter((tile) => tile.id !== selectedTile.id) } : page
-                    )
-                  }));
-                  setSelectedTileId(null);
-                  setSelectedElementId(null);
-                  setSelectedChartPartId("all");
-                }}
+                onClick={deleteSelectedItem}
               >
                 Remove tile
               </button>
