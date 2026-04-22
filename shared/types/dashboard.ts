@@ -14,6 +14,28 @@ export interface TileAppearance {
   opacity: number;
   shadow: boolean;
   showGrid: boolean;
+  gridColor: string;
+  axisColor: string;
+  axisFontSize: number;
+  labelColor: string;
+  labelFontSize: number;
+  labelPosition: "top" | "insideTop" | "insideBottom" | "center";
+  labelOffset: number;
+  barRadius: number;
+  barGap: number;
+  barCategoryGap: number;
+  barSize: number;
+  barFillMode: "solid" | "gradient";
+  barGradientTo: string;
+  barStyles: Record<
+    string,
+    {
+      color: string;
+      fillMode: "solid" | "gradient";
+      gradientTo: string;
+      radius: number;
+    }
+  >;
   showValueLabels: boolean;
   showTable: boolean;
   showBases: boolean;

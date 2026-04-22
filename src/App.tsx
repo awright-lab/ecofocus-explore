@@ -52,6 +52,20 @@ const defaultAppearance: TileAppearance = {
   opacity: 100,
   shadow: false,
   showGrid: true,
+  gridColor: "#e6ebe4",
+  axisColor: "#69776e",
+  axisFontSize: 12,
+  labelColor: "#3f4f45",
+  labelFontSize: 12,
+  labelPosition: "top",
+  labelOffset: 8,
+  barRadius: 2,
+  barGap: 8,
+  barCategoryGap: 24,
+  barSize: 88,
+  barFillMode: "solid",
+  barGradientTo: "#9fc9a7",
+  barStyles: {},
   showValueLabels: true,
   showTable: true,
   showBases: true,
@@ -61,6 +75,19 @@ const defaultAppearance: TileAppearance = {
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
   return mode === "gradient" ? `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : solid;
+}
+
+function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
+  return {
+    color: appearance.barStyles[id]?.color ?? fallbackColor,
+    fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
+    gradientTo: appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
+    radius: appearance.barStyles[id]?.radius ?? appearance.barRadius
+  };
+}
+
+function gradientId(tileId: string, key: string) {
+  return `gradient_${tileId.replace(/[^a-zA-Z0-9]/g, "_")}_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
 }
 
 function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
@@ -99,16 +126,32 @@ function ValueLabel(props: {
   const width = Number(props.width ?? 0);
   const value = Number(props.value ?? 0);
   const annotation = payload && appearance.showAnnotations ? getAnnotation(result.annotations, payload.optionId, result.columns[0]?.id) : undefined;
+  const yOffset =
+    appearance.labelPosition === "insideBottom"
+      ? 18
+      : appearance.labelPosition === "insideTop"
+        ? 20
+        : appearance.labelPosition === "center"
+          ? 0
+          : -appearance.labelOffset;
+  const labelY = appearance.labelPosition === "center" ? y + 18 : y + yOffset;
 
   return (
-    <text x={x + width / 2} y={y - 8} textAnchor="middle" className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}>
+    <text
+      x={x + width / 2}
+      y={labelY}
+      textAnchor="middle"
+      className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}
+      style={{ fill: annotation ? undefined : appearance.labelColor, fontSize: appearance.labelFontSize }}
+    >
       {formatValue(value, result.metric.valueFormat)}
       {annotation ? (annotation.direction === "up" ? "↑" : "↓") : ""}
     </text>
   );
 }
 
-function VerticalBarChartView({ result, appearance }: { result: AnalyticsQueryResponse; appearance: TileAppearance }) {
+function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
   const column = result.columns[0];
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
@@ -120,20 +163,29 @@ function VerticalBarChartView({ result, appearance }: { result: AnalyticsQueryRe
   return (
     <div className="chart-card" aria-label="Query-driven vertical bar chart">
       <ResponsiveContainer width="100%" height={390}>
-        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 92 }}>
-          {appearance.showGrid && <CartesianGrid stroke="#e6ebe4" vertical={false} />}
-          <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={94} />
-          <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
+        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 92 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+          <defs>
+            {chartData.map((item, index) => {
+              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const style = getBarStyle(appearance, item.optionId, fallback);
+              return (
+                <linearGradient id={gradientId(tile.id, item.optionId)} key={item.optionId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={style.color} />
+                  <stop offset="100%" stopColor={style.gradientTo} />
+                </linearGradient>
+              );
+            })}
+          </defs>
+          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
+          <XAxis dataKey="label" interval={0} tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} height={94} />
+          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
-          <Bar dataKey="value" radius={[2, 2, 0, 0]}>
+          <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
             {chartData.map((item, index) => (
               <Cell
                 key={item.optionId}
-                fill={
-                  appearance.backgroundMode === "gradient"
-                    ? appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor
-                    : appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor
-                }
+                fill={getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, item.optionId)})` : getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+                {...({ radius: [getBarStyle(appearance, item.optionId, appearance.primaryColor).radius, getBarStyle(appearance, item.optionId, appearance.primaryColor).radius, 0, 0] } as Record<string, unknown>)}
               />
             ))}
             <LabelList content={(props) => <ValueLabel {...props} result={result} appearance={appearance} />} />
@@ -144,7 +196,8 @@ function VerticalBarChartView({ result, appearance }: { result: AnalyticsQueryRe
   );
 }
 
-function GroupedBarChartView({ result, appearance }: { result: AnalyticsQueryResponse; appearance: TileAppearance }) {
+function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
@@ -154,14 +207,33 @@ function GroupedBarChartView({ result, appearance }: { result: AnalyticsQueryRes
   return (
     <div className="chart-card" aria-label="Query-driven grouped bar chart">
       <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 84 }}>
-          {appearance.showGrid && <CartesianGrid stroke="#e6ebe4" vertical={false} />}
-          <XAxis dataKey="label" interval={0} tick={{ fill: "#526157", fontSize: 12 }} tickLine={false} height={88} />
-          <YAxis tick={{ fill: "#69776e", fontSize: 12 }} tickLine={false} axisLine={false} />
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 84 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+          <defs>
+            {result.columns.map((column, index) => {
+              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const style = getBarStyle(appearance, column.id, fallback);
+              return (
+                <linearGradient id={gradientId(tile.id, column.id)} key={column.id} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={style.color} />
+                  <stop offset="100%" stopColor={style.gradientTo} />
+                </linearGradient>
+              );
+            })}
+          </defs>
+          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
+          <XAxis dataKey="label" interval={0} tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} height={88} />
+          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
-            <Bar key={column.id} dataKey={column.id} name={column.label} fill={appearance.palette[index % appearance.palette.length]} radius={[2, 2, 0, 0]} />
+            <Bar
+              key={column.id}
+              dataKey={column.id}
+              name={column.label}
+              fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, column.id)})` : getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+              radius={[getBarStyle(appearance, column.id, appearance.primaryColor).radius, getBarStyle(appearance, column.id, appearance.primaryColor).radius, 0, 0]}
+              barSize={appearance.barSize}
+            />
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -170,8 +242,8 @@ function GroupedBarChartView({ result, appearance }: { result: AnalyticsQueryRes
 }
 
 function ChartView({ tile }: { tile: DashboardTile }) {
-  if (tile.visualization === "vertical_bar") return <VerticalBarChartView result={tile.result} appearance={tile.appearance} />;
-  if (tile.visualization === "grouped_bar") return <GroupedBarChartView result={tile.result} appearance={tile.appearance} />;
+  if (tile.visualization === "vertical_bar") return <VerticalBarChartView tile={tile} />;
+  if (tile.visualization === "grouped_bar") return <GroupedBarChartView tile={tile} />;
   return null;
 }
 
@@ -345,6 +417,7 @@ export default function App() {
   const [activePageId, setActivePageId] = useState("page_overview");
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
@@ -367,6 +440,11 @@ export default function App() {
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
   const activeChartType = viewMode === "table" ? "table" : chartType;
+  const chartStyleTargets =
+    selectedTile?.visualization === "vertical_bar"
+      ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
+      : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [];
+  const selectedChartPart = selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null;
 
   const query: AnalyticsQueryRequest = {
     dataset: defaultDataset.id,
@@ -401,6 +479,7 @@ export default function App() {
       }));
       setSelectedTileId(tile.id);
       setSelectedElementId(null);
+      setSelectedChartPartId("all");
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
     } finally {
@@ -521,11 +600,27 @@ export default function App() {
     }));
     setSelectedElementId(element.id);
     setSelectedTileId(null);
+    setSelectedChartPartId("all");
   }
 
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
     if (!selectedTile) return;
     updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
+  }
+
+  function updateSelectedBarStyle(updates: Partial<TileAppearance["barStyles"][string]>) {
+    if (!selectedTile || !selectedChartPart) return;
+
+    const fallback = getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor);
+    updateSelectedAppearance({
+      barStyles: {
+        ...selectedTile.appearance.barStyles,
+        [selectedChartPart.id]: {
+          ...fallback,
+          ...updates
+        }
+      }
+    });
   }
 
   function updateActivePage(updates: Partial<DashboardPage>) {
@@ -549,6 +644,7 @@ export default function App() {
     setActivePageId(page.id);
     setSelectedTileId(null);
     setSelectedElementId(null);
+    setSelectedChartPartId("all");
   }
 
   function deleteActivePage() {
@@ -559,6 +655,7 @@ export default function App() {
     setActivePageId(remainingPages[0].id);
     setSelectedTileId(null);
     setSelectedElementId(null);
+    setSelectedChartPartId("all");
   }
 
   return (
@@ -591,6 +688,7 @@ export default function App() {
                   setActivePageId(page.id);
                   setSelectedTileId(null);
                   setSelectedElementId(null);
+                  setSelectedChartPartId("all");
                 }}
               >
                 <span>{page.order}</span>
@@ -735,6 +833,7 @@ export default function App() {
                 onDragStart={() => {
                   setSelectedElementId(element.id);
                   setSelectedTileId(null);
+                  setSelectedChartPartId("all");
                 }}
                 onDragStop={(_, data) => updateElementLayout(element.id, { x: data.x, y: data.y })}
                 onResizeStop={(_, __, ref, ___, position) =>
@@ -752,6 +851,7 @@ export default function App() {
                   onSelect={() => {
                     setSelectedElementId(element.id);
                     setSelectedTileId(null);
+                    setSelectedChartPartId("all");
                   }}
                 />
               </Rnd>
@@ -768,6 +868,7 @@ export default function App() {
                 onDragStart={() => {
                   setSelectedTileId(tile.id);
                   setSelectedElementId(null);
+                  setSelectedChartPartId("all");
                 }}
                 onDragStop={(_, data) => updateTileLayout(tile.id, { x: data.x, y: data.y })}
                 onResizeStop={(_, __, ref, ___, position) =>
@@ -785,6 +886,7 @@ export default function App() {
                   onSelect={() => {
                     setSelectedTileId(tile.id);
                     setSelectedElementId(null);
+                    setSelectedChartPartId("all");
                   }}
                 />
               </Rnd>
@@ -946,6 +1048,7 @@ export default function App() {
                     )
                   }));
                   setSelectedElementId(null);
+                  setSelectedChartPartId("all");
                 }}
               >
                 Remove element
@@ -987,6 +1090,120 @@ export default function App() {
                 Primary color
                 <input type="color" value={selectedTile.appearance.primaryColor} onChange={(event) => updateSelectedAppearance({ primaryColor: event.target.value, palette: [event.target.value, ...selectedTile.appearance.palette.slice(1)] })} />
               </label>
+              {selectedTile.visualization !== "table" && (
+                <>
+                  <div className="panel-title subtle">
+                    <h2>Chart Design</h2>
+                  </div>
+                  <label>
+                    Style target
+                    <select value={selectedChartPartId} onChange={(event) => setSelectedChartPartId(event.target.value)}>
+                      <option value="all">All bars</option>
+                      {chartStyleTargets.map((target) => (
+                        <option key={target.id} value={target.id}>
+                          {target.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Bar fill
+                    <select
+                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode}
+                      onChange={(event) =>
+                        selectedChartPart
+                          ? updateSelectedBarStyle({ fillMode: event.target.value as "solid" | "gradient" })
+                          : updateSelectedAppearance({ barFillMode: event.target.value as "solid" | "gradient" })
+                      }
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="gradient">Gradient</option>
+                    </select>
+                  </label>
+                  <label>
+                    Bar color
+                    <input
+                      type="color"
+                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
+                      onChange={(event) =>
+                        selectedChartPart
+                          ? updateSelectedBarStyle({ color: event.target.value })
+                          : updateSelectedAppearance({ primaryColor: event.target.value, palette: [event.target.value, ...selectedTile.appearance.palette.slice(1)] })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Bar gradient end
+                    <input
+                      type="color"
+                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo}
+                      onChange={(event) =>
+                        selectedChartPart ? updateSelectedBarStyle({ gradientTo: event.target.value }) : updateSelectedAppearance({ barGradientTo: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Bar roundness
+                    <input
+                      type="range"
+                      min="0"
+                      max="36"
+                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius}
+                      onChange={(event) =>
+                        selectedChartPart ? updateSelectedBarStyle({ radius: Number(event.target.value) }) : updateSelectedAppearance({ barRadius: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Bar width
+                    <input type="range" min="16" max="140" value={selectedTile.appearance.barSize} onChange={(event) => updateSelectedAppearance({ barSize: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Bar spacing
+                    <input type="range" min="0" max="48" value={selectedTile.appearance.barGap} onChange={(event) => updateSelectedAppearance({ barGap: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Group spacing
+                    <input type="range" min="0" max="64" value={selectedTile.appearance.barCategoryGap} onChange={(event) => updateSelectedAppearance({ barCategoryGap: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Label position
+                    <select value={selectedTile.appearance.labelPosition} onChange={(event) => updateSelectedAppearance({ labelPosition: event.target.value as TileAppearance["labelPosition"] })}>
+                      <option value="top">Top</option>
+                      <option value="insideTop">Inside top</option>
+                      <option value="insideBottom">Inside bottom</option>
+                      <option value="center">Center</option>
+                    </select>
+                  </label>
+                  <label>
+                    Label color
+                    <input type="color" value={selectedTile.appearance.labelColor} onChange={(event) => updateSelectedAppearance({ labelColor: event.target.value })} />
+                  </label>
+                  <label>
+                    Label size
+                    <input type="range" min="9" max="28" value={selectedTile.appearance.labelFontSize} onChange={(event) => updateSelectedAppearance({ labelFontSize: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Label offset
+                    <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis color
+                    <input type="color" value={selectedTile.appearance.axisColor} onChange={(event) => updateSelectedAppearance({ axisColor: event.target.value })} />
+                  </label>
+                  <label>
+                    Axis text size
+                    <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Grid color
+                    <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />
+                  </label>
+                </>
+              )}
+              <div className="panel-title subtle">
+                <h2>Container</h2>
+              </div>
               <label>
                 Background style
                 <select
@@ -1048,6 +1265,7 @@ export default function App() {
                   }));
                   setSelectedTileId(null);
                   setSelectedElementId(null);
+                  setSelectedChartPartId("all");
                 }}
               >
                 Remove tile

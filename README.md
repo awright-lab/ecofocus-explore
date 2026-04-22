@@ -214,6 +214,12 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add layer ordering controls for moving selected items forward/backward or to front/back.
 - Add chart tile styling controls for palette, background, borders, shadows, labels, bases, notes, annotations, and grid lines.
 
+### Phase 7E - Advanced Chart Styling
+
+- Add chart-level controls for bar fill mode, gradients, bar width, spacing, roundness, label position, label offset, label color, label size, axis color, axis size, and grid color.
+- Add per-bar/per-series style targets so individual bars or grouped chart series can have custom colors, gradients, and roundness.
+- Keep chart styling metadata on the tile so dashboards can preserve design decisions separately from analytics queries.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.
