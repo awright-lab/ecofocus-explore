@@ -165,11 +165,11 @@ h2 {
 .panel {
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
   overflow: auto;
   border-right: 1px solid #e4e7ed;
-  padding: 14px 16px;
+  padding: 12px 14px;
   position: relative;
 }
 
@@ -213,7 +213,11 @@ h2 {
 
 .panel-title {
   border-bottom: 1px solid #edf0ea;
-  padding-bottom: 8px;
+  padding-bottom: 7px;
+}
+
+.panel-title h2 {
+  font-size: 0.9rem;
 }
 
 .panel-title.with-action {
@@ -229,7 +233,7 @@ h2 {
 
 .page-list {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .layers-list {
@@ -289,26 +293,28 @@ h2 {
 
 .page-tab {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 7px;
   align-items: center;
-  min-height: 38px;
+  min-height: 32px;
   border: 1px solid #e1e5ec;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #ffffff;
   color: #405045;
+  padding: 0 9px;
+  font-size: 0.78rem;
   text-align: left;
 }
 
 .page-tab span {
   display: inline-grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
   border-radius: 999px;
   background: #edf4ea;
   color: #385242;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 900;
 }
 
@@ -405,18 +411,18 @@ h2 {
 
 .zoom-control {
   border: 1px solid #dfe3ea;
-  border-radius: 999px;
-  padding: 3px 5px;
+  border-radius: 10px;
+  padding: 3px 6px;
   background: #ffffff;
   box-shadow: 0 8px 18px rgba(34, 42, 54, 0.06);
 }
 
 .zoom-control input {
-  width: 118px;
+  width: 104px;
 }
 
 .zoom-control strong {
-  min-width: 36px;
+  min-width: 34px;
   color: #405045;
   font-size: 0.74rem;
   text-align: right;
@@ -575,19 +581,24 @@ button:disabled {
 
 .settings-menu {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .menu-card {
   display: grid;
-  gap: 4px;
-  min-height: 64px;
+  gap: 2px;
+  min-height: 48px;
   border: 1px solid #e0e5ec;
-  border-radius: 12px;
+  border-radius: 9px;
   background: #ffffff;
   color: #1f3026;
-  padding: 10px;
+  padding: 8px 10px;
+  font-size: 0.86rem;
   text-align: left;
+}
+
+.menu-card strong {
+  font-size: 0.9rem;
 }
 
 .menu-card:hover:not(:disabled) {
@@ -597,7 +608,7 @@ button:disabled {
 
 .menu-card span {
   color: #66736a;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.25;
 }
