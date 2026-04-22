@@ -21,7 +21,14 @@ Vite + Netlify Functions is intentionally lighter than Next.js for this internal
 ├── netlify/
 │   └── functions/
 │       └── analytics-query.ts
+├── docs/
+│   └── snowflake-readiness.md
 ├── shared/
+│   ├── analytics/
+│   │   ├── providers/
+│   │   ├── queryPlan.ts
+│   │   ├── runAnalyticsQuery.ts
+│   │   └── validation.ts
 │   ├── metadata/
 │   │   └── ecofocus2025.ts
 │   ├── mock/
@@ -156,10 +163,12 @@ Current Phase 4 scope includes a saved multi-binary variable set example for `Q1
 
 ### Phase 5 - Snowflake Readiness
 
-- Add a provider interface for analytics queries.
-- Implement a read-only Snowflake provider behind the existing endpoint.
-- Keep SQL generation server-side and metadata-aware.
-- Add guardrails for allowed datasets, questions, filters, and metrics.
+- Add a provider interface for analytics queries. Initial provider boundary complete.
+- Implement a read-only Snowflake provider behind the existing endpoint. Stub provider added; real execution intentionally not wired yet.
+- Keep SQL generation server-side and metadata-aware. Initial provider-neutral query plan added.
+- Add guardrails for allowed datasets, questions, filters, and metrics. Validation now lives in shared analytics code.
+
+See `docs/snowflake-readiness.md` for the expected Snowflake shape and next integration steps.
 
 ### Phase 6 - Documentation + Next Steps
 
