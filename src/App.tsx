@@ -55,6 +55,15 @@ const defaultAppearance: TileAppearance = {
   gridColor: "#e6ebe4",
   axisColor: "#69776e",
   axisFontSize: 12,
+  axisLabelAlign: "middle",
+  axisLabelDx: 0,
+  axisLabelDy: 12,
+  axisLabelRotation: 0,
+  axisLabelWrap: true,
+  axisLabelWidth: 16,
+  axisLabelMaxLines: 3,
+  axisHeight: 112,
+  axisLabelOverrides: {},
   labelColor: "#3f4f45",
   labelFontSize: 12,
   labelPosition: "top",
@@ -168,6 +177,59 @@ function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["va
   return format === "percent" ? `${value}%` : value.toLocaleString();
 }
 
+function wrapWords(value: string, maxChars: number, maxLines: number) {
+  const manualLines = value.split("\n");
+  const wrappedLines = manualLines.flatMap((line) => {
+    const words = line.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let currentLine = "";
+
+    words.forEach((word) => {
+      const nextLine = currentLine ? `${currentLine} ${word}` : word;
+      if (nextLine.length > maxChars && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = nextLine;
+      }
+    });
+
+    if (currentLine) lines.push(currentLine);
+    return lines.length > 0 ? lines : [line];
+  });
+
+  const limitedLines = wrappedLines.slice(0, maxLines);
+  if (wrappedLines.length > maxLines && limitedLines.length > 0) {
+    limitedLines[limitedLines.length - 1] = `${limitedLines[limitedLines.length - 1].replace(/\.+$/, "")}...`;
+  }
+  return limitedLines;
+}
+
+function getAxisLabel(appearance: TileAppearance, id: string, fallback: string) {
+  return appearance.axisLabelOverrides[id] ?? fallback;
+}
+
+function AxisTick(props: { x?: string | number; y?: string | number; payload?: { value: string }; appearance: TileAppearance }) {
+  const { payload, appearance } = props;
+  const x = Number(props.x ?? 0);
+  const y = Number(props.y ?? 0);
+  const label = payload?.value ?? "";
+  const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
+  const textAnchor = appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
+
+  return (
+    <g transform={`translate(${x + appearance.axisLabelDx},${y + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}>
+      <text fill={appearance.axisColor} fontSize={appearance.axisFontSize} textAnchor={textAnchor}>
+        {lines.map((line, index) => (
+          <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? 0 : appearance.axisFontSize + 3}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+}
+
 function getAnnotation(annotations: AnalyticsAnnotation[], rowId: string, columnId: string) {
   return annotations.find((annotation) => annotation.rowId === rowId && annotation.columnId === columnId);
 }
@@ -230,6 +292,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
+    axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: row.values[column.id],
     base: row.bases[column.id]
   }));
@@ -237,7 +300,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
   return (
     <div className="chart-card" aria-label="Query-driven vertical bar chart">
       <ResponsiveContainer width="100%" height={390}>
-        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 92 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {chartData.map((item, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
@@ -251,7 +314,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
-          <XAxis dataKey="label" interval={0} tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} height={94} />
+          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
@@ -275,13 +338,14 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
+    axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     ...row.values
   }));
 
   return (
     <div className="chart-card" aria-label="Query-driven grouped bar chart">
       <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 84 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {result.columns.map((column, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
@@ -295,7 +359,7 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
-          <XAxis dataKey="label" interval={0} tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} height={88} />
+          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
@@ -369,23 +433,25 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
       }}
       onClick={onSelect}
     >
-      <div className="tile-header">
+      <div className="tile-header tile-drag-handle">
         <div>
           <p className="eyebrow">{result.metadataRefs.question}</p>
           <h2>{tile.title}</h2>
         </div>
         <code>{tile.visualization}</code>
       </div>
-      {tile.visualization === "table" ? <ResultsTable result={result} appearance={tile.appearance} /> : <ChartView tile={tile} />}
-      {tile.appearance.showTable && tile.visualization !== "table" && <ResultsTable result={result} appearance={tile.appearance} />}
-      <div className="footnote">{result.weighting.applied ? result.weighting.label : "Unweighted"} · {result.metric.label}</div>
-      {tile.appearance.showNotes && (
-        <div className="notes">
-          {result.notes.map((note) => (
-            <p key={note}>{note}</p>
-          ))}
-        </div>
-      )}
+      <div className="tile-scroll-area">
+        {tile.visualization === "table" ? <ResultsTable result={result} appearance={tile.appearance} /> : <ChartView tile={tile} />}
+        {tile.appearance.showTable && tile.visualization !== "table" && <ResultsTable result={result} appearance={tile.appearance} />}
+        <div className="footnote">{result.weighting.applied ? result.weighting.label : "Unweighted"} · {result.metric.label}</div>
+        {tile.appearance.showNotes && (
+          <div className="notes">
+            {result.notes.map((note) => (
+              <p key={note}>{note}</p>
+            ))}
+          </div>
+        )}
+      </div>
     </article>
   );
 }
@@ -507,7 +573,14 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
         ...tile,
         name: tile.name ?? tile.title,
         locked: tile.locked ?? false,
-        hidden: tile.hidden ?? false
+        hidden: tile.hidden ?? false,
+        appearance: {
+          ...defaultAppearance,
+          ...tile.appearance,
+          palette: tile.appearance?.palette ?? [...defaultAppearance.palette],
+          barStyles: tile.appearance?.barStyles ?? {},
+          axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {}
+        }
       }))
     }))
   };
@@ -856,6 +929,36 @@ export default function App() {
     });
   }
 
+  function updateSelectedAxisLabel(value: string) {
+    if (!selectedTile || !selectedChartPart) return;
+
+    updateSelectedAppearance({
+      axisLabelOverrides: {
+        ...selectedTile.appearance.axisLabelOverrides,
+        [selectedChartPart.id]: value
+      }
+    });
+  }
+
+  function exportDashboardSpec() {
+    const exportSpec = {
+      exportType: "powerpoint-ready-dashboard-spec",
+      generatedAt: new Date().toISOString(),
+      canvas: {
+        width: canvasWidth,
+        height: canvasHeight
+      },
+      dashboard
+    };
+    const blob = new Blob([JSON.stringify(exportSpec, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${dashboard.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "ecofocus-dashboard"}-ppt-spec.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function updateActivePage(updates: Partial<DashboardPage>) {
     setDashboard((current) => ({
       ...current,
@@ -1063,6 +1166,9 @@ export default function App() {
           </button>
           <button type="button" className="secondary" onClick={resetDashboard}>
             Reset
+          </button>
+          <button type="button" className="secondary" onClick={exportDashboardSpec}>
+            Export spec
           </button>
           <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
           <button type="button" onClick={() => setDashboard((current) => ({ ...current, status: current.status === "published" ? "draft" : "published" }))}>
@@ -1359,6 +1465,7 @@ export default function App() {
                     key={tile.id}
                     bounds="parent"
                     scale={canvasScale}
+                    dragHandleClassName="tile-drag-handle"
                     minWidth={320}
                     minHeight={220}
                     size={{ width: tile.layout.width, height: tile.layout.height }}
@@ -1943,6 +2050,51 @@ export default function App() {
                     Axis text size
                     <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
                   </label>
+                  {selectedChartPart && (
+                    <label>
+                      Axis label text
+                      <textarea
+                        value={getAxisLabel(selectedTile.appearance, selectedChartPart.id, selectedChartPart.label)}
+                        onChange={(event) => updateSelectedAxisLabel(event.target.value)}
+                      />
+                      <span>Use line breaks here to force label wrapping for the selected bar.</span>
+                    </label>
+                  )}
+                  <label>
+                    Axis label width
+                    <input type="range" min="8" max="36" value={selectedTile.appearance.axisLabelWidth} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis max lines
+                    <input type="range" min="1" max="6" value={selectedTile.appearance.axisLabelMaxLines} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis label height
+                    <input type="range" min="40" max="220" value={selectedTile.appearance.axisHeight} onChange={(event) => updateSelectedAppearance({ axisHeight: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis label X
+                    <input type="range" min="-80" max="80" value={selectedTile.appearance.axisLabelDx} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis label Y
+                    <input type="range" min="-20" max="80" value={selectedTile.appearance.axisLabelDy} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis rotation
+                    <input type="range" min="-65" max="65" value={selectedTile.appearance.axisLabelRotation} onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Number(event.target.value) })} />
+                  </label>
+                  <label>
+                    Axis alignment
+                    <select value={selectedTile.appearance.axisLabelAlign} onChange={(event) => updateSelectedAppearance({ axisLabelAlign: event.target.value as TileAppearance["axisLabelAlign"] })}>
+                      <option value="start">Left</option>
+                      <option value="middle">Center</option>
+                      <option value="end">Right</option>
+                    </select>
+                  </label>
+                  <div className="toggle-list">
+                    <label><input type="checkbox" checked={selectedTile.appearance.axisLabelWrap} onChange={(event) => updateSelectedAppearance({ axisLabelWrap: event.target.checked })} /> Wrap axis labels</label>
+                  </div>
                   <label>
                     Grid color
                     <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />

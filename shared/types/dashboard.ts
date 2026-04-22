@@ -17,6 +17,15 @@ export interface TileAppearance {
   gridColor: string;
   axisColor: string;
   axisFontSize: number;
+  axisLabelAlign: "start" | "middle" | "end";
+  axisLabelDx: number;
+  axisLabelDy: number;
+  axisLabelRotation: number;
+  axisLabelWrap: boolean;
+  axisLabelWidth: number;
+  axisLabelMaxLines: number;
+  axisHeight: number;
+  axisLabelOverrides: Record<string, string>;
   labelColor: string;
   labelFontSize: number;
   labelPosition: "top" | "insideTop" | "insideBottom" | "center";

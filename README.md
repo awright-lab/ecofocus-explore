@@ -267,6 +267,13 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Add a bottom page strip for fast page switching and page creation.
 - Keep overflow inside drawers and the canvas stage instead of scrolling the whole app.
 
+### Phase 8G - Chart Labels, Tile Scroll, And Export Readiness
+
+- Add chart axis label wrapping controls, label height, horizontal/vertical label offsets, rotation, and alignment.
+- Add per-bar axis label text overrides with manual line breaks for cleaner chart exports.
+- Make chart tiles draggable from their header while keeping tile contents scrollable.
+- Add an export spec download that preserves page, canvas, query, and styling metadata as a bridge toward real PowerPoint export.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.
