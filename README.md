@@ -76,6 +76,12 @@ For frontend-only work, you can also run:
 npm run dev:vite
 ```
 
+Run backend contract tests:
+
+```bash
+npm test
+```
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` when real integration work begins.
@@ -167,6 +173,7 @@ Current Phase 4 scope includes a saved multi-binary variable set example for `Q1
 - Implement a read-only Snowflake provider behind the existing endpoint. Stub provider added; real execution intentionally not wired yet.
 - Keep SQL generation server-side and metadata-aware. Initial provider-neutral query plan added.
 - Add guardrails for allowed datasets, questions, filters, and metrics. Validation now lives in shared analytics code.
+- Add backend confidence tests. Initial Vitest coverage added for validation, provider selection, query planning, and Q15 mock output.
 
 See `docs/snowflake-readiness.md` for the expected Snowflake shape and next integration steps.
 
