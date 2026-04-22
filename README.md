@@ -192,6 +192,13 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Allow tile-level display customization for title, visualization, palette, labels, table, bases, notes, and annotations.
 - Add draft/published status toggle as a mock publishing workflow.
 
+### Phase 7B - Multi-Page Dashboard Builder
+
+- Add dashboard pages with their own ordered tile lists. Initial in-memory page model complete.
+- Add page navigation, active page selection, new page, rename page, and delete page.
+- Make tile creation and tile settings operate on the active page.
+- Keep publishing at the dashboard level across all pages.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.

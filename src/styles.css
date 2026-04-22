@@ -110,11 +110,69 @@ h2 {
   padding-bottom: 10px;
 }
 
+.panel-title.subtle {
+  margin-top: 4px;
+}
+
+.page-list {
+  display: grid;
+  gap: 6px;
+}
+
+.page-tab {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid #dfe6dc;
+  background: #fbfcfa;
+  color: #405045;
+  text-align: left;
+}
+
+.page-tab span {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #edf4ea;
+  color: #385242;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.page-tab.active {
+  border-color: #275d3b;
+  background: #edf7ef;
+  color: #183723;
+}
+
 .canvas {
   display: grid;
   gap: 16px;
+  align-content: start;
   min-height: calc(100vh - 96px);
   padding: 18px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  border-bottom: 1px solid #edf0ea;
+  padding-bottom: 14px;
+}
+
+.page-header span {
+  border-radius: 999px;
+  background: #f0f4ee;
+  color: #536259;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 label {
@@ -368,7 +426,8 @@ td span {
   }
 
   .builder-header,
-  .tile-header {
+  .tile-header,
+  .page-header {
     display: grid;
   }
 

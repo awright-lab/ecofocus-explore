@@ -24,7 +24,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { DashboardDraft, DashboardTile, TileAppearance } from "../shared/types/dashboard";
+import type { DashboardDraft, DashboardPage, DashboardTile, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -217,13 +217,25 @@ function makeTileId() {
   return `tile_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function makePageId() {
+  return `page_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardDraft>({
     id: "internal_mvp",
     title: "2025 EcoFocus Builder Draft",
     status: "draft",
-    tiles: []
+    pages: [
+      {
+        id: "page_overview",
+        title: "Overview",
+        order: 1,
+        tiles: []
+      }
+    ]
   });
+  const [activePageId, setActivePageId] = useState("page_overview");
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
@@ -240,7 +252,9 @@ export default function App() {
     return defaultDataset.questions.find((item) => item.id === question) ?? defaultQuestion;
   }, [question]);
 
-  const selectedTile = dashboard.tiles.find((tile) => tile.id === selectedTileId) ?? null;
+  const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
+  const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
+  const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
   const activeChartType = viewMode === "table" ? "table" : chartType;
@@ -270,7 +284,11 @@ export default function App() {
         result: response
       };
 
-      setDashboard((current) => ({ ...current, status: "draft", tiles: [...current.tiles, tile] }));
+      setDashboard((current) => ({
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
+      }));
       setSelectedTileId(tile.id);
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
@@ -285,13 +303,50 @@ export default function App() {
     setDashboard((current) => ({
       ...current,
       status: "draft",
-      tiles: current.tiles.map((tile) => (tile.id === selectedTileId ? { ...tile, ...updates } : tile))
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) => (tile.id === selectedTileId ? { ...tile, ...updates } : tile))
+            }
+          : page
+      )
     }));
   }
 
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
     if (!selectedTile) return;
     updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
+  }
+
+  function updateActivePage(updates: Partial<DashboardPage>) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, ...updates } : page))
+    }));
+  }
+
+  function addPage() {
+    const page: DashboardPage = {
+      id: makePageId(),
+      title: `Page ${dashboard.pages.length + 1}`,
+      order: dashboard.pages.length + 1,
+      tiles: []
+    };
+
+    setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
+    setActivePageId(page.id);
+    setSelectedTileId(null);
+  }
+
+  function deleteActivePage() {
+    if (dashboard.pages.length <= 1) return;
+
+    const remainingPages = sortedPages.filter((page) => page.id !== activePage.id).map((page, index) => ({ ...page, order: index + 1 }));
+    setDashboard((current) => ({ ...current, status: "draft", pages: remainingPages }));
+    setActivePageId(remainingPages[0].id);
+    setSelectedTileId(null);
   }
 
   return (
@@ -311,6 +366,29 @@ export default function App() {
 
       <section className="builder-workspace">
         <aside className="panel controls" aria-label="Data controls">
+          <div className="panel-title">
+            <h2>Pages</h2>
+          </div>
+          <div className="page-list">
+            {sortedPages.map((page) => (
+              <button
+                type="button"
+                key={page.id}
+                className={page.id === activePage.id ? "page-tab active" : "page-tab"}
+                onClick={() => {
+                  setActivePageId(page.id);
+                  setSelectedTileId(null);
+                }}
+              >
+                <span>{page.order}</span>
+                {page.title}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="secondary" onClick={addPage}>
+            New page
+          </button>
+
           <div className="panel-title">
             <h2>Data</h2>
           </div>
@@ -413,10 +491,17 @@ export default function App() {
         </aside>
 
         <section className="canvas" aria-label="Dashboard canvas">
-          {dashboard.tiles.length === 0 ? (
-            <div className="empty-state">Add a tile to start building this dashboard.</div>
+          <div className="page-header">
+            <div>
+              <p className="eyebrow">Page {activePage.order}</p>
+              <h2>{activePage.title}</h2>
+            </div>
+            <span>{activePage.tiles.length} tile{activePage.tiles.length === 1 ? "" : "s"}</span>
+          </div>
+          {activePage.tiles.length === 0 ? (
+            <div className="empty-state">Add a tile to start building this page.</div>
           ) : (
-            dashboard.tiles.map((tile) => (
+            activePage.tiles.map((tile) => (
               <TileRenderer key={tile.id} tile={tile} selected={tile.id === selectedTileId} onSelect={() => setSelectedTileId(tile.id)} />
             ))
           )}
@@ -425,6 +510,16 @@ export default function App() {
         <aside className="panel settings" aria-label="Tile settings">
           <div className="panel-title">
             <h2>Settings</h2>
+          </div>
+          <label>
+            Page title
+            <input value={activePage.title} onChange={(event) => updateActivePage({ title: event.target.value })} />
+          </label>
+          <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
+            Delete page
+          </button>
+          <div className="panel-title subtle">
+            <h2>Tile</h2>
           </div>
           {!selectedTile ? (
             <div className="empty-state compact">Select a tile to edit its display.</div>
@@ -473,7 +568,13 @@ export default function App() {
                 type="button"
                 className="secondary"
                 onClick={() => {
-                  setDashboard((current) => ({ ...current, status: "draft", tiles: current.tiles.filter((tile) => tile.id !== selectedTile.id) }));
+                  setDashboard((current) => ({
+                    ...current,
+                    status: "draft",
+                    pages: current.pages.map((page) =>
+                      page.id === activePage.id ? { ...page, tiles: page.tiles.filter((tile) => tile.id !== selectedTile.id) } : page
+                    )
+                  }));
                   setSelectedTileId(null);
                 }}
               >

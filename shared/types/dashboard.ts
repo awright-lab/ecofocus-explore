@@ -21,9 +21,16 @@ export interface DashboardTile {
   result: AnalyticsQueryResponse;
 }
 
+export interface DashboardPage {
+  id: string;
+  title: string;
+  order: number;
+  tiles: DashboardTile[];
+}
+
 export interface DashboardDraft {
   id: string;
   title: string;
   status: DashboardStatus;
-  tiles: DashboardTile[];
+  pages: DashboardPage[];
 }
