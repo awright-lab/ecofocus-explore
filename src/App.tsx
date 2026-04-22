@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Rnd } from "react-rnd";
 import {
   Bar,
   BarChart,
@@ -24,7 +25,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { DashboardDraft, DashboardPage, DashboardTile, TileAppearance } from "../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -213,12 +214,60 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
   );
 }
 
+function CanvasElementRenderer({
+  element,
+  selected,
+  onSelect
+}: {
+  element: DashboardCanvasElement;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  if (element.type === "image") {
+    return (
+      <div className={selected ? "canvas-element selected" : "canvas-element"} onClick={onSelect}>
+        {element.content ? <img src={element.content} alt="" /> : <div className="image-placeholder">Image URL</div>}
+      </div>
+    );
+  }
+
+  if (element.type === "text") {
+    return (
+      <div
+        className={selected ? "canvas-element text-element selected" : "canvas-element text-element"}
+        style={{ color: element.style.textColor, fontSize: element.style.fontSize }}
+        onClick={onSelect}
+      >
+        {element.content}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={selected ? `canvas-element shape-element ${element.type} selected` : `canvas-element shape-element ${element.type}`}
+      style={{ background: element.style.fill, borderColor: element.style.borderColor }}
+      onClick={onSelect}
+    />
+  );
+}
+
 function makeTileId() {
   return `tile_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function makeElementId() {
+  return `element_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
 function makePageId() {
   return `page_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function nextZIndex(page: DashboardPage) {
+  const tileZ = page.tiles.map((tile) => tile.layout.zIndex);
+  const elementZ = page.elements.map((element) => element.layout.zIndex);
+  return Math.max(0, ...tileZ, ...elementZ) + 1;
 }
 
 export default function App() {
@@ -231,12 +280,14 @@ export default function App() {
         id: "page_overview",
         title: "Overview",
         order: 1,
+        elements: [],
         tiles: []
       }
     ]
   });
   const [activePageId, setActivePageId] = useState("page_overview");
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
@@ -255,6 +306,7 @@ export default function App() {
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
+  const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
   const activeChartType = viewMode === "table" ? "table" : chartType;
@@ -278,6 +330,7 @@ export default function App() {
       const tile: DashboardTile = {
         id: makeTileId(),
         title: selectedQuestion.shortLabel,
+        layout: { x: 48, y: 72 + activePage.tiles.length * 28, width: 760, height: activeChartType === "table" ? 360 : 560, zIndex: nextZIndex(activePage) },
         query,
         visualization: activeChartType,
         appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
@@ -290,6 +343,7 @@ export default function App() {
         pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
       }));
       setSelectedTileId(tile.id);
+      setSelectedElementId(null);
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
     } finally {
@@ -314,6 +368,76 @@ export default function App() {
     }));
   }
 
+  function updateTileLayout(tileId: string, layout: Partial<CanvasLayout>) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) => (tile.id === tileId ? { ...tile, layout: { ...tile.layout, ...layout } } : tile))
+            }
+          : page
+      )
+    }));
+  }
+
+  function updateSelectedElement(updates: Partial<DashboardCanvasElement>) {
+    if (!selectedElementId) return;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              elements: page.elements.map((element) => (element.id === selectedElementId ? { ...element, ...updates } : element))
+            }
+          : page
+      )
+    }));
+  }
+
+  function updateElementLayout(elementId: string, layout: Partial<CanvasLayout>) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              elements: page.elements.map((element) => (element.id === elementId ? { ...element, layout: { ...element.layout, ...layout } } : element))
+            }
+          : page
+      )
+    }));
+  }
+
+  function addCanvasElement(type: DashboardCanvasElementType) {
+    const element: DashboardCanvasElement = {
+      id: makeElementId(),
+      type,
+      layout: { x: 64, y: 64, width: type === "text" ? 280 : 220, height: type === "text" ? 80 : 160, zIndex: nextZIndex(activePage) },
+      content: type === "text" ? "Text box" : "",
+      style: {
+        fill: type === "circle" || type === "rectangle" ? "#dfeee2" : "transparent",
+        textColor: "#17211b",
+        borderColor: "#438757",
+        fontSize: 24
+      }
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, element] } : page))
+    }));
+    setSelectedElementId(element.id);
+    setSelectedTileId(null);
+  }
+
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
     if (!selectedTile) return;
     updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
@@ -332,12 +456,14 @@ export default function App() {
       id: makePageId(),
       title: `Page ${dashboard.pages.length + 1}`,
       order: dashboard.pages.length + 1,
+      elements: [],
       tiles: []
     };
 
     setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
     setActivePageId(page.id);
     setSelectedTileId(null);
+    setSelectedElementId(null);
   }
 
   function deleteActivePage() {
@@ -347,6 +473,7 @@ export default function App() {
     setDashboard((current) => ({ ...current, status: "draft", pages: remainingPages }));
     setActivePageId(remainingPages[0].id);
     setSelectedTileId(null);
+    setSelectedElementId(null);
   }
 
   return (
@@ -378,6 +505,7 @@ export default function App() {
                 onClick={() => {
                   setActivePageId(page.id);
                   setSelectedTileId(null);
+                  setSelectedElementId(null);
                 }}
               >
                 <span>{page.order}</span>
@@ -388,6 +516,16 @@ export default function App() {
           <button type="button" className="secondary" onClick={addPage}>
             New page
           </button>
+
+          <div className="panel-title">
+            <h2>Insert</h2>
+          </div>
+          <div className="insert-grid">
+            <button type="button" className="secondary" onClick={() => addCanvasElement("text")}>Text</button>
+            <button type="button" className="secondary" onClick={() => addCanvasElement("rectangle")}>Rectangle</button>
+            <button type="button" className="secondary" onClick={() => addCanvasElement("circle")}>Circle</button>
+            <button type="button" className="secondary" onClick={() => addCanvasElement("image")}>Image</button>
+          </div>
 
           <div className="panel-title">
             <h2>Data</h2>
@@ -496,15 +634,77 @@ export default function App() {
               <p className="eyebrow">Page {activePage.order}</p>
               <h2>{activePage.title}</h2>
             </div>
-            <span>{activePage.tiles.length} tile{activePage.tiles.length === 1 ? "" : "s"}</span>
+            <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
           </div>
-          {activePage.tiles.length === 0 ? (
-            <div className="empty-state">Add a tile to start building this page.</div>
-          ) : (
-            activePage.tiles.map((tile) => (
-              <TileRenderer key={tile.id} tile={tile} selected={tile.id === selectedTileId} onSelect={() => setSelectedTileId(tile.id)} />
-            ))
-          )}
+          <div className="freeform-canvas">
+            {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
+              <div className="empty-state">Add charts, tables, text, shapes, or images to start building this page.</div>
+            )}
+            {activePage.elements.map((element) => (
+              <Rnd
+                key={element.id}
+                bounds="parent"
+                size={{ width: element.layout.width, height: element.layout.height }}
+                position={{ x: element.layout.x, y: element.layout.y }}
+                style={{ zIndex: element.layout.zIndex }}
+                onDragStart={() => {
+                  setSelectedElementId(element.id);
+                  setSelectedTileId(null);
+                }}
+                onDragStop={(_, data) => updateElementLayout(element.id, { x: data.x, y: data.y })}
+                onResizeStop={(_, __, ref, ___, position) =>
+                  updateElementLayout(element.id, {
+                    width: ref.offsetWidth,
+                    height: ref.offsetHeight,
+                    x: position.x,
+                    y: position.y
+                  })
+                }
+              >
+                <CanvasElementRenderer
+                  element={element}
+                  selected={element.id === selectedElementId}
+                  onSelect={() => {
+                    setSelectedElementId(element.id);
+                    setSelectedTileId(null);
+                  }}
+                />
+              </Rnd>
+            ))}
+            {activePage.tiles.map((tile) => (
+              <Rnd
+                key={tile.id}
+                bounds="parent"
+                minWidth={320}
+                minHeight={220}
+                size={{ width: tile.layout.width, height: tile.layout.height }}
+                position={{ x: tile.layout.x, y: tile.layout.y }}
+                style={{ zIndex: tile.layout.zIndex }}
+                onDragStart={() => {
+                  setSelectedTileId(tile.id);
+                  setSelectedElementId(null);
+                }}
+                onDragStop={(_, data) => updateTileLayout(tile.id, { x: data.x, y: data.y })}
+                onResizeStop={(_, __, ref, ___, position) =>
+                  updateTileLayout(tile.id, {
+                    width: ref.offsetWidth,
+                    height: ref.offsetHeight,
+                    x: position.x,
+                    y: position.y
+                  })
+                }
+              >
+                <TileRenderer
+                  tile={tile}
+                  selected={tile.id === selectedTileId}
+                  onSelect={() => {
+                    setSelectedTileId(tile.id);
+                    setSelectedElementId(null);
+                  }}
+                />
+              </Rnd>
+            ))}
+          </div>
         </section>
 
         <aside className="panel settings" aria-label="Tile settings">
@@ -519,10 +719,77 @@ export default function App() {
             Delete page
           </button>
           <div className="panel-title subtle">
-            <h2>Tile</h2>
+            <h2>{selectedElement ? "Element" : "Tile"}</h2>
           </div>
-          {!selectedTile ? (
-            <div className="empty-state compact">Select a tile to edit its display.</div>
+          {selectedElement ? (
+            <>
+              {selectedElement.type !== "rectangle" && selectedElement.type !== "circle" && (
+                <label>
+                  {selectedElement.type === "image" ? "Image URL" : "Text"}
+                  <input value={selectedElement.content} onChange={(event) => updateSelectedElement({ content: event.target.value })} />
+                </label>
+              )}
+              {selectedElement.type === "text" && (
+                <>
+                  <label>
+                    Text color
+                    <input
+                      type="color"
+                      value={selectedElement.style.textColor}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, textColor: event.target.value } })}
+                    />
+                  </label>
+                  <label>
+                    Font size
+                    <input
+                      type="number"
+                      min="10"
+                      max="72"
+                      value={selectedElement.style.fontSize}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fontSize: Number(event.target.value) } })}
+                    />
+                  </label>
+                </>
+              )}
+              {(selectedElement.type === "rectangle" || selectedElement.type === "circle") && (
+                <>
+                  <label>
+                    Fill
+                    <input
+                      type="color"
+                      value={selectedElement.style.fill}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, fill: event.target.value } })}
+                    />
+                  </label>
+                  <label>
+                    Border
+                    <input
+                      type="color"
+                      value={selectedElement.style.borderColor}
+                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderColor: event.target.value } })}
+                    />
+                  </label>
+                </>
+              )}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setDashboard((current) => ({
+                    ...current,
+                    status: "draft",
+                    pages: current.pages.map((page) =>
+                      page.id === activePage.id ? { ...page, elements: page.elements.filter((element) => element.id !== selectedElement.id) } : page
+                    )
+                  }));
+                  setSelectedElementId(null);
+                }}
+              >
+                Remove element
+              </button>
+            </>
+          ) : !selectedTile ? (
+            <div className="empty-state compact">Select a canvas item to edit its display.</div>
           ) : (
             <>
               <label>
@@ -576,6 +843,7 @@ export default function App() {
                     )
                   }));
                   setSelectedTileId(null);
+                  setSelectedElementId(null);
                 }}
               >
                 Remove tile

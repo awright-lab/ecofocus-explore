@@ -199,6 +199,14 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Make tile creation and tile settings operate on the active page.
 - Keep publishing at the dashboard level across all pages.
 
+### Phase 7C - Freeform Canvas Builder
+
+- Add PowerPoint-style freeform page canvas with draggable and resizable elements.
+- Allow analytics tiles to be positioned anywhere on the page.
+- Add basic insert tools for text, rectangles, circles, and image URL elements.
+- Add element-level settings for text, image URL, fill, border, and font size.
+- Keep analytics tiles query-driven while allowing visual layout customization.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.
