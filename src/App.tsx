@@ -7,6 +7,10 @@ import {
   Cell,
   LabelList,
   Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -209,6 +213,18 @@ function getAxisLabel(appearance: TileAppearance, id: string, fallback: string) 
   return appearance.axisLabelOverrides[id] ?? fallback;
 }
 
+function getChartTypeLabel(chartType: ChartType) {
+  return defaultDataset.chartTypes.find((item) => item.id === chartType)?.label ?? chartType;
+}
+
+function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
+  const isSingleSeries = result.columns.length === 1;
+  const chartTypes: ChartType[] = isSingleSeries
+    ? ["vertical_bar", "horizontal_bar", "donut", "table"]
+    : ["grouped_bar", "stacked_bar", "line_chart", "table"];
+  return chartTypes.filter((chartType) => defaultDataset.chartTypes.some((item) => item.id === chartType));
+}
+
 function AxisTick(props: { x?: string | number; y?: string | number; payload?: { value: string }; appearance: TileAppearance }) {
   const { payload, appearance } = props;
   const x = Number(props.x ?? 0);
@@ -379,9 +395,165 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
   );
 }
 
+function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
+  const column = result.columns[0];
+  const chartData = result.table.map((row) => ({
+    optionId: row.optionId,
+    label: row.label,
+    axisLabel: getAxisLabel(appearance, row.optionId, row.label),
+    value: row.values[column.id],
+    base: row.bases[column.id]
+  }));
+
+  return (
+    <div className="chart-card" aria-label="Query-driven horizontal bar chart">
+      <ResponsiveContainer width="100%" height={420}>
+        <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 28, left: 170, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
+          <defs>
+            {chartData.map((item, index) => {
+              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const style = getBarStyle(appearance, item.optionId, fallback);
+              return (
+                <linearGradient id={gradientId(tile.id, item.optionId)} key={item.optionId} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={style.color} />
+                  <stop offset="100%" stopColor={style.gradientTo} />
+                </linearGradient>
+              );
+            })}
+          </defs>
+          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} horizontal={false} />}
+          <XAxis type="number" tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis type="category" dataKey="axisLabel" width={170} tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Bar dataKey="value" radius={[0, appearance.barRadius, appearance.barRadius, 0]} barSize={appearance.barSize}>
+            {chartData.map((item, index) => (
+              <Cell
+                key={item.optionId}
+                fill={getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, item.optionId)})` : getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+              />
+            ))}
+            <LabelList dataKey="value" position="right" formatter={(value: unknown) => formatValue(Number(value ?? 0), result.metric.valueFormat)} style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize, fontWeight: 800 }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function StackedBarChartView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
+  const chartData = result.table.map((row) => ({
+    optionId: row.optionId,
+    label: row.label,
+    axisLabel: getAxisLabel(appearance, row.optionId, row.label),
+    ...row.values
+  }));
+
+  return (
+    <div className="chart-card" aria-label="Query-driven stacked bar chart">
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
+          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
+          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
+          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Legend verticalAlign="top" height={36} />
+          {result.columns.map((column, index) => (
+            <Bar
+              key={column.id}
+              dataKey={column.id}
+              name={column.label}
+              stackId="stack"
+              fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+              radius={index === result.columns.length - 1 ? [appearance.barRadius, appearance.barRadius, 0, 0] : [0, 0, 0, 0]}
+              barSize={appearance.barSize}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function LineChartView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
+  const chartData = result.table.map((row) => ({
+    optionId: row.optionId,
+    label: row.label,
+    axisLabel: getAxisLabel(appearance, row.optionId, row.label),
+    ...row.values
+  }));
+
+  return (
+    <div className="chart-card" aria-label="Query-driven line chart">
+      <ResponsiveContainer width="100%" height={400}>
+        <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
+          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
+          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
+          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Legend verticalAlign="top" height={36} />
+          {result.columns.map((column, index) => (
+            <Line
+              key={column.id}
+              type="monotone"
+              dataKey={column.id}
+              name={column.label}
+              stroke={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function DonutChartView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
+  const column = result.columns[0];
+  const chartData = result.table.map((row, index) => ({
+    optionId: row.optionId,
+    name: getAxisLabel(appearance, row.optionId, row.label),
+    value: row.values[column.id],
+    fill: getBarStyle(appearance, row.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color
+  }));
+
+  return (
+    <div className="chart-card" aria-label="Query-driven donut chart">
+      <ResponsiveContainer width="100%" height={390}>
+        <PieChart>
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Legend verticalAlign="bottom" height={84} />
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            innerRadius="48%"
+            outerRadius="78%"
+            paddingAngle={2}
+            label={appearance.showValueLabels ? (entry) => formatValue(Number(entry.value ?? 0), result.metric.valueFormat) : false}
+          >
+            {chartData.map((item) => (
+              <Cell key={item.optionId} fill={item.fill} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function ChartView({ tile }: { tile: DashboardTile }) {
   if (tile.visualization === "vertical_bar") return <VerticalBarChartView tile={tile} />;
+  if (tile.visualization === "horizontal_bar") return <HorizontalBarChartView tile={tile} />;
   if (tile.visualization === "grouped_bar") return <GroupedBarChartView tile={tile} />;
+  if (tile.visualization === "stacked_bar") return <StackedBarChartView tile={tile} />;
+  if (tile.visualization === "line_chart") return <LineChartView tile={tile} />;
+  if (tile.visualization === "donut") return <DonutChartView tile={tile} />;
   return null;
 }
 
@@ -632,7 +804,7 @@ export default function App() {
   const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
   const activeChartType = viewMode === "table" ? "table" : chartType;
   const chartStyleTargets =
-    selectedTile?.visualization === "vertical_bar"
+    selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
       ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
       : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [];
   const selectedChartPart = selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null;
@@ -1919,10 +2091,22 @@ export default function App() {
               </label>
               <label>
                 Visualization
-                <select value={selectedTile.visualization} onChange={(event) => updateSelectedTile({ visualization: event.target.value as ChartType })}>
-                  {selectedTile.result.query.question === "Q15_TOP2_BRAND_PRIORITIES" && <option value="vertical_bar">Vertical bar</option>}
-                  {selectedTile.result.query.breakBy !== "SUMMARY" && <option value="grouped_bar">Grouped bar</option>}
-                  <option value="table">Table</option>
+                <select
+                  value={selectedTile.visualization}
+                  onChange={(event) => {
+                    const nextVisualization = event.target.value as ChartType;
+                    updateSelectedTile({
+                      visualization: nextVisualization,
+                      query: { ...selectedTile.query, chartType: nextVisualization },
+                      result: { ...selectedTile.result, query: { ...selectedTile.result.query, chartType: nextVisualization } }
+                    });
+                  }}
+                >
+                  {getCompatibleChartTypes(selectedTile.result).map((item) => (
+                    <option value={item} key={item}>
+                      {getChartTypeLabel(item)}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>

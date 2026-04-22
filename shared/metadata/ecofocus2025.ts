@@ -119,6 +119,32 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       supportedMetrics: ["percent_selected", "column_percent", "count"]
     },
     {
+      id: "horizontal_bar",
+      label: "Horizontal bar",
+      description: "Show a single summary column as a horizontal bar chart with long labels.",
+      supportedMetrics: ["percent_selected", "column_percent", "count"]
+    },
+    {
+      id: "stacked_bar",
+      label: "Stacked bar",
+      description: "Stack banner columns within each answer category.",
+      supportedMetrics: ["column_percent", "percent_selected", "count"],
+      minSeries: 2
+    },
+    {
+      id: "line_chart",
+      label: "Line chart",
+      description: "Compare banner groups across ordered answer categories.",
+      supportedMetrics: ["column_percent", "percent_selected", "count"],
+      minSeries: 2
+    },
+    {
+      id: "donut",
+      label: "Donut",
+      description: "Show a single summary column as a proportional donut chart.",
+      supportedMetrics: ["percent_selected", "column_percent", "count"]
+    },
+    {
       id: "table",
       label: "Table",
       description: "Show crosstab values and bases.",
@@ -145,7 +171,7 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       sourceVariables: ["Q15r1", "Q15r2", "Q15r7", "Q15r8", "Q15r9"],
       universe: "Total respondents",
       defaultMetric: "percent_selected",
-      allowedChartTypes: ["vertical_bar", "table"],
+      allowedChartTypes: ["vertical_bar", "horizontal_bar", "donut", "table"],
       allowedMetrics: ["percent_selected", "count"],
       allowedBreakBys: ["SUMMARY"],
       options: [
@@ -165,7 +191,7 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       sourceColumn: "q_packaging_trust",
       universe: "Total respondents",
       defaultMetric: "column_percent",
-      allowedChartTypes: ["grouped_bar", "table"],
+      allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table"],
       allowedMetrics: ["column_percent", "count"],
       allowedBreakBys: ["GENERATION", "REGION"],
       options: [
@@ -184,7 +210,7 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       sourceColumn: "q_sustainability_importance",
       universe: "Total respondents",
       defaultMetric: "column_percent",
-      allowedChartTypes: ["grouped_bar", "table"],
+      allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table"],
       allowedMetrics: ["column_percent", "count"],
       allowedBreakBys: ["GENERATION", "REGION"],
       options: [

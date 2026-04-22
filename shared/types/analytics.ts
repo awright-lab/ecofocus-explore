@@ -10,7 +10,7 @@ export type DimensionId = FilterFieldId;
 
 export type Metric = "column_percent" | "percent_selected" | "count";
 
-export type ChartType = "vertical_bar" | "grouped_bar" | "table";
+export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "stacked_bar" | "line_chart" | "donut" | "table";
 
 export type WeightId = "weightvar";
 

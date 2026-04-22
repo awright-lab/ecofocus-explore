@@ -274,6 +274,19 @@ See `docs/snowflake-readiness.md` for the expected Snowflake shape and next inte
 - Make chart tiles draggable from their header while keeping tile contents scrollable.
 - Add an export spec download that preserves page, canvas, query, and styling metadata as a bridge toward real PowerPoint export.
 
+### Phase 8H - Expanded Chart Types
+
+- Add horizontal bar and donut chart renderers for single-series summary charts.
+- Add stacked bar and line chart renderers for multi-series crosstab charts.
+- Expand chart metadata so selectors expose compatible chart types by question and breakout shape.
+- Allow existing dashboard tiles to switch visualization type while preserving their normalized query response and design settings.
+
+### Phase 8I - Navigation Density And Zoom Polish
+
+- Slim the top navigation bar and left tool rail so the canvas gets more visual priority.
+- Tighten drawer controls, page tabs, and bottom page thumbnails to reduce chrome weight.
+- Give the zoom slider dedicated compact range styling so it no longer inherits large form-field dimensions.
+
 ## Product Notes
 
 Displayr is useful as a benchmark for survey exploration expectations, especially crosstabs, filtering, segmentation, trends, and exports. EcoFocus Explore is not a Displayr clone. The differentiator is a simpler, modern, EcoFocus-specific experience where polished charts remain fully explorable because they are generated from structured analytics queries.
