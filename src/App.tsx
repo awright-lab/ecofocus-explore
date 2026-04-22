@@ -205,6 +205,12 @@ function GradientEditor({
   );
 }
 
+function rangeFill(value: number | string, min: number, max: number) {
+  const numericValue = Number(value);
+  const percentage = ((numericValue - min) / (max - min)) * 100;
+  return `${Math.min(100, Math.max(0, percentage))}%`;
+}
+
 function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
   return {
     color: appearance.barStyles[id]?.color ?? fallbackColor,
@@ -1610,7 +1616,7 @@ export default function App() {
               <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
               <div className="zoom-control" aria-label="Canvas zoom">
                 <button type="button" className="mini-button" onClick={() => updateCanvasZoom(canvasZoom - 10)}>-</button>
-                <input type="range" min="35" max="160" step="5" value={canvasZoom} onChange={(event) => updateCanvasZoom(Number(event.target.value))} />
+                <input type="range" min="35" max="160" step="5" value={canvasZoom} style={{ "--range-fill": rangeFill(canvasZoom, 35, 160) } as React.CSSProperties} onChange={(event) => updateCanvasZoom(Number(event.target.value))} />
                 <button type="button" className="mini-button" onClick={() => updateCanvasZoom(canvasZoom + 10)}>+</button>
                 <strong>{canvasZoom}%</strong>
               </div>
@@ -1965,6 +1971,7 @@ export default function App() {
                       max="2"
                       step="0.05"
                       value={selectedElement.style.lineHeight}
+                      style={{ "--range-fill": rangeFill(selectedElement.style.lineHeight, 0.8, 2) } as React.CSSProperties}
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, lineHeight: Number(event.target.value) } })}
                     />
                   </label>
@@ -1975,6 +1982,7 @@ export default function App() {
                       min="0"
                       max="40"
                       value={selectedElement.style.padding}
+                      style={{ "--range-fill": rangeFill(selectedElement.style.padding, 0, 40) } as React.CSSProperties}
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, padding: Number(event.target.value) } })}
                     />
                   </label>
@@ -2044,6 +2052,7 @@ export default function App() {
                       min="0"
                       max="16"
                       value={selectedElement.style.borderWidth}
+                      style={{ "--range-fill": rangeFill(selectedElement.style.borderWidth, 0, 16) } as React.CSSProperties}
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderWidth: Number(event.target.value), borderStyle: Number(event.target.value) === 0 ? "none" : selectedElement.style.borderStyle === "none" ? "solid" : selectedElement.style.borderStyle } })}
                     />
                   </label>
@@ -2067,6 +2076,7 @@ export default function App() {
                         min="0"
                         max="48"
                         value={selectedElement.style.borderRadius}
+                        style={{ "--range-fill": rangeFill(selectedElement.style.borderRadius, 0, 48) } as React.CSSProperties}
                         onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderRadius: Number(event.target.value) } })}
                       />
                     </label>
@@ -2078,6 +2088,7 @@ export default function App() {
                       min="10"
                       max="100"
                       value={selectedElement.style.opacity}
+                      style={{ "--range-fill": rangeFill(selectedElement.style.opacity, 10, 100) } as React.CSSProperties}
                       onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, opacity: Number(event.target.value) } })}
                     />
                   </label>
@@ -2218,15 +2229,15 @@ export default function App() {
                   </label>
                   <label>
                     Bar width
-                    <input type="range" min="16" max="140" value={selectedTile.appearance.barSize} onChange={(event) => updateSelectedAppearance({ barSize: Number(event.target.value) })} />
+                    <input type="range" min="16" max="140" value={selectedTile.appearance.barSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.barSize, 16, 140) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barSize: Number(event.target.value) })} />
                   </label>
                   <label>
                     Bar spacing
-                    <input type="range" min="0" max="48" value={selectedTile.appearance.barGap} onChange={(event) => updateSelectedAppearance({ barGap: Number(event.target.value) })} />
+                    <input type="range" min="0" max="48" value={selectedTile.appearance.barGap} style={{ "--range-fill": rangeFill(selectedTile.appearance.barGap, 0, 48) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barGap: Number(event.target.value) })} />
                   </label>
                   <label>
                     Group spacing
-                    <input type="range" min="0" max="64" value={selectedTile.appearance.barCategoryGap} onChange={(event) => updateSelectedAppearance({ barCategoryGap: Number(event.target.value) })} />
+                    <input type="range" min="0" max="64" value={selectedTile.appearance.barCategoryGap} style={{ "--range-fill": rangeFill(selectedTile.appearance.barCategoryGap, 0, 64) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barCategoryGap: Number(event.target.value) })} />
                   </label>
                   <label>
                     Label position
@@ -2243,11 +2254,11 @@ export default function App() {
                   </label>
                   <label>
                     Label size
-                    <input type="range" min="9" max="28" value={selectedTile.appearance.labelFontSize} onChange={(event) => updateSelectedAppearance({ labelFontSize: Number(event.target.value) })} />
+                    <input type="range" min="9" max="28" value={selectedTile.appearance.labelFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelFontSize, 9, 28) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelFontSize: Number(event.target.value) })} />
                   </label>
                   <label>
                     Label offset
-                    <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
+                    <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelOffset, 0, 32) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis color
@@ -2255,7 +2266,7 @@ export default function App() {
                   </label>
                   <label>
                     Axis text size
-                    <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
+                    <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisFontSize, 8, 22) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
                   </label>
                   {selectedChartPart && (
                     <label>
@@ -2269,27 +2280,27 @@ export default function App() {
                   )}
                   <label>
                     Axis label width
-                    <input type="range" min="8" max="36" value={selectedTile.appearance.axisLabelWidth} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Number(event.target.value) })} />
+                    <input type="range" min="8" max="36" value={selectedTile.appearance.axisLabelWidth} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelWidth, 8, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis max lines
-                    <input type="range" min="1" max="6" value={selectedTile.appearance.axisLabelMaxLines} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Number(event.target.value) })} />
+                    <input type="range" min="1" max="6" value={selectedTile.appearance.axisLabelMaxLines} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelMaxLines, 1, 6) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis label height
-                    <input type="range" min="40" max="220" value={selectedTile.appearance.axisHeight} onChange={(event) => updateSelectedAppearance({ axisHeight: Number(event.target.value) })} />
+                    <input type="range" min="40" max="220" value={selectedTile.appearance.axisHeight} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisHeight, 40, 220) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisHeight: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis label X
-                    <input type="range" min="-80" max="80" value={selectedTile.appearance.axisLabelDx} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Number(event.target.value) })} />
+                    <input type="range" min="-80" max="80" value={selectedTile.appearance.axisLabelDx} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDx, -80, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis label Y
-                    <input type="range" min="-20" max="80" value={selectedTile.appearance.axisLabelDy} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Number(event.target.value) })} />
+                    <input type="range" min="-20" max="80" value={selectedTile.appearance.axisLabelDy} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDy, -20, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis rotation
-                    <input type="range" min="-65" max="65" value={selectedTile.appearance.axisLabelRotation} onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Number(event.target.value) })} />
+                    <input type="range" min="-65" max="65" value={selectedTile.appearance.axisLabelRotation} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelRotation, -65, 65) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Number(event.target.value) })} />
                   </label>
                   <label>
                     Axis alignment
@@ -2341,11 +2352,11 @@ export default function App() {
               </label>
               <label>
                 Rounded corners
-                <input type="range" min="0" max="36" value={selectedTile.appearance.borderRadius} onChange={(event) => updateSelectedAppearance({ borderRadius: Number(event.target.value) })} />
+                <input type="range" min="0" max="36" value={selectedTile.appearance.borderRadius} style={{ "--range-fill": rangeFill(selectedTile.appearance.borderRadius, 0, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ borderRadius: Number(event.target.value) })} />
               </label>
               <label>
                 Transparency
-                <input type="range" min="20" max="100" value={selectedTile.appearance.opacity} onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })} />
+                <input type="range" min="20" max="100" value={selectedTile.appearance.opacity} style={{ "--range-fill": rangeFill(selectedTile.appearance.opacity, 20, 100) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })} />
               </label>
               <div className="toggle-list">
                 <label><input type="checkbox" checked={selectedTile.appearance.shadow} onChange={(event) => updateSelectedAppearance({ shadow: event.target.checked })} /> Shadow</label>
