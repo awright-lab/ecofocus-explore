@@ -45,11 +45,22 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   flex: 0 0 auto;
+  position: relative;
   min-height: 42px;
   margin-bottom: 0;
   padding: 0 8px 0 10px;
-  background: linear-gradient(90deg, #08aeb8, #2d6fcf 46%, #7b2fe0);
+  background: #050708;
   color: #ffffff;
+}
+
+.builder-header::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: linear-gradient(90deg, #16c9c3, #00d17f 38%, #17a4ff 100%);
 }
 
 .eyebrow {
@@ -505,8 +516,32 @@ textarea {
 }
 
 input[type="color"] {
-  min-height: 40px;
-  padding: 3px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  box-shadow:
+    0 0 0 1px #d9e1e8,
+    0 4px 12px rgba(38, 48, 60, 0.12);
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: 999px;
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: 999px;
 }
 
 input[type="range"] {
@@ -515,7 +550,7 @@ input[type="range"] {
   appearance: none;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #10b5b7, #7a45ff 52%, #f263b6);
+  background: linear-gradient(90deg, #16c9c3, #00d17f);
   cursor: pointer;
 }
 
@@ -523,21 +558,21 @@ input[type="range"]::-webkit-slider-runnable-track {
   height: 7px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #10b5b7, #7a45ff 52%, #f263b6);
+  background: linear-gradient(90deg, #16c9c3, #00d17f);
 }
 
 input[type="range"]::-moz-range-track {
   height: 7px;
   border: 0;
   border-radius: 999px;
-  background: #dfe5ec;
+  background: #e8edf2;
 }
 
 input[type="range"]::-moz-range-progress {
   height: 7px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #10b5b7, #7a45ff 52%, #f263b6);
+  background: linear-gradient(90deg, #16c9c3, #00d17f);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -547,7 +582,7 @@ input[type="range"]::-webkit-slider-thumb {
   margin-top: -4px;
   border: 3px solid #ffffff;
   border-radius: 999px;
-  background: #6b55f6;
+  background: #09bf9b;
   box-shadow: 0 2px 8px rgba(47, 58, 70, 0.22);
 }
 
@@ -556,7 +591,7 @@ input[type="range"]::-moz-range-thumb {
   height: 15px;
   border: 3px solid #ffffff;
   border-radius: 999px;
-  background: #6b55f6;
+  background: #09bf9b;
   box-shadow: 0 2px 8px rgba(47, 58, 70, 0.22);
 }
 
@@ -564,7 +599,7 @@ input[type="range"]::-moz-range-thumb {
   min-height: 18px;
   border: 0;
   padding: 0;
-  background: linear-gradient(90deg, #10b5b7, #7a45ff 52%, #f263b6);
+  background: linear-gradient(90deg, #16c9c3, #00d17f);
 }
 
 .zoom-control .mini-button {
@@ -661,6 +696,80 @@ button:disabled {
 
 .menu-card:disabled {
   cursor: not-allowed;
+}
+
+.gradient-editor {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e0e6ed;
+  border-radius: 12px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.gradient-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #405045;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.gradient-editor-header code {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.68rem;
+}
+
+.gradient-preview {
+  position: relative;
+  height: 28px;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 0 1px rgba(18, 27, 37, 0.1),
+    0 8px 18px rgba(37, 48, 62, 0.1);
+}
+
+.gradient-stop {
+  position: absolute;
+  top: 50%;
+  display: block;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  transform: translateY(-50%);
+}
+
+.gradient-stop.start {
+  left: 6px;
+}
+
+.gradient-stop.end {
+  right: 6px;
+}
+
+.gradient-stop input[type="color"] {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border-width: 2px;
+}
+
+.gradient-stop-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gradient-stop-row label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #687482;
+  font-size: 0.72rem;
 }
 
 .dashboard-tile {

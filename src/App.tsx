@@ -164,6 +164,47 @@ function canvasBackground(page: DashboardPage) {
   return `linear-gradient(#eef3eb 1px, transparent 1px), linear-gradient(90deg, #eef3eb 1px, transparent 1px), ${pageBackground}`;
 }
 
+function GradientEditor({
+  label,
+  from,
+  to,
+  onFromChange,
+  onToChange
+}: {
+  label: string;
+  from: string;
+  to: string;
+  onFromChange: (value: string) => void;
+  onToChange: (value: string) => void;
+}) {
+  return (
+    <div className="gradient-editor">
+      <div className="gradient-editor-header">
+        <span>{label}</span>
+        <code>Linear</code>
+      </div>
+      <div className="gradient-preview" style={{ background: `linear-gradient(90deg, ${from}, ${to})` }}>
+        <label className="gradient-stop start">
+          <input type="color" value={from} onChange={(event) => onFromChange(event.target.value)} />
+        </label>
+        <label className="gradient-stop end">
+          <input type="color" value={to} onChange={(event) => onToChange(event.target.value)} />
+        </label>
+      </div>
+      <div className="gradient-stop-row">
+        <label>
+          Start
+          <input type="color" value={from} onChange={(event) => onFromChange(event.target.value)} />
+        </label>
+        <label>
+          End
+          <input type="color" value={to} onChange={(event) => onToChange(event.target.value)} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
   return {
     color: appearance.barStyles[id]?.color ?? fallbackColor,
@@ -1769,16 +1810,13 @@ export default function App() {
               <input type="color" value={activePage.background} onChange={(event) => updateActivePage({ background: event.target.value })} />
             </label>
           ) : (
-            <>
-              <label>
-                Gradient start
-                <input type="color" value={activePage.gradientFrom} onChange={(event) => updateActivePage({ gradientFrom: event.target.value })} />
-              </label>
-              <label>
-                Gradient end
-                <input type="color" value={activePage.gradientTo} onChange={(event) => updateActivePage({ gradientTo: event.target.value })} />
-              </label>
-            </>
+            <GradientEditor
+              label="Page gradient"
+              from={activePage.gradientFrom}
+              to={activePage.gradientTo}
+              onFromChange={(value) => updateActivePage({ gradientFrom: value })}
+              onToChange={(value) => updateActivePage({ gradientTo: value })}
+            />
           )}
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
@@ -1981,24 +2019,13 @@ export default function App() {
                 </label>
               )}
               {selectedElement.type !== "image" && selectedElement.style.fillMode === "gradient" && (
-                <>
-                  <label>
-                    Gradient start
-                    <input
-                      type="color"
-                      value={selectedElement.style.gradientFrom}
-                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: event.target.value } })}
-                    />
-                  </label>
-                  <label>
-                    Gradient end
-                    <input
-                      type="color"
-                      value={selectedElement.style.gradientTo}
-                      onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, gradientTo: event.target.value } })}
-                    />
-                  </label>
-                </>
+                <GradientEditor
+                  label="Fill gradient"
+                  from={selectedElement.style.gradientFrom}
+                  to={selectedElement.style.gradientTo}
+                  onFromChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: value } })}
+                  onToChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientTo: value } })}
+                />
               )}
               {(selectedElement.type === "rectangle" || selectedElement.type === "circle" || selectedElement.type === "image" || selectedElement.type === "text") && (
                 <>
@@ -2300,16 +2327,13 @@ export default function App() {
                   <input type="color" value={selectedTile.appearance.background} onChange={(event) => updateSelectedAppearance({ background: event.target.value })} />
                 </label>
               ) : (
-                <>
-                  <label>
-                    Gradient start
-                    <input type="color" value={selectedTile.appearance.gradientFrom} onChange={(event) => updateSelectedAppearance({ gradientFrom: event.target.value })} />
-                  </label>
-                  <label>
-                    Gradient end
-                    <input type="color" value={selectedTile.appearance.gradientTo} onChange={(event) => updateSelectedAppearance({ gradientTo: event.target.value })} />
-                  </label>
-                </>
+                <GradientEditor
+                  label="Tile gradient"
+                  from={selectedTile.appearance.gradientFrom}
+                  to={selectedTile.appearance.gradientTo}
+                  onFromChange={(value) => updateSelectedAppearance({ gradientFrom: value })}
+                  onToChange={(value) => updateSelectedAppearance({ gradientTo: value })}
+                />
               )}
               <label>
                 Border
