@@ -184,6 +184,9 @@ function GradientEditor({
         <code>Linear</code>
       </div>
       <div className="gradient-preview" style={{ background: `linear-gradient(90deg, ${from}, ${to})` }}>
+        <span className="gradient-stop-tick start" />
+        <span className="gradient-stop-tick end" />
+        <span className="gradient-midpoint" />
         <label className="gradient-stop start">
           <input type="color" value={from} onChange={(event) => onFromChange(event.target.value)} />
         </label>
@@ -193,12 +196,14 @@ function GradientEditor({
       </div>
       <div className="gradient-stop-row">
         <label>
-          Start
+          <span>Start</span>
           <input type="color" value={from} onChange={(event) => onFromChange(event.target.value)} />
+          <code>{from}</code>
         </label>
         <label>
-          End
+          <span>End</span>
           <input type="color" value={to} onChange={(event) => onToChange(event.target.value)} />
+          <code>{to}</code>
         </label>
       </div>
     </div>
@@ -2193,28 +2198,19 @@ export default function App() {
                       <option value="gradient">Gradient</option>
                     </select>
                   </label>
-                  <label>
-                    Bar color
-                    <input
-                      type="color"
-                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
-                      onChange={(event) =>
-                        selectedChartPart
-                          ? updateSelectedBarStyle({ color: event.target.value })
-                          : updateSelectedAppearance({ primaryColor: event.target.value, palette: [event.target.value, ...selectedTile.appearance.palette.slice(1)] })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Bar gradient end
-                    <input
-                      type="color"
-                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo}
-                      onChange={(event) =>
-                        selectedChartPart ? updateSelectedBarStyle({ gradientTo: event.target.value }) : updateSelectedAppearance({ barGradientTo: event.target.value })
-                      }
-                    />
-                  </label>
+                  <GradientEditor
+                    label={selectedChartPart ? "Selected bar gradient" : "Bar gradient"}
+                    from={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
+                    to={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo}
+                    onFromChange={(value) =>
+                      selectedChartPart
+                        ? updateSelectedBarStyle({ color: value })
+                        : updateSelectedAppearance({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
+                    }
+                    onToChange={(value) =>
+                      selectedChartPart ? updateSelectedBarStyle({ gradientTo: value }) : updateSelectedAppearance({ barGradientTo: value })
+                    }
+                  />
                   <label>
                     Bar roundness
                     <input
@@ -2222,6 +2218,7 @@ export default function App() {
                       min="0"
                       max="36"
                       value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius}
+                      style={{ "--range-fill": rangeFill(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius, 0, 36) } as React.CSSProperties}
                       onChange={(event) =>
                         selectedChartPart ? updateSelectedBarStyle({ radius: Number(event.target.value) }) : updateSelectedAppearance({ barRadius: Number(event.target.value) })
                       }
