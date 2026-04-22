@@ -2,6 +2,15 @@ import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from ".
 
 export type DashboardStatus = "draft" | "published";
 
+export interface GradientStop {
+  id: string;
+  color: string;
+  position: number;
+  opacity: number;
+}
+
+export type GradientType = "linear" | "radial" | "conic";
+
 export interface TileAppearance {
   primaryColor: string;
   palette: string[];
@@ -9,6 +18,8 @@ export interface TileAppearance {
   backgroundMode: "solid" | "gradient";
   gradientFrom: string;
   gradientTo: string;
+  gradientType: GradientType;
+  gradientStops: GradientStop[];
   borderColor: string;
   borderRadius: number;
   opacity: number;
@@ -45,12 +56,16 @@ export interface TileAppearance {
   barSize: number;
   barFillMode: "solid" | "gradient";
   barGradientTo: string;
+  barGradientType: GradientType;
+  barGradientStops: GradientStop[];
   barStyles: Record<
     string,
     {
       color: string;
       fillMode: "solid" | "gradient";
       gradientTo: string;
+      gradientType?: GradientType;
+      gradientStops?: GradientStop[];
       radius: number;
     }
   >;
@@ -97,6 +112,8 @@ export interface DashboardCanvasElement {
     fillMode: "solid" | "gradient";
     gradientFrom: string;
     gradientTo: string;
+    gradientType: GradientType;
+    gradientStops: GradientStop[];
     textColor: string;
     borderColor: string;
     borderWidth: number;
@@ -136,6 +153,8 @@ export interface DashboardPage {
   backgroundMode: "solid" | "gradient";
   gradientFrom: string;
   gradientTo: string;
+  gradientType: GradientType;
+  gradientStops: GradientStop[];
   elements: DashboardCanvasElement[];
   tiles: DashboardTile[];
 }

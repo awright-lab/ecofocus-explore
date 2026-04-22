@@ -29,7 +29,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, TileAppearance } from "../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -66,6 +66,8 @@ const defaultAppearance: TileAppearance = {
   backgroundMode: "solid",
   gradientFrom: "#ffffff",
   gradientTo: "#eef7ef",
+  gradientType: "linear",
+  gradientStops: [],
   borderColor: "#dfe6dc",
   borderRadius: 8,
   opacity: 100,
@@ -102,6 +104,8 @@ const defaultAppearance: TileAppearance = {
   barSize: 88,
   barFillMode: "solid",
   barGradientTo: "#9fc9a7",
+  barGradientType: "linear",
+  barGradientStops: [],
   barStyles: {},
   showValueLabels: true,
   showTable: true,
@@ -131,7 +135,9 @@ function defaultPageDesign() {
     background: "#ffffff",
     backgroundMode: "solid" as const,
     gradientFrom: "#ffffff",
-    gradientTo: "#eef7ef"
+    gradientTo: "#eef7ef",
+    gradientType: "linear" as const,
+    gradientStops: []
   };
 }
 
@@ -157,6 +163,8 @@ function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasE
     fillMode: "solid",
     gradientFrom: "#dfeee2",
     gradientTo: "#9fc9a7",
+    gradientType: "linear",
+    gradientStops: [],
     textColor: "#17211b",
     borderColor: "#438757",
     borderWidth: type === "rectangle" || type === "circle" ? 2 : 1,
@@ -185,8 +193,47 @@ function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasE
   };
 }
 
-function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string) {
-  return mode === "gradient" ? `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` : solid;
+function makeGradientStop(color: string, position: number): GradientStop {
+  return {
+    id: `stop_${position}_${color.replace("#", "")}`,
+    color,
+    position,
+    opacity: 100
+  };
+}
+
+function normalizeGradientStops(from: string, to: string, stops?: GradientStop[]) {
+  const normalizedStops = (stops ?? [])
+    .map((stop) => ({
+      ...stop,
+      position: Math.min(100, Math.max(0, Number(stop.position) || 0)),
+      opacity: Math.min(100, Math.max(0, Number(stop.opacity ?? 100)))
+    }))
+    .sort((first, second) => first.position - second.position);
+
+  const hasStart = normalizedStops.some((stop) => stop.position === 0);
+  const hasEnd = normalizedStops.some((stop) => stop.position === 100);
+
+  return [
+    ...(hasStart ? [] : [makeGradientStop(from, 0)]),
+    ...normalizedStops,
+    ...(hasEnd ? [] : [makeGradientStop(to, 100)])
+  ].sort((first, second) => first.position - second.position);
+}
+
+function stopColorCss(stop: GradientStop) {
+  return `rgba(${hexToRgb(stop.color)}, ${stop.opacity / 100})`;
+}
+
+function gradientCss(from: string, to: string, stops?: GradientStop[], type: GradientType = "linear", angle = "90deg") {
+  const stopList = normalizeGradientStops(from, to, stops).map((stop) => `${stopColorCss(stop)} ${stop.position}%`).join(", ");
+  if (type === "radial") return `radial-gradient(circle at center, ${stopList})`;
+  if (type === "conic") return `conic-gradient(from 90deg, ${stopList})`;
+  return `linear-gradient(${angle}, ${stopList})`;
+}
+
+function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string, gradientStops?: GradientStop[], gradientType: GradientType = "linear") {
+  return mode === "gradient" ? gradientCss(gradientFrom, gradientTo, gradientStops, gradientType, "135deg") : solid;
 }
 
 function hexToRgb(color: string) {
@@ -222,7 +269,7 @@ function effectShadow(style: {
 }
 
 function canvasBackground(page: DashboardPage) {
-  const pageBackground = backgroundStyle(page.backgroundMode, page.background, page.gradientFrom, page.gradientTo);
+  const pageBackground = backgroundStyle(page.backgroundMode, page.background, page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType);
 
   if (!page.showCanvasGrid) return pageBackground;
 
@@ -233,43 +280,80 @@ function GradientEditor({
   label,
   from,
   to,
-  onFromChange,
-  onToChange
+  type,
+  stops,
+  allowedTypes = ["linear", "radial", "conic"],
+  onChange
 }: {
   label: string;
   from: string;
   to: string;
-  onFromChange: (value: string) => void;
-  onToChange: (value: string) => void;
+  type: GradientType;
+  stops?: GradientStop[];
+  allowedTypes?: GradientType[];
+  onChange: (updates: { from: string; to: string; type: GradientType; stops: GradientStop[] }) => void;
 }) {
+  const allStops = normalizeGradientStops(from, to, stops);
+
+  function updateStop(id: string, updates: Partial<GradientStop>) {
+    const nextStops = allStops.map((stop) => (stop.id === id ? { ...stop, ...updates } : stop));
+    const start = nextStops.find((stop) => stop.position === 0)?.color ?? from;
+    const end = nextStops.find((stop) => stop.position === 100)?.color ?? to;
+    onChange({ from: start, to: end, type, stops: nextStops });
+  }
+
+  function addStop() {
+    const innerStops = allStops.filter((stop) => stop.position > 0 && stop.position < 100);
+    const nextPosition = innerStops.length
+      ? Math.min(90, Math.max(10, Math.round(innerStops.reduce((sum, stop) => sum + stop.position, 0) / innerStops.length) + 15))
+      : 50;
+    const stop = { id: `stop_${Date.now()}`, color: "#ffffff", position: nextPosition, opacity: 100 };
+    onChange({ from, to, type, stops: [...allStops, stop].sort((first, second) => first.position - second.position) });
+  }
+
+  function removeStop(id: string) {
+    onChange({ from, to, type, stops: allStops.filter((stop) => stop.id !== id) });
+  }
+
   return (
     <div className="gradient-editor">
       <div className="gradient-editor-header">
         <span>{label}</span>
-        <code>Linear</code>
+        <button type="button" className="mini-button" onClick={addStop}>Add color</button>
       </div>
-      <div className="gradient-preview" style={{ background: `linear-gradient(90deg, ${from}, ${to})` }}>
-        <span className="gradient-stop-tick start" />
-        <span className="gradient-stop-tick end" />
-        <span className="gradient-midpoint" />
-        <label className="gradient-stop start">
-          <input type="color" value={from} onChange={(event) => onFromChange(event.target.value)} />
-        </label>
-        <label className="gradient-stop end">
-          <input type="color" value={to} onChange={(event) => onToChange(event.target.value)} />
-        </label>
+      <label>
+        Gradient type
+        <select value={type} onChange={(event) => onChange({ from, to, type: event.target.value as GradientType, stops: allStops })}>
+          {allowedTypes.map((option) => (
+            <option value={option} key={option}>
+              {option[0].toUpperCase() + option.slice(1)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="gradient-preview" style={{ background: gradientCss(from, to, stops, type) }}>
+        {allStops.map((stop) => (
+          <label className="gradient-stop" key={stop.id} style={{ left: `${stop.position}%` }}>
+            <input type="color" value={stop.color} onChange={(event) => updateStop(stop.id, { color: event.target.value })} />
+          </label>
+        ))}
+        {allStops.slice(0, -1).map((stop, index) => {
+          const nextStop = allStops[index + 1];
+          const midpoint = stop.position + (nextStop.position - stop.position) / 2;
+          return <span className="gradient-midpoint" key={`${stop.id}_${nextStop.id}`} style={{ left: `${midpoint}%` }} />;
+        })}
       </div>
-      <div className="gradient-stop-row">
-        <label>
-          <span>Start</span>
-          <input type="color" value={from} onChange={(event) => onFromChange(event.target.value)} />
-          <code>{from}</code>
-        </label>
-        <label>
-          <span>End</span>
-          <input type="color" value={to} onChange={(event) => onToChange(event.target.value)} />
-          <code>{to}</code>
-        </label>
+      <div className="gradient-stop-list">
+        {allStops.map((stop) => (
+            <div className="gradient-stop-control" key={stop.id}>
+              <input type="color" value={stop.color} onChange={(event) => updateStop(stop.id, { color: event.target.value })} />
+              <input type="range" min="0" max="100" value={stop.position} disabled={stop.position === 0 || stop.position === 100} style={{ "--range-fill": rangeFill(stop.position, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
+              <input type="number" min="0" max="100" value={stop.position} disabled={stop.position === 0 || stop.position === 100} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
+              <input type="range" min="0" max="100" value={stop.opacity} style={{ "--range-fill": rangeFill(stop.opacity, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { opacity: Number(event.target.value) })} />
+              <span>{stop.opacity}%</span>
+              <button type="button" className="mini-button" onClick={() => removeStop(stop.id)} disabled={stop.position === 0 || stop.position === 100}>x</button>
+            </div>
+          ))}
       </div>
     </div>
   );
@@ -286,12 +370,48 @@ function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: stri
     color: appearance.barStyles[id]?.color ?? fallbackColor,
     fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
     gradientTo: appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
+    gradientType: appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
+    gradientStops: appearance.barStyles[id]?.gradientStops ?? appearance.barGradientStops,
     radius: appearance.barStyles[id]?.radius ?? appearance.barRadius
   };
 }
 
 function gradientId(tileId: string, key: string) {
   return `gradient_${tileId.replace(/[^a-zA-Z0-9]/g, "_")}_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
+}
+
+function SvgGradientStops({ from, to, stops }: { from: string; to: string; stops?: GradientStop[] }) {
+  return (
+    <>
+      {normalizeGradientStops(from, to, stops).map((stop) => (
+        <stop key={stop.id} offset={`${stop.position}%`} stopColor={stop.color} stopOpacity={stop.opacity / 100} />
+      ))}
+    </>
+  );
+}
+
+function SvgBarGradientDef({
+  id,
+  orientation,
+  style
+}: {
+  id: string;
+  orientation: "vertical" | "horizontal";
+  style: ReturnType<typeof getBarStyle>;
+}) {
+  if (style.gradientType === "radial") {
+    return (
+      <radialGradient id={id}>
+        <SvgGradientStops from={style.color} to={style.gradientTo} stops={style.gradientStops} />
+      </radialGradient>
+    );
+  }
+
+  return (
+    <linearGradient id={id} x1="0" y1="0" x2={orientation === "horizontal" ? "1" : "0"} y2={orientation === "horizontal" ? "0" : "1"}>
+      <SvgGradientStops from={style.color} to={style.gradientTo} stops={style.gradientStops} />
+    </linearGradient>
+  );
 }
 
 function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
@@ -438,12 +558,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
             {chartData.map((item, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
               const style = getBarStyle(appearance, item.optionId, fallback);
-              return (
-                <linearGradient id={gradientId(tile.id, item.optionId)} key={item.optionId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={style.color} />
-                  <stop offset="100%" stopColor={style.gradientTo} />
-                </linearGradient>
-              );
+              return <SvgBarGradientDef id={gradientId(tile.id, item.optionId)} key={item.optionId} orientation="vertical" style={style} />;
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
@@ -483,12 +598,7 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
             {result.columns.map((column, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
               const style = getBarStyle(appearance, column.id, fallback);
-              return (
-                <linearGradient id={gradientId(tile.id, column.id)} key={column.id} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={style.color} />
-                  <stop offset="100%" stopColor={style.gradientTo} />
-                </linearGradient>
-              );
+              return <SvgBarGradientDef id={gradientId(tile.id, column.id)} key={column.id} orientation="vertical" style={style} />;
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
@@ -531,12 +641,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             {chartData.map((item, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
               const style = getBarStyle(appearance, item.optionId, fallback);
-              return (
-                <linearGradient id={gradientId(tile.id, item.optionId)} key={item.optionId} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={style.color} />
-                  <stop offset="100%" stopColor={style.gradientTo} />
-                </linearGradient>
-              );
+              return <SvgBarGradientDef id={gradientId(tile.id, item.optionId)} key={item.optionId} orientation="horizontal" style={style} />;
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} horizontal={false} />}
@@ -571,6 +676,13 @@ function StackedBarChartView({ tile }: { tile: DashboardTile }) {
     <div className="chart-card" aria-label="Query-driven stacked bar chart">
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
+          <defs>
+            {result.columns.map((column, index) => {
+              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const style = getBarStyle(appearance, column.id, fallback);
+              return <SvgBarGradientDef id={gradientId(tile.id, column.id)} key={column.id} orientation="vertical" style={style} />;
+            })}
+          </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
@@ -582,7 +694,7 @@ function StackedBarChartView({ tile }: { tile: DashboardTile }) {
               dataKey={column.id}
               name={column.label}
               stackId="stack"
-              fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+              fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, column.id)})` : getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
               radius={index === result.columns.length - 1 ? [appearance.barRadius, appearance.barRadius, 0, 0] : [0, 0, 0, 0]}
               barSize={appearance.barSize}
             />
@@ -714,7 +826,7 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
     <article
       className={selected ? "dashboard-tile selected" : "dashboard-tile"}
       style={{
-        background: backgroundStyle(tile.appearance.backgroundMode, tile.appearance.background, tile.appearance.gradientFrom, tile.appearance.gradientTo),
+        background: backgroundStyle(tile.appearance.backgroundMode, tile.appearance.background, tile.appearance.gradientFrom, tile.appearance.gradientTo, tile.appearance.gradientStops, tile.appearance.gradientType),
         borderColor: tile.appearance.borderColor,
         borderRadius: tile.appearance.borderRadius,
         opacity: tile.appearance.opacity / 100,
@@ -787,7 +899,7 @@ function CanvasElementRenderer({
           textAlign: element.style.textAlign,
           lineHeight: element.style.lineHeight,
           padding: element.style.padding,
-          background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
+          background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo, element.style.gradientStops, element.style.gradientType),
           borderColor: element.style.borderColor,
           borderWidth: element.style.borderWidth,
           borderStyle: element.style.borderStyle,
@@ -806,7 +918,7 @@ function CanvasElementRenderer({
     <div
       className={selected ? `canvas-element shape-element ${element.type} selected` : `canvas-element shape-element ${element.type}`}
       style={{
-        background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo),
+        background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo, element.style.gradientStops, element.style.gradientType),
         borderColor: element.style.borderColor,
         borderWidth: element.style.borderWidth,
         borderStyle: element.style.borderStyle,
@@ -845,18 +957,22 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
   return {
     ...dashboard,
     pages: dashboard.pages.map((page) => ({
-      ...page,
-      ...defaultPageDesign(),
-      ...page,
-      elements: page.elements.map((element) => ({
+          ...page,
+          ...defaultPageDesign(),
+          ...page,
+          gradientType: page.gradientType ?? "linear",
+          gradientStops: page.gradientStops ?? [],
+          elements: page.elements.map((element) => ({
         ...element,
         name: element.name ?? (element.type === "text" ? "Text" : element.type === "image" ? "Image" : element.type === "circle" ? "Circle" : "Rectangle"),
         locked: element.locked ?? false,
         hidden: element.hidden ?? false,
-        style: {
-          ...defaultElementStyle(element.type),
-          ...element.style
-        }
+          style: {
+            ...defaultElementStyle(element.type),
+          ...element.style,
+          gradientType: element.style?.gradientType ?? "linear",
+          gradientStops: element.style?.gradientStops ?? []
+          }
       })),
       tiles: page.tiles.map((tile) => ({
         ...tile,
@@ -867,6 +983,10 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           ...defaultAppearance,
           ...tile.appearance,
           palette: tile.appearance?.palette ?? [...defaultAppearance.palette],
+          gradientType: tile.appearance?.gradientType ?? "linear",
+          gradientStops: tile.appearance?.gradientStops ?? [],
+          barGradientType: tile.appearance?.barGradientType ?? "linear",
+          barGradientStops: tile.appearance?.barGradientStops ?? [],
           barStyles: tile.appearance?.barStyles ?? {},
           axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {}
         }
@@ -1911,7 +2031,7 @@ export default function App() {
             </label>
           ) : (
             <button type="button" className="design-popover-button" onClick={() => setDesignModal("pageGradient")}>
-              <span className="gradient-button-preview" style={{ background: `linear-gradient(90deg, ${activePage.gradientFrom}, ${activePage.gradientTo})` }} />
+              <span className="gradient-button-preview" style={{ background: gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType) }} />
               <span>Edit page gradient</span>
             </button>
           )}
@@ -2119,7 +2239,7 @@ export default function App() {
               )}
               {selectedElement.type !== "image" && selectedElement.style.fillMode === "gradient" && (
                 <button type="button" className="design-popover-button" onClick={() => setDesignModal("elementGradient")}>
-                  <span className="gradient-button-preview" style={{ background: `linear-gradient(90deg, ${selectedElement.style.gradientFrom}, ${selectedElement.style.gradientTo})` }} />
+                  <span className="gradient-button-preview" style={{ background: gradientCss(selectedElement.style.gradientFrom, selectedElement.style.gradientTo, selectedElement.style.gradientStops, selectedElement.style.gradientType) }} />
                   <span>Edit fill gradient</span>
                 </button>
               )}
@@ -2281,9 +2401,12 @@ export default function App() {
                     <span
                       className="gradient-button-preview"
                       style={{
-                        background: `linear-gradient(90deg, ${
-                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor
-                        }, ${selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo})`
+                        background: gradientCss(
+                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
+                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
+                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
+                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType
+                        )
                       }}
                     />
                     <span>{selectedChartPart ? "Edit selected bar gradient" : "Edit bar gradient"}</span>
@@ -2413,7 +2536,7 @@ export default function App() {
                 </label>
               ) : (
                 <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileGradient")}>
-                  <span className="gradient-button-preview" style={{ background: `linear-gradient(90deg, ${selectedTile.appearance.gradientFrom}, ${selectedTile.appearance.gradientTo})` }} />
+                  <span className="gradient-button-preview" style={{ background: gradientCss(selectedTile.appearance.gradientFrom, selectedTile.appearance.gradientTo, selectedTile.appearance.gradientStops, selectedTile.appearance.gradientType) }} />
                   <span>Edit tile gradient</span>
                 </button>
               )}
@@ -2477,8 +2600,9 @@ export default function App() {
                 label="Page gradient"
                 from={activePage.gradientFrom}
                 to={activePage.gradientTo}
-                onFromChange={(value) => updateActivePage({ gradientFrom: value })}
-                onToChange={(value) => updateActivePage({ gradientTo: value })}
+                type={activePage.gradientType}
+                stops={activePage.gradientStops}
+                onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
               />
             )}
 
@@ -2487,8 +2611,9 @@ export default function App() {
                 label="Fill gradient"
                 from={selectedElement.style.gradientFrom}
                 to={selectedElement.style.gradientTo}
-                onFromChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: value } })}
-                onToChange={(value) => updateSelectedElement({ style: { ...selectedElement.style, gradientTo: value } })}
+                type={selectedElement.style.gradientType}
+                stops={selectedElement.style.gradientStops}
+                onChange={(updates) => updateSelectedElement({ style: { ...selectedElement.style, gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops } })}
               />
             )}
 
@@ -2497,8 +2622,9 @@ export default function App() {
                 label="Tile gradient"
                 from={selectedTile.appearance.gradientFrom}
                 to={selectedTile.appearance.gradientTo}
-                onFromChange={(value) => updateSelectedAppearance({ gradientFrom: value })}
-                onToChange={(value) => updateSelectedAppearance({ gradientTo: value })}
+                type={selectedTile.appearance.gradientType}
+                stops={selectedTile.appearance.gradientStops}
+                onChange={(updates) => updateSelectedAppearance({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
               />
             )}
 
@@ -2507,13 +2633,13 @@ export default function App() {
                 label={selectedChartPart ? "Selected bar gradient" : "Bar gradient"}
                 from={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
                 to={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo}
-                onFromChange={(value) =>
+                type={(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType) === "conic" ? "linear" : selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType}
+                stops={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops}
+                allowedTypes={["linear", "radial"]}
+                onChange={(updates) =>
                   selectedChartPart
-                    ? updateSelectedBarStyle({ color: value })
-                    : updateSelectedAppearance({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
-                }
-                onToChange={(value) =>
-                  selectedChartPart ? updateSelectedBarStyle({ gradientTo: value }) : updateSelectedAppearance({ barGradientTo: value })
+                    ? updateSelectedBarStyle({ color: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })
+                    : updateSelectedAppearance({ primaryColor: updates.from, palette: [updates.from, ...selectedTile.appearance.palette.slice(1)], barGradientTo: updates.to, barGradientType: updates.type, barGradientStops: updates.stops })
                 }
               />
             )}

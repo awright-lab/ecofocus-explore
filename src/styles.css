@@ -715,10 +715,13 @@ button:disabled {
   font-weight: 850;
 }
 
-.gradient-editor-header code {
+.gradient-editor-header .mini-button {
+  width: auto;
+  min-width: 84px;
+  min-height: 30px;
   border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 0.68rem;
+  padding: 0 10px;
+  font-size: 0.72rem;
 }
 
 .gradient-preview {
@@ -731,42 +734,13 @@ button:disabled {
     0 8px 18px rgba(37, 48, 62, 0.1);
 }
 
-.gradient-stop-tick,
 .gradient-midpoint {
   position: absolute;
   z-index: 1;
   pointer-events: none;
 }
 
-.gradient-stop-tick {
-  top: -6px;
-  width: 9px;
-  height: 9px;
-  border: 1px solid #22332a;
-  background: #ffffff;
-  transform: translateX(-50%);
-}
-
-.gradient-stop-tick::after {
-  position: absolute;
-  left: 50%;
-  bottom: -7px;
-  width: 1px;
-  height: 6px;
-  background: #22332a;
-  content: "";
-}
-
-.gradient-stop-tick.start {
-  left: 0;
-}
-
-.gradient-stop-tick.end {
-  left: 100%;
-}
-
 .gradient-midpoint {
-  left: 50%;
   bottom: -10px;
   width: 7px;
   height: 7px;
@@ -785,14 +759,6 @@ button:disabled {
   transform: translate(-50%, -50%);
 }
 
-.gradient-stop.start {
-  left: 0;
-}
-
-.gradient-stop.end {
-  left: 100%;
-}
-
 .gradient-stop input[type="color"] {
   width: 24px;
   min-width: 24px;
@@ -801,35 +767,49 @@ button:disabled {
   border-width: 2px;
 }
 
-.gradient-stop-row {
+.gradient-stop-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.gradient-stop-list p {
+  margin: 0;
+  color: #687482;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.gradient-stop-control {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 58px minmax(0, 1fr) 40px 30px;
+  align-items: center;
   gap: 8px;
 }
 
-.gradient-stop-row label {
-  display: grid;
-  grid-template-columns: auto 34px;
-  align-items: center;
-  gap: 7px 8px;
-  min-width: 0;
+.gradient-stop-control span {
   color: #687482;
   font-size: 0.72rem;
+  font-weight: 850;
+  text-align: right;
 }
 
-.gradient-stop-row label > span {
-  color: #405045;
-  font-weight: 800;
+.gradient-stop-control input[type="number"] {
+  min-height: 30px;
+  padding: 0 7px;
+  font-size: 0.76rem;
 }
 
-.gradient-stop-row code {
-  grid-column: 1 / -1;
-  min-width: 0;
-  padding: 4px 6px;
-  overflow: hidden;
-  font-size: 0.65rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.gradient-stop-control .mini-button {
+  width: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+
+.gradient-stop-control .mini-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .design-popover-button {
@@ -918,6 +898,19 @@ button:disabled {
 .design-modal-header h2 {
   margin: 2px 0 0;
   font-size: 1.05rem;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 .modal-control-stack {
