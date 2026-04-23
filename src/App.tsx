@@ -3203,16 +3203,29 @@ export default function App() {
                     <span>Style target</span>
                     <strong>{selectedChartPart ? selectedChartPart.label : "All bars"}</strong>
                   </div>
-                  <div className="color-summary-swatches">
-                    {(selectedChartPart ? [selectedChartPart.id] : selectedTile.result.table.map((row) => row.optionId).slice(0, 5)).map((id, index) => {
+                  <div className="style-target-chips">
+                    <button
+                      type="button"
+                      className={selectedChartPart ? "style-target-chip all" : "style-target-chip all active"}
+                      onClick={() => setSelectedChartPartId("all")}
+                      aria-label="Select all bars"
+                    >
+                      <span>All</span>
+                    </button>
+                    {selectedTile.result.table.slice(0, 5).map((row, index) => {
+                      const id = row.optionId;
                       const fallback = selectedTile.appearance.palette[index % selectedTile.appearance.palette.length] ?? selectedTile.appearance.primaryColor;
                       const style = getBarStyle(selectedTile.appearance, id, fallback);
                       return (
-                        <span
+                        <button
+                          type="button"
                           key={id}
-                          className="color-swatch"
-                          style={{ background: style.fillMode === "gradient" ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType) : style.color }}
-                        />
+                          className={selectedChartPartId === id ? "style-target-chip active" : "style-target-chip"}
+                          onClick={() => setSelectedChartPartId(id)}
+                          aria-label={`Select ${row.label}`}
+                        >
+                          <span style={{ background: style.fillMode === "gradient" ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`) : style.color }} />
+                        </button>
                       );
                     })}
                   </div>
