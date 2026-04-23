@@ -507,6 +507,8 @@ function GradientEditor({
   allowedTypes?: GradientType[];
   onChange: (updates: { from: string; to: string; type: GradientType; stops: GradientStop[] }) => void;
 }) {
+  const [activeStopId, setActiveStopId] = useState<string | null>(null);
+  const [draggedStopId, setDraggedStopId] = useState<string | null>(null);
   const allStops = normalizeGradientStops(from, to, stops);
   const { startId, endId } = protectedGradientEndpointIds(allStops);
 
@@ -532,6 +534,25 @@ function GradientEditor({
     onChange({ from, to, type, stops: allStops.filter((stop) => stop.id !== id) });
   }
 
+  function reorderStops(targetId: string) {
+    if (!draggedStopId || draggedStopId === targetId) return;
+    const fromIndex = allStops.findIndex((stop) => stop.id === draggedStopId);
+    const toIndex = allStops.findIndex((stop) => stop.id === targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const next = [...allStops];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    const ordered = next.map((stop, index) => ({
+      ...stop,
+      position: next.length === 1 ? 50 : Math.round((index / (next.length - 1)) * 100)
+    }));
+    const nextStartId = protectedGradientEndpointIds(ordered).startId;
+    const nextEndId = protectedGradientEndpointIds(ordered).endId;
+    const start = ordered.find((stop) => stop.id === nextStartId)?.color ?? from;
+    const end = ordered.find((stop) => stop.id === nextEndId)?.color ?? to;
+    onChange({ from: start, to: end, type, stops: ordered.slice(1, -1) });
+  }
+
   return (
     <div className="gradient-editor">
       <div className="gradient-editor-header">
@@ -550,27 +571,81 @@ function GradientEditor({
       </label>
       <div className="gradient-preview" style={{ background: gradientCss(from, to, stops, type) }}>
         {allStops.map((stop) => (
-          <label className="gradient-stop" key={stop.id} style={{ left: `${stop.position}%` }}>
-            <input type="color" value={stop.color} onChange={(event) => updateStop(stop.id, { color: event.target.value })} />
-          </label>
+          <span
+            key={stop.id}
+            className={stop.id === activeStopId ? "gradient-stop-marker active" : "gradient-stop-marker"}
+            style={{ left: `${stop.position}%` }}
+          />
         ))}
-        {allStops.slice(0, -1).map((stop, index) => {
-          const nextStop = allStops[index + 1];
-          const midpoint = stop.position + (nextStop.position - stop.position) / 2;
-          return <span className="gradient-midpoint" key={`${stop.id}_${nextStop.id}`} style={{ left: `${midpoint}%` }} />;
-        })}
       </div>
-      <div className="gradient-stop-list">
-        {allStops.map((stop) => (
-            <div className="gradient-stop-control" key={stop.id}>
-              <input type="color" value={stop.color} onChange={(event) => updateStop(stop.id, { color: event.target.value })} />
-              <input type="range" min="0" max="100" value={stop.position} disabled={stop.id === startId || stop.id === endId} style={{ "--range-fill": rangeFill(stop.position, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
-              <input type="number" min="0" max="100" value={stop.position} disabled={stop.id === startId || stop.id === endId} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
-              <input type="range" min="0" max="100" value={stop.opacity} style={{ "--range-fill": rangeFill(stop.opacity, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { opacity: Number(event.target.value) })} />
-              <span>{stop.opacity}%</span>
-              <button type="button" className="mini-button" onClick={() => removeStop(stop.id)} disabled={stop.id === startId || stop.id === endId}>x</button>
-            </div>
+      <div className="gradient-chip-region">
+        <div className="gradient-chip-row">
+          {allStops.map((stop) => (
+            <button
+              type="button"
+              key={stop.id}
+              draggable
+              className={stop.id === activeStopId ? "color-swatch active" : "color-swatch"}
+              style={{ background: stop.color }}
+              onClick={() => setActiveStopId((current) => (current === stop.id ? null : stop.id))}
+              onDragStart={() => setDraggedStopId(stop.id)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => reorderStops(stop.id)}
+              onDragEnd={() => setDraggedStopId(null)}
+              aria-label={`Edit gradient color ${stop.color}`}
+            />
           ))}
+          <button type="button" className="color-swatch add" onClick={addStop} aria-label="Add gradient color">
+            +
+          </button>
+        </div>
+        {activeStopId && (
+          <div className="gradient-chip-popover" role="dialog" aria-label="Gradient color">
+            <div className="gradient-chip-popover__header">
+              <strong>Gradient color</strong>
+              <button type="button" className="mini-button" onClick={() => setActiveStopId(null)} aria-label="Close gradient color editor">
+                x
+              </button>
+            </div>
+            <SolidColorEditor
+              value={allStops.find((stop) => stop.id === activeStopId)?.color ?? from}
+              onChange={(value) => updateStop(activeStopId, { color: value })}
+            />
+            <div className="gradient-stop-inline-grid">
+              <label>
+                Position
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={allStops.find((stop) => stop.id === activeStopId)?.position ?? 0}
+                  disabled={activeStopId === startId || activeStopId === endId}
+                  onChange={(event) => updateStop(activeStopId, { position: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                Opacity
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={allStops.find((stop) => stop.id === activeStopId)?.opacity ?? 100}
+                  onChange={(event) => updateStop(activeStopId, { opacity: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+            <div className="gradient-stop-inline-actions">
+              <button
+                type="button"
+                className="secondary compact"
+                onClick={() => removeStop(activeStopId)}
+                disabled={activeStopId === startId || activeStopId === endId}
+              >
+                Remove color
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

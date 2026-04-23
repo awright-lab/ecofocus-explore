@@ -702,7 +702,7 @@ button:disabled {
   display: grid;
   gap: 10px;
   border: 1px solid #e0e6ed;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px;
   background: linear-gradient(180deg, #ffffff, #fbfcfd);
 }
@@ -728,90 +728,39 @@ button:disabled {
 
 .gradient-preview {
   position: relative;
-  height: 28px;
-  margin: 4px 8px 12px;
-  border-radius: 4px;
+  height: 30px;
+  margin: 2px 8px 2px;
+  border-radius: 8px;
   box-shadow:
     inset 0 0 0 1px rgba(18, 27, 37, 0.1),
     0 8px 18px rgba(37, 48, 62, 0.1);
 }
 
-.gradient-midpoint {
+.gradient-stop-marker {
   position: absolute;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.gradient-midpoint {
-  bottom: -10px;
-  width: 7px;
-  height: 7px;
+  top: calc(100% + 12px);
+  width: 10px;
+  height: 10px;
   border: 1px solid #4f5f68;
+  border-radius: 2px;
   background: #ffffff;
   transform: translateX(-50%) rotate(45deg);
 }
 
-.gradient-stop {
-  position: absolute;
-  top: calc(100% + 12px);
-  display: block;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  transform: translate(-50%, -50%);
+.gradient-stop-marker.active {
+  border-color: var(--accent-eco);
+  box-shadow: 0 0 0 2px var(--accent-eco-soft);
 }
 
-.gradient-stop input[type="color"] {
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
-  min-height: 24px;
-  border-width: 2px;
-}
-
-.gradient-stop-list {
+.gradient-stop-inline-grid {
   display: grid;
-  gap: 8px;
-  padding-top: 8px;
-}
-
-.gradient-stop-list p {
-  margin: 0;
-  color: #687482;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.gradient-stop-control {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 58px minmax(0, 1fr) 40px 30px;
-  align-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.gradient-stop-control span {
-  color: #687482;
-  font-size: 0.72rem;
-  font-weight: 850;
-  text-align: right;
-}
-
-.gradient-stop-control input[type="number"] {
-  min-height: 30px;
-  padding: 0 7px;
-  font-size: 0.76rem;
-}
-
-.gradient-stop-control .mini-button {
-  width: 30px;
-  min-width: 30px;
-  min-height: 30px;
-  padding: 0;
-}
-
-.gradient-stop-control .mini-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
+.gradient-stop-inline-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .design-popover-button {
