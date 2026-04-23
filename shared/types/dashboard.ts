@@ -37,6 +37,7 @@ export interface TileAppearance {
   gridColor: string;
   axisColor: string;
   axisFontSize: number;
+  axisLabelPlacement: "outside" | "insideStart" | "insideCenter";
   axisLabelAlign: "start" | "middle" | "end";
   axisLabelDx: number;
   axisLabelDy: number;

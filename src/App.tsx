@@ -87,6 +87,7 @@ const defaultAppearance: TileAppearance = {
   gridColor: "#e6ebe4",
   axisColor: "#69776e",
   axisFontSize: 12,
+  axisLabelPlacement: "outside",
   axisLabelAlign: "middle",
   axisLabelDx: 0,
   axisLabelDy: 12,
@@ -609,6 +610,48 @@ function HorizontalValueLabel(props: {
   );
 }
 
+function HorizontalCategoryLabel(props: {
+  x?: unknown;
+  y?: unknown;
+  width?: unknown;
+  height?: unknown;
+  value?: unknown;
+  appearance: TileAppearance;
+}) {
+  const { appearance } = props;
+
+  if (appearance.axisLabelPlacement === "outside") return null;
+
+  const x = Number(props.x ?? 0);
+  const y = Number(props.y ?? 0);
+  const width = Number(props.width ?? 0);
+  const height = Number(props.height ?? 0);
+  const label = String(props.value ?? "");
+  const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
+  const lineHeight = appearance.axisFontSize + 3;
+  const baseY = y + height / 2 + appearance.axisLabelDy - ((lines.length - 1) * lineHeight) / 2;
+  const insideStart = appearance.axisLabelPlacement === "insideStart";
+  const baseX = insideStart ? x + 12 + appearance.axisLabelDx : x + width / 2 + appearance.axisLabelDx;
+
+  return (
+    <text
+      x={baseX}
+      y={baseY}
+      fill={appearance.axisColor}
+      fontSize={appearance.axisFontSize}
+      textAnchor={insideStart ? "start" : "middle"}
+      dominantBaseline="middle"
+      pointerEvents="none"
+    >
+      {lines.map((line, index) => (
+        <tspan key={`${line}-${index}`} x={baseX} dy={index === 0 ? 0 : lineHeight}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
 function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
   const column = result.columns[0];
@@ -695,7 +738,9 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
 function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
   const column = result.columns[0];
-  const yAxisWidth = Math.max(150, appearance.axisLabelWidth * 5 + 28);
+  const preferredYAxisWidth = appearance.axisLabelWidth * 5 + 28;
+  const reservedOutsideWidth = 180;
+  const yAxisWidth = appearance.axisLabelPlacement === "outside" ? Math.max(150, preferredYAxisWidth > reservedOutsideWidth ? preferredYAxisWidth : reservedOutsideWidth) : 16;
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
@@ -721,12 +766,13 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             type="category"
             dataKey="axisLabel"
             width={yAxisWidth}
-            tick={(props) => <AxisTick {...props} appearance={appearance} axisDirection="y" />}
+            tick={appearance.axisLabelPlacement === "outside" ? (props) => <AxisTick {...props} appearance={appearance} axisDirection="y" /> : false}
             tickLine={false}
             axisLine={false}
           />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Bar dataKey="value" radius={[0, appearance.barRadius, appearance.barRadius, 0]} barSize={appearance.barSize}>
+            <LabelList dataKey="axisLabel" content={(props) => <HorizontalCategoryLabel {...props} appearance={appearance} />} />
             {chartData.map((item, index) => (
               <Cell
                 key={item.optionId}
@@ -2682,6 +2728,14 @@ export default function App() {
                     <span>Use line breaks here to force label wrapping for the selected bar.</span>
                   </label>
                 )}
+                <label>
+                  Axis label position
+                  <select value={selectedTile.appearance.axisLabelPlacement} onChange={(event) => updateSelectedAppearance({ axisLabelPlacement: event.target.value as TileAppearance["axisLabelPlacement"] })}>
+                    <option value="outside">Outside</option>
+                    <option value="insideStart">Inside start</option>
+                    <option value="insideCenter">Inside center</option>
+                  </select>
+                </label>
                 <label>
                   Axis label width
                   <input type="number" min="8" max="72" value={selectedTile.appearance.axisLabelWidth} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Math.min(72, Math.max(8, Number(event.target.value) || 16)) })} />
