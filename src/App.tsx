@@ -1020,19 +1020,26 @@ function AxisTick(props: { x?: string | number; y?: string | number; payload?: {
   const y = Number(props.y ?? 0);
   const label = payload?.value ?? "";
   const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
+  const lineHeight = appearance.axisFontSize + 3;
   const yAxisLabelWidth = appearance.axisLabelWidth * 5;
   const yAxisGap = 18;
   const yAxisAnchorOffset =
     appearance.axisLabelAlign === "start" ? -(yAxisLabelWidth + yAxisGap) : appearance.axisLabelAlign === "middle" ? -(yAxisLabelWidth / 2 + yAxisGap) : -yAxisGap;
   const textAnchor = axisDirection === "y" ? appearance.axisLabelAlign : appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
   const baseX = axisDirection === "y" ? x + yAxisAnchorOffset : x;
-  const baseY = axisDirection === "y" ? y + appearance.axisFontSize / 2 : y;
+  const baseY = y;
+  const initialDy = axisDirection === "y" ? -((lines.length - 1) * lineHeight) / 2 : 0;
 
   return (
     <g transform={`translate(${baseX + appearance.axisLabelDx},${baseY + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}>
-      <text fill={axisDirection === "y" ? appearance.yAxisTextColor : appearance.xAxisTextColor} fontSize={appearance.axisFontSize} textAnchor={textAnchor}>
+      <text
+        fill={axisDirection === "y" ? appearance.yAxisTextColor : appearance.xAxisTextColor}
+        fontSize={appearance.axisFontSize}
+        textAnchor={textAnchor}
+        dominantBaseline={axisDirection === "y" ? "middle" : undefined}
+      >
         {lines.map((line, index) => (
-          <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? 0 : appearance.axisFontSize + 3}>
+          <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? initialDy : lineHeight}>
             {line}
           </tspan>
         ))}
@@ -1122,19 +1129,33 @@ function HorizontalValueLabel(props: {
   const height = Number(props.height ?? 0);
   const value = Number(props.value ?? 0);
   const inside = appearance.labelPosition === "insideTop" || appearance.labelPosition === "insideBottom" || appearance.labelPosition === "center";
+  const edgePadding = Math.max(6, appearance.labelOffset);
   const labelX =
     appearance.labelPosition === "center"
       ? x + width / 2
-      : inside
-        ? x + Math.max(8, width - appearance.labelOffset)
-        : x + width + appearance.labelOffset;
-  const labelY = y + height / 2 + appearance.labelFontSize / 3;
+      : appearance.labelPosition === "top"
+        ? x + width
+        : x + Math.max(edgePadding, width - edgePadding);
+  const labelY =
+    appearance.labelPosition === "center"
+      ? y + height / 2 + appearance.labelFontSize / 3
+      : appearance.labelPosition === "top"
+        ? y - Math.max(6, appearance.labelOffset / 2)
+        : appearance.labelPosition === "insideBottom"
+          ? y + height - Math.max(4, appearance.labelOffset / 3)
+          : y + appearance.labelFontSize + Math.max(2, appearance.labelOffset / 6);
+  const textAnchor =
+    appearance.labelPosition === "center"
+      ? "middle"
+      : appearance.labelPosition === "top"
+        ? "middle"
+        : "end";
 
   return (
     <text
       x={labelX}
       y={labelY}
-      textAnchor={inside && appearance.labelPosition !== "center" ? "end" : "middle"}
+      textAnchor={textAnchor}
       className="chart-value"
       style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize }}
     >
