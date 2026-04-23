@@ -2114,6 +2114,30 @@ export default function App() {
     });
   }
 
+  function applySolidColorToBars(color: string) {
+    if (!selectedTile) return;
+
+    const nextBarStyles = selectedTile.result.table.reduce<TileAppearance["barStyles"]>((styles, row) => {
+      styles[row.optionId] = {
+        color,
+        fillMode: "solid",
+        gradientTo: selectedTile.appearance.barGradientTo,
+        gradientType: selectedTile.appearance.barGradientType,
+        gradientAngle: selectedTile.appearance.barGradientAngle,
+        gradientStops: selectedTile.appearance.barGradientStops,
+        radius: selectedTile.appearance.barStyles[row.optionId]?.radius ?? selectedTile.appearance.barRadius
+      };
+      return styles;
+    }, {});
+
+    updateSelectedAppearance({
+      primaryColor: color,
+      palette: [color, ...selectedTile.appearance.palette.slice(1)],
+      barFillMode: "solid",
+      barStyles: nextBarStyles
+    });
+  }
+
   function updateSelectedAxisLabel(value: string) {
     if (!selectedTile || !selectedChartPart) return;
 
@@ -3339,7 +3363,7 @@ export default function App() {
                   onColorChange={(value) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ color: value })
-                      : clearBarColorOverrides({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
+                      : applySolidColorToBars(value)
                   }
                   onFillModeChange={(mode) =>
                     selectedChartPart
