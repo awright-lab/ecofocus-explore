@@ -948,7 +948,12 @@ button:disabled {
   display: inline-grid;
   place-items: center;
   width: 36px;
+  min-width: 36px;
+  max-width: 36px;
   height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  line-height: 1;
   padding: 0;
   border: 1px solid #d7dee5;
   border-radius: 50%;
@@ -959,6 +964,7 @@ button:disabled {
   -webkit-appearance: none;
   overflow: hidden;
   flex: 0 0 auto;
+  aspect-ratio: 1 / 1;
 }
 
 .color-swatch.active {
@@ -991,13 +997,19 @@ button:disabled {
   display: inline-grid;
   place-items: center;
   width: 36px;
+  min-width: 36px;
+  max-width: 36px;
   height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  line-height: 1;
   padding: 0;
   border: 0;
   background: transparent;
   appearance: none;
   -webkit-appearance: none;
   border-radius: 50%;
+  aspect-ratio: 1 / 1;
 }
 
 .color-chip {
