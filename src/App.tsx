@@ -3231,22 +3231,60 @@ export default function App() {
                   </div>
                 </div>
                 {!selectedChartPart && (
-                  <label>
-                    Bar palette preset
-                    <select
-                      value={getPaletteId(selectedTile.appearance.palette)}
-                      onChange={(event) => {
-                        const nextPalette = palettes.find((palette) => palette.id === event.target.value) ?? palettes[0];
-                        updateSelectedAppearance({ palette: nextPalette.colors, primaryColor: nextPalette.colors[0] });
-                      }}
-                    >
-                      {palettes.map((palette) => (
-                        <option key={palette.id} value={palette.id}>
-                          {palette.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="palette-chip-groups">
+                    <span>Bar palette presets</span>
+                    <div className="palette-chip-group-list">
+                      {palettes.map((palette) => {
+                        const isActive = getPaletteId(selectedTile.appearance.palette) === palette.id;
+                        return (
+                          <button
+                            type="button"
+                            key={palette.id}
+                            className={isActive ? "palette-chip-group active" : "palette-chip-group"}
+                            onClick={() =>
+                              updateSelectedAppearance({
+                                palette: palette.colors,
+                                primaryColor: palette.colors[0]
+                              })
+                            }
+                          >
+                            <div className="palette-chip-group-header">
+                              <strong>{palette.label}</strong>
+                              <small>Apply all</small>
+                            </div>
+                            <div className="palette-chip-row">
+                              {palette.colors.map((color, index) => (
+                                <span
+                                  key={`${palette.id}-${color}-${index}`}
+                                  className="palette-chip"
+                                  style={{ background: color }}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`Use ${color} from ${palette.label}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    updateSelectedAppearance({
+                                      primaryColor: color,
+                                      palette: [color, ...palette.colors.filter((entry) => entry !== color)]
+                                    });
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key !== "Enter" && event.key !== " ") return;
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    updateSelectedAppearance({
+                                      primaryColor: color,
+                                      palette: [color, ...palette.colors.filter((entry) => entry !== color)]
+                                    });
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
                 <BarColorField
                   style={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor) : getBarStyle(selectedTile.appearance, "__default__", selectedTile.appearance.primaryColor)}

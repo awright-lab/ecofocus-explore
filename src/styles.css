@@ -940,6 +940,81 @@ button:disabled {
   font-size: 0.92rem;
 }
 
+.palette-chip-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.palette-chip-groups > span {
+  color: #55656d;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.palette-chip-group-list {
+  display: grid;
+  gap: 10px;
+}
+
+.palette-chip-group {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dce5ea;
+  border-radius: 16px;
+  background: #f8fbfc;
+  text-align: left;
+}
+
+.palette-chip-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.palette-chip-group-header strong {
+  color: #1b2f26;
+  font-size: 0.9rem;
+}
+
+.palette-chip-group-header small {
+  color: #688075;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.palette-chip-group.active {
+  border-color: var(--accent-eco);
+  box-shadow: 0 0 0 2px var(--accent-eco-soft);
+}
+
+.palette-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.palette-chip {
+  display: inline-block;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d8e2e7;
+  cursor: pointer;
+}
+
+.palette-chip:focus-visible {
+  outline: 2px solid var(--accent-eco);
+  outline-offset: 2px;
+}
+
 .color-summary-swatches {
   display: flex;
   flex-wrap: wrap;
