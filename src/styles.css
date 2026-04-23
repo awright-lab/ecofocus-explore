@@ -1090,16 +1090,17 @@ button:disabled {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  background: transparent !important;
   appearance: none;
   -webkit-appearance: none;
+  box-shadow: none !important;
 }
 
 .hue-slider::-webkit-slider-runnable-track {
   height: 18px;
   min-height: 18px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  background: linear-gradient(90deg, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%) !important;
 }
 
 .hue-slider::-webkit-slider-thumb {
@@ -1116,7 +1117,7 @@ button:disabled {
 .hue-slider::-moz-range-track {
   height: 18px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  background: linear-gradient(90deg, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%) !important;
 }
 
 .hue-slider::-moz-range-progress {
@@ -1226,6 +1227,20 @@ button:disabled {
   grid-template-columns: 40px minmax(0, 1fr) 40px;
   gap: 8px;
   align-items: center;
+}
+
+.color-value-row .mini-button {
+  width: 40px;
+  min-width: 40px !important;
+  max-width: 40px;
+  height: 40px;
+  min-height: 40px !important;
+  max-height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
 }
 
 .color-chip-button.static {
