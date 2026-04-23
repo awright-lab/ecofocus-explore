@@ -109,6 +109,7 @@ const defaultAppearance: TileAppearance = {
   barFillMode: "solid",
   barGradientTo: "#9fc9a7",
   barGradientType: "linear",
+  barGradientAngle: 90,
   barGradientStops: [],
   barStyles: {},
   showValueLabels: true,
@@ -276,6 +277,18 @@ function gradientCss(from: string, to: string, stops?: GradientStop[], type: Gra
   if (type === "radial") return `radial-gradient(circle at center, ${stopList})`;
   if (type === "conic") return `conic-gradient(from 90deg, ${stopList})`;
   return `linear-gradient(${angle}, ${stopList})`;
+}
+
+function svgLinearGradientVector(angle: number) {
+  const radians = ((angle - 90) * Math.PI) / 180;
+  const x = Math.cos(radians);
+  const y = Math.sin(radians);
+  return {
+    x1: `${50 - x * 50}%`,
+    y1: `${50 - y * 50}%`,
+    x2: `${50 + x * 50}%`,
+    y2: `${50 + y * 50}%`
+  };
 }
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string, gradientStops?: GradientStop[], gradientType: GradientType = "linear") {
@@ -508,6 +521,7 @@ function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: stri
     fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
     gradientTo: appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
     gradientType: appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
+    gradientAngle: appearance.barStyles[id]?.gradientAngle ?? appearance.barGradientAngle,
     gradientStops: appearance.barStyles[id]?.gradientStops ?? appearance.barGradientStops,
     radius: appearance.barStyles[id]?.radius ?? appearance.barRadius
   };
@@ -544,8 +558,10 @@ function SvgBarGradientDef({
     );
   }
 
+  const vector = svgLinearGradientVector(style.gradientAngle ?? (orientation === "horizontal" ? 90 : 180));
+
   return (
-    <linearGradient id={id} x1="0" y1="0" x2={orientation === "horizontal" ? "1" : "0"} y2={orientation === "horizontal" ? "0" : "1"}>
+    <linearGradient id={id} x1={vector.x1} y1={vector.y1} x2={vector.x2} y2={vector.y2}>
       <SvgGradientStops from={style.color} to={style.gradientTo} stops={style.gradientStops} />
     </linearGradient>
   );
@@ -620,10 +636,10 @@ function getDocumentColors(tile?: DashboardTile) {
 }
 
 const gradientStylePresets = [
-  { id: "linear-soft", label: "Soft", type: "linear" as const, positions: [0, 100] },
-  { id: "linear-mid", label: "Mid", type: "linear" as const, positions: [0, 35, 100] },
-  { id: "linear-glow", label: "Glow", type: "linear" as const, positions: [0, 65, 100] },
-  { id: "radial-soft", label: "Radial", type: "radial" as const, positions: [0, 45, 100] }
+  { id: "linear-left-right", label: "Left to right", type: "linear" as const, angle: 90, positions: [0, 100] },
+  { id: "linear-top-bottom", label: "Top to bottom", type: "linear" as const, angle: 180, positions: [0, 100] },
+  { id: "linear-diagonal", label: "Diagonal", type: "linear" as const, angle: 135, positions: [0, 35, 100] },
+  { id: "radial-soft", label: "Radial", type: "radial" as const, angle: 90, positions: [0, 45, 100] }
 ];
 
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
@@ -1251,6 +1267,7 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             gradientType: tile.appearance?.gradientType ?? "linear",
             gradientStops: tile.appearance?.gradientStops ?? [],
             barGradientType: tile.appearance?.barGradientType ?? "linear",
+            barGradientAngle: tile.appearance?.barGradientAngle ?? 90,
             barGradientStops: tile.appearance?.barGradientStops ?? [],
             barStyles: tile.appearance?.barStyles ?? {},
             axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {}
@@ -2865,7 +2882,8 @@ export default function App() {
                             type="button"
                             key={preset.id}
                             className={
-                              (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType) === preset.type
+                              (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType) === preset.type &&
+                              (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle) === preset.angle
                               ? "active"
                               : ""
                             }
@@ -2873,6 +2891,7 @@ export default function App() {
                               selectedChartPart
                                 ? updateSelectedBarStyle({
                                     gradientType: preset.type,
+                                    gradientAngle: preset.angle,
                                     gradientStops: applyGradientStylePreset(
                                       getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color,
                                       getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo,
@@ -2882,6 +2901,7 @@ export default function App() {
                                   })
                                 : updateSelectedAppearance({
                                     barGradientType: preset.type,
+                                    barGradientAngle: preset.angle,
                                     barGradientStops: applyGradientStylePreset(
                                       selectedTile.appearance.primaryColor,
                                       selectedTile.appearance.barGradientTo,
@@ -2903,7 +2923,8 @@ export default function App() {
                                     selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
                                     preset.positions
                                   ),
-                                  preset.type
+                                  preset.type,
+                                  `${preset.angle}deg`
                                 )
                               }}
                             />
@@ -2919,7 +2940,8 @@ export default function App() {
                             selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
                             selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
                             selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
-                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType
+                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType,
+                            `${selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle}deg`
                           )
                         }}
                       />

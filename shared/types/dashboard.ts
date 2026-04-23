@@ -59,6 +59,7 @@ export interface TileAppearance {
   barFillMode: "solid" | "gradient";
   barGradientTo: string;
   barGradientType: GradientType;
+  barGradientAngle: number;
   barGradientStops: GradientStop[];
   barStyles: Record<
     string,
@@ -67,6 +68,7 @@ export interface TileAppearance {
       fillMode: "solid" | "gradient";
       gradientTo: string;
       gradientType?: GradientType;
+      gradientAngle?: number;
       gradientStops?: GradientStop[];
       radius: number;
     }
