@@ -84,6 +84,7 @@ const defaultAppearance: TileAppearance = {
   glowColor: "#16c9c3",
   glowSize: 24,
   showGrid: true,
+  chartBackground: "#fbfcfad1",
   gridColor: "#e6ebe4",
   xAxisTextColor: "#69776e",
   yAxisTextColor: "#69776e",
@@ -211,7 +212,11 @@ function normalizeHexColor(value: string | null | undefined, fallback = "#000000
   if (!value) return fallback;
   const trimmed = value.trim();
   if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+  if (/^#[0-9a-f]{8}$/i.test(trimmed)) return trimmed;
   if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed.slice(1).split("").map((item) => item + item).join("")}`;
+  }
+  if (/^#[0-9a-f]{4}$/i.test(trimmed)) {
     return `#${trimmed.slice(1).split("").map((item) => item + item).join("")}`;
   }
   return fallback;
@@ -220,11 +225,14 @@ function normalizeHexColor(value: string | null | undefined, fallback = "#000000
 function hexToRgbObject(value: string) {
   const hex = normalizeHexColor(value);
   const normalized = hex.slice(1);
-  const parsed = Number.parseInt(normalized, 16);
+  const rgb = normalized.slice(0, 6);
+  const alpha = normalized.length === 8 ? normalized.slice(6, 8) : "ff";
+  const parsed = Number.parseInt(rgb, 16);
   return {
     r: (parsed >> 16) & 255,
     g: (parsed >> 8) & 255,
-    b: parsed & 255
+    b: parsed & 255,
+    a: Math.round((Number.parseInt(alpha, 16) / 255) * 100)
   };
 }
 
@@ -232,6 +240,22 @@ function rgbToHex(r: number, g: number, b: number) {
   return `#${[r, g, b]
     .map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0"))
     .join("")}`;
+}
+
+function setHexAlpha(value: string, alpha: number) {
+  const base = normalizeHexColor(value).slice(1, 7);
+  const normalizedAlpha = Math.max(0, Math.min(100, Math.round(alpha)));
+  if (normalizedAlpha >= 100) return `#${base}`;
+  const alphaHex = Math.round((normalizedAlpha / 100) * 255).toString(16).padStart(2, "0");
+  return `#${base}${alphaHex}`;
+}
+
+function colorAlpha(value: string) {
+  return hexToRgbObject(value).a;
+}
+
+function stripHexAlpha(value: string) {
+  return `#${normalizeHexColor(value).slice(1, 7)}`;
 }
 
 function rgbToHsl(r: number, g: number, b: number) {
@@ -387,7 +411,8 @@ function applyGradientStylePreset(from: string, to: string, stops: GradientStop[
 }
 
 function stopColorCss(stop: GradientStop) {
-  return `rgba(${hexToRgb(stop.color)}, ${stop.opacity / 100})`;
+  const { r, g, b, a } = hexToRgbObject(stop.color);
+  return `rgba(${r}, ${g}, ${b}, ${(a / 100) * (stop.opacity / 100)})`;
 }
 
 function gradientCss(from: string, to: string, stops?: GradientStop[], type: GradientType = "linear", angle = "90deg") {
@@ -605,10 +630,11 @@ function SolidColorEditor({
   const rgb = hexToRgbObject(safeColor);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
   const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+  const alpha = colorAlpha(safeColor);
 
   function updateFromHsv(nextHue: number, nextSaturation: number, nextValue: number) {
     const next = hsvToRgb(nextHue, nextSaturation, nextValue);
-    onChange(rgbToHex(next.r, next.g, next.b));
+    onChange(setHexAlpha(rgbToHex(next.r, next.g, next.b), alpha));
   }
 
   function updateFromSurface(clientX: number, clientY: number) {
@@ -629,7 +655,7 @@ function SolidColorEditor({
     try {
       const eyeDropper = new EyeDropperApi();
       const result = await eyeDropper.open();
-      onChange(normalizeHexColor(result.sRGBHex, safeColor));
+      onChange(setHexAlpha(normalizeHexColor(result.sRGBHex, safeColor), alpha));
     } catch {
       // Ignore cancel and unsupported cases.
     }
@@ -667,6 +693,26 @@ function SolidColorEditor({
         style={{ "--range-fill": `${(hsv.h / 360) * 100}%` } as React.CSSProperties}
         onChange={(event) => updateFromHsv(Number(event.target.value), hsv.s, hsv.v)}
       />
+      <div className="opacity-control">
+        <span>Opacity</span>
+        <div className="opacity-control__row">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={alpha}
+            style={{ "--range-fill": rangeFill(alpha, 0, 100) } as React.CSSProperties}
+            onChange={(event) => onChange(setHexAlpha(safeColor, Number(event.target.value) || 0))}
+          />
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={alpha}
+            onChange={(event) => onChange(setHexAlpha(safeColor, Number(event.target.value) || 0))}
+          />
+        </div>
+      </div>
       <div className="fill-mode-tabs picker input-mode-tabs">
         <button type="button" className={inputMode === "hex" ? "active" : ""} onClick={() => setInputMode("hex")}>HEX</button>
         <button type="button" className={inputMode === "rgb" ? "active" : ""} onClick={() => setInputMode("rgb")}>RGB</button>
@@ -687,28 +733,28 @@ function SolidColorEditor({
       )}
       {inputMode === "rgb" && (
         <div className="numeric-triplet">
-          <input type="number" min="0" max="255" value={rgb.r} onChange={(event) => onChange(rgbToHex(Number(event.target.value) || 0, rgb.g, rgb.b))} />
-          <input type="number" min="0" max="255" value={rgb.g} onChange={(event) => onChange(rgbToHex(rgb.r, Number(event.target.value) || 0, rgb.b))} />
-          <input type="number" min="0" max="255" value={rgb.b} onChange={(event) => onChange(rgbToHex(rgb.r, rgb.g, Number(event.target.value) || 0))} />
+          <input type="number" min="0" max="255" value={rgb.r} onChange={(event) => onChange(setHexAlpha(rgbToHex(Number(event.target.value) || 0, rgb.g, rgb.b), alpha))} />
+          <input type="number" min="0" max="255" value={rgb.g} onChange={(event) => onChange(setHexAlpha(rgbToHex(rgb.r, Number(event.target.value) || 0, rgb.b), alpha))} />
+          <input type="number" min="0" max="255" value={rgb.b} onChange={(event) => onChange(setHexAlpha(rgbToHex(rgb.r, rgb.g, Number(event.target.value) || 0), alpha))} />
         </div>
       )}
       {inputMode === "hsl" && (
         <div className="numeric-triplet">
           <input type="number" min="0" max="360" value={hsl.h} onChange={(event) => {
             const next = hslToRgb(Number(event.target.value) || 0, hsl.s, hsl.l);
-            onChange(rgbToHex(next.r, next.g, next.b));
+            onChange(setHexAlpha(rgbToHex(next.r, next.g, next.b), alpha));
           }} />
           <input type="number" min="0" max="100" value={hsl.s} onChange={(event) => {
             const next = hslToRgb(hsl.h, Number(event.target.value) || 0, hsl.l);
-            onChange(rgbToHex(next.r, next.g, next.b));
+            onChange(setHexAlpha(rgbToHex(next.r, next.g, next.b), alpha));
           }} />
           <input type="number" min="0" max="100" value={hsl.l} onChange={(event) => {
             const next = hslToRgb(hsl.h, hsl.s, Number(event.target.value) || 0);
-            onChange(rgbToHex(next.r, next.g, next.b));
+            onChange(setHexAlpha(rgbToHex(next.r, next.g, next.b), alpha));
           }} />
         </div>
       )}
-      <input ref={inputRef} className="sr-only-color-input" type="color" value={safeColor} onChange={(event) => onChange(event.target.value)} tabIndex={-1} />
+      <input ref={inputRef} className="sr-only-color-input" type="color" value={stripHexAlpha(safeColor)} onChange={(event) => onChange(setHexAlpha(event.target.value, alpha))} tabIndex={-1} />
     </div>
   );
 }
@@ -993,6 +1039,7 @@ function getDocumentColors(tile?: DashboardTile) {
     tile.appearance.labelColor,
     tile.appearance.xAxisTextColor,
     tile.appearance.yAxisTextColor,
+    tile.appearance.chartBackground,
     tile.appearance.gridColor,
     tile.appearance.background,
     tile.appearance.borderColor
@@ -1215,7 +1262,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
   }));
 
   return (
-    <div className="chart-card" aria-label="Query-driven vertical bar chart">
+    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven vertical bar chart">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
@@ -1255,7 +1302,7 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
   }));
 
   return (
-    <div className="chart-card" aria-label="Query-driven grouped bar chart">
+    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven grouped bar chart">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
@@ -1301,7 +1348,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
   }));
 
   return (
-    <div className="chart-card" aria-label="Query-driven horizontal bar chart">
+    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven horizontal bar chart">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 34, left: 18, bottom: 22 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
@@ -1348,7 +1395,7 @@ function StackedBarChartView({ tile }: { tile: DashboardTile }) {
   }));
 
   return (
-    <div className="chart-card" aria-label="Query-driven stacked bar chart">
+    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven stacked bar chart">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
@@ -1390,7 +1437,7 @@ function LineChartView({ tile }: { tile: DashboardTile }) {
   }));
 
   return (
-    <div className="chart-card" aria-label="Query-driven line chart">
+    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven line chart">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
@@ -1427,7 +1474,7 @@ function DonutChartView({ tile }: { tile: DashboardTile }) {
   }));
 
   return (
-    <div className="chart-card" aria-label="Query-driven donut chart">
+    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven donut chart">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
@@ -1652,7 +1699,8 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             barGradientAngle: tile.appearance?.barGradientAngle ?? 90,
             barGradientStops: tile.appearance?.barGradientStops ?? [],
             barStyles: tile.appearance?.barStyles ?? {},
-            axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {}
+            axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {},
+            chartBackground: tile.appearance?.chartBackground ?? defaultAppearance.chartBackground
           }
         };
       })
@@ -3389,6 +3437,7 @@ export default function App() {
                 <ColorField label="Value label color" value={selectedTile.appearance.labelColor} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
                 <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
                 <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
+                <ColorField label="Chart background" value={selectedTile.appearance.chartBackground} onChange={(value) => updateSelectedAppearance({ chartBackground: value })} />
                 <ColorField label="Grid color" value={selectedTile.appearance.gridColor} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}

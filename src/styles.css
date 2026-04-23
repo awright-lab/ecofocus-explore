@@ -1165,6 +1165,24 @@ button:disabled {
   gap: 12px;
 }
 
+.opacity-control {
+  display: grid;
+  gap: 6px;
+}
+
+.opacity-control > span {
+  color: #304239;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.opacity-control__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px;
+  gap: 8px;
+  align-items: center;
+}
+
 .color-surface {
   position: relative;
   height: 146px;

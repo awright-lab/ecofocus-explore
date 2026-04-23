@@ -34,6 +34,7 @@ export interface TileAppearance {
   glowColor: string;
   glowSize: number;
   showGrid: boolean;
+  chartBackground: string;
   gridColor: string;
   xAxisTextColor: string;
   yAxisTextColor: string;
