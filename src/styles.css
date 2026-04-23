@@ -947,11 +947,13 @@ button:disabled {
 .color-swatch {
   display: inline-grid;
   place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
   width: 36px;
-  min-width: 36px;
+  min-width: 36px !important;
   max-width: 36px;
   height: 36px;
-  min-height: 36px;
+  min-height: 36px !important;
   max-height: 36px;
   line-height: 1;
   padding: 0;
@@ -965,10 +967,14 @@ button:disabled {
   overflow: hidden;
   flex: 0 0 auto;
   aspect-ratio: 1 / 1;
+  vertical-align: top;
+  outline: none;
 }
 
 .color-swatch.active {
-  box-shadow: 0 0 0 2px #7a45ff;
+  box-shadow: none;
+  outline: 2px solid #7a45ff;
+  outline-offset: 2px;
 }
 
 .color-swatch.add {
@@ -996,11 +1002,13 @@ button:disabled {
 .color-chip-button {
   display: inline-grid;
   place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
   width: 36px;
-  min-width: 36px;
+  min-width: 36px !important;
   max-width: 36px;
   height: 36px;
-  min-height: 36px;
+  min-height: 36px !important;
   max-height: 36px;
   line-height: 1;
   padding: 0;
@@ -1010,6 +1018,8 @@ button:disabled {
   -webkit-appearance: none;
   border-radius: 50%;
   aspect-ratio: 1 / 1;
+  vertical-align: top;
+  outline: none;
 }
 
 .color-chip {

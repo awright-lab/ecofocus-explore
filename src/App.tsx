@@ -225,6 +225,12 @@ function normalizeGradientStops(from: string, to: string, stops?: GradientStop[]
   ].sort((first, second) => first.position - second.position);
 }
 
+function protectedGradientEndpointIds(stops: GradientStop[]) {
+  const startId = stops.find((stop) => stop.position === 0)?.id;
+  const endId = [...stops].reverse().find((stop) => stop.position === 100)?.id;
+  return { startId, endId };
+}
+
 function stopColorCss(stop: GradientStop) {
   return `rgba(${hexToRgb(stop.color)}, ${stop.opacity / 100})`;
 }
@@ -310,11 +316,14 @@ function GradientEditor({
   onChange: (updates: { from: string; to: string; type: GradientType; stops: GradientStop[] }) => void;
 }) {
   const allStops = normalizeGradientStops(from, to, stops);
+  const { startId, endId } = protectedGradientEndpointIds(allStops);
 
   function updateStop(id: string, updates: Partial<GradientStop>) {
     const nextStops = allStops.map((stop) => (stop.id === id ? { ...stop, ...updates } : stop));
-    const start = nextStops.find((stop) => stop.position === 0)?.color ?? from;
-    const end = nextStops.find((stop) => stop.position === 100)?.color ?? to;
+    const nextStartId = protectedGradientEndpointIds(nextStops).startId;
+    const nextEndId = protectedGradientEndpointIds(nextStops).endId;
+    const start = nextStops.find((stop) => stop.id === nextStartId)?.color ?? from;
+    const end = nextStops.find((stop) => stop.id === nextEndId)?.color ?? to;
     onChange({ from: start, to: end, type, stops: nextStops });
   }
 
@@ -363,11 +372,11 @@ function GradientEditor({
         {allStops.map((stop) => (
             <div className="gradient-stop-control" key={stop.id}>
               <input type="color" value={stop.color} onChange={(event) => updateStop(stop.id, { color: event.target.value })} />
-              <input type="range" min="0" max="100" value={stop.position} disabled={stop.position === 0 || stop.position === 100} style={{ "--range-fill": rangeFill(stop.position, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
-              <input type="number" min="0" max="100" value={stop.position} disabled={stop.position === 0 || stop.position === 100} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
+              <input type="range" min="0" max="100" value={stop.position} disabled={stop.id === startId || stop.id === endId} style={{ "--range-fill": rangeFill(stop.position, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
+              <input type="number" min="0" max="100" value={stop.position} disabled={stop.id === startId || stop.id === endId} onChange={(event) => updateStop(stop.id, { position: Number(event.target.value) })} />
               <input type="range" min="0" max="100" value={stop.opacity} style={{ "--range-fill": rangeFill(stop.opacity, 0, 100) } as React.CSSProperties} onChange={(event) => updateStop(stop.id, { opacity: Number(event.target.value) })} />
               <span>{stop.opacity}%</span>
-              <button type="button" className="mini-button" onClick={() => removeStop(stop.id)} disabled={stop.position === 0 || stop.position === 100}>x</button>
+              <button type="button" className="mini-button" onClick={() => removeStop(stop.id)} disabled={stop.id === startId || stop.id === endId}>x</button>
             </div>
           ))}
       </div>
