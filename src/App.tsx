@@ -627,41 +627,32 @@ function ColorField({
   );
 }
 
-function BarColorField({
-  style,
-  documentColors,
-  onColorChange,
-  onFillModeChange,
-  onPresetApply,
-  onAdvancedGradient
+function SolidColorEditor({
+  value,
+  onChange
 }: {
-  style: ReturnType<typeof getBarStyle>;
-  documentColors: string[];
-  onColorChange: (value: string) => void;
-  onFillModeChange: (mode: "solid" | "gradient") => void;
-  onPresetApply: (preset: (typeof gradientStylePresets)[number]) => void;
-  onAdvancedGradient: () => void;
+  value: string;
+  onChange: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [inputMode, setInputMode] = useState<"hex" | "rgb" | "hsl">("hex");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
-  const safeColor = normalizeHexColor(style.color);
+  const safeColor = normalizeHexColor(value);
   const rgb = hexToRgbObject(safeColor);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
   const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
 
   function updateFromHsv(nextHue: number, nextSaturation: number, nextValue: number) {
     const next = hsvToRgb(nextHue, nextSaturation, nextValue);
-    onColorChange(rgbToHex(next.r, next.g, next.b));
+    onChange(rgbToHex(next.r, next.g, next.b));
   }
 
   function updateFromSurface(clientX: number, clientY: number) {
     const bounds = surfaceRef.current?.getBoundingClientRect();
     if (!bounds) return;
     const saturation = ((clientX - bounds.left) / bounds.width) * 100;
-    const value = 100 - ((clientY - bounds.top) / bounds.height) * 100;
-    updateFromHsv(hsv.h, Math.max(0, Math.min(100, saturation)), Math.max(0, Math.min(100, value)));
+    const valueLevel = 100 - ((clientY - bounds.top) / bounds.height) * 100;
+    updateFromHsv(hsv.h, Math.max(0, Math.min(100, saturation)), Math.max(0, Math.min(100, valueLevel)));
   }
 
   async function pickScreenColor() {
@@ -674,10 +665,150 @@ function BarColorField({
     try {
       const eyeDropper = new EyeDropperApi();
       const result = await eyeDropper.open();
-      onColorChange(normalizeHexColor(result.sRGBHex, safeColor));
+      onChange(normalizeHexColor(result.sRGBHex, safeColor));
     } catch {
-      // User canceled or API failed; keep current color.
+      // Ignore cancel and unsupported cases.
     }
+  }
+
+  return (
+    <div className="solid-color-editor">
+      <div
+        ref={surfaceRef}
+        className="color-surface"
+        style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          updateFromSurface(event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (event.buttons !== 1) return;
+          updateFromSurface(event.clientX, event.clientY);
+        }}
+      >
+        <span
+          className="color-surface__cursor"
+          style={{
+            left: `${hsv.s}%`,
+            top: `${100 - hsv.v}%`
+          }}
+        />
+      </div>
+      <input
+        className="hue-slider"
+        type="range"
+        min="0"
+        max="360"
+        value={hsv.h}
+        style={{ "--range-fill": `${(hsv.h / 360) * 100}%` } as React.CSSProperties}
+        onChange={(event) => updateFromHsv(Number(event.target.value), hsv.s, hsv.v)}
+      />
+      <div className="fill-mode-tabs picker input-mode-tabs">
+        <button type="button" className={inputMode === "hex" ? "active" : ""} onClick={() => setInputMode("hex")}>HEX</button>
+        <button type="button" className={inputMode === "rgb" ? "active" : ""} onClick={() => setInputMode("rgb")}>RGB</button>
+        <button type="button" className={inputMode === "hsl" ? "active" : ""} onClick={() => setInputMode("hsl")}>HSL</button>
+      </div>
+      {inputMode === "hex" && (
+        <div className="color-value-row">
+          <button type="button" className="color-chip-button static" aria-hidden="true">
+            <span className="color-chip" style={{ background: safeColor }} />
+          </button>
+          <input value={safeColor.toUpperCase()} onChange={(event) => onChange(normalizeHexColor(event.target.value, safeColor))} />
+          <button type="button" className="mini-button eyedropper-button" onClick={() => void pickScreenColor()} aria-label="Pick color from screen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 4l6 6m-9.5 9.5L4 20l.5-6.5L14 4l6 6-9.5 9.5ZM12 6l6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {inputMode === "rgb" && (
+        <div className="numeric-triplet">
+          <input type="number" min="0" max="255" value={rgb.r} onChange={(event) => onChange(rgbToHex(Number(event.target.value) || 0, rgb.g, rgb.b))} />
+          <input type="number" min="0" max="255" value={rgb.g} onChange={(event) => onChange(rgbToHex(rgb.r, Number(event.target.value) || 0, rgb.b))} />
+          <input type="number" min="0" max="255" value={rgb.b} onChange={(event) => onChange(rgbToHex(rgb.r, rgb.g, Number(event.target.value) || 0))} />
+        </div>
+      )}
+      {inputMode === "hsl" && (
+        <div className="numeric-triplet">
+          <input type="number" min="0" max="360" value={hsl.h} onChange={(event) => {
+            const next = hslToRgb(Number(event.target.value) || 0, hsl.s, hsl.l);
+            onChange(rgbToHex(next.r, next.g, next.b));
+          }} />
+          <input type="number" min="0" max="100" value={hsl.s} onChange={(event) => {
+            const next = hslToRgb(hsl.h, Number(event.target.value) || 0, hsl.l);
+            onChange(rgbToHex(next.r, next.g, next.b));
+          }} />
+          <input type="number" min="0" max="100" value={hsl.l} onChange={(event) => {
+            const next = hslToRgb(hsl.h, hsl.s, Number(event.target.value) || 0);
+            onChange(rgbToHex(next.r, next.g, next.b));
+          }} />
+        </div>
+      )}
+      <input ref={inputRef} className="sr-only-color-input" type="color" value={safeColor} onChange={(event) => onChange(event.target.value)} tabIndex={-1} />
+    </div>
+  );
+}
+
+function BarColorField({
+  style,
+  onColorChange,
+  onFillModeChange,
+  onPresetApply,
+  onAdvancedGradient,
+  onGradientChange
+}: {
+  style: ReturnType<typeof getBarStyle>;
+  onColorChange: (value: string) => void;
+  onFillModeChange: (mode: "solid" | "gradient") => void;
+  onPresetApply: (preset: (typeof gradientStylePresets)[number]) => void;
+  onAdvancedGradient: () => void;
+  onGradientChange: (updates: { color: string; gradientTo: string; gradientStops: GradientStop[] }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeGradientStopId, setActiveGradientStopId] = useState<string | null>(null);
+  const [draggedGradientStopId, setDraggedGradientStopId] = useState<string | null>(null);
+  const safeColor = normalizeHexColor(style.color);
+  const gradientChips = normalizeGradientStops(style.color, style.gradientTo, style.gradientStops);
+
+  function commitGradientChips(nextChips: GradientStop[]) {
+    if (nextChips.length < 2) return;
+    const ordered = nextChips.map((chip, index) => ({
+      ...chip,
+      position: nextChips.length === 1 ? 50 : Math.round((index / (nextChips.length - 1)) * 100)
+    }));
+    onGradientChange({
+      color: ordered[0]?.color ?? style.color,
+      gradientTo: ordered[ordered.length - 1]?.color ?? style.gradientTo,
+      gradientStops: ordered.slice(1, -1)
+    });
+  }
+
+  function updateGradientChipColor(id: string, color: string) {
+    commitGradientChips(gradientChips.map((chip) => (chip.id === id ? { ...chip, color } : chip)));
+  }
+
+  function addGradientChip() {
+    const newChip: GradientStop = {
+      id: `chip_${Date.now()}`,
+      color: style.gradientTo,
+      position: 50,
+      opacity: 100
+    };
+    const insertAt = Math.max(1, gradientChips.length - 1);
+    const nextChips = [...gradientChips.slice(0, insertAt), newChip, ...gradientChips.slice(insertAt)];
+    commitGradientChips(nextChips);
+    setActiveGradientStopId(newChip.id);
+  }
+
+  function reorderGradientChips(targetId: string) {
+    if (!draggedGradientStopId || draggedGradientStopId === targetId) return;
+    const fromIndex = gradientChips.findIndex((chip) => chip.id === draggedGradientStopId);
+    const toIndex = gradientChips.findIndex((chip) => chip.id === targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const next = [...gradientChips];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    commitGradientChips(next);
   }
 
   return (
@@ -704,7 +835,38 @@ function BarColorField({
             {style.fillMode === "gradient" ? (
               <>
                 <div className="color-field">
-                  <span>Gradient styles</span>
+                  <span>Gradient colors</span>
+                  <div className="gradient-chip-row">
+                    {gradientChips.map((chip) => (
+                      <button
+                        type="button"
+                        key={chip.id}
+                        draggable
+                        className={chip.id === activeGradientStopId ? "color-swatch active" : "color-swatch"}
+                        style={{ background: chip.color }}
+                        onClick={() => setActiveGradientStopId(chip.id)}
+                        onDragStart={() => setDraggedGradientStopId(chip.id)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => reorderGradientChips(chip.id)}
+                        onDragEnd={() => setDraggedGradientStopId(null)}
+                        aria-label={`Edit gradient color ${chip.color}`}
+                      />
+                    ))}
+                    <button type="button" className="color-swatch add" onClick={addGradientChip} aria-label="Add gradient color">
+                      +
+                    </button>
+                  </div>
+                  {activeGradientStopId && (
+                    <div className="gradient-chip-editor">
+                      <SolidColorEditor
+                        value={gradientChips.find((chip) => chip.id === activeGradientStopId)?.color ?? safeColor}
+                        onChange={(value) => updateGradientChipColor(activeGradientStopId, value)}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="color-field">
+                  <span>Style</span>
                   <div className="gradient-style-grid">
                     {gradientStylePresets.map((preset) => (
                       <button
@@ -734,81 +896,8 @@ function BarColorField({
                 </button>
               </>
             ) : (
-              <>
-                <div
-                  ref={surfaceRef}
-                  className="color-surface"
-                  style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
-                  onPointerDown={(event) => {
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    updateFromSurface(event.clientX, event.clientY);
-                  }}
-                  onPointerMove={(event) => {
-                    if (event.buttons !== 1) return;
-                    updateFromSurface(event.clientX, event.clientY);
-                  }}
-                >
-                  <span
-                    className="color-surface__cursor"
-                    style={{
-                      left: `${hsv.s}%`,
-                      top: `${100 - hsv.v}%`
-                    }}
-                  />
-                </div>
-                <input
-                  className="hue-slider"
-                  type="range"
-                  min="0"
-                  max="360"
-                  value={hsv.h}
-                  style={{ "--range-fill": `${(hsv.h / 360) * 100}%` } as React.CSSProperties}
-                  onChange={(event) => updateFromHsv(Number(event.target.value), hsv.s, hsv.v)}
-                />
-                <div className="fill-mode-tabs picker input-mode-tabs">
-                  <button type="button" className={inputMode === "hex" ? "active" : ""} onClick={() => setInputMode("hex")}>HEX</button>
-                  <button type="button" className={inputMode === "rgb" ? "active" : ""} onClick={() => setInputMode("rgb")}>RGB</button>
-                  <button type="button" className={inputMode === "hsl" ? "active" : ""} onClick={() => setInputMode("hsl")}>HSL</button>
-                </div>
-                {inputMode === "hex" && (
-                  <div className="color-value-row">
-                    <button type="button" className="color-chip-button static" aria-hidden="true">
-                      <span className="color-chip" style={{ background: safeColor }} />
-                    </button>
-                    <input value={safeColor.toUpperCase()} onChange={(event) => onColorChange(normalizeHexColor(event.target.value, safeColor))} />
-                    <button type="button" className="mini-button eyedropper-button" onClick={() => void pickScreenColor()} aria-label="Pick color from screen">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M14 4l6 6m-9.5 9.5L4 20l.5-6.5L14 4l6 6-9.5 9.5ZM12 6l6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                {inputMode === "rgb" && (
-                  <div className="numeric-triplet">
-                    <input type="number" min="0" max="255" value={rgb.r} onChange={(event) => onColorChange(rgbToHex(Number(event.target.value) || 0, rgb.g, rgb.b))} />
-                    <input type="number" min="0" max="255" value={rgb.g} onChange={(event) => onColorChange(rgbToHex(rgb.r, Number(event.target.value) || 0, rgb.b))} />
-                    <input type="number" min="0" max="255" value={rgb.b} onChange={(event) => onColorChange(rgbToHex(rgb.r, rgb.g, Number(event.target.value) || 0))} />
-                  </div>
-                )}
-                {inputMode === "hsl" && (
-                  <div className="numeric-triplet">
-                    <input type="number" min="0" max="360" value={hsl.h} onChange={(event) => {
-                      const next = hslToRgb(Number(event.target.value) || 0, hsl.s, hsl.l);
-                      onColorChange(rgbToHex(next.r, next.g, next.b));
-                    }} />
-                    <input type="number" min="0" max="100" value={hsl.s} onChange={(event) => {
-                      const next = hslToRgb(hsl.h, Number(event.target.value) || 0, hsl.l);
-                      onColorChange(rgbToHex(next.r, next.g, next.b));
-                    }} />
-                    <input type="number" min="0" max="100" value={hsl.l} onChange={(event) => {
-                      const next = hslToRgb(hsl.h, hsl.s, Number(event.target.value) || 0);
-                      onColorChange(rgbToHex(next.r, next.g, next.b));
-                    }} />
-                  </div>
-                )}
-              </>
+              <SolidColorEditor value={safeColor} onChange={onColorChange} />
             )}
-            <input ref={inputRef} className="sr-only-color-input" type="color" value={safeColor} onChange={(event) => onColorChange(event.target.value)} tabIndex={-1} />
           </div>
         )}
       </div>
@@ -3144,7 +3233,6 @@ export default function App() {
                 )}
                 <BarColorField
                   style={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor) : getBarStyle(selectedTile.appearance, "__default__", selectedTile.appearance.primaryColor)}
-                  documentColors={getDocumentColors(selectedTile)}
                   onColorChange={(value) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ color: value })
@@ -3179,6 +3267,11 @@ export default function App() {
                         })
                   }
                   onAdvancedGradient={() => setDesignModal("barGradient")}
+                  onGradientChange={(updates) =>
+                    selectedChartPart
+                      ? updateSelectedBarStyle({ color: updates.color, gradientTo: updates.gradientTo, gradientStops: updates.gradientStops })
+                      : updateSelectedAppearance({ primaryColor: updates.color, palette: [updates.color, ...selectedTile.appearance.palette.slice(1)], barGradientTo: updates.gradientTo, barGradientStops: updates.gradientStops })
+                  }
                 />
                 <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
                 <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
