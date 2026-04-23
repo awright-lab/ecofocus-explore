@@ -1053,7 +1053,8 @@ button:disabled {
   z-index: 5;
   display: grid;
   gap: 12px;
-  width: min(332px, calc(100vw - 120px));
+  width: min(300px, calc(100vw - 140px));
+  max-width: 100%;
   padding: 12px;
   border: 1px solid #d9e1e8;
   border-radius: 14px;
@@ -1085,8 +1086,8 @@ button:disabled {
 
 .hue-slider {
   width: 100%;
-  min-height: 18px;
-  height: 18px;
+  min-height: 14px;
+  height: 14px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -1097,17 +1098,17 @@ button:disabled {
 }
 
 .hue-slider::-webkit-slider-runnable-track {
-  height: 18px;
-  min-height: 18px;
+  height: 14px;
+  min-height: 14px;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%) !important;
 }
 
 .hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  margin-top: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: -1px;
   border: 3px solid #ffffff;
   border-radius: 50%;
   background: transparent;
@@ -1115,20 +1116,20 @@ button:disabled {
 }
 
 .hue-slider::-moz-range-track {
-  height: 18px;
+  height: 14px;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%) !important;
 }
 
 .hue-slider::-moz-range-progress {
-  height: 18px;
+  height: 14px;
   border-radius: 999px;
   background: transparent;
 }
 
 .hue-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 3px solid #ffffff;
   border-radius: 50%;
   background: transparent;
@@ -1224,23 +1225,30 @@ button:disabled {
 
 .color-value-row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  grid-template-columns: 40px minmax(0, 1fr) 36px;
   gap: 8px;
   align-items: center;
 }
 
 .color-value-row .mini-button {
-  width: 40px;
-  min-width: 40px !important;
-  max-width: 40px;
-  height: 40px;
-  min-height: 40px !important;
-  max-height: 40px;
+  width: 36px;
+  min-width: 36px !important;
+  max-width: 36px;
+  height: 36px;
+  min-height: 36px !important;
+  max-height: 36px;
   padding: 0;
   border-radius: 10px;
   display: inline-grid;
   place-items: center;
   line-height: 1;
+  align-self: center;
+}
+
+.eyedropper-button svg {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 
 .color-chip-button.static {

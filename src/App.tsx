@@ -664,6 +664,22 @@ function BarColorField({
     updateFromHsv(hsv.h, Math.max(0, Math.min(100, saturation)), Math.max(0, Math.min(100, value)));
   }
 
+  async function pickScreenColor() {
+    const EyeDropperApi = (globalThis as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+    if (!EyeDropperApi) {
+      inputRef.current?.click();
+      return;
+    }
+
+    try {
+      const eyeDropper = new EyeDropperApi();
+      const result = await eyeDropper.open();
+      onColorChange(normalizeHexColor(result.sRGBHex, safeColor));
+    } catch {
+      // User canceled or API failed; keep current color.
+    }
+  }
+
   return (
     <div className="color-field">
       <span>Bar color</span>
@@ -760,7 +776,11 @@ function BarColorField({
                       <span className="color-chip" style={{ background: safeColor }} />
                     </button>
                     <input value={safeColor.toUpperCase()} onChange={(event) => onColorChange(normalizeHexColor(event.target.value, safeColor))} />
-                    <button type="button" className="mini-button" onClick={() => inputRef.current?.click()} aria-label="Open color picker">🎨</button>
+                    <button type="button" className="mini-button eyedropper-button" onClick={() => void pickScreenColor()} aria-label="Pick color from screen">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M14 4l6 6m-9.5 9.5L4 20l.5-6.5L14 4l6 6-9.5 9.5ZM12 6l6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                   </div>
                 )}
                 {inputMode === "rgb" && (
