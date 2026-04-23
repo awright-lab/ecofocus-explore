@@ -3201,7 +3201,9 @@ export default function App() {
                 <div className="color-summary-card">
                   <div>
                     <span>Style target</span>
-                    <strong>{selectedChartPart ? selectedChartPart.label : "All bars"}</strong>
+                    <strong title={selectedChartPart ? selectedChartPart.label : "All bars"}>
+                      {selectedChartPart ? selectedChartPart.label : "All bars"}
+                    </strong>
                   </div>
                   <div className="style-target-chips">
                     <button
