@@ -662,24 +662,24 @@ button:disabled {
 
 .settings-menu {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .menu-card {
   display: grid;
   gap: 2px;
-  min-height: 48px;
+  min-height: 42px;
   border: 1px solid #e0e5ec;
   border-radius: 9px;
   background: #ffffff;
   color: #1f3026;
-  padding: 8px 10px;
-  font-size: 0.86rem;
+  padding: 7px 9px;
+  font-size: 0.82rem;
   text-align: left;
 }
 
 .menu-card strong {
-  font-size: 0.9rem;
+  font-size: 0.86rem;
 }
 
 .menu-card:hover:not(:disabled) {
@@ -689,7 +689,7 @@ button:disabled {
 
 .menu-card span {
   color: #66736a;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
   line-height: 1.25;
 }
@@ -864,21 +864,22 @@ button:disabled {
   left: 58px;
   z-index: 60;
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: flex-start;
   background: rgba(14, 18, 22, 0.08);
 }
 
 .design-modal {
   display: grid;
-  gap: 14px;
-  width: min(360px, calc(100vw - 74px));
-  height: 100%;
-  max-height: none;
+  align-content: start;
+  gap: 10px;
+  width: min(332px, calc(100vw - 82px));
+  height: calc(100vh - 58px);
+  max-height: calc(100vh - 58px);
   overflow: auto;
   border-right: 1px solid #dfe6ea;
   border-radius: 0;
-  padding: 14px 16px 18px;
+  padding: 12px 14px 14px;
   background: #ffffff;
   box-shadow: 18px 0 40px rgba(14, 18, 22, 0.14);
 }
@@ -887,8 +888,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding-bottom: 10px;
+  gap: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #edf1f4;
 }
 
@@ -902,7 +903,7 @@ button:disabled {
 
 .design-modal-header h2 {
   margin: 2px 0 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 .icon-button {
@@ -1497,7 +1498,8 @@ button.secondary.compact {
 
 .modal-control-stack {
   display: grid;
-  gap: 13px;
+  align-content: start;
+  gap: 10px;
 }
 
 .effect-preview-card {

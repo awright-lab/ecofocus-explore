@@ -1713,6 +1713,7 @@ type LayerItem =
   | { id: string; type: "element"; name: string; hidden: boolean; locked: boolean; zIndex: number };
 
 export default function App() {
+  const designModalRef = useRef<HTMLDivElement | null>(null);
   const [dashboard, setDashboardState] = useState<DashboardDraft>(() => {
     try {
       const savedDashboard = window.localStorage.getItem(storageKey);
@@ -1792,6 +1793,11 @@ export default function App() {
     window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
     setSaveState("Saved locally");
   }, [dashboard]);
+
+  useEffect(() => {
+    if (!designModal) return;
+    designModalRef.current?.scrollTo({ top: 0 });
+  }, [designModal]);
 
   function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
     setDashboardState((current) => {
@@ -3189,36 +3195,7 @@ export default function App() {
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>
               <div className="panel-title subtle">
-                <h2>Target</h2>
-              </div>
-              <div className="style-target-chips inspector">
-                <button
-                  type="button"
-                  className={selectedChartPart ? "style-target-chip all" : "style-target-chip all active"}
-                  onClick={() => setSelectedChartPartId("all")}
-                  aria-label="Select all bars"
-                >
-                  <span>All</span>
-                </button>
-                {selectedTile.result.table.slice(0, 5).map((row, index) => {
-                  const id = row.optionId;
-                  const fallback = selectedTile.appearance.palette[index % selectedTile.appearance.palette.length] ?? selectedTile.appearance.primaryColor;
-                  const style = getBarStyle(selectedTile.appearance, id, fallback);
-                  return (
-                    <button
-                      type="button"
-                      key={id}
-                      className={selectedChartPartId === id ? "style-target-chip active" : "style-target-chip"}
-                      onClick={() => setSelectedChartPartId(id)}
-                      aria-label={`Select ${row.label}`}
-                    >
-                      <span style={{ background: style.fillMode === "gradient" ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`) : style.color }} />
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="panel-title subtle">
-                <h2>Drawers</h2>
+                <h2>Design</h2>
               </div>
               <div className="settings-menu">
                 <button type="button" className="menu-card" onClick={() => setDesignModal("chartColors")}>
@@ -3256,7 +3233,7 @@ export default function App() {
       </section>
       {designModal && (
         <div className="design-modal-backdrop" role="presentation" onMouseDown={() => setDesignModal(null)}>
-          <div className="design-modal" role="dialog" aria-modal="true" aria-label="Design settings" onMouseDown={(event) => event.stopPropagation()}>
+          <div ref={designModalRef} className="design-modal" role="dialog" aria-modal="true" aria-label="Design settings" onMouseDown={(event) => event.stopPropagation()}>
             <div className="design-modal-header">
               <div>
                 <span>Design</span>
