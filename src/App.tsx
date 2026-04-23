@@ -3230,62 +3230,66 @@ export default function App() {
                     })}
                   </div>
                 </div>
-                {!selectedChartPart && (
-                  <div className="palette-chip-groups">
-                    <span>Bar palette presets</span>
-                    <div className="palette-chip-group-list">
-                      {palettes.map((palette) => {
-                        const isActive = getPaletteId(selectedTile.appearance.palette) === palette.id;
-                        return (
-                          <button
-                            type="button"
-                            key={palette.id}
-                            className={isActive ? "palette-chip-group active" : "palette-chip-group"}
-                            onClick={() =>
-                              updateSelectedAppearance({
-                                palette: palette.colors,
-                                primaryColor: palette.colors[0]
-                              })
-                            }
-                          >
-                            <div className="palette-chip-group-header">
-                              <strong>{palette.label}</strong>
-                              <small>Apply all</small>
-                            </div>
-                            <div className="palette-chip-row">
-                              {palette.colors.map((color, index) => (
-                                <span
-                                  key={`${palette.id}-${color}-${index}`}
-                                  className="palette-chip"
-                                  style={{ background: color }}
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-label={`Use ${color} from ${palette.label}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    updateSelectedAppearance({
-                                      primaryColor: color,
-                                      palette: [color, ...palette.colors.filter((entry) => entry !== color)]
-                                    });
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key !== "Enter" && event.key !== " ") return;
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    updateSelectedAppearance({
-                                      primaryColor: color,
-                                      palette: [color, ...palette.colors.filter((entry) => entry !== color)]
-                                    });
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                <div className="palette-chip-groups">
+                  <span>Bar palette presets</span>
+                  <div className="palette-chip-group-list">
+                    {palettes.map((palette) => {
+                      const isActive = !selectedChartPart && getPaletteId(selectedTile.appearance.palette) === palette.id;
+                      return (
+                        <button
+                          type="button"
+                          key={palette.id}
+                          className={isActive ? "palette-chip-group active" : "palette-chip-group"}
+                          onClick={() =>
+                            selectedChartPart
+                              ? updateSelectedBarStyle({ color: palette.colors[0] })
+                              : updateSelectedAppearance({
+                                  palette: palette.colors,
+                                  primaryColor: palette.colors[0]
+                                })
+                          }
+                        >
+                          <div className="palette-chip-group-header">
+                            <strong>{palette.label}</strong>
+                            <small>{selectedChartPart ? "Use set" : "Apply all"}</small>
+                          </div>
+                          <div className="palette-chip-row">
+                            {palette.colors.map((color, index) => (
+                              <span
+                                key={`${palette.id}-${color}-${index}`}
+                                className="palette-chip"
+                                style={{ background: color }}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Use ${color} from ${palette.label}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  selectedChartPart
+                                    ? updateSelectedBarStyle({ color })
+                                    : updateSelectedAppearance({
+                                        primaryColor: color,
+                                        palette: [color, ...palette.colors.filter((entry) => entry !== color)]
+                                      });
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key !== "Enter" && event.key !== " ") return;
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  selectedChartPart
+                                    ? updateSelectedBarStyle({ color })
+                                    : updateSelectedAppearance({
+                                        primaryColor: color,
+                                        palette: [color, ...palette.colors.filter((entry) => entry !== color)]
+                                      });
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
                 <BarColorField
                   style={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor) : getBarStyle(selectedTile.appearance, "__default__", selectedTile.appearance.primaryColor)}
                   onColorChange={(value) =>
