@@ -657,7 +657,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
           <YAxis
             type="category"
             dataKey="axisLabel"
-            width={Math.max(96, appearance.axisLabelWidth * 10)}
+            width={170}
             tick={(props) => <AxisTick {...props} appearance={appearance} />}
             tickLine={false}
             axisLine={false}
