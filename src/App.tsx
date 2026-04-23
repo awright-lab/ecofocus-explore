@@ -54,7 +54,7 @@ const effectPresets = {
 } as const;
 
 type EffectPreset = keyof typeof effectPresets;
-type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "barColor" | "chartColors" | "labelSettings" | "barLayout" | "axisSettings" | "elementEffects" | "tileEffects" | null;
+type DesignModal = "pageBackground" | "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "barColor" | "chartColors" | "labelSettings" | "barLayout" | "axisSettings" | "elementEffects" | "tileEffects" | null;
 
 function effectPresetValues(preset: EffectPreset) {
   const { shadowBlur, shadowOffsetX, shadowOffsetY, shadowOpacity } = effectPresets[preset];
@@ -140,6 +140,8 @@ function defaultPageDesign() {
     gridSize: defaultGridSize,
     background: "#ffffff",
     backgroundMode: "solid" as const,
+    backgroundImage: "",
+    backgroundImageFit: "cover" as const,
     gradientFrom: "#ffffff",
     gradientTo: "#eef7ef",
     gradientType: "linear" as const,
@@ -470,8 +472,20 @@ function effectShadow(style: {
   return effects.length ? effects.join(", ") : undefined;
 }
 
+function pageBackgroundLayer(page: DashboardPage) {
+  if (page.backgroundMode === "gradient") {
+    return gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, "135deg");
+  }
+
+  if (page.backgroundMode === "image" && page.backgroundImage) {
+    return `url("${page.backgroundImage.replace(/"/g, '\\"')}")`;
+  }
+
+  return page.background;
+}
+
 function canvasBackground(page: DashboardPage) {
-  const pageBackground = backgroundStyle(page.backgroundMode, page.background, page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType);
+  const pageBackground = pageBackgroundLayer(page);
 
   if (!page.showCanvasGrid) return pageBackground;
 
@@ -481,13 +495,26 @@ function canvasBackground(page: DashboardPage) {
 function canvasBackgroundSize(page: DashboardPage) {
   if (!page.showCanvasGrid) return undefined;
 
-  return `${page.gridSize}px ${page.gridSize}px, ${page.gridSize}px ${page.gridSize}px, 100% 100%`;
+  const finalSize =
+    page.backgroundMode === "image"
+      ? page.backgroundImageFit === "fill"
+        ? "100% 100%"
+        : page.backgroundImageFit
+      : "100% 100%";
+
+  return `${page.gridSize}px ${page.gridSize}px, ${page.gridSize}px ${page.gridSize}px, ${finalSize}`;
 }
 
 function canvasBackgroundRepeat(page: DashboardPage) {
   if (!page.showCanvasGrid) return undefined;
 
-  return "repeat, repeat, no-repeat";
+  return `repeat, repeat, ${page.backgroundMode === "image" ? "no-repeat" : "no-repeat"}`;
+}
+
+function canvasBackgroundPosition(page: DashboardPage) {
+  if (!page.showCanvasGrid) return page.backgroundMode === "image" ? "center center" : undefined;
+
+  return `0 0, 0 0, ${page.backgroundMode === "image" ? "center center" : "0 0"}`;
 }
 
 function GradientEditor({
@@ -511,6 +538,10 @@ function GradientEditor({
   const [draggedStopId, setDraggedStopId] = useState<string | null>(null);
   const allStops = normalizeGradientStops(from, to, stops);
   const { startId, endId } = protectedGradientEndpointIds(allStops);
+  const stylePresets = gradientStylePresets.filter(
+    (preset, index, presets) =>
+      allowedTypes.includes(preset.type) && presets.findIndex((entry) => entry.type === preset.type) === index
+  );
 
   function updateStop(id: string, updates: Partial<GradientStop>) {
     const nextStops = allStops.map((stop) => (stop.id === id ? { ...stop, ...updates } : stop));
@@ -559,16 +590,41 @@ function GradientEditor({
         <span>{label}</span>
         <button type="button" className="mini-button" onClick={addStop}>Add color</button>
       </div>
-      <label>
-        Gradient type
-        <select value={type} onChange={(event) => onChange({ from, to, type: event.target.value as GradientType, stops: allStops })}>
-          {allowedTypes.map((option) => (
-            <option value={option} key={option}>
-              {option[0].toUpperCase() + option.slice(1)}
-            </option>
-          ))}
-        </select>
-      </label>
+      {stylePresets.length > 0 && (
+        <div className="color-field">
+          <span>Style</span>
+          <div className="gradient-style-grid">
+            {stylePresets.map((preset) => (
+              <button
+                type="button"
+                key={preset.id}
+                className={type === preset.type ? "active" : ""}
+                onClick={() =>
+                  onChange({
+                    from,
+                    to,
+                    type: preset.type,
+                    stops: applyGradientStylePreset(from, to, stops, preset.positions)
+                  })
+                }
+                aria-label={preset.label}
+              >
+                <span
+                  style={{
+                    background: gradientCss(
+                      from,
+                      to,
+                      applyGradientStylePreset(from, to, stops, preset.positions),
+                      preset.type,
+                      `${preset.angle}deg`
+                    )
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="gradient-preview" style={{ background: gradientCss(from, to, stops, type) }}>
         {allStops.map((stop) => (
           <span
@@ -1125,7 +1181,8 @@ const gradientStylePresets = [
   { id: "linear-left-right", label: "Left to right", type: "linear" as const, angle: 90, positions: [0, 100] },
   { id: "linear-top-bottom", label: "Top to bottom", type: "linear" as const, angle: 180, positions: [0, 100] },
   { id: "linear-diagonal", label: "Diagonal", type: "linear" as const, angle: 135, positions: [0, 35, 100] },
-  { id: "radial-soft", label: "Radial", type: "radial" as const, angle: 90, positions: [0, 45, 100] }
+  { id: "radial-soft", label: "Radial", type: "radial" as const, angle: 90, positions: [0, 45, 100] },
+  { id: "conic-sweep", label: "Conic", type: "conic" as const, angle: 90, positions: [0, 25, 60, 100] }
 ];
 
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
@@ -1727,6 +1784,9 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           ...page,
           ...defaultPageDesign(),
           ...page,
+          backgroundMode: page.backgroundMode ?? "solid",
+          backgroundImage: page.backgroundImage ?? "",
+          backgroundImageFit: page.backgroundImageFit ?? "cover",
           gradientType: page.gradientType ?? "linear",
           gradientStops: page.gradientStops ?? [],
           elements: page.elements.map((element) => ({
@@ -2724,6 +2784,7 @@ export default function App() {
                   background: canvasBackground(activePage),
                   backgroundSize: canvasBackgroundSize(activePage),
                   backgroundRepeat: canvasBackgroundRepeat(activePage),
+                  backgroundPosition: canvasBackgroundPosition(activePage),
                   transform: `scale(${canvasScale})`
                 }}
               >
@@ -2883,27 +2944,21 @@ export default function App() {
               <input type="checkbox" checked={activePage.snapToGrid} onChange={(event) => updateActivePage({ snapToGrid: event.target.checked })} /> Snap to grid
             </label>
           </div>
-          <label>
-            Page background
-            <select
-              value={activePage.backgroundMode}
-              onChange={(event) => updateActivePage({ backgroundMode: event.target.value as "solid" | "gradient" })}
-            >
-              <option value="solid">Solid</option>
-              <option value="gradient">Gradient</option>
-            </select>
-          </label>
-          {activePage.backgroundMode === "solid" ? (
-            <label>
-              Background
-              <input type="color" value={activePage.background} onChange={(event) => updateActivePage({ background: event.target.value })} />
-            </label>
-          ) : (
-            <button type="button" className="design-popover-button" onClick={() => setDesignModal("pageGradient")}>
-              <span className="gradient-button-preview" style={{ background: gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType) }} />
-              <span>Edit page gradient</span>
-            </button>
-          )}
+          <button type="button" className="design-popover-button" onClick={() => setDesignModal("pageBackground")}>
+            <span
+              className="gradient-button-preview"
+              style={{
+                background:
+                  activePage.backgroundMode === "image" && activePage.backgroundImage
+                    ? `center / cover no-repeat url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
+                    : activePage.backgroundMode === "gradient"
+                      ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType)
+                      : activePage.background
+              }}
+            />
+            <span>Background</span>
+            <small>{activePage.backgroundMode === "image" ? "Image" : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}</small>
+          </button>
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
           </button>
@@ -3313,7 +3368,9 @@ export default function App() {
               <div>
                 <span>Design</span>
                 <h2>
-                  {designModal === "chartColors"
+                  {designModal === "pageBackground"
+                    ? "Page background"
+                    : designModal === "chartColors"
                     ? "Chart colors"
                     : designModal === "labelSettings"
                       ? "Label settings"
@@ -3465,6 +3522,56 @@ export default function App() {
                 <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
                 <ColorField label="Chart background" value={selectedTile.appearance.chartBackground} onChange={(value) => updateSelectedAppearance({ chartBackground: value })} />
                 <ColorField label="Grid color" value={selectedTile.appearance.gridColor} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
+              </div>
+            )}
+
+            {designModal === "pageBackground" && (
+              <div className="modal-control-stack">
+                <div className="fill-mode-tabs picker input-mode-tabs">
+                  <button type="button" className={activePage.backgroundMode === "solid" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "solid" })}>Solid</button>
+                  <button type="button" className={activePage.backgroundMode === "gradient" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "gradient" })}>Gradient</button>
+                  <button type="button" className={activePage.backgroundMode === "image" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "image" })}>Image</button>
+                </div>
+                {activePage.backgroundMode === "solid" && (
+                  <ColorField label="Page color" value={activePage.background} onChange={(value) => updateActivePage({ background: value })} />
+                )}
+                {activePage.backgroundMode === "gradient" && (
+                  <GradientEditor
+                    label="Page gradient"
+                    from={activePage.gradientFrom}
+                    to={activePage.gradientTo}
+                    type={activePage.gradientType}
+                    stops={activePage.gradientStops}
+                    onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
+                  />
+                )}
+                {activePage.backgroundMode === "image" && (
+                  <>
+                    <label>
+                      Image URL
+                      <input
+                        type="url"
+                        placeholder="https://..."
+                        value={activePage.backgroundImage}
+                        onChange={(event) => updateActivePage({ backgroundImage: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Image fit
+                      <select
+                        value={activePage.backgroundImageFit}
+                        onChange={(event) => updateActivePage({ backgroundImageFit: event.target.value as DashboardPage["backgroundImageFit"] })}
+                      >
+                        <option value="cover">Cover</option>
+                        <option value="contain">Contain</option>
+                        <option value="fill">Stretch</option>
+                      </select>
+                    </label>
+                    {activePage.backgroundImage && (
+                      <div className="page-background-preview" style={{ backgroundImage: `url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`, backgroundSize: activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit }} />
+                    )}
+                  </>
+                )}
               </div>
             )}
 

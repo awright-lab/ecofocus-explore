@@ -155,7 +155,9 @@ export interface DashboardPage {
   snapToGrid: boolean;
   gridSize: number;
   background: string;
-  backgroundMode: "solid" | "gradient";
+  backgroundMode: "solid" | "gradient" | "image";
+  backgroundImage: string;
+  backgroundImageFit: "cover" | "contain" | "fill";
   gradientFrom: string;
   gradientTo: string;
   gradientType: GradientType;
