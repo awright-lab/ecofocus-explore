@@ -54,7 +54,7 @@ const effectPresets = {
 } as const;
 
 type EffectPreset = keyof typeof effectPresets;
-type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "chartColors" | "axisSettings" | "elementEffects" | "tileEffects" | null;
+type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "barColor" | "chartColors" | "axisSettings" | "elementEffects" | "tileEffects" | null;
 
 function effectPresetValues(preset: EffectPreset) {
   const { shadowBlur, shadowOffsetX, shadowOffsetY, shadowOpacity } = effectPresets[preset];
@@ -2784,6 +2784,8 @@ export default function App() {
                 <h2>
                   {designModal === "chartColors"
                     ? "Chart colors"
+                    : designModal === "barColor"
+                      ? "Bar color"
                     : designModal === "axisSettings"
                       ? "Axis settings"
                       : designModal.includes("Gradient")
@@ -2835,6 +2837,62 @@ export default function App() {
                     </select>
                   </label>
                 )}
+                <button type="button" className="design-popover-button" onClick={() => setDesignModal("barColor")}>
+                  <span
+                    className="gradient-button-preview"
+                    style={{
+                      background:
+                        (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient"
+                          ? gradientCss(
+                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
+                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
+                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
+                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType,
+                              `${selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle}deg`
+                            )
+                          : (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor)
+                    }}
+                  />
+                  <span>Bar color</span>
+                  <small>
+                    {(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient"
+                      ? "Gradient"
+                      : "Solid"}
+                  </small>
+                </button>
+                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
+                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
+                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
+                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
+              </div>
+            )}
+
+            {designModal === "barColor" && selectedTile && (
+              <div className="modal-control-stack">
+                <div className="color-summary-card">
+                  <div>
+                    <span>Style target</span>
+                    <strong>{selectedChartPart ? selectedChartPart.label : "All bars"}</strong>
+                  </div>
+                  <div className="color-summary-swatches">
+                    {(selectedChartPart ? [selectedChartPart.id] : selectedTile.result.table.map((row) => row.optionId).slice(0, 5)).map((id, index) => {
+                      const fallback = selectedTile.appearance.palette[index % selectedTile.appearance.palette.length] ?? selectedTile.appearance.primaryColor;
+                      const style = getBarStyle(selectedTile.appearance, id, fallback);
+                      return (
+                        <span
+                          key={id}
+                          className="color-swatch"
+                          style={{
+                            background:
+                              style.fillMode === "gradient"
+                                ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`)
+                                : style.color
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="color-field">
                   <span>Bar fill</span>
                   <div className="fill-mode-tabs">
@@ -2863,7 +2921,7 @@ export default function App() {
                   </div>
                 </div>
                 <ColorField
-                  label={(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient" ? "Bar base color" : "Bar color"}
+                  label="Bar color"
                   value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
                   documentColors={getDocumentColors(selectedTile)}
                   onChange={(value) =>
@@ -2884,8 +2942,8 @@ export default function App() {
                             className={
                               (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType) === preset.type &&
                               (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle) === preset.angle
-                              ? "active"
-                              : ""
+                                ? "active"
+                                : ""
                             }
                             onClick={() =>
                               selectedChartPart
@@ -2949,10 +3007,6 @@ export default function App() {
                     </button>
                   </>
                 )}
-                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
-                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
-                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
-                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}
 
