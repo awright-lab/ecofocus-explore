@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import {
   Bar,
@@ -85,7 +85,8 @@ const defaultAppearance: TileAppearance = {
   glowSize: 24,
   showGrid: true,
   gridColor: "#e6ebe4",
-  axisColor: "#69776e",
+  xAxisTextColor: "#69776e",
+  yAxisTextColor: "#69776e",
   axisFontSize: 12,
   axisLabelPlacement: "outside",
   axisLabelAlign: "middle",
@@ -374,6 +375,80 @@ function GradientEditor({
   );
 }
 
+function ColorField({
+  label,
+  value,
+  documentColors,
+  onChange
+}: {
+  label: string;
+  value: string;
+  documentColors: string[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  return (
+    <div className="color-field">
+      <span>{label}</span>
+      <div className="color-field-stack">
+        <button
+          type="button"
+          className="color-chip-button"
+          onClick={() => setOpen((current) => !current)}
+          aria-label={`Choose ${label}`}
+        >
+          <span className="color-chip" style={{ background: value }} />
+        </button>
+        {open && (
+          <div className="color-drawer" role="dialog" aria-label={`${label} colors`}>
+            <div className="color-drawer-header">
+              <strong>Document colors</strong>
+              <button type="button" className="mini-button" onClick={() => setOpen(false)} aria-label="Close color drawer">
+                x
+              </button>
+            </div>
+            <div className="color-grid">
+              {documentColors.map((color) => (
+                <button
+                  type="button"
+                  key={color}
+                  className={color.toLowerCase() === value.toLowerCase() ? "color-swatch active" : "color-swatch"}
+                  style={{ background: color }}
+                  onClick={() => onChange(color)}
+                  aria-label={`Use color ${color}`}
+                />
+              ))}
+              <button
+                type="button"
+                className="color-swatch add"
+                onClick={() => inputRef.current?.click()}
+                aria-label="Choose custom color"
+              >
+                +
+              </button>
+            </div>
+            <div className="color-drawer-actions">
+              <button type="button" className="secondary" onClick={() => inputRef.current?.click()}>
+                Custom color
+              </button>
+            </div>
+            <input
+              ref={inputRef}
+              className="sr-only-color-input"
+              type="color"
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              tabIndex={-1}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function rangeFill(value: number | string, min: number, max: number) {
   const numericValue = Number(value);
   const percentage = ((numericValue - min) / (max - min)) * 100;
@@ -477,6 +552,26 @@ function getPaletteId(colors: string[]) {
   return palettes.find((palette) => palette.colors.join(",") === colors.join(","))?.id ?? "custom";
 }
 
+function uniqueColors(colors: string[]) {
+  return Array.from(new Set(colors.filter(Boolean)));
+}
+
+function getDocumentColors(tile?: DashboardTile) {
+  if (!tile) return uniqueColors(["#0f1720", "#ffffff", "#16c9c3", "#00d17f", "#17a4ff", "#69776e"]);
+
+  return uniqueColors([
+    ...tile.appearance.palette,
+    tile.appearance.primaryColor,
+    tile.appearance.barGradientTo,
+    tile.appearance.labelColor,
+    tile.appearance.xAxisTextColor,
+    tile.appearance.yAxisTextColor,
+    tile.appearance.gridColor,
+    tile.appearance.background,
+    tile.appearance.borderColor
+  ]);
+}
+
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const isSingleSeries = result.columns.length === 1;
   const chartTypes: ChartType[] = isSingleSeries
@@ -501,7 +596,7 @@ function AxisTick(props: { x?: string | number; y?: string | number; payload?: {
 
   return (
     <g transform={`translate(${baseX + appearance.axisLabelDx},${baseY + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}>
-      <text fill={appearance.axisColor} fontSize={appearance.axisFontSize} textAnchor={textAnchor}>
+      <text fill={axisDirection === "y" ? appearance.yAxisTextColor : appearance.xAxisTextColor} fontSize={appearance.axisFontSize} textAnchor={textAnchor}>
         {lines.map((line, index) => (
           <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? 0 : appearance.axisFontSize + 3}>
             {line}
@@ -641,7 +736,7 @@ function HorizontalCategoryLabel(props: {
     <text
       x={baseX}
       y={baseY}
-      fill={appearance.axisColor}
+      fill={appearance.yAxisTextColor}
       fontSize={appearance.axisFontSize}
       textAnchor={insideStart ? "start" : "middle"}
       dominantBaseline="middle"
@@ -680,7 +775,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
             {chartData.map((item, index) => (
@@ -720,7 +815,7 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
@@ -765,7 +860,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} horizontal={false} />}
-          <XAxis type="number" tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <XAxis type="number" tick={{ fill: appearance.xAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <YAxis
             type="category"
             dataKey="axisLabel"
@@ -813,7 +908,7 @@ function StackedBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
@@ -848,7 +943,7 @@ function LineChartView({ tile }: { tile: DashboardTile }) {
         <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
@@ -1075,6 +1170,7 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
       tiles: page.tiles.map((tile) => {
         const compatibleChartTypes = getCompatibleChartTypes(tile.result);
         const visualization = tile.visualization === "table" ? compatibleChartTypes[0] ?? "vertical_bar" : tile.visualization;
+        const legacyAxisColor = (tile.appearance as (Partial<TileAppearance> & { axisColor?: string }) | undefined)?.axisColor;
         return {
           ...tile,
           name: tile.name ?? tile.title,
@@ -1095,6 +1191,8 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             ...defaultAppearance,
             ...tile.appearance,
             showTable: false,
+            xAxisTextColor: tile.appearance?.xAxisTextColor ?? legacyAxisColor ?? defaultAppearance.xAxisTextColor,
+            yAxisTextColor: tile.appearance?.yAxisTextColor ?? legacyAxisColor ?? defaultAppearance.yAxisTextColor,
             palette: tile.appearance?.palette ?? [...defaultAppearance.palette],
             gradientType: tile.appearance?.gradientType ?? "linear",
             gradientStops: tile.appearance?.gradientStops ?? [],
@@ -2539,7 +2637,7 @@ export default function App() {
                     <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelOffset, 0, 32) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
                   </label>
                   <button type="button" className="design-popover-button" onClick={() => setDesignModal("axisSettings")}>
-                    <span className="effect-button-preview" style={{ background: selectedTile.appearance.axisColor }} />
+                    <span className="effect-button-preview" style={{ background: `linear-gradient(135deg, ${selectedTile.appearance.xAxisTextColor}, ${selectedTile.appearance.yAxisTextColor})` }} />
                     <span>Axis settings</span>
                     <small>{selectedTile.appearance.axisFontSize}px</small>
                   </button>
@@ -2708,18 +2806,10 @@ export default function App() {
                     <span>{selectedChartPart ? "Edit selected bar gradient" : "Edit bar gradient"}</span>
                   </button>
                 )}
-                <label>
-                  Value label color
-                  <input type="color" value={selectedTile.appearance.labelColor} onChange={(event) => updateSelectedAppearance({ labelColor: event.target.value })} />
-                </label>
-                <label>
-                  Axis color
-                  <input type="color" value={selectedTile.appearance.axisColor} onChange={(event) => updateSelectedAppearance({ axisColor: event.target.value })} />
-                </label>
-                <label>
-                  Grid color
-                  <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />
-                </label>
+                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
+                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
+                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
+                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}
 
@@ -2774,25 +2864,19 @@ export default function App() {
 
             {designModal === "axisSettings" && selectedTile && (
               <div className="modal-control-stack">
-                <label>
-                  Axis color
-                  <input type="color" value={selectedTile.appearance.axisColor} onChange={(event) => updateSelectedAppearance({ axisColor: event.target.value })} />
-                </label>
+                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
+                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
                 <label>
                   Axis text size
                   <input
                     type="number"
-                    list="axis-font-size-presets"
+                    inputMode="numeric"
+                    step="1"
                     min="6"
                     max="72"
                     value={selectedTile.appearance.axisFontSize}
                     onChange={(event) => updateSelectedAppearance({ axisFontSize: Math.min(72, Math.max(6, Number(event.target.value) || 12)) })}
                   />
-                  <datalist id="axis-font-size-presets">
-                    {axisFontSizePresets.map((size) => (
-                      <option value={size} key={size} />
-                    ))}
-                  </datalist>
                 </label>
                 {selectedChartPart && (
                   <label>
@@ -2859,10 +2943,7 @@ export default function App() {
                 <div className="toggle-list">
                   <label><input type="checkbox" checked={selectedTile.appearance.axisLabelWrap} onChange={(event) => updateSelectedAppearance({ axisLabelWrap: event.target.checked })} /> Wrap axis labels</label>
                 </div>
-                <label>
-                  Grid color
-                  <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />
-                </label>
+                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}
 

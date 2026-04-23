@@ -35,7 +35,8 @@ export interface TileAppearance {
   glowSize: number;
   showGrid: boolean;
   gridColor: string;
-  axisColor: string;
+  xAxisTextColor: string;
+  yAxisTextColor: string;
   axisFontSize: number;
   axisLabelPlacement: "outside" | "insideStart" | "insideCenter";
   axisLabelAlign: "start" | "middle" | "end";
