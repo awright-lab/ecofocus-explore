@@ -14,6 +14,8 @@ export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "sta
 
 export type WeightId = "weightvar";
 
+export type ConfidenceLevel = 0.9 | 0.95 | 0.99;
+
 export interface AnalyticsFilter {
   field: FilterFieldId | QuestionId;
   values: string[];
@@ -27,6 +29,7 @@ export interface AnalyticsQueryRequest {
   weight: WeightId | null;
   metric: Metric;
   chartType: ChartType;
+  confidenceLevel: ConfidenceLevel;
 }
 
 export interface AnalyticsSeries {
@@ -72,6 +75,10 @@ export interface AnalyticsQueryResponse {
     label: string;
   };
   annotations: AnalyticsAnnotation[];
+  statistics: {
+    confidenceLevel: ConfidenceLevel;
+    significanceMethod: "mock_placeholder" | "none";
+  };
   warnings: string[];
   notes: string[];
   metadataRefs: {

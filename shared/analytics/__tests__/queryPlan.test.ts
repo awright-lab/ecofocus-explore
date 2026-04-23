@@ -11,7 +11,8 @@ describe("createAnalyticsQueryPlan", () => {
       filters: [],
       weight: "weightvar",
       metric: "percent_selected",
-      chartType: "vertical_bar"
+      chartType: "vertical_bar",
+      confidenceLevel: 0.95
     };
 
     expect(createAnalyticsQueryPlan(query)).toMatchObject({

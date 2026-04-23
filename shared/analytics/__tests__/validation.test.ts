@@ -9,7 +9,8 @@ const q15Query: AnalyticsQueryRequest = {
   filters: [],
   weight: "weightvar",
   metric: "percent_selected",
-  chartType: "vertical_bar"
+  chartType: "vertical_bar",
+  confidenceLevel: 0.95
 };
 
 describe("validateAnalyticsQuery", () => {
@@ -27,6 +28,10 @@ describe("validateAnalyticsQuery", () => {
 
   it("rejects unsupported weights", () => {
     expect(validateAnalyticsQuery({ ...q15Query, weight: "bad_weight" as AnalyticsQueryRequest["weight"] })).toContain("Unsupported weight.");
+  });
+
+  it("rejects unsupported confidence levels", () => {
+    expect(validateAnalyticsQuery({ ...q15Query, confidenceLevel: 0.8 as AnalyticsQueryRequest["confidenceLevel"] })).toContain("Unsupported confidence level.");
   });
 
   it("rejects unsupported filter values", () => {

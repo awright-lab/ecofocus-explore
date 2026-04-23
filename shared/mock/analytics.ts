@@ -129,6 +129,10 @@ const mockAnnotations: Record<string, AnalyticsAnnotation[]> = {
 };
 
 export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
+  const normalizedQuery = {
+    ...query,
+    confidenceLevel: query.confidenceLevel ?? 0.95
+  };
   const question = ecofocus2025Metadata.questions.find((item) => item.id === query.question);
   const dimension = ecofocus2025Metadata.dimensions.find((item) => item.id === query.breakBy);
   const metric = getMetricMetadata(query.dataset, query.metric);
@@ -139,7 +143,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   }
 
   if (question.type === "multi_binary_set") {
-    return runMockMultiBinarySetQuery(query, question.options, metric, weight?.label);
+    return runMockMultiBinarySetQuery(normalizedQuery, question.options, metric, weight?.label);
   }
 
   const questionData = mockPercentData[query.question]?.[query.breakBy];
@@ -176,7 +180,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   }));
 
   return {
-    query,
+    query: normalizedQuery,
     labels,
     series,
     columns,
@@ -187,11 +191,16 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       id: query.weight,
       label: weight?.label ?? "Unweighted"
     },
-    annotations: mockAnnotations[query.question] ?? [],
+    annotations: (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: normalizedQuery.confidenceLevel })),
+    statistics: {
+      confidenceLevel: normalizedQuery.confidenceLevel,
+      significanceMethod: "mock_placeholder"
+    },
     warnings: collectBaseWarnings(series, ecofocus2025Metadata.minBaseWarning),
     notes: [
       "Mock data for internal MVP validation.",
       query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted mock output.",
+      `${Math.round(normalizedQuery.confidenceLevel * 100)}% confidence level for significance annotations.`,
       "Filters are accepted by the contract but not applied by the mock provider yet."
     ],
     metadataRefs: {
@@ -248,11 +257,16 @@ function runMockMultiBinarySetQuery(
       id: query.weight,
       label: weightLabel ?? "Unweighted"
     },
-    annotations: mockAnnotations[query.question] ?? [],
+    annotations: (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: query.confidenceLevel })),
+    statistics: {
+      confidenceLevel: query.confidenceLevel,
+      significanceMethod: "mock_placeholder"
+    },
     warnings: collectBaseWarnings(series, ecofocus2025Metadata.minBaseWarning),
     notes: [
       "Mock saved variable set built from Q15r1, Q15r2, Q15r7, Q15r8, and Q15r9.",
       query.weight ? `Weighted data using ${weightLabel ?? query.weight}; sample size = 3125.` : "Unweighted mock output; sample size = 3125.",
+      `${Math.round(query.confidenceLevel * 100)}% confidence level for significance annotations.`,
       "Arrows are placeholder significance annotations for chart/table rendering."
     ],
     metadataRefs: {

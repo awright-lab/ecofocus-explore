@@ -26,6 +26,7 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
   if (chartType && input.metric && !chartType.supportedMetrics.includes(input.metric)) errors.push("Chart type does not support this metric.");
   if (input.weight !== null && input.weight !== undefined && !weight) errors.push("Unsupported weight.");
   if (!Array.isArray(input.filters)) errors.push("filters must be an array.");
+  if (input.confidenceLevel !== undefined && ![0.9, 0.95, 0.99].includes(input.confidenceLevel)) errors.push("Unsupported confidence level.");
 
   if (dataset && Array.isArray(input.filters)) {
     for (const filter of input.filters) {

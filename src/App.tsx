@@ -24,6 +24,7 @@ import type {
   AnalyticsQueryResponse,
   BreakById,
   ChartType,
+  ConfidenceLevel,
   FilterFieldId,
   Metric,
   QuestionId,
@@ -37,6 +38,7 @@ const bannerDimensions = getBannerDimensions(defaultDataset.id);
 const filterDimensions = getFilterDimensions(defaultDataset.id);
 const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
 const defaultFilterDimension = filterDimensions[0];
+const confidenceLevels: ConfidenceLevel[] = [0.9, 0.95, 0.99];
 
 const palettes = [
   { id: "forest", label: "Forest", colors: ["#39784d", "#6c9b4d", "#2d6f73", "#9a7a38", "#6f6697"] },
@@ -495,6 +497,10 @@ function sampleSizeLabel(result: AnalyticsQueryResponse) {
   return `Sample n=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
 }
 
+function confidenceLevelLabel(value: number) {
+  return `${Math.round(value * 100)}% confidence`;
+}
+
 function ValueLabel(props: {
   x?: unknown;
   y?: unknown;
@@ -813,6 +819,7 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
           <span>{sampleSizeLabel(result)}</span>
           <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
           <span>{result.metric.label}</span>
+          <span>{confidenceLevelLabel(result.statistics.confidenceLevel)}</span>
         </div>
         {tile.appearance.showNotes && result.warnings.length > 0 && (
           <div className="notes">
@@ -999,6 +1006,7 @@ export default function App() {
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
   const [chartType, setChartType] = useState<ChartType>(defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+  const [confidenceLevel, setConfidenceLevel] = useState<ConfidenceLevel>(0.95);
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
@@ -1047,7 +1055,8 @@ export default function App() {
     filters: filterField && filterValue !== "all" ? [{ field: filterField, values: [filterValue] }] : [],
     weight,
     metric,
-    chartType
+    chartType,
+    confidenceLevel
   };
 
   useEffect(() => {
@@ -1746,6 +1755,16 @@ export default function App() {
                     {defaultDataset.weights.map((item) => (
                       <option value={item.id} key={item.id}>
                         {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Confidence
+                  <select value={confidenceLevel} onChange={(event) => setConfidenceLevel(Number(event.target.value) as ConfidenceLevel)}>
+                    {confidenceLevels.map((item) => (
+                      <option value={item} key={item}>
+                        {confidenceLevelLabel(item)}
                       </option>
                     ))}
                   </select>

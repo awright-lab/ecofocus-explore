@@ -31,6 +31,9 @@ export interface AnalyticsQueryPlan {
     id: string | null;
     sourceColumn: string | null;
   };
+  statistics: {
+    confidenceLevel: number;
+  };
 }
 
 export function createAnalyticsQueryPlan(query: AnalyticsQueryRequest): AnalyticsQueryPlan {
@@ -67,6 +70,9 @@ export function createAnalyticsQueryPlan(query: AnalyticsQueryRequest): Analytic
     weight: {
       id: weight?.id ?? null,
       sourceColumn: weight?.sourceColumn ?? null
+    },
+    statistics: {
+      confidenceLevel: query.confidenceLevel
     }
   };
 }

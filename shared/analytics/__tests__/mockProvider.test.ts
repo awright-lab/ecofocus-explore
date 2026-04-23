@@ -11,7 +11,8 @@ describe("mockAnalyticsProvider", () => {
       filters: [],
       weight: "weightvar",
       metric: "percent_selected",
-      chartType: "vertical_bar"
+      chartType: "vertical_bar",
+      confidenceLevel: 0.95
     };
 
     const result = await mockAnalyticsProvider.runQuery(query);
@@ -34,5 +35,9 @@ describe("mockAnalyticsProvider", () => {
         { rowId: "Q15r9", columnId: "summary", direction: "up", confidence: 0.95 }
       ])
     );
+    expect(result.statistics).toEqual({
+      confidenceLevel: 0.95,
+      significanceMethod: "mock_placeholder"
+    });
   });
 });
