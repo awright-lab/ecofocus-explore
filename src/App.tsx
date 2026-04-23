@@ -501,6 +501,10 @@ function confidenceLevelLabel(value: number) {
   return `${Math.round(value * 100)}% confidence`;
 }
 
+function resultConfidenceLevel(result: AnalyticsQueryResponse): ConfidenceLevel {
+  return result.statistics?.confidenceLevel ?? result.query.confidenceLevel ?? 0.95;
+}
+
 function ValueLabel(props: {
   x?: unknown;
   y?: unknown;
@@ -819,7 +823,7 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
           <span>{sampleSizeLabel(result)}</span>
           <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
           <span>{result.metric.label}</span>
-          <span>{confidenceLevelLabel(result.statistics.confidenceLevel)}</span>
+          <span>{confidenceLevelLabel(resultConfidenceLevel(result))}</span>
         </div>
         {tile.appearance.showNotes && result.warnings.length > 0 && (
           <div className="notes">
@@ -958,7 +962,16 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           name: tile.name ?? tile.title,
           locked: tile.locked ?? false,
           hidden: tile.hidden ?? false,
-          query: { ...tile.query, chartType: visualization },
+          query: { ...tile.query, chartType: visualization, confidenceLevel: tile.query.confidenceLevel ?? tile.result.query.confidenceLevel ?? 0.95 },
+          result: {
+            ...tile.result,
+            query: { ...tile.result.query, confidenceLevel: tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 },
+            annotations: tile.result.annotations.map((annotation) => ({ ...annotation, confidence: annotation.confidence ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 })),
+            statistics: tile.result.statistics ?? {
+              confidenceLevel: tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95,
+              significanceMethod: tile.result.annotations.length > 0 ? "mock_placeholder" : "none"
+            }
+          },
           visualization,
           appearance: {
             ...defaultAppearance,
