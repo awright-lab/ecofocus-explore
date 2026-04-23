@@ -54,7 +54,7 @@ const effectPresets = {
 } as const;
 
 type EffectPreset = keyof typeof effectPresets;
-type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "barColor" | "chartColors" | "axisSettings" | "elementEffects" | "tileEffects" | null;
+type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "barColor" | "chartColors" | "labelSettings" | "barLayout" | "axisSettings" | "elementEffects" | "tileEffects" | null;
 
 function effectPresetValues(preset: EffectPreset) {
   const { shadowBlur, shadowOffsetX, shadowOffsetY, shadowOpacity } = effectPresets[preset];
@@ -2771,7 +2771,7 @@ export default function App() {
           ) : (
             <>
               <div className="panel-title with-action">
-                <h2>{settingsView === "page" ? "Page" : settingsView === "layout" ? "Arrange" : settingsView === "container" ? "Container" : selectedElement ? "Element" : "Tile"}</h2>
+                <h2>{settingsView === "page" ? "Page" : settingsView === "layout" ? "Arrange" : settingsView === "container" ? "Container" : selectedElement ? "Element" : "Chart"}</h2>
                 <button type="button" className="mini-button" onClick={() => setSettingsView("home")}>Back</button>
               </div>
           {settingsView === "page" && (
@@ -3105,12 +3105,56 @@ export default function App() {
             </>
           ) : !selectedTile ? (
             <div className="empty-state compact">Select a canvas item to edit its display.</div>
+          ) : settingsView === "container" ? (
+            <>
+              <div className="panel-title subtle">
+                <h2>Tile container</h2>
+              </div>
+              <label>
+                Tile background
+                <select
+                  value={selectedTile.appearance.backgroundMode}
+                  onChange={(event) => updateSelectedAppearance({ backgroundMode: event.target.value as "solid" | "gradient" })}
+                >
+                  <option value="solid">Solid</option>
+                  <option value="gradient">Gradient</option>
+                </select>
+              </label>
+              {selectedTile.appearance.backgroundMode === "solid" ? (
+                <ColorField label="Fill color" value={selectedTile.appearance.background} onChange={(value) => updateSelectedAppearance({ background: value })} />
+              ) : (
+                <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileGradient")}>
+                  <span className="gradient-button-preview" style={{ background: gradientCss(selectedTile.appearance.gradientFrom, selectedTile.appearance.gradientTo, selectedTile.appearance.gradientStops, selectedTile.appearance.gradientType) }} />
+                  <span>Edit tile gradient</span>
+                </button>
+              )}
+              <ColorField label="Tile border" value={selectedTile.appearance.borderColor} onChange={(value) => updateSelectedAppearance({ borderColor: value })} />
+              <label>
+                Tile corners
+                <input type="range" min="0" max="36" value={selectedTile.appearance.borderRadius} style={{ "--range-fill": rangeFill(selectedTile.appearance.borderRadius, 0, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ borderRadius: Number(event.target.value) })} />
+              </label>
+              <label>
+                Tile transparency
+                <input type="range" min="20" max="100" value={selectedTile.appearance.opacity} style={{ "--range-fill": rangeFill(selectedTile.appearance.opacity, 20, 100) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })} />
+              </label>
+              <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileEffects")}>
+                <span className="effect-button-preview" style={{ boxShadow: effectShadow({ ...selectedTile.appearance, shadow: selectedTile.appearance.shadow || selectedTile.appearance.glow }) }} />
+                <span>Effects</span>
+                <small>{selectedTile.appearance.shadow || selectedTile.appearance.glow ? "On" : "None"}</small>
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={deleteSelectedItem}
+              >
+                Remove tile
+              </button>
+            </>
           ) : (
             <>
-              <label>
-                Layer name
-                <input value={selectedTile.name} onChange={(event) => updateSelectedTile({ name: event.target.value })} />
-              </label>
+              <div className="panel-title subtle">
+                <h2>Content</h2>
+              </div>
               <label>
                 Title
                 <input value={selectedTile.title} onChange={(event) => updateSelectedTile({ title: event.target.value })} />
@@ -3135,147 +3179,73 @@ export default function App() {
                   ))}
                 </select>
               </label>
-              <>
-                  <div className="panel-title subtle">
-                    <h2>Chart Design</h2>
-                  </div>
-                  <button type="button" className="design-popover-button" onClick={() => setDesignModal("chartColors")}>
-                    <span
-                      className="gradient-button-preview"
-                      style={{
-                        background:
-                          (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient"
-                            ? gradientCss(
-                                selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
-                                selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                                selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
-                                selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType
-                              )
-                            : selectedChartPart
-                              ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color
-                              : selectedTile.appearance.primaryColor
-                      }}
-                    />
-                    <span>Colors</span>
-                    <small>
-                      {(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient"
-                        ? "Gradient"
-                        : "Solid"}
-                    </small>
-                  </button>
-                  <label>
-                    Style target
-                    <select value={selectedChartPartId} onChange={(event) => setSelectedChartPartId(event.target.value)}>
-                      <option value="all">All bars</option>
-                      {chartStyleTargets.map((target) => (
-                        <option key={target.id} value={target.id}>
-                          {target.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Bar roundness
-                    <input
-                      type="range"
-                      min="0"
-                      max="36"
-                      value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius}
-                      style={{ "--range-fill": rangeFill(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius, 0, 36) } as React.CSSProperties}
-                      onChange={(event) =>
-                        selectedChartPart ? updateSelectedBarStyle({ radius: Number(event.target.value) }) : updateSelectedAppearance({ barRadius: Number(event.target.value) })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Bar width
-                    <input type="range" min="16" max="140" value={selectedTile.appearance.barSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.barSize, 16, 140) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barSize: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Bar spacing
-                    <input type="range" min="0" max="48" value={selectedTile.appearance.barGap} style={{ "--range-fill": rangeFill(selectedTile.appearance.barGap, 0, 48) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barGap: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Group spacing
-                    <input type="range" min="0" max="64" value={selectedTile.appearance.barCategoryGap} style={{ "--range-fill": rangeFill(selectedTile.appearance.barCategoryGap, 0, 64) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barCategoryGap: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Label position
-                    <select value={selectedTile.appearance.labelPosition} onChange={(event) => updateSelectedAppearance({ labelPosition: event.target.value as TileAppearance["labelPosition"] })}>
-                      <option value="top">Top</option>
-                      <option value="insideTop">Inside top</option>
-                      <option value="insideBottom">Inside bottom</option>
-                      <option value="center">Center</option>
-                    </select>
-                  </label>
-                  <label>
-                    Label size
-                    <input type="range" min="9" max="28" value={selectedTile.appearance.labelFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelFontSize, 9, 28) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelFontSize: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Label offset
-                    <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelOffset, 0, 32) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
-                  </label>
-                  <button type="button" className="design-popover-button" onClick={() => setDesignModal("axisSettings")}>
-                    <span className="effect-button-preview" style={{ background: `linear-gradient(135deg, ${selectedTile.appearance.xAxisTextColor}, ${selectedTile.appearance.yAxisTextColor})` }} />
-                    <span>Axis settings</span>
-                    <small>{selectedTile.appearance.axisFontSize}px</small>
-                  </button>
-              </>
               <div className="panel-title subtle">
-                <h2>Container</h2>
+                <h2>Display</h2>
               </div>
-              <label>
-                Background style
-                <select
-                  value={selectedTile.appearance.backgroundMode}
-                  onChange={(event) => updateSelectedAppearance({ backgroundMode: event.target.value as "solid" | "gradient" })}
-                >
-                  <option value="solid">Solid</option>
-                  <option value="gradient">Gradient</option>
-                </select>
-              </label>
-              {selectedTile.appearance.backgroundMode === "solid" ? (
-                <label>
-                  Background
-                  <input type="color" value={selectedTile.appearance.background} onChange={(event) => updateSelectedAppearance({ background: event.target.value })} />
-                </label>
-              ) : (
-                <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileGradient")}>
-                  <span className="gradient-button-preview" style={{ background: gradientCss(selectedTile.appearance.gradientFrom, selectedTile.appearance.gradientTo, selectedTile.appearance.gradientStops, selectedTile.appearance.gradientType) }} />
-                  <span>Edit tile gradient</span>
-                </button>
-              )}
-              <label>
-                Border
-                <input type="color" value={selectedTile.appearance.borderColor} onChange={(event) => updateSelectedAppearance({ borderColor: event.target.value })} />
-              </label>
-              <label>
-                Rounded corners
-                <input type="range" min="0" max="36" value={selectedTile.appearance.borderRadius} style={{ "--range-fill": rangeFill(selectedTile.appearance.borderRadius, 0, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ borderRadius: Number(event.target.value) })} />
-              </label>
-              <label>
-                Transparency
-                <input type="range" min="20" max="100" value={selectedTile.appearance.opacity} style={{ "--range-fill": rangeFill(selectedTile.appearance.opacity, 20, 100) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })} />
-              </label>
               <div className="toggle-list">
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> Chart grid</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> Value labels</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> Arrows</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>
-              <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileEffects")}>
-                <span className="effect-button-preview" style={{ boxShadow: effectShadow({ ...selectedTile.appearance, shadow: selectedTile.appearance.shadow || selectedTile.appearance.glow }) }} />
-                <span>Effects</span>
-                <small>{selectedTile.appearance.shadow || selectedTile.appearance.glow ? "On" : "None"}</small>
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={deleteSelectedItem}
-              >
-                Remove tile
-              </button>
+              <div className="panel-title subtle">
+                <h2>Target</h2>
+              </div>
+              <div className="style-target-chips inspector">
+                <button
+                  type="button"
+                  className={selectedChartPart ? "style-target-chip all" : "style-target-chip all active"}
+                  onClick={() => setSelectedChartPartId("all")}
+                  aria-label="Select all bars"
+                >
+                  <span>All</span>
+                </button>
+                {selectedTile.result.table.slice(0, 5).map((row, index) => {
+                  const id = row.optionId;
+                  const fallback = selectedTile.appearance.palette[index % selectedTile.appearance.palette.length] ?? selectedTile.appearance.primaryColor;
+                  const style = getBarStyle(selectedTile.appearance, id, fallback);
+                  return (
+                    <button
+                      type="button"
+                      key={id}
+                      className={selectedChartPartId === id ? "style-target-chip active" : "style-target-chip"}
+                      onClick={() => setSelectedChartPartId(id)}
+                      aria-label={`Select ${row.label}`}
+                    >
+                      <span style={{ background: style.fillMode === "gradient" ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`) : style.color }} />
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="panel-title subtle">
+                <h2>Drawers</h2>
+              </div>
+              <div className="settings-menu">
+                <button type="button" className="menu-card" onClick={() => setDesignModal("chartColors")}>
+                  <strong>Colors</strong>
+                  <span>Bars, labels, axes, grid, and chart surface.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => setDesignModal("labelSettings")}>
+                  <strong>Labels</strong>
+                  <span>Value label position, size, and spacing.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => setDesignModal("barLayout")}>
+                  <strong>Bars</strong>
+                  <span>Roundness, width, and spacing.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => setDesignModal("axisSettings")}>
+                  <strong>Axis</strong>
+                  <span>Text, alignment, wrapping, and offsets.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => setSettingsView("container")}>
+                  <strong>Container</strong>
+                  <span>Tile background, border, and transparency.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => setDesignModal("tileEffects")}>
+                  <strong>Effects</strong>
+                  <span>{selectedTile.appearance.shadow || selectedTile.appearance.glow ? "Shadow or glow active." : "Shadow and glow controls."}</span>
+                </button>
+              </div>
             </>
           )}
             </>
@@ -3293,6 +3263,10 @@ export default function App() {
                 <h2>
                   {designModal === "chartColors"
                     ? "Chart colors"
+                    : designModal === "labelSettings"
+                      ? "Label settings"
+                      : designModal === "barLayout"
+                        ? "Bar settings"
                     : designModal === "axisSettings"
                       ? "Axis settings"
                       : designModal.includes("Gradient")
@@ -3573,6 +3547,92 @@ export default function App() {
                   <label><input type="checkbox" checked={selectedTile.appearance.axisLabelWrap} onChange={(event) => updateSelectedAppearance({ axisLabelWrap: event.target.checked })} /> Wrap axis labels</label>
                 </div>
                 <ColorField label="Grid color" value={selectedTile.appearance.gridColor} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
+              </div>
+            )}
+
+            {designModal === "labelSettings" && selectedTile && (
+              <div className="modal-control-stack">
+                <label>
+                  Label position
+                  <select value={selectedTile.appearance.labelPosition} onChange={(event) => updateSelectedAppearance({ labelPosition: event.target.value as TileAppearance["labelPosition"] })}>
+                    <option value="top">Top</option>
+                    <option value="insideTop">Inside top</option>
+                    <option value="insideBottom">Inside bottom</option>
+                    <option value="center">Center</option>
+                  </select>
+                </label>
+                <label>
+                  Label size
+                  <input type="range" min="9" max="28" value={selectedTile.appearance.labelFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelFontSize, 9, 28) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelFontSize: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Label offset
+                  <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelOffset, 0, 32) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
+                </label>
+              </div>
+            )}
+
+            {designModal === "barLayout" && selectedTile && (
+              <div className="modal-control-stack">
+                <div className="color-summary-card">
+                  <div>
+                    <span>Style target</span>
+                    <strong title={selectedChartPart ? selectedChartPart.label : "All bars"}>
+                      {selectedChartPart ? selectedChartPart.label : "All bars"}
+                    </strong>
+                  </div>
+                  <div className="style-target-chips">
+                    <button
+                      type="button"
+                      className={selectedChartPart ? "style-target-chip all" : "style-target-chip all active"}
+                      onClick={() => setSelectedChartPartId("all")}
+                      aria-label="Select all bars"
+                    >
+                      <span>All</span>
+                    </button>
+                    {selectedTile.result.table.slice(0, 5).map((row, index) => {
+                      const id = row.optionId;
+                      const fallback = selectedTile.appearance.palette[index % selectedTile.appearance.palette.length] ?? selectedTile.appearance.primaryColor;
+                      const style = getBarStyle(selectedTile.appearance, id, fallback);
+                      return (
+                        <button
+                          type="button"
+                          key={id}
+                          className={selectedChartPartId === id ? "style-target-chip active" : "style-target-chip"}
+                          onClick={() => setSelectedChartPartId(id)}
+                          aria-label={`Select ${row.label}`}
+                        >
+                          <span style={{ background: style.fillMode === "gradient" ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`) : style.color }} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <label>
+                  Bar roundness
+                  <input
+                    type="range"
+                    min="0"
+                    max="36"
+                    value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius}
+                    style={{ "--range-fill": rangeFill(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).radius : selectedTile.appearance.barRadius, 0, 36) } as React.CSSProperties}
+                    onChange={(event) =>
+                      selectedChartPart ? updateSelectedBarStyle({ radius: Number(event.target.value) }) : updateSelectedAppearance({ barRadius: Number(event.target.value) })
+                    }
+                  />
+                </label>
+                <label>
+                  Bar width
+                  <input type="range" min="16" max="140" value={selectedTile.appearance.barSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.barSize, 16, 140) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barSize: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Bar spacing
+                  <input type="range" min="0" max="48" value={selectedTile.appearance.barGap} style={{ "--range-fill": rangeFill(selectedTile.appearance.barGap, 0, 48) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barGap: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Group spacing
+                  <input type="range" min="0" max="64" value={selectedTile.appearance.barCategoryGap} style={{ "--range-fill": rangeFill(selectedTile.appearance.barCategoryGap, 0, 64) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ barCategoryGap: Number(event.target.value) })} />
+                </label>
               </div>
             )}
 
