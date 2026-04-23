@@ -1128,34 +1128,31 @@ function HorizontalValueLabel(props: {
   const width = Number(props.width ?? 0);
   const height = Number(props.height ?? 0);
   const value = Number(props.value ?? 0);
-  const inside = appearance.labelPosition === "insideTop" || appearance.labelPosition === "insideBottom" || appearance.labelPosition === "center";
   const edgePadding = Math.max(6, appearance.labelOffset);
   const labelX =
     appearance.labelPosition === "center"
       ? x + width / 2
       : appearance.labelPosition === "top"
-        ? x + width
-        : x + Math.max(edgePadding, width - edgePadding);
-  const labelY =
-    appearance.labelPosition === "center"
-      ? y + height / 2 + appearance.labelFontSize / 3
-      : appearance.labelPosition === "top"
-        ? y - Math.max(6, appearance.labelOffset / 2)
-        : appearance.labelPosition === "insideBottom"
-          ? y + height - Math.max(4, appearance.labelOffset / 3)
-          : y + appearance.labelFontSize + Math.max(2, appearance.labelOffset / 6);
+        ? x + width + edgePadding
+        : appearance.labelPosition === "insideTop"
+          ? x + Math.max(edgePadding, width - edgePadding)
+          : x + edgePadding;
+  const labelY = y + height / 2;
   const textAnchor =
     appearance.labelPosition === "center"
       ? "middle"
       : appearance.labelPosition === "top"
-        ? "middle"
-        : "end";
+        ? "start"
+        : appearance.labelPosition === "insideTop"
+          ? "end"
+          : "start";
 
   return (
     <text
       x={labelX}
       y={labelY}
       textAnchor={textAnchor}
+      dominantBaseline="middle"
       className="chart-value"
       style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize }}
     >
