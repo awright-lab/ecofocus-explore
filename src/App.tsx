@@ -754,14 +754,12 @@ function BarColorField({
   onColorChange,
   onFillModeChange,
   onPresetApply,
-  onAdvancedGradient,
   onGradientChange
 }: {
   style: ReturnType<typeof getBarStyle>;
   onColorChange: (value: string) => void;
   onFillModeChange: (mode: "solid" | "gradient") => void;
   onPresetApply: (preset: (typeof gradientStylePresets)[number]) => void;
-  onAdvancedGradient: () => void;
   onGradientChange: (updates: { color: string; gradientTo: string; gradientStops: GradientStop[] }) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -836,34 +834,42 @@ function BarColorField({
               <>
                 <div className="color-field">
                   <span>Gradient colors</span>
-                  <div className="gradient-chip-row">
-                    {gradientChips.map((chip) => (
-                      <button
-                        type="button"
-                        key={chip.id}
-                        draggable
-                        className={chip.id === activeGradientStopId ? "color-swatch active" : "color-swatch"}
-                        style={{ background: chip.color }}
-                        onClick={() => setActiveGradientStopId(chip.id)}
-                        onDragStart={() => setDraggedGradientStopId(chip.id)}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={() => reorderGradientChips(chip.id)}
-                        onDragEnd={() => setDraggedGradientStopId(null)}
-                        aria-label={`Edit gradient color ${chip.color}`}
-                      />
-                    ))}
-                    <button type="button" className="color-swatch add" onClick={addGradientChip} aria-label="Add gradient color">
-                      +
-                    </button>
-                  </div>
-                  {activeGradientStopId && (
-                    <div className="gradient-chip-editor">
-                      <SolidColorEditor
-                        value={gradientChips.find((chip) => chip.id === activeGradientStopId)?.color ?? safeColor}
-                        onChange={(value) => updateGradientChipColor(activeGradientStopId, value)}
-                      />
+                  <div className="gradient-chip-region">
+                    <div className="gradient-chip-row">
+                      {gradientChips.map((chip) => (
+                        <button
+                          type="button"
+                          key={chip.id}
+                          draggable
+                          className={chip.id === activeGradientStopId ? "color-swatch active" : "color-swatch"}
+                          style={{ background: chip.color }}
+                          onClick={() => setActiveGradientStopId((current) => (current === chip.id ? null : chip.id))}
+                          onDragStart={() => setDraggedGradientStopId(chip.id)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={() => reorderGradientChips(chip.id)}
+                          onDragEnd={() => setDraggedGradientStopId(null)}
+                          aria-label={`Edit gradient color ${chip.color}`}
+                        />
+                      ))}
+                      <button type="button" className="color-swatch add" onClick={addGradientChip} aria-label="Add gradient color">
+                        +
+                      </button>
                     </div>
-                  )}
+                    {activeGradientStopId && (
+                      <div className="gradient-chip-popover" role="dialog" aria-label="Gradient color">
+                        <div className="gradient-chip-popover__header">
+                          <strong>Gradient color</strong>
+                          <button type="button" className="mini-button" onClick={() => setActiveGradientStopId(null)} aria-label="Close gradient color editor">
+                            x
+                          </button>
+                        </div>
+                        <SolidColorEditor
+                          value={gradientChips.find((chip) => chip.id === activeGradientStopId)?.color ?? safeColor}
+                          onChange={(value) => updateGradientChipColor(activeGradientStopId, value)}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="color-field">
                   <span>Style</span>
@@ -891,9 +897,6 @@ function BarColorField({
                     ))}
                   </div>
                 </div>
-                <button type="button" className="secondary compact" onClick={onAdvancedGradient}>
-                  Edit bar gradient
-                </button>
               </>
             ) : (
               <SolidColorEditor value={safeColor} onChange={onColorChange} />
@@ -912,8 +915,9 @@ function rangeFill(value: number | string, min: number, max: number) {
 }
 
 function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
+  const defaultGradientColor = appearance.barFillMode === "gradient" ? appearance.primaryColor : fallbackColor;
   return {
-    color: appearance.barStyles[id]?.color ?? fallbackColor,
+    color: appearance.barStyles[id]?.color ?? defaultGradientColor,
     fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
     gradientTo: appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
     gradientType: appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
@@ -3266,7 +3270,6 @@ export default function App() {
                           )
                         })
                   }
-                  onAdvancedGradient={() => setDesignModal("barGradient")}
                   onGradientChange={(updates) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ color: updates.color, gradientTo: updates.gradientTo, gradientStops: updates.gradientStops })
