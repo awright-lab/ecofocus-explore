@@ -231,6 +231,32 @@ function protectedGradientEndpointIds(stops: GradientStop[]) {
   return { startId, endId };
 }
 
+function sampleGradientPositions(template: number[], count: number) {
+  if (count <= 1) return [50];
+  if (template.length === count) return template;
+
+  return Array.from({ length: count }, (_, index) => {
+    const t = count === 1 ? 0 : index / (count - 1);
+    const scaled = t * (template.length - 1);
+    const leftIndex = Math.floor(scaled);
+    const rightIndex = Math.ceil(scaled);
+    const left = template[leftIndex] ?? template[0] ?? 0;
+    const right = template[rightIndex] ?? template[template.length - 1] ?? 100;
+    const blend = scaled - leftIndex;
+    return Math.round(left + (right - left) * blend);
+  });
+}
+
+function applyGradientStylePreset(from: string, to: string, stops: GradientStop[] | undefined, positions: number[]) {
+  const normalized = normalizeGradientStops(from, to, stops);
+  const mappedPositions = sampleGradientPositions(positions, normalized.length);
+
+  return normalized.map((stop, index) => ({
+    ...stop,
+    position: mappedPositions[index] ?? stop.position
+  }));
+}
+
 function stopColorCss(stop: GradientStop) {
   return `rgba(${hexToRgb(stop.color)}, ${stop.opacity / 100})`;
 }
@@ -582,10 +608,10 @@ function getDocumentColors(tile?: DashboardTile) {
 }
 
 const gradientStylePresets = [
-  { id: "linear-soft", label: "Soft", type: "linear" as const, stops: [makeGradientStop("#ffffff", 0), makeGradientStop("#9fc9a7", 100)] },
-  { id: "linear-mid", label: "Mid", type: "linear" as const, stops: [makeGradientStop("#ffffff", 0), makeGradientStop("#6fd1b3", 55), makeGradientStop("#2f9f7a", 100)] },
-  { id: "linear-glow", label: "Glow", type: "linear" as const, stops: [makeGradientStop("#1a7b59", 0), makeGradientStop("#2fbf8c", 50), makeGradientStop("#d7fff2", 100)] },
-  { id: "radial-soft", label: "Radial", type: "radial" as const, stops: [makeGradientStop("#c7f1df", 0), makeGradientStop("#2a9d74", 100)] }
+  { id: "linear-soft", label: "Soft", type: "linear" as const, positions: [0, 100] },
+  { id: "linear-mid", label: "Mid", type: "linear" as const, positions: [0, 35, 100] },
+  { id: "linear-glow", label: "Glow", type: "linear" as const, positions: [0, 65, 100] },
+  { id: "radial-soft", label: "Radial", type: "radial" as const, positions: [0, 45, 100] }
 ];
 
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
@@ -2833,8 +2859,24 @@ export default function App() {
                             }
                             onClick={() =>
                               selectedChartPart
-                                ? updateSelectedBarStyle({ gradientType: preset.type, gradientStops: preset.stops })
-                                : updateSelectedAppearance({ barGradientType: preset.type, barGradientStops: preset.stops })
+                                ? updateSelectedBarStyle({
+                                    gradientType: preset.type,
+                                    gradientStops: applyGradientStylePreset(
+                                      getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color,
+                                      getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo,
+                                      getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops,
+                                      preset.positions
+                                    )
+                                  })
+                                : updateSelectedAppearance({
+                                    barGradientType: preset.type,
+                                    barGradientStops: applyGradientStylePreset(
+                                      selectedTile.appearance.primaryColor,
+                                      selectedTile.appearance.barGradientTo,
+                                      selectedTile.appearance.barGradientStops,
+                                      preset.positions
+                                    )
+                                  })
                             }
                             aria-label={preset.label}
                           >
@@ -2843,7 +2885,12 @@ export default function App() {
                                 background: gradientCss(
                                   selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
                                   selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                                  preset.stops,
+                                  applyGradientStylePreset(
+                                    selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
+                                    selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
+                                    selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
+                                    preset.positions
+                                  ),
                                   preset.type
                                 )
                               }}
