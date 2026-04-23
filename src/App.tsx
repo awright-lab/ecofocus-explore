@@ -464,16 +464,18 @@ function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   return chartTypes.filter((chartType) => defaultDataset.chartTypes.some((item) => item.id === chartType));
 }
 
-function AxisTick(props: { x?: string | number; y?: string | number; payload?: { value: string }; appearance: TileAppearance }) {
-  const { payload, appearance } = props;
+function AxisTick(props: { x?: string | number; y?: string | number; payload?: { value: string }; appearance: TileAppearance; axisDirection?: "x" | "y" }) {
+  const { payload, appearance, axisDirection = "x" } = props;
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
   const label = payload?.value ?? "";
   const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
-  const textAnchor = appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
+  const textAnchor = axisDirection === "y" ? "end" : appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
+  const baseX = axisDirection === "y" ? x - 12 : x;
+  const baseY = axisDirection === "y" ? y + appearance.axisFontSize / 2 : y;
 
   return (
-    <g transform={`translate(${x + appearance.axisLabelDx},${y + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}>
+    <g transform={`translate(${baseX + appearance.axisLabelDx},${baseY + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}>
       <text fill={appearance.axisColor} fontSize={appearance.axisFontSize} textAnchor={textAnchor}>
         {lines.map((line, index) => (
           <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? 0 : appearance.axisFontSize + 3}>
@@ -658,7 +660,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             type="category"
             dataKey="axisLabel"
             width={170}
-            tick={(props) => <AxisTick {...props} appearance={appearance} />}
+            tick={(props) => <AxisTick {...props} appearance={appearance} axisDirection="y" />}
             tickLine={false}
             axisLine={false}
           />
