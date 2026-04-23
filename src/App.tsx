@@ -493,8 +493,6 @@ function canvasBackground(page: DashboardPage) {
 }
 
 function canvasBackgroundSize(page: DashboardPage) {
-  if (!page.showCanvasGrid) return undefined;
-
   const finalSize =
     page.backgroundMode === "image"
       ? page.backgroundImageFit === "fill"
@@ -502,19 +500,25 @@ function canvasBackgroundSize(page: DashboardPage) {
         : page.backgroundImageFit
       : "100% 100%";
 
+  if (!page.showCanvasGrid) return finalSize;
+
   return `${page.gridSize}px ${page.gridSize}px, ${page.gridSize}px ${page.gridSize}px, ${finalSize}`;
 }
 
 function canvasBackgroundRepeat(page: DashboardPage) {
-  if (!page.showCanvasGrid) return undefined;
+  const finalRepeat = page.backgroundMode === "image" ? "no-repeat" : "no-repeat";
 
-  return `repeat, repeat, ${page.backgroundMode === "image" ? "no-repeat" : "no-repeat"}`;
+  if (!page.showCanvasGrid) return finalRepeat;
+
+  return `repeat, repeat, ${finalRepeat}`;
 }
 
 function canvasBackgroundPosition(page: DashboardPage) {
-  if (!page.showCanvasGrid) return page.backgroundMode === "image" ? "center center" : undefined;
+  const finalPosition = page.backgroundMode === "image" ? "center center" : "0 0";
 
-  return `0 0, 0 0, ${page.backgroundMode === "image" ? "center center" : "0 0"}`;
+  if (!page.showCanvasGrid) return finalPosition;
+
+  return `0 0, 0 0, ${finalPosition}`;
 }
 
 function GradientEditor({
@@ -3527,26 +3531,79 @@ export default function App() {
 
             {designModal === "pageBackground" && (
               <div className="modal-control-stack">
-                <div className="fill-mode-tabs picker input-mode-tabs">
-                  <button type="button" className={activePage.backgroundMode === "solid" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "solid" })}>Solid</button>
-                  <button type="button" className={activePage.backgroundMode === "gradient" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "gradient" })}>Gradient</button>
-                  <button type="button" className={activePage.backgroundMode === "image" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "image" })}>Image</button>
+                <div className="color-summary-card">
+                  <div>
+                    <span>Background mode</span>
+                    <strong>
+                      {activePage.backgroundMode === "image"
+                        ? "Image"
+                        : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}
+                    </strong>
+                  </div>
+                  <div
+                    className="page-background-preview"
+                    style={{
+                      background:
+                        activePage.backgroundMode === "image" && activePage.backgroundImage
+                          ? undefined
+                          : activePage.backgroundMode === "gradient"
+                            ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType)
+                            : activePage.background,
+                      backgroundImage:
+                        activePage.backgroundMode === "image" && activePage.backgroundImage
+                          ? `url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
+                          : undefined,
+                      backgroundSize:
+                        activePage.backgroundMode === "image"
+                          ? activePage.backgroundImageFit === "fill"
+                            ? "100% 100%"
+                            : activePage.backgroundImageFit
+                          : undefined
+                    }}
+                  />
+                </div>
+                <div className="color-summary-card">
+                  <div>
+                    <span>Mode</span>
+                    <strong>Choose a page surface</strong>
+                  </div>
+                  <div className="fill-mode-tabs picker input-mode-tabs">
+                    <button type="button" className={activePage.backgroundMode === "solid" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "solid" })}>Solid</button>
+                    <button type="button" className={activePage.backgroundMode === "gradient" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "gradient" })}>Gradient</button>
+                    <button type="button" className={activePage.backgroundMode === "image" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "image" })}>Image</button>
+                  </div>
                 </div>
                 {activePage.backgroundMode === "solid" && (
-                  <ColorField label="Page color" value={activePage.background} onChange={(value) => updateActivePage({ background: value })} />
+                  <div className="color-summary-card">
+                    <div>
+                      <span>Page color</span>
+                      <strong>Solid background</strong>
+                    </div>
+                    <ColorField label="Page color" value={activePage.background} onChange={(value) => updateActivePage({ background: value })} />
+                  </div>
                 )}
                 {activePage.backgroundMode === "gradient" && (
-                  <GradientEditor
-                    label="Page gradient"
-                    from={activePage.gradientFrom}
-                    to={activePage.gradientTo}
-                    type={activePage.gradientType}
-                    stops={activePage.gradientStops}
-                    onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
-                  />
+                  <div className="color-summary-card">
+                    <div>
+                      <span>Page gradient</span>
+                      <strong>Blend page colors</strong>
+                    </div>
+                    <GradientEditor
+                      label="Page gradient"
+                      from={activePage.gradientFrom}
+                      to={activePage.gradientTo}
+                      type={activePage.gradientType}
+                      stops={activePage.gradientStops}
+                      onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
+                    />
+                  </div>
                 )}
                 {activePage.backgroundMode === "image" && (
-                  <>
+                  <div className="color-summary-card">
+                    <div>
+                      <span>Background image</span>
+                      <strong>Use a full-page image</strong>
+                    </div>
                     <label>
                       Image URL
                       <input
@@ -3570,7 +3627,7 @@ export default function App() {
                     {activePage.backgroundImage && (
                       <div className="page-background-preview" style={{ backgroundImage: `url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`, backgroundSize: activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit }} />
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             )}
