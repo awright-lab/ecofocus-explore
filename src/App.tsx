@@ -1053,6 +1053,224 @@ function BarColorField({
   );
 }
 
+function PageBackgroundField({
+  page,
+  onModeChange,
+  onSolidChange,
+  onGradientChange,
+  onImageChange
+}: {
+  page: DashboardPage;
+  onModeChange: (mode: DashboardPage["backgroundMode"]) => void;
+  onSolidChange: (value: string) => void;
+  onGradientChange: (updates: { from: string; to: string; type: GradientType; stops: GradientStop[] }) => void;
+  onImageChange: (updates: Partial<Pick<DashboardPage, "backgroundImage" | "backgroundImageFit">>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeGradientStopId, setActiveGradientStopId] = useState<string | null>(null);
+  const [draggedGradientStopId, setDraggedGradientStopId] = useState<string | null>(null);
+  const gradientChips = normalizeGradientStops(page.gradientFrom, page.gradientTo, page.gradientStops);
+  const backgroundPreview =
+    page.backgroundMode === "image" && page.backgroundImage
+      ? undefined
+      : page.backgroundMode === "gradient"
+        ? gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType)
+        : normalizeHexColor(page.background);
+
+  function commitGradientChips(nextChips: GradientStop[]) {
+    if (nextChips.length < 2) return;
+    const ordered = nextChips.map((chip, index) => ({
+      ...chip,
+      position: nextChips.length === 1 ? 50 : Math.round((index / (nextChips.length - 1)) * 100)
+    }));
+    onGradientChange({
+      from: ordered[0]?.color ?? page.gradientFrom,
+      to: ordered[ordered.length - 1]?.color ?? page.gradientTo,
+      type: page.gradientType,
+      stops: ordered.slice(1, -1)
+    });
+  }
+
+  function updateGradientChipColor(id: string, color: string) {
+    commitGradientChips(gradientChips.map((chip) => (chip.id === id ? { ...chip, color } : chip)));
+  }
+
+  function addGradientChip() {
+    const newChip: GradientStop = {
+      id: `page_chip_${Date.now()}`,
+      color: page.gradientTo,
+      position: 50,
+      opacity: 100
+    };
+    const insertAt = Math.max(1, gradientChips.length - 1);
+    const nextChips = [...gradientChips.slice(0, insertAt), newChip, ...gradientChips.slice(insertAt)];
+    commitGradientChips(nextChips);
+    setActiveGradientStopId(newChip.id);
+  }
+
+  function reorderGradientChips(targetId: string) {
+    if (!draggedGradientStopId || draggedGradientStopId === targetId) return;
+    const fromIndex = gradientChips.findIndex((chip) => chip.id === draggedGradientStopId);
+    const toIndex = gradientChips.findIndex((chip) => chip.id === targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const next = [...gradientChips];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    commitGradientChips(next);
+  }
+
+  return (
+    <div className="color-field">
+      <span>Background</span>
+      <div className="color-field-stack">
+        <button type="button" className="color-chip-button" onClick={() => setOpen((current) => !current)} aria-label="Choose page background">
+          <span
+            className="color-chip"
+            style={{
+              background: backgroundPreview,
+              backgroundImage:
+                page.backgroundMode === "image" && page.backgroundImage
+                  ? `url("${page.backgroundImage.replace(/"/g, '\\"')}")`
+                  : undefined,
+              backgroundSize:
+                page.backgroundMode === "image"
+                  ? page.backgroundImageFit === "fill"
+                    ? "100% 100%"
+                    : page.backgroundImageFit
+                  : undefined,
+              backgroundPosition: "center"
+            }}
+          />
+        </button>
+        {open && (
+          <div className="bar-color-popover" role="dialog" aria-label="Page background">
+            <div className="fill-mode-tabs picker input-mode-tabs">
+              <button type="button" className={page.backgroundMode === "solid" ? "active" : ""} onClick={() => onModeChange("solid")}>Solid</button>
+              <button type="button" className={page.backgroundMode === "gradient" ? "active" : ""} onClick={() => onModeChange("gradient")}>Gradient</button>
+              <button type="button" className={page.backgroundMode === "image" ? "active" : ""} onClick={() => onModeChange("image")}>Image</button>
+            </div>
+            {page.backgroundMode === "gradient" ? (
+              <>
+                <div className="color-field">
+                  <span>Gradient colors</span>
+                  <div className="gradient-chip-region">
+                    <div className="gradient-chip-row">
+                      {gradientChips.map((chip) => (
+                        <button
+                          type="button"
+                          key={chip.id}
+                          draggable
+                          className={chip.id === activeGradientStopId ? "color-swatch active" : "color-swatch"}
+                          style={{ background: chip.color }}
+                          onClick={() => setActiveGradientStopId((current) => (current === chip.id ? null : chip.id))}
+                          onDragStart={() => setDraggedGradientStopId(chip.id)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={() => reorderGradientChips(chip.id)}
+                          onDragEnd={() => setDraggedGradientStopId(null)}
+                          aria-label={`Edit gradient color ${chip.color}`}
+                        />
+                      ))}
+                      <button type="button" className="color-swatch add" onClick={addGradientChip} aria-label="Add gradient color">
+                        +
+                      </button>
+                    </div>
+                    {activeGradientStopId && (
+                      <div className="gradient-chip-popover" role="dialog" aria-label="Gradient color">
+                        <div className="gradient-chip-popover__header">
+                          <strong>Gradient color</strong>
+                          <button type="button" className="mini-button" onClick={() => setActiveGradientStopId(null)} aria-label="Close gradient color editor">
+                            x
+                          </button>
+                        </div>
+                        <SolidColorEditor
+                          value={gradientChips.find((chip) => chip.id === activeGradientStopId)?.color ?? page.gradientFrom}
+                          onChange={(value) => updateGradientChipColor(activeGradientStopId, value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="color-field">
+                  <span>Style</span>
+                  <div className="gradient-style-grid">
+                    {gradientStylePresets.map((preset) => (
+                      <button
+                        type="button"
+                        key={preset.id}
+                        className={page.gradientType === preset.type ? "active" : ""}
+                        onClick={() =>
+                          onGradientChange({
+                            from: page.gradientFrom,
+                            to: page.gradientTo,
+                            type: preset.type,
+                            stops: applyGradientStylePreset(page.gradientFrom, page.gradientTo, page.gradientStops, preset.positions)
+                          })
+                        }
+                        aria-label={preset.label}
+                      >
+                        <span
+                          style={{
+                            background: gradientCss(
+                              page.gradientFrom,
+                              page.gradientTo,
+                              applyGradientStylePreset(page.gradientFrom, page.gradientTo, page.gradientStops, preset.positions),
+                              preset.type,
+                              `${preset.angle}deg`
+                            )
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : page.backgroundMode === "image" ? (
+              <div className="color-field">
+                <span>Background image</span>
+                <div className="modal-control-stack compact">
+                  <label>
+                    Image URL
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={page.backgroundImage}
+                      onChange={(event) => onImageChange({ backgroundImage: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Image fit
+                    <select
+                      value={page.backgroundImageFit}
+                      onChange={(event) => onImageChange({ backgroundImageFit: event.target.value as DashboardPage["backgroundImageFit"] })}
+                    >
+                      <option value="cover">Cover</option>
+                      <option value="contain">Contain</option>
+                      <option value="fill">Stretch</option>
+                    </select>
+                  </label>
+                  {page.backgroundImage && (
+                    <div
+                      className="page-background-preview"
+                      style={{
+                        backgroundImage: `url("${page.backgroundImage.replace(/"/g, '\\"')}")`,
+                        backgroundSize: page.backgroundImageFit === "fill" ? "100% 100%" : page.backgroundImageFit,
+                        backgroundPosition: "center",
+                        backgroundRepeat: "no-repeat"
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <SolidColorEditor value={page.background} onChange={onSolidChange} />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function rangeFill(value: number | string, min: number, max: number) {
   const numericValue = Number(value);
   const percentage = ((numericValue - min) / (max - min)) * 100;
@@ -3533,7 +3751,7 @@ export default function App() {
               <div className="modal-control-stack">
                 <div className="color-summary-card">
                   <div>
-                    <span>Background mode</span>
+                    <span>Page surface</span>
                     <strong>
                       {activePage.backgroundMode === "image"
                         ? "Image"
@@ -3564,71 +3782,24 @@ export default function App() {
                 </div>
                 <div className="color-summary-card">
                   <div>
-                    <span>Mode</span>
-                    <strong>Choose a page surface</strong>
+                    <span>Background</span>
+                    <strong>Edit page surface</strong>
                   </div>
-                  <div className="fill-mode-tabs picker input-mode-tabs">
-                    <button type="button" className={activePage.backgroundMode === "solid" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "solid" })}>Solid</button>
-                    <button type="button" className={activePage.backgroundMode === "gradient" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "gradient" })}>Gradient</button>
-                    <button type="button" className={activePage.backgroundMode === "image" ? "active" : ""} onClick={() => updateActivePage({ backgroundMode: "image" })}>Image</button>
-                  </div>
+                  <PageBackgroundField
+                    page={activePage}
+                    onModeChange={(mode) => updateActivePage({ backgroundMode: mode })}
+                    onSolidChange={(value) => updateActivePage({ background: value })}
+                    onGradientChange={(updates) =>
+                      updateActivePage({
+                        gradientFrom: updates.from,
+                        gradientTo: updates.to,
+                        gradientType: updates.type,
+                        gradientStops: updates.stops
+                      })
+                    }
+                    onImageChange={(updates) => updateActivePage(updates)}
+                  />
                 </div>
-                {activePage.backgroundMode === "solid" && (
-                  <div className="color-summary-card">
-                    <div>
-                      <span>Page color</span>
-                      <strong>Solid background</strong>
-                    </div>
-                    <ColorField label="Page color" value={activePage.background} onChange={(value) => updateActivePage({ background: value })} />
-                  </div>
-                )}
-                {activePage.backgroundMode === "gradient" && (
-                  <div className="color-summary-card">
-                    <div>
-                      <span>Page gradient</span>
-                      <strong>Blend page colors</strong>
-                    </div>
-                    <GradientEditor
-                      label="Page gradient"
-                      from={activePage.gradientFrom}
-                      to={activePage.gradientTo}
-                      type={activePage.gradientType}
-                      stops={activePage.gradientStops}
-                      onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
-                    />
-                  </div>
-                )}
-                {activePage.backgroundMode === "image" && (
-                  <div className="color-summary-card">
-                    <div>
-                      <span>Background image</span>
-                      <strong>Use a full-page image</strong>
-                    </div>
-                    <label>
-                      Image URL
-                      <input
-                        type="url"
-                        placeholder="https://..."
-                        value={activePage.backgroundImage}
-                        onChange={(event) => updateActivePage({ backgroundImage: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Image fit
-                      <select
-                        value={activePage.backgroundImageFit}
-                        onChange={(event) => updateActivePage({ backgroundImageFit: event.target.value as DashboardPage["backgroundImageFit"] })}
-                      >
-                        <option value="cover">Cover</option>
-                        <option value="contain">Contain</option>
-                        <option value="fill">Stretch</option>
-                      </select>
-                    </label>
-                    {activePage.backgroundImage && (
-                      <div className="page-background-preview" style={{ backgroundImage: `url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`, backgroundSize: activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit }} />
-                    )}
-                  </div>
-                )}
               </div>
             )}
 
