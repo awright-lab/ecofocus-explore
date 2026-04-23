@@ -2059,6 +2059,24 @@ export default function App() {
     });
   }
 
+  function applyPalettePresetToBars(paletteColors: string[]) {
+    if (!selectedTile) return;
+
+    const nextBarStyles = selectedTile.result.table.reduce<TileAppearance["barStyles"]>((styles, row, index) => {
+      styles[row.optionId] = {
+        ...selectedTile.appearance.barStyles[row.optionId],
+        color: paletteColors[index % paletteColors.length] ?? paletteColors[0]
+      };
+      return styles;
+    }, { ...selectedTile.appearance.barStyles });
+
+    updateSelectedAppearance({
+      palette: paletteColors,
+      primaryColor: paletteColors[0],
+      barStyles: nextBarStyles
+    });
+  }
+
   function updateSelectedAxisLabel(value: string) {
     if (!selectedTile || !selectedChartPart) return;
 
@@ -3242,18 +3260,11 @@ export default function App() {
                           type="button"
                           key={palette.id}
                           className={isActive ? "palette-chip-group active" : "palette-chip-group"}
-                          onClick={() =>
-                            selectedChartPart
-                              ? updateSelectedBarStyle({ color: palette.colors[0] })
-                              : updateSelectedAppearance({
-                                  palette: palette.colors,
-                                  primaryColor: palette.colors[0]
-                                })
-                          }
+                          onClick={() => applyPalettePresetToBars(palette.colors)}
                         >
                           <div className="palette-chip-group-header">
                             <strong>{palette.label}</strong>
-                            <small>{selectedChartPart ? "Use set" : "Apply all"}</small>
+                            <small>Use set</small>
                           </div>
                           <div className="palette-chip-row">
                             {palette.colors.map((color, index) => (
@@ -3268,10 +3279,7 @@ export default function App() {
                                   event.stopPropagation();
                                   selectedChartPart
                                     ? updateSelectedBarStyle({ color })
-                                    : updateSelectedAppearance({
-                                        primaryColor: color,
-                                        palette: [color, ...palette.colors.filter((entry) => entry !== color)]
-                                      });
+                                    : applyPalettePresetToBars([color, ...palette.colors.filter((entry) => entry !== color)]);
                                 }}
                                 onKeyDown={(event) => {
                                   if (event.key !== "Enter" && event.key !== " ") return;
@@ -3279,10 +3287,7 @@ export default function App() {
                                   event.stopPropagation();
                                   selectedChartPart
                                     ? updateSelectedBarStyle({ color })
-                                    : updateSelectedAppearance({
-                                        primaryColor: color,
-                                        palette: [color, ...palette.colors.filter((entry) => entry !== color)]
-                                      });
+                                    : applyPalettePresetToBars([color, ...palette.colors.filter((entry) => entry !== color)]);
                                 }}
                               />
                             ))}
