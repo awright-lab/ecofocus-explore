@@ -947,25 +947,29 @@ button:disabled {
 .color-swatch {
   display: inline-grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid #dbe4e8;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #d7dee5;
   border-radius: 999px;
   background: #eef4ef;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .color-swatch.active {
   box-shadow:
     0 0 0 2px #7a45ff,
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 
 .color-swatch.add {
   color: #44525d;
-  font-size: 1.2rem;
-  background: linear-gradient(135deg, #ffffff, #eef4ef);
+  font-size: 1.15rem;
+  font-weight: 700;
+  background: #f6f8fb;
 }
 
 .color-field {
@@ -986,60 +990,79 @@ button:disabled {
 .color-chip-button {
   display: inline-grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 0;
   background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .color-chip {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: 2px solid #ffffff;
   border-radius: 999px;
   box-shadow:
-    0 0 0 1px #d9e1e8,
-    0 4px 12px rgba(38, 48, 60, 0.12);
+    0 0 0 1px #d7dee5,
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 }
 
 .color-drawer {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 4;
   display: grid;
-  gap: 12px;
-  width: min(280px, calc(100vw - 130px));
-  padding: 12px;
-  border: 1px solid #dfe6ea;
-  border-radius: 14px;
+  gap: 10px;
+  width: min(268px, calc(100vw - 130px));
+  padding: 10px;
+  border: 1px solid #d9e1e8;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 18px 36px rgba(14, 18, 22, 0.16);
+  box-shadow: 0 12px 24px rgba(14, 18, 22, 0.12);
 }
 
 .color-drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .color-drawer-header strong {
   color: #17251d;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .color-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 9px;
 }
 
 .color-drawer-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.color-drawer .secondary {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+
+.color-drawer .mini-button {
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 0.75rem;
 }
 
 .sr-only-color-input {
