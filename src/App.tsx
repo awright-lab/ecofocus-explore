@@ -217,6 +217,76 @@ function normalizeHexColor(value: string | null | undefined, fallback = "#000000
   return fallback;
 }
 
+function hexToRgbObject(value: string) {
+  const hex = normalizeHexColor(value);
+  const normalized = hex.slice(1);
+  const parsed = Number.parseInt(normalized, 16);
+  return {
+    r: (parsed >> 16) & 255,
+    g: (parsed >> 8) & 255,
+    b: parsed & 255
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return `#${[r, g, b]
+    .map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function rgbToHsl(r: number, g: number, b: number) {
+  const red = r / 255;
+  const green = g / 255;
+  const blue = b / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+
+  if (delta === 0) {
+    return { h: 0, s: 0, l: Math.round(lightness * 100) };
+  }
+
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+  let hue = 0;
+
+  if (max === red) hue = ((green - blue) / delta) % 6;
+  else if (max === green) hue = (blue - red) / delta + 2;
+  else hue = (red - green) / delta + 4;
+
+  return {
+    h: Math.round((hue * 60 + 360) % 360),
+    s: Math.round(saturation * 100),
+    l: Math.round(lightness * 100)
+  };
+}
+
+function hslToRgb(h: number, s: number, l: number) {
+  const hue = ((h % 360) + 360) % 360;
+  const saturation = Math.max(0, Math.min(100, s)) / 100;
+  const lightness = Math.max(0, Math.min(100, l)) / 100;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const sector = hue / 60;
+  const x = chroma * (1 - Math.abs((sector % 2) - 1));
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  if (sector >= 0 && sector < 1) [red, green, blue] = [chroma, x, 0];
+  else if (sector < 2) [red, green, blue] = [x, chroma, 0];
+  else if (sector < 3) [red, green, blue] = [0, chroma, x];
+  else if (sector < 4) [red, green, blue] = [0, x, chroma];
+  else if (sector < 5) [red, green, blue] = [x, 0, chroma];
+  else [red, green, blue] = [chroma, 0, x];
+
+  const match = lightness - chroma / 2;
+  return {
+    r: Math.round((red + match) * 255),
+    g: Math.round((green + match) * 255),
+    b: Math.round((blue + match) * 255)
+  };
+}
+
 function normalizeGradientStops(from: string, to: string, stops?: GradientStop[]) {
   const normalizedStops = (stops ?? [])
     .map((stop) => ({
@@ -502,6 +572,143 @@ function ColorField({
               onChange={(event) => onChange(event.target.value)}
               tabIndex={-1}
             />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BarColorField({
+  style,
+  documentColors,
+  onColorChange,
+  onFillModeChange,
+  onPresetApply,
+  onAdvancedGradient
+}: {
+  style: ReturnType<typeof getBarStyle>;
+  documentColors: string[];
+  onColorChange: (value: string) => void;
+  onFillModeChange: (mode: "solid" | "gradient") => void;
+  onPresetApply: (preset: (typeof gradientStylePresets)[number]) => void;
+  onAdvancedGradient: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [inputMode, setInputMode] = useState<"hex" | "rgb" | "hsl">("hex");
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const safeColor = normalizeHexColor(style.color);
+  const rgb = hexToRgbObject(safeColor);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const safeDocumentColors = uniqueColors(documentColors.map((color) => normalizeHexColor(color, "")).filter(Boolean));
+
+  return (
+    <div className="color-field">
+      <span>Bar color</span>
+      <div className="color-field-stack">
+        <button type="button" className="color-chip-button" onClick={() => setOpen((current) => !current)} aria-label="Choose bar color">
+          <span
+            className="color-chip"
+            style={{
+              background:
+                style.fillMode === "gradient"
+                  ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`)
+                  : safeColor
+            }}
+          />
+        </button>
+        {open && (
+          <div className="bar-color-popover" role="dialog" aria-label="Bar color">
+            <div className="color-grid compact">
+              {safeDocumentColors.slice(0, 7).map((color) => (
+                <button
+                  type="button"
+                  key={color}
+                  className={color.toLowerCase() === safeColor.toLowerCase() ? "color-swatch active" : "color-swatch"}
+                  style={{ background: color }}
+                  onClick={() => onColorChange(color)}
+                  aria-label={`Use color ${color}`}
+                />
+              ))}
+            </div>
+            <div className="fill-mode-tabs picker">
+              <button type="button" className={style.fillMode === "solid" ? "active" : ""} onClick={() => onFillModeChange("solid")}>Solid color</button>
+              <button type="button" className={style.fillMode === "gradient" ? "active" : ""} onClick={() => onFillModeChange("gradient")}>Gradient</button>
+            </div>
+            {style.fillMode === "gradient" ? (
+              <>
+                <div className="color-field">
+                  <span>Gradient styles</span>
+                  <div className="gradient-style-grid">
+                    {gradientStylePresets.map((preset) => (
+                      <button
+                        type="button"
+                        key={preset.id}
+                        className={style.gradientType === preset.type && style.gradientAngle === preset.angle ? "active" : ""}
+                        onClick={() => onPresetApply(preset)}
+                        aria-label={preset.label}
+                      >
+                        <span
+                          style={{
+                            background: gradientCss(
+                              style.color,
+                              style.gradientTo,
+                              applyGradientStylePreset(style.color, style.gradientTo, style.gradientStops, preset.positions),
+                              preset.type,
+                              `${preset.angle}deg`
+                            )
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button type="button" className="secondary compact" onClick={onAdvancedGradient}>
+                  Edit bar gradient
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="fill-mode-tabs picker input-mode-tabs">
+                  <button type="button" className={inputMode === "hex" ? "active" : ""} onClick={() => setInputMode("hex")}>HEX</button>
+                  <button type="button" className={inputMode === "rgb" ? "active" : ""} onClick={() => setInputMode("rgb")}>RGB</button>
+                  <button type="button" className={inputMode === "hsl" ? "active" : ""} onClick={() => setInputMode("hsl")}>HSL</button>
+                </div>
+                {inputMode === "hex" && (
+                  <div className="color-value-row">
+                    <button type="button" className="color-chip-button static" aria-hidden="true">
+                      <span className="color-chip" style={{ background: safeColor }} />
+                    </button>
+                    <input value={safeColor.toUpperCase()} onChange={(event) => onColorChange(normalizeHexColor(event.target.value, safeColor))} />
+                    <button type="button" className="mini-button" onClick={() => inputRef.current?.click()} aria-label="Open color picker">🎨</button>
+                  </div>
+                )}
+                {inputMode === "rgb" && (
+                  <div className="numeric-triplet">
+                    <input type="number" min="0" max="255" value={rgb.r} onChange={(event) => onColorChange(rgbToHex(Number(event.target.value) || 0, rgb.g, rgb.b))} />
+                    <input type="number" min="0" max="255" value={rgb.g} onChange={(event) => onColorChange(rgbToHex(rgb.r, Number(event.target.value) || 0, rgb.b))} />
+                    <input type="number" min="0" max="255" value={rgb.b} onChange={(event) => onColorChange(rgbToHex(rgb.r, rgb.g, Number(event.target.value) || 0))} />
+                  </div>
+                )}
+                {inputMode === "hsl" && (
+                  <div className="numeric-triplet">
+                    <input type="number" min="0" max="360" value={hsl.h} onChange={(event) => {
+                      const next = hslToRgb(Number(event.target.value) || 0, hsl.s, hsl.l);
+                      onColorChange(rgbToHex(next.r, next.g, next.b));
+                    }} />
+                    <input type="number" min="0" max="100" value={hsl.s} onChange={(event) => {
+                      const next = hslToRgb(hsl.h, Number(event.target.value) || 0, hsl.l);
+                      onColorChange(rgbToHex(next.r, next.g, next.b));
+                    }} />
+                    <input type="number" min="0" max="100" value={hsl.l} onChange={(event) => {
+                      const next = hslToRgb(hsl.h, hsl.s, Number(event.target.value) || 0);
+                      onColorChange(rgbToHex(next.r, next.g, next.b));
+                    }} />
+                  </div>
+                )}
+              </>
+            )}
+            <input ref={inputRef} className="sr-only-color-input" type="color" value={safeColor} onChange={(event) => onColorChange(event.target.value)} tabIndex={-1} />
           </div>
         )}
       </div>
@@ -2784,8 +2991,6 @@ export default function App() {
                 <h2>
                   {designModal === "chartColors"
                     ? "Chart colors"
-                    : designModal === "barColor"
-                      ? "Bar color"
                     : designModal === "axisSettings"
                       ? "Axis settings"
                       : designModal.includes("Gradient")
@@ -2837,176 +3042,48 @@ export default function App() {
                     </select>
                   </label>
                 )}
-                <button type="button" className="design-popover-button" onClick={() => setDesignModal("barColor")}>
-                  <span
-                    className="gradient-button-preview"
-                    style={{
-                      background:
-                        (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient"
-                          ? gradientCss(
-                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
-                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
-                              selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType,
-                              `${selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle}deg`
-                            )
-                          : (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor)
-                    }}
-                  />
-                  <span>Bar color</span>
-                  <small>
-                    {(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient"
-                      ? "Gradient"
-                      : "Solid"}
-                  </small>
-                </button>
-                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
-                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
-                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
-                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
-              </div>
-            )}
-
-            {designModal === "barColor" && selectedTile && (
-              <div className="modal-control-stack">
-                <div className="color-summary-card">
-                  <div>
-                    <span>Style target</span>
-                    <strong>{selectedChartPart ? selectedChartPart.label : "All bars"}</strong>
-                  </div>
-                  <div className="color-summary-swatches">
-                    {(selectedChartPart ? [selectedChartPart.id] : selectedTile.result.table.map((row) => row.optionId).slice(0, 5)).map((id, index) => {
-                      const fallback = selectedTile.appearance.palette[index % selectedTile.appearance.palette.length] ?? selectedTile.appearance.primaryColor;
-                      const style = getBarStyle(selectedTile.appearance, id, fallback);
-                      return (
-                        <span
-                          key={id}
-                          className="color-swatch"
-                          style={{
-                            background:
-                              style.fillMode === "gradient"
-                                ? gradientCss(style.color, style.gradientTo, style.gradientStops, style.gradientType, `${style.gradientAngle}deg`)
-                                : style.color
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="color-field">
-                  <span>Bar fill</span>
-                  <div className="fill-mode-tabs">
-                    <button
-                      type="button"
-                      className={(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "solid" ? "active" : ""}
-                      onClick={() =>
-                        selectedChartPart
-                          ? updateSelectedBarStyle({ fillMode: "solid" })
-                          : updateSelectedAppearance({ barFillMode: "solid" })
-                      }
-                    >
-                      Solid color
-                    </button>
-                    <button
-                      type="button"
-                      className={(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient" ? "active" : ""}
-                      onClick={() =>
-                        selectedChartPart
-                          ? updateSelectedBarStyle({ fillMode: "gradient" })
-                          : updateSelectedAppearance({ barFillMode: "gradient" })
-                      }
-                    >
-                      Gradient
-                    </button>
-                  </div>
-                </div>
-                <ColorField
-                  label="Bar color"
-                  value={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor}
+                <BarColorField
+                  style={selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor) : getBarStyle(selectedTile.appearance, "__default__", selectedTile.appearance.primaryColor)}
                   documentColors={getDocumentColors(selectedTile)}
-                  onChange={(value) =>
+                  onColorChange={(value) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ color: value })
                       : updateSelectedAppearance({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
                   }
-                />
-                {(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient" && (
-                  <>
-                    <div className="color-field">
-                      <span>Gradient styles</span>
-                      <div className="gradient-style-grid">
-                        {gradientStylePresets.map((preset) => (
-                          <button
-                            type="button"
-                            key={preset.id}
-                            className={
-                              (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType) === preset.type &&
-                              (selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle) === preset.angle
-                                ? "active"
-                                : ""
-                            }
-                            onClick={() =>
-                              selectedChartPart
-                                ? updateSelectedBarStyle({
-                                    gradientType: preset.type,
-                                    gradientAngle: preset.angle,
-                                    gradientStops: applyGradientStylePreset(
-                                      getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color,
-                                      getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo,
-                                      getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops,
-                                      preset.positions
-                                    )
-                                  })
-                                : updateSelectedAppearance({
-                                    barGradientType: preset.type,
-                                    barGradientAngle: preset.angle,
-                                    barGradientStops: applyGradientStylePreset(
-                                      selectedTile.appearance.primaryColor,
-                                      selectedTile.appearance.barGradientTo,
-                                      selectedTile.appearance.barGradientStops,
-                                      preset.positions
-                                    )
-                                  })
-                            }
-                            aria-label={preset.label}
-                          >
-                            <span
-                              style={{
-                                background: gradientCss(
-                                  selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
-                                  selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                                  applyGradientStylePreset(
-                                    selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
-                                    selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                                    selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
-                                    preset.positions
-                                  ),
-                                  preset.type,
-                                  `${preset.angle}deg`
-                                )
-                              }}
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button type="button" className="design-popover-button" onClick={() => setDesignModal("barGradient")}>
-                      <span
-                        className="gradient-button-preview"
-                        style={{
-                          background: gradientCss(
-                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
-                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
-                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType,
-                            `${selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientAngle : selectedTile.appearance.barGradientAngle}deg`
+                  onFillModeChange={(mode) =>
+                    selectedChartPart
+                      ? updateSelectedBarStyle({ fillMode: mode })
+                      : updateSelectedAppearance({ barFillMode: mode })
+                  }
+                  onPresetApply={(preset) =>
+                    selectedChartPart
+                      ? updateSelectedBarStyle({
+                          gradientType: preset.type,
+                          gradientAngle: preset.angle,
+                          gradientStops: applyGradientStylePreset(
+                            getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color,
+                            getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo,
+                            getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops,
+                            preset.positions
                           )
-                        }}
-                      />
-                      <span>{selectedChartPart ? "Edit selected bar gradient" : "Edit bar gradient"}</span>
-                    </button>
-                  </>
-                )}
+                        })
+                      : updateSelectedAppearance({
+                          barGradientType: preset.type,
+                          barGradientAngle: preset.angle,
+                          barGradientStops: applyGradientStylePreset(
+                            selectedTile.appearance.primaryColor,
+                            selectedTile.appearance.barGradientTo,
+                            selectedTile.appearance.barGradientStops,
+                            preset.positions
+                          )
+                        })
+                  }
+                  onAdvancedGradient={() => setDesignModal("barGradient")}
+                />
+                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
+                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
+                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
+                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}
 
