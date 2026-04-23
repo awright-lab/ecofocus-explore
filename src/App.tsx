@@ -54,7 +54,7 @@ const effectPresets = {
 } as const;
 
 type EffectPreset = keyof typeof effectPresets;
-type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "elementEffects" | "tileEffects" | null;
+type DesignModal = "pageGradient" | "elementGradient" | "tileGradient" | "barGradient" | "axisSettings" | "elementEffects" | "tileEffects" | null;
 
 function effectPresetValues(preset: EffectPreset) {
   const { shadowBlur, shadowOffsetX, shadowOffsetY, shadowOpacity } = effectPresets[preset];
@@ -1244,6 +1244,13 @@ export default function App() {
     setSettingsView("element");
   }
 
+  function selectPage() {
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+    setSettingsView("page");
+  }
+
   function updateElementLayout(elementId: string, layout: Partial<CanvasLayout>) {
     setDashboard((current) => ({
       ...current,
@@ -1416,9 +1423,7 @@ export default function App() {
 
     setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
     setActivePageId(page.id);
-    setSelectedTileId(null);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
+    selectPage();
   }
 
   function deleteActivePage() {
@@ -1511,7 +1516,7 @@ export default function App() {
     setSelectedTileId(null);
     setSelectedElementId(null);
     setSelectedChartPartId("all");
-    setSettingsView("home");
+    setSettingsView("page");
     setLeftPanelView("pages");
   }
 
@@ -1683,9 +1688,7 @@ export default function App() {
                     className={page.id === activePage.id ? "page-tab active" : "page-tab"}
                     onClick={() => {
                       setActivePageId(page.id);
-                      setSelectedTileId(null);
-                      setSelectedElementId(null);
-                      setSelectedChartPartId("all");
+                      selectPage();
                     }}
                   >
                     <span>{page.order}</span>
@@ -1844,6 +1847,11 @@ export default function App() {
             <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>
               <div
                 className="freeform-canvas"
+                onClick={(event) => {
+                  if (event.currentTarget === event.target) {
+                    selectPage();
+                  }
+                }}
                 style={{
                   width: canvasWidth,
                   height: canvasHeight,
@@ -1937,9 +1945,7 @@ export default function App() {
                 className={page.id === activePage.id ? "page-thumb active" : "page-thumb"}
                 onClick={() => {
                   setActivePageId(page.id);
-                  setSelectedTileId(null);
-                  setSelectedElementId(null);
-                  setSelectedChartPartId("all");
+                  selectPage();
                 }}
               >
                 <span>{page.order}</span>
@@ -2392,20 +2398,22 @@ export default function App() {
                       <option value="gradient">Gradient</option>
                     </select>
                   </label>
-                  <button type="button" className="design-popover-button" onClick={() => setDesignModal("barGradient")}>
-                    <span
-                      className="gradient-button-preview"
-                      style={{
-                        background: gradientCss(
-                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
-                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
-                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
-                          selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType
-                        )
-                      }}
-                    />
-                    <span>{selectedChartPart ? "Edit selected bar gradient" : "Edit bar gradient"}</span>
-                  </button>
+                  {(selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).fillMode : selectedTile.appearance.barFillMode) === "gradient" && (
+                    <button type="button" className="design-popover-button" onClick={() => setDesignModal("barGradient")}>
+                      <span
+                        className="gradient-button-preview"
+                        style={{
+                          background: gradientCss(
+                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).color : selectedTile.appearance.primaryColor,
+                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientTo : selectedTile.appearance.barGradientTo,
+                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientStops : selectedTile.appearance.barGradientStops,
+                            selectedChartPart ? getBarStyle(selectedTile.appearance, selectedChartPart.id, selectedTile.appearance.primaryColor).gradientType : selectedTile.appearance.barGradientType
+                          )
+                        }}
+                      />
+                      <span>{selectedChartPart ? "Edit selected bar gradient" : "Edit bar gradient"}</span>
+                    </button>
+                  )}
                   <label>
                     Bar roundness
                     <input
@@ -2452,63 +2460,11 @@ export default function App() {
                     Label offset
                     <input type="range" min="0" max="32" value={selectedTile.appearance.labelOffset} style={{ "--range-fill": rangeFill(selectedTile.appearance.labelOffset, 0, 32) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })} />
                   </label>
-                  <label>
-                    Axis color
-                    <input type="color" value={selectedTile.appearance.axisColor} onChange={(event) => updateSelectedAppearance({ axisColor: event.target.value })} />
-                  </label>
-                  <label>
-                    Axis text size
-                    <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisFontSize, 8, 22) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
-                  </label>
-                  {selectedChartPart && (
-                    <label>
-                      Axis label text
-                      <textarea
-                        value={getAxisLabel(selectedTile.appearance, selectedChartPart.id, selectedChartPart.label)}
-                        onChange={(event) => updateSelectedAxisLabel(event.target.value)}
-                      />
-                      <span>Use line breaks here to force label wrapping for the selected bar.</span>
-                    </label>
-                  )}
-                  <label>
-                    Axis label width
-                    <input type="range" min="8" max="36" value={selectedTile.appearance.axisLabelWidth} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelWidth, 8, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Axis max lines
-                    <input type="range" min="1" max="6" value={selectedTile.appearance.axisLabelMaxLines} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelMaxLines, 1, 6) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Axis label height
-                    <input type="range" min="40" max="220" value={selectedTile.appearance.axisHeight} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisHeight, 40, 220) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisHeight: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Axis label X
-                    <input type="range" min="-80" max="80" value={selectedTile.appearance.axisLabelDx} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDx, -80, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Axis label Y
-                    <input type="range" min="-20" max="80" value={selectedTile.appearance.axisLabelDy} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDy, -20, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Axis rotation
-                    <input type="range" min="-65" max="65" value={selectedTile.appearance.axisLabelRotation} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelRotation, -65, 65) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Number(event.target.value) })} />
-                  </label>
-                  <label>
-                    Axis alignment
-                    <select value={selectedTile.appearance.axisLabelAlign} onChange={(event) => updateSelectedAppearance({ axisLabelAlign: event.target.value as TileAppearance["axisLabelAlign"] })}>
-                      <option value="start">Left</option>
-                      <option value="middle">Center</option>
-                      <option value="end">Right</option>
-                    </select>
-                  </label>
-                  <div className="toggle-list">
-                    <label><input type="checkbox" checked={selectedTile.appearance.axisLabelWrap} onChange={(event) => updateSelectedAppearance({ axisLabelWrap: event.target.checked })} /> Wrap axis labels</label>
-                  </div>
-                  <label>
-                    Grid color
-                    <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />
-                  </label>
+                  <button type="button" className="design-popover-button" onClick={() => setDesignModal("axisSettings")}>
+                    <span className="effect-button-preview" style={{ background: selectedTile.appearance.axisColor }} />
+                    <span>Axis settings</span>
+                    <small>{selectedTile.appearance.axisFontSize}px</small>
+                  </button>
               </>
               <div className="panel-title subtle">
                 <h2>Container</h2>
@@ -2579,7 +2535,7 @@ export default function App() {
               <div>
                 <span>Design</span>
                 <h2>
-                  {designModal.includes("Gradient") ? "Gradient settings" : "Effects"}
+                  {designModal === "axisSettings" ? "Axis settings" : designModal.includes("Gradient") ? "Gradient settings" : "Effects"}
                 </h2>
               </div>
               <button type="button" className="icon-button" onClick={() => setDesignModal(null)} aria-label="Close design settings">
@@ -2634,6 +2590,68 @@ export default function App() {
                     : updateSelectedAppearance({ primaryColor: updates.from, palette: [updates.from, ...selectedTile.appearance.palette.slice(1)], barGradientTo: updates.to, barGradientType: updates.type, barGradientStops: updates.stops })
                 }
               />
+            )}
+
+            {designModal === "axisSettings" && selectedTile && (
+              <div className="modal-control-stack">
+                <label>
+                  Axis color
+                  <input type="color" value={selectedTile.appearance.axisColor} onChange={(event) => updateSelectedAppearance({ axisColor: event.target.value })} />
+                </label>
+                <label>
+                  Axis text size
+                  <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisFontSize, 8, 22) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
+                </label>
+                {selectedChartPart && (
+                  <label>
+                    Axis label text
+                    <textarea
+                      value={getAxisLabel(selectedTile.appearance, selectedChartPart.id, selectedChartPart.label)}
+                      onChange={(event) => updateSelectedAxisLabel(event.target.value)}
+                    />
+                    <span>Use line breaks here to force label wrapping for the selected bar.</span>
+                  </label>
+                )}
+                <label>
+                  Axis label width
+                  <input type="range" min="8" max="36" value={selectedTile.appearance.axisLabelWidth} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelWidth, 8, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Axis max lines
+                  <input type="range" min="1" max="6" value={selectedTile.appearance.axisLabelMaxLines} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelMaxLines, 1, 6) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Axis label height
+                  <input type="range" min="40" max="220" value={selectedTile.appearance.axisHeight} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisHeight, 40, 220) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisHeight: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Axis label X
+                  <input type="range" min="-80" max="80" value={selectedTile.appearance.axisLabelDx} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDx, -80, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Axis label Y
+                  <input type="range" min="-20" max="80" value={selectedTile.appearance.axisLabelDy} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDy, -20, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Axis rotation
+                  <input type="range" min="-65" max="65" value={selectedTile.appearance.axisLabelRotation} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelRotation, -65, 65) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Axis alignment
+                  <select value={selectedTile.appearance.axisLabelAlign} onChange={(event) => updateSelectedAppearance({ axisLabelAlign: event.target.value as TileAppearance["axisLabelAlign"] })}>
+                    <option value="start">Left</option>
+                    <option value="middle">Center</option>
+                    <option value="end">Right</option>
+                  </select>
+                </label>
+                <div className="toggle-list">
+                  <label><input type="checkbox" checked={selectedTile.appearance.axisLabelWrap} onChange={(event) => updateSelectedAppearance({ axisLabelWrap: event.target.checked })} /> Wrap axis labels</label>
+                </div>
+                <label>
+                  Grid color
+                  <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />
+                </label>
+              </div>
             )}
 
             {designModal === "elementEffects" && selectedElement && (
