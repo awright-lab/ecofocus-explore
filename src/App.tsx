@@ -2059,6 +2059,24 @@ export default function App() {
     });
   }
 
+  function clearBarColorOverrides(nextShared?: Partial<TileAppearance>) {
+    if (!selectedTile) return;
+
+    const nextBarStyles = Object.fromEntries(
+      Object.entries(selectedTile.appearance.barStyles).map(([id, style]) => [
+        id,
+        {
+          radius: style.radius ?? selectedTile.appearance.barRadius
+        }
+      ])
+    ) as TileAppearance["barStyles"];
+
+    updateSelectedAppearance({
+      ...nextShared,
+      barStyles: nextBarStyles
+    });
+  }
+
   function applyPalettePresetToBars(paletteColors: string[]) {
     if (!selectedTile) return;
 
@@ -3321,12 +3339,12 @@ export default function App() {
                   onColorChange={(value) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ color: value })
-                      : updateSelectedAppearance({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
+                      : clearBarColorOverrides({ primaryColor: value, palette: [value, ...selectedTile.appearance.palette.slice(1)] })
                   }
                   onFillModeChange={(mode) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ fillMode: mode })
-                      : updateSelectedAppearance({ barFillMode: mode })
+                      : clearBarColorOverrides({ barFillMode: mode })
                   }
                   onPresetApply={(preset) =>
                     selectedChartPart
@@ -3340,7 +3358,7 @@ export default function App() {
                             preset.positions
                           )
                         })
-                      : updateSelectedAppearance({
+                      : clearBarColorOverrides({
                           barGradientType: preset.type,
                           barGradientAngle: preset.angle,
                           barGradientStops: applyGradientStylePreset(
@@ -3354,7 +3372,12 @@ export default function App() {
                   onGradientChange={(updates) =>
                     selectedChartPart
                       ? updateSelectedBarStyle({ color: updates.color, gradientTo: updates.gradientTo, gradientStops: updates.gradientStops })
-                      : updateSelectedAppearance({ primaryColor: updates.color, palette: [updates.color, ...selectedTile.appearance.palette.slice(1)], barGradientTo: updates.gradientTo, barGradientStops: updates.gradientStops })
+                      : clearBarColorOverrides({
+                          primaryColor: updates.color,
+                          palette: [updates.color, ...selectedTile.appearance.palette.slice(1)],
+                          barGradientTo: updates.gradientTo,
+                          barGradientStops: updates.gradientStops
+                        })
                   }
                 />
                 <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
