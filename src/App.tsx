@@ -37,6 +37,8 @@ const bannerDimensions = getBannerDimensions(defaultDataset.id);
 const filterDimensions = getFilterDimensions(defaultDataset.id);
 const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
 const defaultFilterDimension = filterDimensions[0];
+const axisFontSizePresets = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24];
+const axisRotationPresets = [0, -45, 45, -90, 90];
 
 const palettes = [
   { id: "forest", label: "Forest", colors: ["#39784d", "#6c9b4d", "#2d6f73", "#9a7a38", "#6f6697"] },
@@ -2594,7 +2596,19 @@ export default function App() {
                 </label>
                 <label>
                   Axis text size
-                  <input type="range" min="8" max="22" value={selectedTile.appearance.axisFontSize} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisFontSize, 8, 22) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisFontSize: Number(event.target.value) })} />
+                  <input
+                    type="number"
+                    list="axis-font-size-presets"
+                    min="6"
+                    max="72"
+                    value={selectedTile.appearance.axisFontSize}
+                    onChange={(event) => updateSelectedAppearance({ axisFontSize: Math.min(72, Math.max(6, Number(event.target.value) || 12)) })}
+                  />
+                  <datalist id="axis-font-size-presets">
+                    {axisFontSizePresets.map((size) => (
+                      <option value={size} key={size} />
+                    ))}
+                  </datalist>
                 </label>
                 {selectedChartPart && (
                   <label>
@@ -2608,27 +2622,39 @@ export default function App() {
                 )}
                 <label>
                   Axis label width
-                  <input type="range" min="8" max="36" value={selectedTile.appearance.axisLabelWidth} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelWidth, 8, 36) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Number(event.target.value) })} />
+                  <input type="number" min="8" max="72" value={selectedTile.appearance.axisLabelWidth} onChange={(event) => updateSelectedAppearance({ axisLabelWidth: Math.min(72, Math.max(8, Number(event.target.value) || 16)) })} />
                 </label>
                 <label>
                   Axis max lines
-                  <input type="range" min="1" max="6" value={selectedTile.appearance.axisLabelMaxLines} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelMaxLines, 1, 6) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Number(event.target.value) })} />
+                  <input type="number" min="1" max="12" value={selectedTile.appearance.axisLabelMaxLines} onChange={(event) => updateSelectedAppearance({ axisLabelMaxLines: Math.min(12, Math.max(1, Number(event.target.value) || 3)) })} />
                 </label>
                 <label>
                   Axis label height
-                  <input type="range" min="40" max="220" value={selectedTile.appearance.axisHeight} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisHeight, 40, 220) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisHeight: Number(event.target.value) })} />
+                  <input type="number" min="24" max="320" value={selectedTile.appearance.axisHeight} onChange={(event) => updateSelectedAppearance({ axisHeight: Math.min(320, Math.max(24, Number(event.target.value) || 112)) })} />
                 </label>
                 <label>
                   Axis label X
-                  <input type="range" min="-80" max="80" value={selectedTile.appearance.axisLabelDx} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDx, -80, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Number(event.target.value) })} />
+                  <input type="number" min="-240" max="240" value={selectedTile.appearance.axisLabelDx} onChange={(event) => updateSelectedAppearance({ axisLabelDx: Math.min(240, Math.max(-240, Number(event.target.value) || 0)) })} />
                 </label>
                 <label>
                   Axis label Y
-                  <input type="range" min="-20" max="80" value={selectedTile.appearance.axisLabelDy} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelDy, -20, 80) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Number(event.target.value) })} />
+                  <input type="number" min="-240" max="240" value={selectedTile.appearance.axisLabelDy} onChange={(event) => updateSelectedAppearance({ axisLabelDy: Math.min(240, Math.max(-240, Number(event.target.value) || 0)) })} />
                 </label>
                 <label>
                   Axis rotation
-                  <input type="range" min="-65" max="65" value={selectedTile.appearance.axisLabelRotation} style={{ "--range-fill": rangeFill(selectedTile.appearance.axisLabelRotation, -65, 65) } as React.CSSProperties} onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Number(event.target.value) })} />
+                  <input
+                    type="number"
+                    list="axis-rotation-presets"
+                    min="-180"
+                    max="180"
+                    value={selectedTile.appearance.axisLabelRotation}
+                    onChange={(event) => updateSelectedAppearance({ axisLabelRotation: Math.min(180, Math.max(-180, Number(event.target.value) || 0)) })}
+                  />
+                  <datalist id="axis-rotation-presets">
+                    {axisRotationPresets.map((rotation) => (
+                      <option value={rotation} key={rotation} />
+                    ))}
+                  </datalist>
                 </label>
                 <label>
                   Axis alignment
