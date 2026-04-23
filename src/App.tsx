@@ -278,6 +278,18 @@ function canvasBackground(page: DashboardPage) {
   return `linear-gradient(#eef3eb 1px, transparent 1px), linear-gradient(90deg, #eef3eb 1px, transparent 1px), ${pageBackground}`;
 }
 
+function canvasBackgroundSize(page: DashboardPage) {
+  if (!page.showCanvasGrid) return undefined;
+
+  return `${page.gridSize}px ${page.gridSize}px, ${page.gridSize}px ${page.gridSize}px, 100% 100%`;
+}
+
+function canvasBackgroundRepeat(page: DashboardPage) {
+  if (!page.showCanvasGrid) return undefined;
+
+  return "repeat, repeat, no-repeat";
+}
+
 function GradientEditor({
   label,
   from,
@@ -470,8 +482,10 @@ function AxisTick(props: { x?: string | number; y?: string | number; payload?: {
   const y = Number(props.y ?? 0);
   const label = payload?.value ?? "";
   const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
-  const textAnchor = axisDirection === "y" ? "end" : appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
-  const baseX = axisDirection === "y" ? x - 12 : x;
+  const yAxisLabelWidth = appearance.axisLabelWidth * 5;
+  const yAxisAnchorOffset = appearance.axisLabelAlign === "start" ? -yAxisLabelWidth : appearance.axisLabelAlign === "middle" ? -yAxisLabelWidth / 2 : -12;
+  const textAnchor = axisDirection === "y" ? appearance.axisLabelAlign : appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
+  const baseX = axisDirection === "y" ? x + yAxisAnchorOffset : x;
   const baseY = axisDirection === "y" ? y + appearance.axisFontSize / 2 : y;
 
   return (
@@ -545,6 +559,46 @@ function ValueLabel(props: {
     >
       {formatValue(value, result.metric.valueFormat)}
       {annotation ? (annotation.direction === "up" ? "↑" : "↓") : ""}
+    </text>
+  );
+}
+
+function HorizontalValueLabel(props: {
+  x?: unknown;
+  y?: unknown;
+  width?: unknown;
+  height?: unknown;
+  value?: unknown;
+  result: AnalyticsQueryResponse;
+  appearance: TileAppearance;
+}) {
+  const { result, appearance } = props;
+
+  if (!appearance.showValueLabels) return null;
+
+  const x = Number(props.x ?? 0);
+  const y = Number(props.y ?? 0);
+  const width = Number(props.width ?? 0);
+  const height = Number(props.height ?? 0);
+  const value = Number(props.value ?? 0);
+  const inside = appearance.labelPosition === "insideTop" || appearance.labelPosition === "insideBottom" || appearance.labelPosition === "center";
+  const labelX =
+    appearance.labelPosition === "center"
+      ? x + width / 2
+      : inside
+        ? x + Math.max(8, width - appearance.labelOffset)
+        : x + width + appearance.labelOffset;
+  const labelY = y + height / 2 + appearance.labelFontSize / 3;
+
+  return (
+    <text
+      x={labelX}
+      y={labelY}
+      textAnchor={inside && appearance.labelPosition !== "center" ? "end" : "middle"}
+      className="chart-value"
+      style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize }}
+    >
+      {formatValue(value, result.metric.valueFormat)}
     </text>
   );
 }
@@ -672,7 +726,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
                 fill={getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, item.optionId)})` : getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
               />
             ))}
-            <LabelList dataKey="value" position="right" formatter={(value: unknown) => formatValue(Number(value ?? 0), result.metric.valueFormat)} style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize, fontWeight: 800 }} />
+            <LabelList content={(props) => <HorizontalValueLabel {...props} result={result} appearance={appearance} />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -1854,7 +1908,8 @@ export default function App() {
                   width: canvasWidth,
                   height: canvasHeight,
                   background: canvasBackground(activePage),
-                  backgroundSize: activePage.showCanvasGrid ? `${activePage.gridSize}px ${activePage.gridSize}px` : undefined,
+                  backgroundSize: canvasBackgroundSize(activePage),
+                  backgroundRepeat: canvasBackgroundRepeat(activePage),
                   transform: `scale(${canvasScale})`
                 }}
               >
