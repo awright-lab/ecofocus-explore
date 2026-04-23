@@ -287,6 +287,54 @@ function hslToRgb(h: number, s: number, l: number) {
   };
 }
 
+function rgbToHsv(r: number, g: number, b: number) {
+  const red = r / 255;
+  const green = g / 255;
+  const blue = b / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  let hue = 0;
+
+  if (delta !== 0) {
+    if (max === red) hue = ((green - blue) / delta) % 6;
+    else if (max === green) hue = (blue - red) / delta + 2;
+    else hue = (red - green) / delta + 4;
+  }
+
+  return {
+    h: Math.round((hue * 60 + 360) % 360),
+    s: max === 0 ? 0 : Math.round((delta / max) * 100),
+    v: Math.round(max * 100)
+  };
+}
+
+function hsvToRgb(h: number, s: number, v: number) {
+  const hue = ((h % 360) + 360) % 360;
+  const saturation = Math.max(0, Math.min(100, s)) / 100;
+  const value = Math.max(0, Math.min(100, v)) / 100;
+  const chroma = value * saturation;
+  const sector = hue / 60;
+  const x = chroma * (1 - Math.abs((sector % 2) - 1));
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  if (sector >= 0 && sector < 1) [red, green, blue] = [chroma, x, 0];
+  else if (sector < 2) [red, green, blue] = [x, chroma, 0];
+  else if (sector < 3) [red, green, blue] = [0, chroma, x];
+  else if (sector < 4) [red, green, blue] = [0, x, chroma];
+  else if (sector < 5) [red, green, blue] = [x, 0, chroma];
+  else [red, green, blue] = [chroma, 0, x];
+
+  const match = value - chroma;
+  return {
+    r: Math.round((red + match) * 255),
+    g: Math.round((green + match) * 255),
+    b: Math.round((blue + match) * 255)
+  };
+}
+
 function normalizeGradientStops(from: string, to: string, stops?: GradientStop[]) {
   const normalizedStops = (stops ?? [])
     .map((stop) => ({
@@ -597,10 +645,24 @@ function BarColorField({
   const [open, setOpen] = useState(false);
   const [inputMode, setInputMode] = useState<"hex" | "rgb" | "hsl">("hex");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
   const safeColor = normalizeHexColor(style.color);
   const rgb = hexToRgbObject(safeColor);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  const safeDocumentColors = uniqueColors(documentColors.map((color) => normalizeHexColor(color, "")).filter(Boolean));
+  const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+
+  function updateFromHsv(nextHue: number, nextSaturation: number, nextValue: number) {
+    const next = hsvToRgb(nextHue, nextSaturation, nextValue);
+    onColorChange(rgbToHex(next.r, next.g, next.b));
+  }
+
+  function updateFromSurface(clientX: number, clientY: number) {
+    const bounds = surfaceRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const saturation = ((clientX - bounds.left) / bounds.width) * 100;
+    const value = 100 - ((clientY - bounds.top) / bounds.height) * 100;
+    updateFromHsv(hsv.h, Math.max(0, Math.min(100, saturation)), Math.max(0, Math.min(100, value)));
+  }
 
   return (
     <div className="color-field">
@@ -619,18 +681,6 @@ function BarColorField({
         </button>
         {open && (
           <div className="bar-color-popover" role="dialog" aria-label="Bar color">
-            <div className="color-grid compact">
-              {safeDocumentColors.slice(0, 7).map((color) => (
-                <button
-                  type="button"
-                  key={color}
-                  className={color.toLowerCase() === safeColor.toLowerCase() ? "color-swatch active" : "color-swatch"}
-                  style={{ background: color }}
-                  onClick={() => onColorChange(color)}
-                  aria-label={`Use color ${color}`}
-                />
-              ))}
-            </div>
             <div className="fill-mode-tabs picker">
               <button type="button" className={style.fillMode === "solid" ? "active" : ""} onClick={() => onFillModeChange("solid")}>Solid color</button>
               <button type="button" className={style.fillMode === "gradient" ? "active" : ""} onClick={() => onFillModeChange("gradient")}>Gradient</button>
@@ -669,6 +719,36 @@ function BarColorField({
               </>
             ) : (
               <>
+                <div
+                  ref={surfaceRef}
+                  className="color-surface"
+                  style={{ backgroundColor: `hsl(${hsv.h} 100% 50%)` }}
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    updateFromSurface(event.clientX, event.clientY);
+                  }}
+                  onPointerMove={(event) => {
+                    if (event.buttons !== 1) return;
+                    updateFromSurface(event.clientX, event.clientY);
+                  }}
+                >
+                  <span
+                    className="color-surface__cursor"
+                    style={{
+                      left: `${hsv.s}%`,
+                      top: `${100 - hsv.v}%`
+                    }}
+                  />
+                </div>
+                <input
+                  className="hue-slider"
+                  type="range"
+                  min="0"
+                  max="360"
+                  value={hsv.h}
+                  style={{ "--range-fill": `${(hsv.h / 360) * 100}%` } as React.CSSProperties}
+                  onChange={(event) => updateFromHsv(Number(event.target.value), hsv.s, hsv.v)}
+                />
                 <div className="fill-mode-tabs picker input-mode-tabs">
                   <button type="button" className={inputMode === "hex" ? "active" : ""} onClick={() => setInputMode("hex")}>HEX</button>
                   <button type="button" className={inputMode === "rgb" ? "active" : ""} onClick={() => setInputMode("rgb")}>RGB</button>
