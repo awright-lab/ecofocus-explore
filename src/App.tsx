@@ -468,6 +468,10 @@ function getChartTypeLabel(chartType: ChartType) {
   return defaultDataset.chartTypes.find((item) => item.id === chartType)?.label ?? chartType;
 }
 
+function getQuestionLabel(questionId: QuestionId) {
+  return defaultDataset.questions.find((question) => question.id === questionId)?.shortLabel ?? questionId;
+}
+
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const isSingleSeries = result.columns.length === 1;
   const chartTypes: ChartType[] = isSingleSeries
@@ -483,7 +487,9 @@ function AxisTick(props: { x?: string | number; y?: string | number; payload?: {
   const label = payload?.value ?? "";
   const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
   const yAxisLabelWidth = appearance.axisLabelWidth * 5;
-  const yAxisAnchorOffset = appearance.axisLabelAlign === "start" ? -yAxisLabelWidth : appearance.axisLabelAlign === "middle" ? -yAxisLabelWidth / 2 : -12;
+  const yAxisGap = 18;
+  const yAxisAnchorOffset =
+    appearance.axisLabelAlign === "start" ? -(yAxisLabelWidth + yAxisGap) : appearance.axisLabelAlign === "middle" ? -(yAxisLabelWidth / 2 + yAxisGap) : -yAxisGap;
   const textAnchor = axisDirection === "y" ? appearance.axisLabelAlign : appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
   const baseX = axisDirection === "y" ? x + yAxisAnchorOffset : x;
   const baseY = axisDirection === "y" ? y + appearance.axisFontSize / 2 : y;
@@ -689,6 +695,7 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
 function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
   const column = result.columns[0];
+  const yAxisWidth = Math.max(150, appearance.axisLabelWidth * 5 + 28);
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
@@ -700,7 +707,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
   return (
     <div className="chart-card" aria-label="Query-driven horizontal bar chart">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 28, left: 170, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
+        <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 34, left: 18, bottom: 22 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
             {chartData.map((item, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
@@ -713,7 +720,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
           <YAxis
             type="category"
             dataKey="axisLabel"
-            width={170}
+            width={yAxisWidth}
             tick={(props) => <AxisTick {...props} appearance={appearance} axisDirection="y" />}
             tickLine={false}
             axisLine={false}
@@ -874,15 +881,13 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
     >
       <div className="tile-header tile-drag-handle">
         <div>
-          <p className="eyebrow">{result.metadataRefs.question}</p>
           <h2>{tile.title}</h2>
         </div>
-        <code>{tile.visualization}</code>
       </div>
       <div className="tile-scroll-area">
         <ChartView tile={tile} />
         <div className="tile-meta">
-          <span>{result.metadataRefs.question}</span>
+          <span>{getQuestionLabel(result.metadataRefs.question)}</span>
           <span>{sampleSizeLabel(result)}</span>
           <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
           <span>{result.metric.label}</span>

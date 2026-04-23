@@ -971,7 +971,7 @@ button:disabled {
   gap: 12px;
   align-items: start;
   justify-content: space-between;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #edf0ea;
 }
 
@@ -982,7 +982,7 @@ button:disabled {
 .tile-scroll-area {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  gap: 12px;
   min-height: 0;
   overflow: hidden;
   padding-right: 0;
@@ -1025,7 +1025,7 @@ code {
   margin-top: 10px;
   border: 1px solid #edf0ea;
   border-radius: 8px;
-  padding: 10px 8px 0;
+  padding: 10px 12px 8px;
   overflow: hidden;
   background: rgba(251, 252, 250, 0.82);
 }
@@ -1208,6 +1208,7 @@ td span {
   justify-content: center;
   gap: 4px 12px;
   min-height: 18px;
+  padding: 0 10px 8px;
   overflow: hidden;
   color: #69776e;
   font-size: 0.74rem;
