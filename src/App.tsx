@@ -554,18 +554,14 @@ function GradientEditor({
 function ColorField({
   label,
   value,
-  documentColors,
   onChange
 }: {
   label: string;
   value: string;
-  documentColors: string[];
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const safeValue = normalizeHexColor(value);
-  const safeDocumentColors = uniqueColors(documentColors.map((color) => normalizeHexColor(color, "")).filter(Boolean));
 
   return (
     <div className="color-field">
@@ -580,46 +576,14 @@ function ColorField({
           <span className="color-chip" style={{ background: safeValue }} />
         </button>
         {open && (
-          <div className="color-drawer" role="dialog" aria-label={`${label} colors`}>
-            <div className="color-drawer-header">
-              <strong>Document colors</strong>
-              <button type="button" className="mini-button" onClick={() => setOpen(false)} aria-label="Close color drawer">
+          <div className="bar-color-popover simple-color-popover" role="dialog" aria-label={`${label} colors`}>
+            <div className="simple-color-popover__header">
+              <strong>{label}</strong>
+              <button type="button" className="mini-button" onClick={() => setOpen(false)} aria-label={`Close ${label} picker`}>
                 x
               </button>
             </div>
-            <div className="color-grid">
-              {safeDocumentColors.map((color) => (
-                <button
-                  type="button"
-                  key={color}
-                  className={color.toLowerCase() === safeValue.toLowerCase() ? "color-swatch active" : "color-swatch"}
-                  style={{ background: color }}
-                  onClick={() => onChange(color)}
-                  aria-label={`Use color ${color}`}
-                />
-              ))}
-              <button
-                type="button"
-                className="color-swatch add"
-                onClick={() => inputRef.current?.click()}
-                aria-label="Choose custom color"
-              >
-                +
-              </button>
-            </div>
-            <div className="color-drawer-actions">
-              <button type="button" className="secondary" onClick={() => inputRef.current?.click()}>
-                Custom color
-              </button>
-            </div>
-            <input
-              ref={inputRef}
-              className="sr-only-color-input"
-              type="color"
-              value={safeValue}
-              onChange={(event) => onChange(event.target.value)}
-              tabIndex={-1}
-            />
+            <SolidColorEditor value={safeValue} onChange={onChange} />
           </div>
         )}
       </div>
@@ -3404,10 +3368,10 @@ export default function App() {
                         })
                   }
                 />
-                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
-                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
-                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
-                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
+                <ColorField label="Value label color" value={selectedTile.appearance.labelColor} onChange={(value) => updateSelectedAppearance({ labelColor: value })} />
+                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
+                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
+                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}
 
@@ -3462,8 +3426,8 @@ export default function App() {
 
             {designModal === "axisSettings" && selectedTile && (
               <div className="modal-control-stack">
-                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
-                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
+                <ColorField label="X axis text color" value={selectedTile.appearance.xAxisTextColor} onChange={(value) => updateSelectedAppearance({ xAxisTextColor: value })} />
+                <ColorField label="Y axis text color" value={selectedTile.appearance.yAxisTextColor} onChange={(value) => updateSelectedAppearance({ yAxisTextColor: value })} />
                 <label>
                   Axis text size
                   <input
@@ -3541,7 +3505,7 @@ export default function App() {
                 <div className="toggle-list">
                   <label><input type="checkbox" checked={selectedTile.appearance.axisLabelWrap} onChange={(event) => updateSelectedAppearance({ axisLabelWrap: event.target.checked })} /> Wrap axis labels</label>
                 </div>
-                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} documentColors={getDocumentColors(selectedTile)} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
+                <ColorField label="Grid color" value={selectedTile.appearance.gridColor} onChange={(value) => updateSelectedAppearance({ gridColor: value })} />
               </div>
             )}
 
