@@ -133,6 +133,8 @@ const fontFamilies = [
   { label: "Courier", value: "\"Courier New\", Courier, monospace" }
 ];
 
+let lastSolidPickerHue = 150;
+
 function defaultPageDesign() {
   return {
     showCanvasGrid: true,
@@ -145,6 +147,7 @@ function defaultPageDesign() {
     gradientFrom: "#ffffff",
     gradientTo: "#eef7ef",
     gradientType: "linear" as const,
+    gradientAngle: 135,
     gradientStops: []
   };
 }
@@ -474,7 +477,7 @@ function effectShadow(style: {
 
 function pageBackgroundLayer(page: DashboardPage) {
   if (page.backgroundMode === "gradient") {
-    return gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, "135deg");
+    return gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, `${page.gradientAngle}deg`);
   }
 
   if (page.backgroundMode === "image" && page.backgroundImage) {
@@ -764,10 +767,13 @@ function SolidColorEditor({
   const safeColor = normalizeHexColor(value);
   const rgb = hexToRgbObject(safeColor);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+  const rawHsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+  const hue = rawHsv.s === 0 ? lastSolidPickerHue : rawHsv.h;
+  const hsv = { ...rawHsv, h: hue };
   const alpha = colorAlpha(safeColor);
 
   function updateFromHsv(nextHue: number, nextSaturation: number, nextValue: number) {
+    lastSolidPickerHue = nextHue;
     const next = hsvToRgb(nextHue, nextSaturation, nextValue);
     onChange(setHexAlpha(rgbToHex(next.r, next.g, next.b), alpha));
   }
@@ -826,7 +832,7 @@ function SolidColorEditor({
         max="360"
         value={hsv.h}
         style={{ "--range-fill": `${(hsv.h / 360) * 100}%` } as React.CSSProperties}
-        onChange={(event) => updateFromHsv(Number(event.target.value), hsv.s, hsv.v)}
+      onChange={(event) => updateFromHsv(Number(event.target.value), hsv.s, hsv.v)}
       />
       <div className="opacity-control">
         <span>Opacity</span>
@@ -876,7 +882,9 @@ function SolidColorEditor({
       {inputMode === "hsl" && (
         <div className="numeric-triplet">
           <input type="number" min="0" max="360" value={hsl.h} onChange={(event) => {
-            const next = hslToRgb(Number(event.target.value) || 0, hsl.s, hsl.l);
+            const nextHue = Number(event.target.value) || 0;
+            lastSolidPickerHue = nextHue;
+            const next = hslToRgb(nextHue, hsl.s, hsl.l);
             onChange(setHexAlpha(rgbToHex(next.r, next.g, next.b), alpha));
           }} />
           <input type="number" min="0" max="100" value={hsl.s} onChange={(event) => {
@@ -1063,7 +1071,7 @@ function PageBackgroundField({
   page: DashboardPage;
   onModeChange: (mode: DashboardPage["backgroundMode"]) => void;
   onSolidChange: (value: string) => void;
-  onGradientChange: (updates: { from: string; to: string; type: GradientType; stops: GradientStop[] }) => void;
+  onGradientChange: (updates: { from: string; to: string; type: GradientType; angle: number; stops: GradientStop[] }) => void;
   onImageChange: (updates: Partial<Pick<DashboardPage, "backgroundImage" | "backgroundImageFit">>) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -1074,7 +1082,7 @@ function PageBackgroundField({
     page.backgroundMode === "image" && page.backgroundImage
       ? undefined
       : page.backgroundMode === "gradient"
-        ? gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType)
+        ? gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, `${page.gradientAngle}deg`)
         : normalizeHexColor(page.background);
 
   function commitGradientChips(nextChips: GradientStop[]) {
@@ -1087,6 +1095,7 @@ function PageBackgroundField({
       from: ordered[0]?.color ?? page.gradientFrom,
       to: ordered[ordered.length - 1]?.color ?? page.gradientTo,
       type: page.gradientType,
+      angle: page.gradientAngle,
       stops: ordered.slice(1, -1)
     });
   }
@@ -1197,12 +1206,13 @@ function PageBackgroundField({
                       <button
                         type="button"
                         key={preset.id}
-                        className={page.gradientType === preset.type ? "active" : ""}
+                        className={page.gradientType === preset.type && page.gradientAngle === preset.angle ? "active" : ""}
                         onClick={() =>
                           onGradientChange({
                             from: page.gradientFrom,
                             to: page.gradientTo,
                             type: preset.type,
+                            angle: preset.angle,
                             stops: applyGradientStylePreset(page.gradientFrom, page.gradientTo, page.gradientStops, preset.positions)
                           })
                         }
@@ -2010,6 +2020,7 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           backgroundImage: page.backgroundImage ?? "",
           backgroundImageFit: page.backgroundImageFit ?? "cover",
           gradientType: page.gradientType ?? "linear",
+          gradientAngle: page.gradientAngle ?? 135,
           gradientStops: page.gradientStops ?? [],
           elements: page.elements.map((element) => ({
         ...element,
@@ -3174,7 +3185,7 @@ export default function App() {
                   activePage.backgroundMode === "image" && activePage.backgroundImage
                     ? `center / cover no-repeat url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
                     : activePage.backgroundMode === "gradient"
-                      ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType)
+                      ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
                       : activePage.background
               }}
             />
@@ -3765,7 +3776,7 @@ export default function App() {
                         activePage.backgroundMode === "image" && activePage.backgroundImage
                           ? undefined
                           : activePage.backgroundMode === "gradient"
-                            ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType)
+                            ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
                             : activePage.background,
                       backgroundImage:
                         activePage.backgroundMode === "image" && activePage.backgroundImage
@@ -3794,6 +3805,7 @@ export default function App() {
                         gradientFrom: updates.from,
                         gradientTo: updates.to,
                         gradientType: updates.type,
+                        gradientAngle: updates.angle,
                         gradientStops: updates.stops
                       })
                     }
@@ -3810,7 +3822,7 @@ export default function App() {
                 to={activePage.gradientTo}
                 type={activePage.gradientType}
                 stops={activePage.gradientStops}
-                onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientStops: updates.stops })}
+                onChange={(updates) => updateActivePage({ gradientFrom: updates.from, gradientTo: updates.to, gradientType: updates.type, gradientAngle: 135, gradientStops: updates.stops })}
               />
             )}
 

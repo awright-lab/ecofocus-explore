@@ -161,6 +161,7 @@ export interface DashboardPage {
   gradientFrom: string;
   gradientTo: string;
   gradientType: GradientType;
+  gradientAngle: number;
   gradientStops: GradientStop[];
   elements: DashboardCanvasElement[];
   tiles: DashboardTile[];
