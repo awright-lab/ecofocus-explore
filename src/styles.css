@@ -947,22 +947,22 @@ button:disabled {
 .color-swatch {
   display: inline-grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 1px solid #d7dee5;
-  border-radius: 999px;
+  border-radius: 50%;
   background: #eef4ef;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  box-shadow: none;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+  overflow: hidden;
+  flex: 0 0 auto;
 }
 
 .color-swatch.active {
-  box-shadow:
-    0 0 0 2px #7a45ff,
-    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 2px #7a45ff;
 }
 
 .color-swatch.add {
@@ -990,24 +990,23 @@ button:disabled {
 .color-chip-button {
   display: inline-grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
   background: transparent;
   appearance: none;
   -webkit-appearance: none;
+  border-radius: 50%;
 }
 
 .color-chip {
   display: block;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border: 2px solid #ffffff;
-  border-radius: 999px;
-  box-shadow:
-    0 0 0 1px #d7dee5,
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d7dee5;
 }
 
 .color-drawer {
@@ -1042,6 +1041,54 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
+}
+
+.fill-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fill-mode-tabs button {
+  min-height: 38px;
+  border: 1px solid #d7dee5;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #22332a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.fill-mode-tabs button.active {
+  border-color: #26262b;
+  box-shadow: inset 0 -2px 0 #7a45ff;
+}
+
+.gradient-style-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gradient-style-grid button {
+  min-height: 44px;
+  border: 1px solid #d7dee5;
+  border-radius: 12px;
+  padding: 0;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.gradient-style-grid button span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+}
+
+.gradient-style-grid button.active {
+  border-color: #7a45ff;
+  box-shadow: 0 0 0 2px rgba(122, 69, 255, 0.18);
 }
 
 .color-drawer-actions {
