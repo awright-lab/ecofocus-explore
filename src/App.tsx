@@ -206,6 +206,16 @@ function makeGradientStop(color: string, position: number): GradientStop {
   };
 }
 
+function normalizeHexColor(value: string | null | undefined, fallback = "#000000") {
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed.slice(1).split("").map((item) => item + item).join("")}`;
+  }
+  return fallback;
+}
+
 function normalizeGradientStops(from: string, to: string, stops?: GradientStop[]) {
   const normalizedStops = (stops ?? [])
     .map((stop) => ({
@@ -423,6 +433,8 @@ function ColorField({
 }) {
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const safeValue = normalizeHexColor(value);
+  const safeDocumentColors = uniqueColors(documentColors.map((color) => normalizeHexColor(color, "")).filter(Boolean));
 
   return (
     <div className="color-field">
@@ -434,7 +446,7 @@ function ColorField({
           onClick={() => setOpen((current) => !current)}
           aria-label={`Choose ${label}`}
         >
-          <span className="color-chip" style={{ background: value }} />
+          <span className="color-chip" style={{ background: safeValue }} />
         </button>
         {open && (
           <div className="color-drawer" role="dialog" aria-label={`${label} colors`}>
@@ -445,11 +457,11 @@ function ColorField({
               </button>
             </div>
             <div className="color-grid">
-              {documentColors.map((color) => (
+              {safeDocumentColors.map((color) => (
                 <button
                   type="button"
                   key={color}
-                  className={color.toLowerCase() === value.toLowerCase() ? "color-swatch active" : "color-swatch"}
+                  className={color.toLowerCase() === safeValue.toLowerCase() ? "color-swatch active" : "color-swatch"}
                   style={{ background: color }}
                   onClick={() => onChange(color)}
                   aria-label={`Use color ${color}`}
@@ -473,7 +485,7 @@ function ColorField({
               ref={inputRef}
               className="sr-only-color-input"
               type="color"
-              value={value}
+              value={safeValue}
               onChange={(event) => onChange(event.target.value)}
               tabIndex={-1}
             />
