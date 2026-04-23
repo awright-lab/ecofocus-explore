@@ -1085,7 +1085,10 @@ button:disabled {
 
 .hue-slider {
   width: 100%;
+  min-height: 18px;
   height: 18px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
   background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
   appearance: none;
@@ -1094,8 +1097,9 @@ button:disabled {
 
 .hue-slider::-webkit-slider-runnable-track {
   height: 18px;
+  min-height: 18px;
   border-radius: 999px;
-  background: transparent;
+  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
 }
 
 .hue-slider::-webkit-slider-thumb {
@@ -1110,6 +1114,12 @@ button:disabled {
 }
 
 .hue-slider::-moz-range-track {
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+
+.hue-slider::-moz-range-progress {
   height: 18px;
   border-radius: 999px;
   background: transparent;
