@@ -24,7 +24,6 @@ import type {
   AnalyticsQueryResponse,
   BreakById,
   ChartType,
-  ConfidenceLevel,
   FilterFieldId,
   Metric,
   QuestionId,
@@ -38,7 +37,6 @@ const bannerDimensions = getBannerDimensions(defaultDataset.id);
 const filterDimensions = getFilterDimensions(defaultDataset.id);
 const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
 const defaultFilterDimension = filterDimensions[0];
-const confidenceLevels: ConfidenceLevel[] = [0.9, 0.95, 0.99];
 
 const palettes = [
   { id: "forest", label: "Forest", colors: ["#39784d", "#6c9b4d", "#2d6f73", "#9a7a38", "#6f6697"] },
@@ -501,7 +499,7 @@ function confidenceLevelLabel(value: number) {
   return `${Math.round(value * 100)}% confidence`;
 }
 
-function resultConfidenceLevel(result: AnalyticsQueryResponse): ConfidenceLevel {
+function resultConfidenceLevel(result: AnalyticsQueryResponse) {
   return result.statistics?.confidenceLevel ?? result.query.confidenceLevel ?? 0.95;
 }
 
@@ -654,7 +652,14 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} horizontal={false} />}
           <XAxis type="number" tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
-          <YAxis type="category" dataKey="axisLabel" width={170} tick={{ fill: appearance.axisColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis
+            type="category"
+            dataKey="axisLabel"
+            width={Math.max(96, appearance.axisLabelWidth * 10)}
+            tick={(props) => <AxisTick {...props} appearance={appearance} />}
+            tickLine={false}
+            axisLine={false}
+          />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Bar dataKey="value" radius={[0, appearance.barRadius, appearance.barRadius, 0]} barSize={appearance.barSize}>
             {chartData.map((item, index) => (
@@ -1019,7 +1024,6 @@ export default function App() {
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
   const [chartType, setChartType] = useState<ChartType>(defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
-  const [confidenceLevel, setConfidenceLevel] = useState<ConfidenceLevel>(0.95);
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
@@ -1069,7 +1073,7 @@ export default function App() {
     weight,
     metric,
     chartType,
-    confidenceLevel
+    confidenceLevel: 0.95
   };
 
   useEffect(() => {
@@ -1771,16 +1775,6 @@ export default function App() {
                     {defaultDataset.weights.map((item) => (
                       <option value={item.id} key={item.id}>
                         {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Confidence
-                  <select value={confidenceLevel} onChange={(event) => setConfidenceLevel(Number(event.target.value) as ConfidenceLevel)}>
-                    {confidenceLevels.map((item) => (
-                      <option value={item} key={item}>
-                        {confidenceLevelLabel(item)}
                       </option>
                     ))}
                   </select>
