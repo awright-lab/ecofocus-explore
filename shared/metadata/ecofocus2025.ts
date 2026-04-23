@@ -143,12 +143,6 @@ export const ecofocus2025Metadata: DatasetMetadata = {
       label: "Donut",
       description: "Show a single summary column as a proportional donut chart.",
       supportedMetrics: ["percent_selected", "column_percent", "count"]
-    },
-    {
-      id: "table",
-      label: "Table",
-      description: "Show crosstab values and bases.",
-      supportedMetrics: ["column_percent", "percent_selected", "count"]
     }
   ],
   weights: [

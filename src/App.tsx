@@ -108,7 +108,7 @@ const defaultAppearance: TileAppearance = {
   barGradientStops: [],
   barStyles: {},
   showValueLabels: true,
-  showTable: true,
+  showTable: false,
   showBases: true,
   showNotes: true,
   showAnnotations: true
@@ -457,8 +457,8 @@ function getChartTypeLabel(chartType: ChartType) {
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const isSingleSeries = result.columns.length === 1;
   const chartTypes: ChartType[] = isSingleSeries
-    ? ["vertical_bar", "horizontal_bar", "donut", "table"]
-    : ["grouped_bar", "stacked_bar", "line_chart", "table"];
+    ? ["vertical_bar", "horizontal_bar", "donut"]
+    : ["grouped_bar", "stacked_bar", "line_chart"];
   return chartTypes.filter((chartType) => defaultDataset.chartTypes.some((item) => item.id === chartType));
 }
 
@@ -487,14 +487,12 @@ function getAnnotation(annotations: AnalyticsAnnotation[], rowId: string, column
   return annotations.find((annotation) => annotation.rowId === rowId && annotation.columnId === columnId);
 }
 
-function DirectionMarker({ annotation, enabled }: { annotation?: AnalyticsAnnotation; enabled: boolean }) {
-  if (!annotation || !enabled) return null;
-
-  return (
-    <span className={annotation.direction === "up" ? "direction direction-up" : "direction direction-down"}>
-      {annotation.direction === "up" ? "↑" : "↓"}
-    </span>
-  );
+function sampleSizeLabel(result: AnalyticsQueryResponse) {
+  const bases = result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0);
+  const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
+  if (uniqueBases.length === 0) return "Sample n/a";
+  if (uniqueBases.length === 1) return `Sample n=${uniqueBases[0].toLocaleString()}`;
+  return `Sample n=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
 }
 
 function ValueLabel(props: {
@@ -552,7 +550,7 @@ function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven vertical bar chart">
-      <ResponsiveContainer width="100%" height={390}>
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {chartData.map((item, index) => {
@@ -592,7 +590,7 @@ function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven grouped bar chart">
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {result.columns.map((column, index) => {
@@ -635,7 +633,7 @@ function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven horizontal bar chart">
-      <ResponsiveContainer width="100%" height={420}>
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 28, left: 170, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
             {chartData.map((item, index) => {
@@ -674,7 +672,7 @@ function StackedBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven stacked bar chart">
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
             {result.columns.map((column, index) => {
@@ -716,7 +714,7 @@ function LineChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven line chart">
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
@@ -753,7 +751,7 @@ function DonutChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" aria-label="Query-driven donut chart">
-      <ResponsiveContainer width="100%" height={390}>
+      <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
           <Legend verticalAlign="bottom" height={84} />
@@ -786,39 +784,6 @@ function ChartView({ tile }: { tile: DashboardTile }) {
   return null;
 }
 
-function ResultsTable({ result, appearance }: { result: AnalyticsQueryResponse; appearance: TileAppearance }) {
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Answer</th>
-            {result.columns.map((column) => (
-              <th key={column.id}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {result.table.map((row) => (
-            <tr key={row.optionId}>
-              <th>{row.label}</th>
-              {result.columns.map((column) => (
-                <td key={column.id}>
-                  <strong>
-                    {formatValue(row.values[column.id], result.metric.valueFormat)}
-                    <DirectionMarker annotation={getAnnotation(result.annotations, row.optionId, column.id)} enabled={appearance.showAnnotations} />
-                  </strong>
-                  {appearance.showBases && <span>Base {row.bases[column.id]}</span>}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selected: boolean; onSelect: () => void }) {
   const result = tile.result;
 
@@ -842,13 +807,17 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
         <code>{tile.visualization}</code>
       </div>
       <div className="tile-scroll-area">
-        {tile.visualization === "table" ? <ResultsTable result={result} appearance={tile.appearance} /> : <ChartView tile={tile} />}
-        {tile.appearance.showTable && tile.visualization !== "table" && <ResultsTable result={result} appearance={tile.appearance} />}
-        <div className="footnote">{result.weighting.applied ? result.weighting.label : "Unweighted"} · {result.metric.label}</div>
-        {tile.appearance.showNotes && (
+        <ChartView tile={tile} />
+        <div className="tile-meta">
+          <span>{result.metadataRefs.question}</span>
+          <span>{sampleSizeLabel(result)}</span>
+          <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
+          <span>{result.metric.label}</span>
+        </div>
+        {tile.appearance.showNotes && result.warnings.length > 0 && (
           <div className="notes">
-            {result.notes.map((note) => (
-              <p key={note}>{note}</p>
+            {result.warnings.slice(0, 1).map((warning) => (
+              <p key={warning}>{warning}</p>
             ))}
           </div>
         )}
@@ -974,23 +943,30 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           gradientStops: element.style?.gradientStops ?? []
           }
       })),
-      tiles: page.tiles.map((tile) => ({
-        ...tile,
-        name: tile.name ?? tile.title,
-        locked: tile.locked ?? false,
-        hidden: tile.hidden ?? false,
-        appearance: {
-          ...defaultAppearance,
-          ...tile.appearance,
-          palette: tile.appearance?.palette ?? [...defaultAppearance.palette],
-          gradientType: tile.appearance?.gradientType ?? "linear",
-          gradientStops: tile.appearance?.gradientStops ?? [],
-          barGradientType: tile.appearance?.barGradientType ?? "linear",
-          barGradientStops: tile.appearance?.barGradientStops ?? [],
-          barStyles: tile.appearance?.barStyles ?? {},
-          axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {}
-        }
-      }))
+      tiles: page.tiles.map((tile) => {
+        const compatibleChartTypes = getCompatibleChartTypes(tile.result);
+        const visualization = tile.visualization === "table" ? compatibleChartTypes[0] ?? "vertical_bar" : tile.visualization;
+        return {
+          ...tile,
+          name: tile.name ?? tile.title,
+          locked: tile.locked ?? false,
+          hidden: tile.hidden ?? false,
+          query: { ...tile.query, chartType: visualization },
+          visualization,
+          appearance: {
+            ...defaultAppearance,
+            ...tile.appearance,
+            showTable: false,
+            palette: tile.appearance?.palette ?? [...defaultAppearance.palette],
+            gradientType: tile.appearance?.gradientType ?? "linear",
+            gradientStops: tile.appearance?.gradientStops ?? [],
+            barGradientType: tile.appearance?.barGradientType ?? "linear",
+            barGradientStops: tile.appearance?.barGradientStops ?? [],
+            barStyles: tile.appearance?.barStyles ?? {},
+            axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {}
+          }
+        };
+      })
     }))
   };
 }
@@ -1022,7 +998,6 @@ export default function App() {
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
-  const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
   const [chartType, setChartType] = useState<ChartType>(defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
@@ -1040,7 +1015,6 @@ export default function App() {
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
-  const activeChartType = viewMode === "table" ? "table" : chartType;
   const chartStyleTargets =
     selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
       ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
@@ -1073,7 +1047,7 @@ export default function App() {
     filters: filterField && filterValue !== "all" ? [{ field: filterField, values: [filterValue] }] : [],
     weight,
     metric,
-    chartType: activeChartType
+    chartType
   };
 
   useEffect(() => {
@@ -1125,9 +1099,9 @@ export default function App() {
         title: selectedQuestion.shortLabel,
         locked: false,
         hidden: false,
-        layout: { x: 48, y: 72 + activePage.tiles.length * 28, width: 760, height: activeChartType === "table" ? 360 : 560, zIndex: nextZIndex(activePage) },
+        layout: { x: 48, y: 72 + activePage.tiles.length * 28, width: 760, height: 460, zIndex: nextZIndex(activePage) },
         query,
-        visualization: activeChartType,
+        visualization: chartType,
         appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
         result: response
       };
@@ -1700,7 +1674,7 @@ export default function App() {
               <button type="button" className="secondary" onClick={addPage}>
                 New page
               </button>
-                </>
+              </>
               )}
 
               {leftPanelView === "insert" && (
@@ -1714,7 +1688,7 @@ export default function App() {
                 <button type="button" className="secondary" onClick={() => addCanvasElement("circle")}>Circle</button>
                 <button type="button" className="secondary" onClick={() => addCanvasElement("image")}>Image</button>
               </div>
-                </>
+              </>
               )}
 
               {leftPanelView === "data" && (
@@ -1790,31 +1764,21 @@ export default function App() {
               </select>
             </label>
               )}
-              <div className="segmented" aria-label="View mode">
-                <button type="button" className={viewMode === "chart" ? "active" : ""} onClick={() => setViewMode("chart")}>
-                  Chart
-                </button>
-                <button type="button" className={viewMode === "table" ? "active" : ""} onClick={() => setViewMode("table")}>
-                  Table
-                </button>
-              </div>
-              {viewMode === "chart" && (
-                <label>
-                  Chart type
-                  <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
-                    {selectedChartTypes.map((item) => (
-                      <option value={item} key={item}>
-                        {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <label>
+                Chart type
+                <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                  {selectedChartTypes.map((item) => (
+                    <option value={item} key={item}>
+                      {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
                 {isLoading ? "Adding..." : "Add tile"}
               </button>
               {error && <div className="error">{error}</div>}
-                </>
+              </>
               )}
             </>
           )}
@@ -2367,8 +2331,7 @@ export default function App() {
                 Primary color
                 <input type="color" value={selectedTile.appearance.primaryColor} onChange={(event) => updateSelectedAppearance({ primaryColor: event.target.value, palette: [event.target.value, ...selectedTile.appearance.palette.slice(1)] })} />
               </label>
-              {selectedTile.visualization !== "table" && (
-                <>
+              <>
                   <div className="panel-title subtle">
                     <h2>Chart Design</h2>
                   </div>
@@ -2514,8 +2477,7 @@ export default function App() {
                     Grid color
                     <input type="color" value={selectedTile.appearance.gridColor} onChange={(event) => updateSelectedAppearance({ gridColor: event.target.value })} />
                   </label>
-                </>
-              )}
+              </>
               <div className="panel-title subtle">
                 <h2>Container</h2>
               </div>
@@ -2555,8 +2517,6 @@ export default function App() {
               <div className="toggle-list">
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> Chart grid</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> Value labels</label>
-                <label><input type="checkbox" checked={selectedTile.appearance.showTable} onChange={(event) => updateSelectedAppearance({ showTable: event.target.checked })} /> Table below chart</label>
-                <label><input type="checkbox" checked={selectedTile.appearance.showBases} onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })} /> Bases</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> Arrows</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>

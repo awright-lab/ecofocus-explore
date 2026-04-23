@@ -980,10 +980,12 @@ button:disabled {
 }
 
 .tile-scroll-area {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 8px;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding-right: 4px;
+  overflow: hidden;
+  padding-right: 0;
 }
 
 code {
@@ -1018,11 +1020,13 @@ code {
 }
 
 .chart-card {
-  min-height: 360px;
-  margin-top: 18px;
+  height: 100%;
+  min-height: 0;
+  margin-top: 10px;
   border: 1px solid #edf0ea;
   border-radius: 8px;
-  padding: 12px 8px 0;
+  padding: 10px 8px 0;
+  overflow: hidden;
   background: rgba(251, 252, 250, 0.82);
 }
 
@@ -1198,8 +1202,29 @@ td span {
   font-size: 0.8rem;
 }
 
+.tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  min-height: 18px;
+  overflow: hidden;
+  color: #69776e;
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.tile-meta span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .footnote {
-  margin-top: 10px;
+  margin-top: 8px;
   color: #69776e;
   font-size: 0.8rem;
   text-align: center;
@@ -1208,9 +1233,10 @@ td span {
 .notes {
   display: grid;
   gap: 6px;
-  margin-top: 14px;
+  max-height: 34px;
+  overflow: hidden;
   color: #536259;
-  font-size: 0.88rem;
+  font-size: 0.72rem;
 }
 
 .notes p {
