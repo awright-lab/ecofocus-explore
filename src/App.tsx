@@ -2064,16 +2064,34 @@ export default function App() {
 
     const nextBarStyles = selectedTile.result.table.reduce<TileAppearance["barStyles"]>((styles, row, index) => {
       styles[row.optionId] = {
-        ...selectedTile.appearance.barStyles[row.optionId],
-        color: paletteColors[index % paletteColors.length] ?? paletteColors[0]
+        color: paletteColors[index % paletteColors.length] ?? paletteColors[0],
+        fillMode: selectedTile.appearance.barFillMode,
+        gradientTo: selectedTile.appearance.barGradientTo,
+        gradientType: selectedTile.appearance.barGradientType,
+        gradientAngle: selectedTile.appearance.barGradientAngle,
+        gradientStops: selectedTile.appearance.barGradientStops,
+        radius: selectedTile.appearance.barStyles[row.optionId]?.radius ?? selectedTile.appearance.barRadius
       };
       return styles;
-    }, { ...selectedTile.appearance.barStyles });
+    }, {});
 
     updateSelectedAppearance({
       palette: paletteColors,
       primaryColor: paletteColors[0],
       barStyles: nextBarStyles
+    });
+  }
+
+  function applyPaletteColorToSelectedBar(color: string) {
+    if (!selectedTile || !selectedChartPart) return;
+
+    updateSelectedBarStyle({
+      color,
+      fillMode: selectedTile.appearance.barFillMode,
+      gradientTo: selectedTile.appearance.barGradientTo,
+      gradientType: selectedTile.appearance.barGradientType,
+      gradientAngle: selectedTile.appearance.barGradientAngle,
+      gradientStops: selectedTile.appearance.barGradientStops
     });
   }
 
@@ -3278,7 +3296,7 @@ export default function App() {
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   selectedChartPart
-                                    ? updateSelectedBarStyle({ color })
+                                    ? applyPaletteColorToSelectedBar(color)
                                     : applyPalettePresetToBars([color, ...palette.colors.filter((entry) => entry !== color)]);
                                 }}
                                 onKeyDown={(event) => {
@@ -3286,7 +3304,7 @@ export default function App() {
                                   event.preventDefault();
                                   event.stopPropagation();
                                   selectedChartPart
-                                    ? updateSelectedBarStyle({ color })
+                                    ? applyPaletteColorToSelectedBar(color)
                                     : applyPalettePresetToBars([color, ...palette.colors.filter((entry) => entry !== color)]);
                                 }}
                               />
