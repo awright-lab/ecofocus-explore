@@ -2065,7 +2065,7 @@ export default function App() {
     const nextBarStyles = selectedTile.result.table.reduce<TileAppearance["barStyles"]>((styles, row, index) => {
       styles[row.optionId] = {
         color: paletteColors[index % paletteColors.length] ?? paletteColors[0],
-        fillMode: selectedTile.appearance.barFillMode,
+        fillMode: "solid",
         gradientTo: selectedTile.appearance.barGradientTo,
         gradientType: selectedTile.appearance.barGradientType,
         gradientAngle: selectedTile.appearance.barGradientAngle,
@@ -2078,6 +2078,7 @@ export default function App() {
     updateSelectedAppearance({
       palette: paletteColors,
       primaryColor: paletteColors[0],
+      barFillMode: "solid",
       barStyles: nextBarStyles
     });
   }
@@ -2087,7 +2088,7 @@ export default function App() {
 
     updateSelectedBarStyle({
       color,
-      fillMode: selectedTile.appearance.barFillMode,
+      fillMode: "solid",
       gradientTo: selectedTile.appearance.barGradientTo,
       gradientType: selectedTile.appearance.barGradientType,
       gradientAngle: selectedTile.appearance.barGradientAngle,
