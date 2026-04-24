@@ -41,6 +41,14 @@ textarea {
   overflow: hidden;
 }
 
+.published-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #eef2f6;
+  color: #17211b;
+}
+
 .builder-header {
   display: flex;
   align-items: center;
@@ -55,6 +63,35 @@ textarea {
     linear-gradient(#050708, #050708) padding-box,
     linear-gradient(90deg, #16c9c3, #00d17f 42%, #17a4ff 100%) border-box;
   color: #ffffff;
+}
+
+.published-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #dfe6ec;
+  background: #ffffff;
+}
+
+.published-header__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.published-kicker {
+  color: #628072;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.published-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .eyebrow {
@@ -157,6 +194,95 @@ h2 {
   align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.published-body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.published-page-nav {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 18px;
+  border-right: 1px solid #dfe6ec;
+  background: #ffffff;
+  overflow: auto;
+}
+
+.published-page-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid #dfe6ec;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #24372e;
+  padding: 0 12px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.published-page-tab span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #eef6f4;
+  color: #0f5f52;
+  font-size: 0.72rem;
+}
+
+.published-page-tab.active {
+  border-color: var(--accent-eco);
+  background: #ebfaf4;
+  box-shadow: 0 0 0 2px var(--accent-eco-soft);
+}
+
+.published-stage-wrap {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.published-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 0;
+}
+
+.published-page-meta {
+  color: #65756c;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.published-stage-scroll {
+  overflow: auto;
+  padding: 18px 22px 22px;
+}
+
+.published-canvas {
+  position: relative;
+  margin: 0 auto;
+  border: 1px solid #dce4ea;
+  border-radius: 18px;
+  box-shadow: 0 24px 48px rgba(29, 44, 58, 0.08);
+  overflow: hidden;
+}
+
+.published-canvas-item {
+  position: absolute;
 }
 
 .panel,

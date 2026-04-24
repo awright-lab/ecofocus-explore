@@ -2362,6 +2362,7 @@ export default function App() {
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
   const [canvasZoom, setCanvasZoom] = useState(85);
+  const [viewerMode, setViewerMode] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<{ kind: "question" | "variableSet"; id: string }>({
     kind: "variableSet",
     id: initialDashboard.analysisLibrary.variableSets[0]?.id ?? defaultQuestion.id
@@ -2986,6 +2987,12 @@ export default function App() {
     window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
     setSaveState("Saved locally");
   }, [dashboard]);
+
+  useEffect(() => {
+    if (dashboard.status !== "published") {
+      setViewerMode(false);
+    }
+  }, [dashboard.status]);
 
   useEffect(() => {
     if (selectedVariableSet) {
@@ -3632,6 +3639,27 @@ export default function App() {
     setCanvasZoom(Math.min(160, Math.max(35, value)));
   }
 
+  function publishDashboard() {
+    setDashboard((current) => ({ ...current, status: "published" }));
+    setViewerMode(true);
+  }
+
+  function unpublishDashboard() {
+    setDashboard((current) => ({ ...current, status: "draft" }));
+    setViewerMode(false);
+  }
+
+  function openPublishedReport() {
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+    setViewerMode(true);
+  }
+
+  function closePublishedReport() {
+    setViewerMode(false);
+  }
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
@@ -3680,6 +3708,98 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [dashboard, history, future, selectedTile, selectedElement, activePage]);
 
+  if (viewerMode) {
+    return (
+      <main className="published-shell">
+        <header className="published-header">
+          <div className="published-header__copy">
+            <span className="published-kicker">{dashboard.status === "published" ? "Published report" : "Report preview"}</span>
+            <h1>{dashboard.title}</h1>
+          </div>
+          <div className="published-header__actions">
+            <span className="status published">{dashboard.status}</span>
+            <button type="button" className="secondary" onClick={closePublishedReport}>Back to builder</button>
+            {dashboard.status === "published" && (
+              <button type="button" className="secondary" onClick={unpublishDashboard}>Unpublish</button>
+            )}
+          </div>
+        </header>
+
+        <section className="published-body">
+          <nav className="published-page-nav" aria-label="Published pages">
+            {sortedPages.map((page) => (
+              <button
+                type="button"
+                key={page.id}
+                className={page.id === activePage.id ? "published-page-tab active" : "published-page-tab"}
+                onClick={() => setActivePageId(page.id)}
+              >
+                <span>{page.order}</span>
+                {page.title}
+              </button>
+            ))}
+          </nav>
+
+          <div className="published-stage-wrap">
+            <div className="published-page-header">
+              <div>
+                <p className="eyebrow">Page {activePage.order}</p>
+                <h2>{activePage.title}</h2>
+              </div>
+              <span className="published-page-meta">
+                {activePage.tiles.filter((tile) => !tile.hidden).length} tile{activePage.tiles.filter((tile) => !tile.hidden).length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="published-stage-scroll">
+              <div
+                className="published-canvas"
+                style={{
+                  width: canvasWidth,
+                  height: canvasHeight,
+                  background: canvasBackground(activePage),
+                  backgroundSize: canvasBackgroundSize(activePage),
+                  backgroundRepeat: canvasBackgroundRepeat(activePage),
+                  backgroundPosition: canvasBackgroundPosition(activePage)
+                }}
+              >
+                {activePage.elements.filter((element) => !element.hidden).map((element) => (
+                  <div
+                    key={element.id}
+                    className="published-canvas-item"
+                    style={{
+                      left: element.layout.x,
+                      top: element.layout.y,
+                      width: element.layout.width,
+                      height: element.layout.height,
+                      zIndex: element.layout.zIndex
+                    }}
+                  >
+                    <CanvasElementRenderer element={element} selected={false} onSelect={() => undefined} />
+                  </div>
+                ))}
+                {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
+                  <div
+                    key={tile.id}
+                    className="published-canvas-item"
+                    style={{
+                      left: tile.layout.x,
+                      top: tile.layout.y,
+                      width: tile.layout.width,
+                      height: tile.layout.height,
+                      zIndex: tile.layout.zIndex
+                    }}
+                  >
+                    <TileRenderer tile={tile} selected={false} onSelect={() => undefined} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="builder-shell">
       <header className="builder-header">
@@ -3711,9 +3831,20 @@ export default function App() {
             Export spec
           </button>
           <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
-          <button type="button" onClick={() => setDashboard((current) => ({ ...current, status: current.status === "published" ? "draft" : "published" }))}>
-            {dashboard.status === "published" ? "Unpublish" : "Publish"}
-          </button>
+          {dashboard.status === "published" ? (
+            <>
+              <button type="button" className="secondary" onClick={openPublishedReport}>
+                Open report
+              </button>
+              <button type="button" onClick={unpublishDashboard}>
+                Unpublish
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={publishDashboard}>
+              Publish
+            </button>
+          )}
         </div>
       </header>
 
