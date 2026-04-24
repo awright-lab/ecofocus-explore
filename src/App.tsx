@@ -2232,6 +2232,7 @@ export default function App() {
   const [exploreView, setExploreView] = useState<"source" | "analyze" | "library">("source");
   const [sourceLibraryView, setSourceLibraryView] = useState<"variableSets" | "questions">("variableSets");
   const [analysisLibraryView, setAnalysisLibraryView] = useState<"variableSets" | "banners" | "filters" | "weights">("variableSets");
+  const [sourceSearch, setSourceSearch] = useState("");
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
   const [canvasZoom, setCanvasZoom] = useState(85);
@@ -2263,6 +2264,19 @@ export default function App() {
   const savedFilters = dashboard.analysisLibrary.filters;
   const savedWeights = dashboard.analysisLibrary.weights;
   const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
+  const normalizedSourceSearch = sourceSearch.trim().toLowerCase();
+  const filteredVariableSets = savedVariableSets.filter((item) =>
+    !normalizedSourceSearch ||
+    item.label.toLowerCase().includes(normalizedSourceSearch) ||
+    item.topic.toLowerCase().includes(normalizedSourceSearch) ||
+    item.description.toLowerCase().includes(normalizedSourceSearch)
+  );
+  const filteredQuestions = defaultDataset.questions.filter((item) =>
+    !normalizedSourceSearch ||
+    item.shortLabel.toLowerCase().includes(normalizedSourceSearch) ||
+    item.topic.toLowerCase().includes(normalizedSourceSearch) ||
+    item.label.toLowerCase().includes(normalizedSourceSearch)
+  );
 
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
@@ -3359,20 +3373,49 @@ export default function App() {
                     3. Library
                   </button>
                 </div>
-                <div className="color-summary-card">
-                  <div>
-                    <span>Current source</span>
-                    <strong>{selectedVariableSet ? selectedVariableSet.label : selectedQuestion.shortLabel}</strong>
-                  </div>
-                  <small>
-                    {selectedVariableSet
-                      ? `${selectedVariableSet.description} · Drag to canvas or continue to Analyze.`
-                      : `${selectedQuestion.topic} · Drag to canvas or continue to Analyze.`}
-                  </small>
+                <div className="explore-step-card">
+                  {exploreView === "source" && (
+                    <>
+                      <div>
+                        <span>Step 1</span>
+                        <strong>Choose a source</strong>
+                      </div>
+                      <small>Pick a saved variable set or question. You can click to load it or drag it straight onto the canvas.</small>
+                    </>
+                  )}
+                  {exploreView === "analyze" && (
+                    <>
+                      <div>
+                        <span>Step 2</span>
+                        <strong>Shape the analysis</strong>
+                      </div>
+                      <small>Adjust banner, metric, weight, filter, and chart type for the currently selected source before adding a tile.</small>
+                    </>
+                  )}
+                  {exploreView === "library" && (
+                    <>
+                      <div>
+                        <span>Step 3</span>
+                        <strong>Save reusable objects</strong>
+                      </div>
+                      <small>Turn the current setup into reusable variable sets, banners, filters, or weights for faster reporting.</small>
+                    </>
+                  )}
                 </div>
 
                 {exploreView === "source" && (
                   <>
+                    <div className="color-summary-card compact">
+                      <div>
+                        <span>Current source</span>
+                        <strong>{selectedVariableSet ? selectedVariableSet.label : selectedQuestion.shortLabel}</strong>
+                      </div>
+                      <small>{selectedVariableSet ? selectedVariableSet.description : selectedQuestion.topic}</small>
+                    </div>
+                    <label>
+                      Search sources
+                      <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search questions or variable sets" />
+                    </label>
                     <div className="explore-subtabs">
                       <button type="button" className={sourceLibraryView === "variableSets" ? "active" : ""} onClick={() => setSourceLibraryView("variableSets")}>
                         Variable sets
@@ -3385,10 +3428,10 @@ export default function App() {
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Variable sets</strong>
-                        <small>{savedVariableSets.length} saved</small>
+                        <small>{filteredVariableSets.length} shown</small>
                       </div>
                       <div className="explorer-item-list">
-                        {savedVariableSets.map((item) => (
+                        {filteredVariableSets.map((item) => (
                           <button
                             type="button"
                             key={item.id}
@@ -3401,6 +3444,7 @@ export default function App() {
                             <span>{item.topic} · Drag to canvas</span>
                           </button>
                         ))}
+                        {filteredVariableSets.length === 0 && <div className="empty-state compact">No variable sets match that search.</div>}
                       </div>
                     </div>
                     )}
@@ -3408,10 +3452,10 @@ export default function App() {
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Questions</strong>
-                        <small>{defaultDataset.questions.length} available</small>
+                        <small>{filteredQuestions.length} shown</small>
                       </div>
                       <div className="explorer-item-list">
-                        {defaultDataset.questions.map((item) => (
+                        {filteredQuestions.map((item) => (
                           <button
                             type="button"
                             key={item.id}
@@ -3424,6 +3468,7 @@ export default function App() {
                             <span>{item.topic} · Drag to canvas</span>
                           </button>
                         ))}
+                        {filteredQuestions.length === 0 && <div className="empty-state compact">No questions match that search.</div>}
                       </div>
                     </div>
                     )}
