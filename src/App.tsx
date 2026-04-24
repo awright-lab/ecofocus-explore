@@ -1645,6 +1645,10 @@ function tileSourceKindLabel(source: DashboardTile["source"]) {
   return source.kind === "variableSet" ? "Variable set" : "Question";
 }
 
+function slugifyFileName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "ecofocus-dashboard";
+}
+
 function ValueLabel(props: {
   x?: unknown;
   y?: unknown;
@@ -3495,19 +3499,97 @@ export default function App() {
 
   function exportDashboardSpec() {
     const exportSpec = {
-      exportType: "powerpoint-ready-dashboard-spec",
+      exportType: "ecofocus-presentation-package",
       generatedAt: new Date().toISOString(),
       canvas: {
         width: canvasWidth,
         height: canvasHeight
       },
-      dashboard
+      dashboard: {
+        id: dashboard.id,
+        title: dashboard.title,
+        status: dashboard.status
+      },
+      slides: sortedPages.map((page) => ({
+        id: page.id,
+        title: page.title,
+        order: page.order,
+        background: {
+          mode: page.backgroundMode,
+          solid: page.background,
+          image: page.backgroundImage,
+          imageFit: page.backgroundImageFit,
+          gradient: {
+            from: page.gradientFrom,
+            to: page.gradientTo,
+            type: page.gradientType,
+            angle: page.gradientAngle,
+            stops: page.gradientStops
+          }
+        },
+        canvas: {
+          width: canvasWidth,
+          height: canvasHeight
+        },
+        elements: page.elements
+          .filter((element) => !element.hidden)
+          .sort((a, b) => a.layout.zIndex - b.layout.zIndex)
+          .map((element) => ({
+            id: element.id,
+            type: element.type,
+            name: element.name,
+            frame: {
+              x: element.layout.x,
+              y: element.layout.y,
+              width: element.layout.width,
+              height: element.layout.height,
+              zIndex: element.layout.zIndex
+            },
+            content: element.content,
+            style: element.style
+          })),
+        tiles: page.tiles
+          .filter((tile) => !tile.hidden)
+          .sort((a, b) => a.layout.zIndex - b.layout.zIndex)
+          .map((tile) => ({
+            id: tile.id,
+            title: tile.title,
+            source: tile.source ?? null,
+            visualization: tile.visualization,
+            frame: {
+              x: tile.layout.x,
+              y: tile.layout.y,
+              width: tile.layout.width,
+              height: tile.layout.height,
+              zIndex: tile.layout.zIndex
+            },
+            query: tile.query,
+            appearance: tile.appearance,
+            exportHints: {
+              slideTitle: tile.title,
+              metricLabel: tile.result.metric.label,
+              questionLabel: getQuestionLabel(tile.result.metadataRefs.question),
+              sampleSize: sampleSizeLabel(tile.result),
+              weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
+              confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result))
+            },
+            result: {
+              columns: tile.result.columns,
+              table: tile.result.table,
+              notes: tile.result.notes,
+              warnings: tile.result.warnings,
+              annotations: tile.result.annotations
+            }
+          }))
+      })),
+      analysisLibrary: dashboard.analysisLibrary,
+      originalDraft: dashboard
     };
     const blob = new Blob([JSON.stringify(exportSpec, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${dashboard.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "ecofocus-dashboard"}-ppt-spec.json`;
+    link.download = `${slugifyFileName(dashboard.title)}-presentation-package.json`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -3828,7 +3910,7 @@ export default function App() {
             Reset
           </button>
           <button type="button" className="secondary" onClick={exportDashboardSpec}>
-            Export spec
+            Export package
           </button>
           <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
           {dashboard.status === "published" ? (
