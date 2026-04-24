@@ -1590,6 +1590,17 @@ function resultConfidenceLevel(result: AnalyticsQueryResponse) {
   return result.statistics?.confidenceLevel ?? result.query.confidenceLevel ?? 0.95;
 }
 
+function comparisonDatasetsLabel(datasetIds: DatasetId[]) {
+  if (datasetIds.length === 0) return "None";
+  return datasetIds
+    .map((datasetId) => datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId)
+    .join(" vs ");
+}
+
+function comparisonSummaryLabel(query: AnalyticsQueryRequest) {
+  return query.comparisonMode === "wave" ? `Wave: ${comparisonDatasetsLabel(query.comparisonDatasets ?? [])}` : "None";
+}
+
 function applyVariableSetRows(response: AnalyticsQueryResponse, variableSet: SavedVariableSet): AnalyticsQueryResponse {
   if (!variableSet.rows.length) return response;
 
@@ -1668,6 +1679,7 @@ function pageSummary(page: DashboardPage) {
 function tilePresentationNotes(tile: DashboardTile) {
   return [
     `${getQuestionLabel(tile.result.metadataRefs.question)} (${tileSourceKindLabel(tile.source)})`,
+    `Comparison: ${comparisonSummaryLabel(tile.query)}`,
     `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
     confidenceLevelLabel(resultConfidenceLevel(tile.result)),
     ...tile.result.notes.slice(0, 2)
@@ -3632,6 +3644,7 @@ export default function App() {
               slideTitle: tile.title,
               metricLabel: tile.result.metric.label,
               questionLabel: getQuestionLabel(tile.result.metadataRefs.question),
+              comparison: comparisonSummaryLabel(tile.query),
               sampleSize: sampleSizeLabel(tile.result),
               weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
               confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result)),
@@ -5219,6 +5232,7 @@ export default function App() {
                 <strong>{getQuestionLabel(selectedTile.result.metadataRefs.question)}</strong>
                 <div className="explorer-chip-row">
                   <span className="explorer-chip">Banner: {bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy}</span>
+                  <span className="explorer-chip">Compare: {comparisonSummaryLabel(selectedTile.query)}</span>
                   <span className="explorer-chip">Metric: {selectedTile.result.metric.label}</span>
                   <span className="explorer-chip">Weight: {selectedTile.result.weighting.applied ? selectedTile.result.weighting.label : "Unweighted"}</span>
                   <span className="explorer-chip">
@@ -5234,6 +5248,7 @@ export default function App() {
                       Banner
                       <select
                         value={selectedTile.query.breakBy}
+                        disabled={selectedTile.query.comparisonMode === "wave"}
                         onChange={(event) =>
                           updateSelectedTile({
                             query: { ...selectedTile.query, breakBy: event.target.value as BreakById }
@@ -5267,6 +5282,71 @@ export default function App() {
                       </select>
                     </label>
                   </div>
+                  <div className="compact-grid">
+                    <label>
+                      Comparison
+                      <select
+                        value={selectedTile.query.comparisonMode ?? "none"}
+                        onChange={(event) =>
+                          updateSelectedTile({
+                            query: {
+                              ...selectedTile.query,
+                              comparisonMode: event.target.value as ComparisonMode,
+                              breakBy: event.target.value === "wave" ? "SUMMARY" : selectedTile.query.breakBy,
+                              comparisonDatasets: event.target.value === "wave" ? selectedTile.query.comparisonDatasets ?? [] : []
+                            }
+                          })
+                        }
+                      >
+                        <option value="none">None</option>
+                        <option value="wave">Wave comparison</option>
+                      </select>
+                    </label>
+                    {(selectedTile.query.comparisonMode ?? "none") === "wave" ? (
+                      <div className="explorer-meta-block">
+                        <span>Wave comparison locks the banner to Summary.</span>
+                      </div>
+                    ) : (
+                      <div className="explorer-meta-block">
+                        <span>Use comparisons to trend the same question across waves.</span>
+                      </div>
+                    )}
+                  </div>
+                  {(selectedTile.query.comparisonMode ?? "none") === "wave" && (
+                    <div className="explorer-section-card compact nested">
+                      <div className="explorer-section-header">
+                        <strong>Comparison waves</strong>
+                        <small>Select one or more historical datasets</small>
+                      </div>
+                      <div className="explorer-chip-row comparison-chip-row">
+                        {comparisonDatasetOptions.map((dataset) => {
+                          const activeComparisons = selectedTile.query.comparisonDatasets ?? [];
+                          const active = activeComparisons.includes(dataset.id);
+                          return (
+                            <button
+                              type="button"
+                              key={dataset.id}
+                              className={active ? "explorer-chip-button active" : "explorer-chip-button secondary-chip"}
+                              onClick={() =>
+                                updateSelectedTile({
+                                  query: {
+                                    ...selectedTile.query,
+                                    comparisonMode: "wave",
+                                    breakBy: "SUMMARY",
+                                    comparisonDatasets: active
+                                      ? activeComparisons.filter((item) => item !== dataset.id)
+                                      : [...activeComparisons, dataset.id]
+                                  }
+                                })
+                              }
+                            >
+                              {dataset.wave}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <div className="compact-grid">
                     <label>
                       Weight
@@ -5339,6 +5419,7 @@ export default function App() {
                     onClick={() =>
                       rerunTileAnalysis(selectedTile, {
                         ...selectedTile.query,
+                        breakBy: (selectedTile.query.comparisonMode ?? "none") === "wave" ? "SUMMARY" : selectedTile.query.breakBy,
                         chartType: selectedTile.visualization,
                         filters:
                           selectedTile.query.filters[0]?.field && selectedTile.query.filters[0]?.values[0] !== "all"
