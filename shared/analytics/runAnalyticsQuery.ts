@@ -1,4 +1,4 @@
-import { getAnalyticsProvider } from "./providers";
+import { getAnalyticsProvider, getAnalyticsProviderReadiness } from "./providers";
 import { createAnalyticsQueryPlan } from "./queryPlan";
 import { validateAnalyticsQuery } from "./validation";
 import type { AnalyticsQueryRequest } from "../types/analytics";
@@ -14,5 +14,12 @@ export async function runAnalyticsQueryWithProvider(query: AnalyticsQueryRequest
   createAnalyticsQueryPlan(query);
 
   const provider = getAnalyticsProvider();
+  const readiness = getAnalyticsProviderReadiness(provider.id);
+
+  if (!readiness.configured) {
+    const missingDetails = readiness.missingEnvVars?.length ? ` Missing: ${readiness.missingEnvVars.join(", ")}.` : "";
+    throw new Error(`${readiness.summary}.${missingDetails}`.trim());
+  }
+
   return provider.runQuery(query);
 }

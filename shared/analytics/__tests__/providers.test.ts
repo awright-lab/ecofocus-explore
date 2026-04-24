@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAnalyticsProvider } from "../providers";
+import { getAnalyticsProvider, getAnalyticsProviderReadiness } from "../providers";
 
 describe("getAnalyticsProvider", () => {
   it("defaults to the mock provider", () => {
@@ -12,5 +12,12 @@ describe("getAnalyticsProvider", () => {
 
   it("rejects unknown providers", () => {
     expect(() => getAnalyticsProvider("unknown")).toThrow("Unsupported analytics provider: unknown.");
+  });
+
+  it("reports readiness for the mock provider", () => {
+    expect(getAnalyticsProviderReadiness("mock")).toEqual({
+      configured: true,
+      summary: "Mock analytics provider is ready."
+    });
   });
 });

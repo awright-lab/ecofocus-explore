@@ -1,51 +1,71 @@
 # Snowflake Readiness
 
-EcoFocus Explore is prepared for Snowflake through a provider boundary. The app still uses mock data by default, but the serverless function no longer calls mock analytics directly.
+EcoFocus Explore is ready for a real Snowflake handoff at the architecture level, but it still uses mock analytics data by default.
 
-## Provider Selection
-
-Set `ANALYTICS_DATA_PROVIDER`:
-
-```text
-ANALYTICS_DATA_PROVIDER=mock
-```
-
-Supported values:
-
-- `mock`
-- `snowflake`
-
-The Snowflake provider currently validates configuration and then returns a not-implemented error. This is intentional until real read-only Snowflake credentials and table/view names are available.
-
-## Current Backend Flow
+The important thing is that the provider seam is now explicit and testable:
 
 ```text
 Netlify function
   -> validateAnalyticsQuery
   -> createAnalyticsQueryPlan
   -> getAnalyticsProvider
+  -> provider readiness check
   -> provider.runQuery
   -> normalized AnalyticsQueryResponse
 ```
 
-The frontend should not know which provider is active.
+The frontend still talks only to the analytics endpoint. It does not know whether the active provider is mock or Snowflake.
 
-## Query Plan
+## Current Provider Status
 
-`shared/analytics/queryPlan.ts` converts a validated query into provider-neutral execution intent:
+Supported providers:
+
+- `mock`
+- `snowflake`
+
+Current behavior:
+
+- `mock` is fully functional for local MVP work
+- `snowflake` validates configuration, exposes readiness status, and throws a deliberate not-implemented error instead of pretending to run
+
+That means the app is safe to configure for Snowflake readiness work without implying that live execution is already finished.
+
+## Required Environment Variables
+
+When `ANALYTICS_DATA_PROVIDER=snowflake`, the provider expects:
+
+- `SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_USERNAME`
+- `SNOWFLAKE_PASSWORD`
+- `SNOWFLAKE_WAREHOUSE`
+- `SNOWFLAKE_DATABASE`
+- `SNOWFLAKE_SCHEMA`
+- `SNOWFLAKE_ROLE`
+
+Optional:
+
+- `SNOWFLAKE_AUTHENTICATOR`
+
+If required variables are missing, the backend now fails early with a clear message listing the missing env vars.
+
+## Current Query Planning Shape
+
+`shared/analytics/queryPlan.ts` currently produces provider-neutral execution intent for:
 
 - dataset
-- row variable or variable set
-- column/breakout dimension
+- question / variable source
+- breakout dimension
 - filters
 - metric
 - weight
+- confidence level
+- comparison mode and datasets
 
-This is the shape the Snowflake provider should eventually translate into SQL.
+That is the contract the Snowflake implementation should translate into SQL.
 
-## Expected Snowflake Shape
+## Expected Snowflake Data Shape
 
-For the current MVP features, Snowflake should expose a read-only analytical view with columns like:
+For the current MVP features, a read-only Snowflake view or modeled table should expose fields equivalent to:
 
 ```text
 respondent_id
@@ -63,36 +83,33 @@ Q15r8
 Q15r9
 ```
 
-The exact names can differ, but metadata must map EcoFocus Explore IDs to Snowflake source columns.
+The exact physical names can differ, but the metadata layer must keep mapping app IDs to Snowflake source columns.
 
-## Weighting
+## Current Analytical Features The Provider Must Support
 
-Weighted percentages should be calculated backend-side.
+The live Snowflake provider will need to support:
 
-For a binary selected/not-selected variable:
+- single-select summary and banner cuts
+- multi-binary variable-set style questions
+- saved/authored variable-set rows
+- weighted and unweighted metrics
+- wave comparison queries
+- normalized table-first responses for the frontend
 
-```text
-sum(weight where selected)
-/
-sum(weight where eligible)
-```
-
-For unweighted output:
-
-```text
-count(selected respondents)
-/
-count(eligible respondents)
-```
-
-We still need confirmation on EcoFocus reporting conventions for whether displayed bases should be weighted, unweighted, or both.
-
-## Not Implemented Yet
+## What Is Still Intentionally Not Implemented
 
 - Snowflake driver dependency
-- SQL generation
-- connection pooling/reuse
+- connection lifecycle / pooling
+- SQL generation from query plans
 - read-only role verification
-- real significance testing
-- real filter application in mock provider
-- trend/wave comparison
+- secure secret-management guidance for deployment environments
+- real statistical testing
+- full production filter execution parity
+
+## Recommended Next Integration Steps
+
+1. Add the Snowflake SDK dependency and connection utility.
+2. Translate `AnalyticsQueryPlan` into read-only SQL.
+3. Return the same normalized `AnalyticsQueryResponse` shape as the mock provider.
+4. Verify weighted output conventions with EcoFocus stakeholders.
+5. Add provider-level integration tests against a safe non-production Snowflake target.
