@@ -1006,6 +1006,12 @@ button:disabled {
   font-size: 0.88rem;
 }
 
+.analysis-library-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .table-convert-card {
   display: grid;
   gap: 8px;

@@ -2638,6 +2638,113 @@ export default function App() {
     setError(null);
   }
 
+  function saveSelectedTileVariableSet() {
+    if (!selectedTile || !selectedTileQuestion) return;
+
+    const sourceQuestionIds =
+      selectedTile.source?.kind === "variableSet"
+        ? savedVariableSets.find((item) => item.id === selectedTile.source?.id)?.questionIds ?? [selectedTileQuestion.id]
+        : [selectedTileQuestion.id];
+
+    const nextVariableSet: SavedVariableSet = {
+      id: `variable_set_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: selectedTile.title.trim() || selectedTileQuestion.shortLabel,
+      description: `Saved from tile: ${selectedTile.title.trim() || selectedTileQuestion.shortLabel}`,
+      topic: selectedTileQuestion.topic,
+      questionIds: sourceQuestionIds,
+      primaryQuestionId: selectedTileQuestion.id,
+      breakBy: selectedTile.query.breakBy,
+      metric: selectedTile.query.metric,
+      chartType: selectedTile.visualization,
+      weight: selectedTile.query.weight,
+      filterField: (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ?? null,
+      filterValue: selectedTile.query.filters[0]?.values[0] ?? "all"
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        variableSets: [nextVariableSet, ...current.analysisLibrary.variableSets]
+      }
+    }));
+    setError(null);
+  }
+
+  function saveSelectedTileBanner() {
+    if (!selectedTile) return;
+
+    const nextBanner: SavedBanner = {
+      id: `banner_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: `${selectedTile.title.trim() || "Tile"} banner`,
+      description: `Saved from tile: ${bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy}`,
+      breakBy: selectedTile.query.breakBy
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        banners: [nextBanner, ...current.analysisLibrary.banners]
+      }
+    }));
+    setError(null);
+  }
+
+  function saveSelectedTileFilter() {
+    if (!selectedTile) return;
+
+    const nextFilter: SavedFilterSet = {
+      id: `filter_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: `${selectedTile.title.trim() || "Tile"} filter`,
+      description:
+        selectedTile.query.filters[0]?.field && selectedTile.query.filters[0]?.values[0] !== "all"
+          ? `Saved from tile filter for ${filterDimensions.find((item) => item.id === selectedTile.query.filters[0]?.field)?.label ?? selectedTile.query.filters[0]?.field}`
+          : "No segment filter applied.",
+      filterField: (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ?? null,
+      filterValue: selectedTile.query.filters[0]?.values[0] ?? "all"
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        filters: [nextFilter, ...current.analysisLibrary.filters]
+      }
+    }));
+    setError(null);
+  }
+
+  function saveSelectedTileWeight() {
+    if (!selectedTile) return;
+
+    const nextWeight: SavedWeightProfile = {
+      id: `weight_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: `${selectedTile.title.trim() || "Tile"} weight`,
+      description: selectedTile.query.weight
+        ? `Uses ${defaultDataset.weights.find((item) => item.id === selectedTile.query.weight)?.label ?? selectedTile.query.weight}`
+        : "No weight applied.",
+      weight: selectedTile.query.weight
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        weights: [nextWeight, ...current.analysisLibrary.weights]
+      }
+    }));
+    setError(null);
+  }
+
   function startDataSourceDrag(source: { kind: "question" | "variableSet"; id: string }, event: React.DragEvent<HTMLElement>) {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData("application/ecofocus-source", JSON.stringify(source));
@@ -4591,6 +4698,12 @@ export default function App() {
                   >
                     {isLoading ? "Refreshing..." : "Refresh analysis"}
                   </button>
+                  <div className="analysis-library-actions">
+                    <button type="button" className="secondary" onClick={saveSelectedTileVariableSet}>Save set</button>
+                    <button type="button" className="secondary" onClick={saveSelectedTileBanner}>Save banner</button>
+                    <button type="button" className="secondary" onClick={saveSelectedTileFilter}>Save filter</button>
+                    <button type="button" className="secondary" onClick={saveSelectedTileWeight}>Save weight</button>
+                  </div>
                 </div>
               )}
               <label>
