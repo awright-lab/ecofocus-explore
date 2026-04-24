@@ -527,6 +527,48 @@ h2 {
   font-weight: 700;
 }
 
+.explorer-chip-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px !important;
+  padding: 0 10px;
+  border: 1px solid #dce5ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #355045;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.explorer-chip-button:hover {
+  border-color: var(--accent-eco);
+  background: #ebfaf4;
+}
+
+.explorer-output-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dce4ea;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff, #f7fbfc);
+}
+
+.explorer-output-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.explorer-helper-copy {
+  color: #698077;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .explorer-question-picker {
   display: grid;
   gap: 8px;
@@ -935,6 +977,15 @@ button:disabled {
 
 .menu-card:disabled {
   cursor: not-allowed;
+}
+
+.table-convert-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #f8fbfc;
 }
 
 .gradient-editor {

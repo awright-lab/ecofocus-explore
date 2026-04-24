@@ -2733,6 +2733,19 @@ export default function App() {
     await createTileFromSource(query, selectedVariableSet?.label ?? selectedQuestion.shortLabel);
   }
 
+  async function addTileFromSourceWithVisualization(nextVisualization: ChartType) {
+    const nextQuery = { ...query, chartType: nextVisualization };
+    await createTileFromSource(nextQuery, selectedVariableSet?.label ?? selectedQuestion.shortLabel);
+  }
+
+  function tileWithVisualization(tile: DashboardTile, nextVisualization: ChartType): Partial<DashboardTile> {
+    return {
+      visualization: nextVisualization,
+      query: { ...tile.query, chartType: nextVisualization },
+      result: { ...tile.result, query: { ...tile.result.query, chartType: nextVisualization } }
+    };
+  }
+
   function updateSelectedTile(updates: Partial<DashboardTile>) {
     if (!selectedTileId) return;
 
@@ -3602,7 +3615,7 @@ export default function App() {
                         )}
                       </div>
                       <label>
-                        Chart type
+                        Output
                         <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
                           {selectedChartTypes.map((item) => (
                             <option value={item} key={item}>
@@ -3611,9 +3624,32 @@ export default function App() {
                           ))}
                         </select>
                       </label>
-                      <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
-                        {isLoading ? "Adding..." : "Add tile from source"}
-                      </button>
+                      <div className="explorer-output-card">
+                        <div className="explorer-section-header">
+                          <strong>Create output</strong>
+                          <small>Start with a table or place a chart directly</small>
+                        </div>
+                        <div className="explorer-output-actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => addTileFromSourceWithVisualization("table")}
+                            disabled={isLoading || !selectedChartTypes.includes("table")}
+                          >
+                            {isLoading && chartType === "table" ? "Adding..." : "Add table"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addTileFromSourceWithVisualization(chartType === "table" ? (selectedChartTypes.find((item) => item !== "table") ?? "vertical_bar") : chartType)}
+                            disabled={isLoading}
+                          >
+                            {isLoading && chartType !== "table" ? "Adding..." : `Add ${getChartTypeLabel(chartType === "table" ? (selectedChartTypes.find((item) => item !== "table") ?? "vertical_bar") : chartType)}`}
+                          </button>
+                        </div>
+                        <small className="explorer-helper-copy">
+                          Tables are the analytical starting point. You can convert them into charts after placement.
+                        </small>
+                      </div>
                     </div>
                   </>
                 )}
@@ -4325,11 +4361,7 @@ export default function App() {
                   value={selectedTile.visualization}
                   onChange={(event) => {
                     const nextVisualization = event.target.value as ChartType;
-                    updateSelectedTile({
-                      visualization: nextVisualization,
-                      query: { ...selectedTile.query, chartType: nextVisualization },
-                      result: { ...selectedTile.result, query: { ...selectedTile.result.query, chartType: nextVisualization } }
-                    });
+                    updateSelectedTile(tileWithVisualization(selectedTile, nextVisualization));
                   }}
                 >
                   {getCompatibleChartTypes(selectedTile.result).map((item) => (
@@ -4339,6 +4371,28 @@ export default function App() {
                   ))}
                 </select>
               </label>
+              {selectedTile.visualization === "table" && (
+                <div className="table-convert-card">
+                  <div className="explorer-section-header">
+                    <strong>Convert table to chart</strong>
+                    <small>Pick a view for this same query</small>
+                  </div>
+                  <div className="explorer-chip-row">
+                    {getCompatibleChartTypes(selectedTile.result)
+                      .filter((item) => item !== "table")
+                      .map((item) => (
+                        <button
+                          type="button"
+                          key={item}
+                          className="explorer-chip-button"
+                          onClick={() => updateSelectedTile(tileWithVisualization(selectedTile, item))}
+                        >
+                          {getChartTypeLabel(item)}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
               <div className="panel-title subtle">
                 <h2>Display</h2>
               </div>
