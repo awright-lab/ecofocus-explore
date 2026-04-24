@@ -1,3 +1,4 @@
+import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
 
 export type DashboardStatus = "draft" | "published";
@@ -167,9 +168,28 @@ export interface DashboardPage {
   tiles: DashboardTile[];
 }
 
+export interface SavedVariableSet {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  topic: string;
+  questionIds: QuestionId[];
+  primaryQuestionId: QuestionId;
+  breakBy: BreakById;
+  metric: Metric;
+  chartType: ChartType;
+  weight: WeightId | null;
+  filterField: FilterFieldId | null;
+  filterValue: string;
+}
+
 export interface DashboardDraft {
   id: string;
   title: string;
   status: DashboardStatus;
+  analysisLibrary: {
+    variableSets: SavedVariableSet[];
+  };
   pages: DashboardPage[];
 }

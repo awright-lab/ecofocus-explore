@@ -29,7 +29,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, TileAppearance } from "../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, SavedVariableSet, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -152,10 +152,33 @@ function defaultPageDesign() {
   };
 }
 
+function seedVariableSets(): SavedVariableSet[] {
+  return [
+    {
+      id: "vs_brand_priorities_top2",
+      datasetId: defaultDataset.id,
+      label: "Brand priorities Top 2",
+      description: "Saved variable set for the Top 2 brand and retailer priorities question.",
+      topic: "Brand Sustainability Perceptions",
+      questionIds: ["Q15_TOP2_BRAND_PRIORITIES"],
+      primaryQuestionId: "Q15_TOP2_BRAND_PRIORITIES",
+      breakBy: "SUMMARY",
+      metric: "percent_selected",
+      chartType: "horizontal_bar",
+      weight: defaultDataset.defaultWeight,
+      filterField: defaultFilterDimension?.id ?? null,
+      filterValue: "all"
+    }
+  ];
+}
+
 const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
   title: "2025 EcoFocus Builder Draft",
   status: "draft",
+  analysisLibrary: {
+    variableSets: seedVariableSets()
+  },
   pages: [
     {
       id: "page_overview",
@@ -2012,6 +2035,24 @@ function clampZIndex(value: number) {
 function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
   return {
     ...dashboard,
+    analysisLibrary: {
+      variableSets:
+        dashboard.analysisLibrary?.variableSets?.map((variableSet, index) => ({
+          ...variableSet,
+          id: variableSet.id ?? `variable_set_${index + 1}`,
+          datasetId: variableSet.datasetId ?? defaultDataset.id,
+          description: variableSet.description ?? "",
+          topic: variableSet.topic ?? getQuestionLabel(variableSet.primaryQuestionId ?? variableSet.questionIds?.[0] ?? defaultQuestion.id),
+          questionIds: variableSet.questionIds?.length ? variableSet.questionIds : [variableSet.primaryQuestionId ?? defaultQuestion.id],
+          primaryQuestionId: variableSet.primaryQuestionId ?? variableSet.questionIds?.[0] ?? defaultQuestion.id,
+          breakBy: variableSet.breakBy ?? (defaultBreakBy.id as BreakById),
+          metric: variableSet.metric ?? defaultQuestion.defaultMetric,
+          chartType: variableSet.chartType ?? (defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table"),
+          weight: variableSet.weight ?? defaultDataset.defaultWeight,
+          filterField: variableSet.filterField ?? (defaultFilterDimension?.id ?? null),
+          filterValue: variableSet.filterValue ?? "all"
+        })) ?? seedVariableSets()
+    },
     pages: dashboard.pages.map((page) => ({
           ...page,
           ...defaultPageDesign(),
@@ -2101,19 +2142,26 @@ export default function App() {
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
   const [canvasZoom, setCanvasZoom] = useState(85);
+  const [selectedDataSource, setSelectedDataSource] = useState<{ kind: "question" | "variableSet"; id: string }>({
+    kind: "variableSet",
+    id: initialDashboard.analysisLibrary.variableSets[0]?.id ?? defaultQuestion.id
+  });
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
   const [chartType, setChartType] = useState<ChartType>(defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
-  const [filterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
+  const [filterField, setFilterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
+  const [variableSetDraftName, setVariableSetDraftName] = useState(defaultQuestion.shortLabel);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedQuestion = useMemo(() => {
     return defaultDataset.questions.find((item) => item.id === question) ?? defaultQuestion;
   }, [question]);
+  const savedVariableSets = dashboard.analysisLibrary.variableSets;
+  const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
 
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
@@ -2157,10 +2205,91 @@ export default function App() {
     confidenceLevel: 0.95
   };
 
+  function applyQuestionSelection(nextQuestion: typeof defaultDataset.questions[number], sourceId = nextQuestion.id) {
+    setSelectedDataSource({ kind: "question", id: sourceId });
+    setQuestion(nextQuestion.id);
+    setBreakBy(nextQuestion.allowedBreakBys[0]);
+    setMetric(nextQuestion.defaultMetric);
+    setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+    setWeight(defaultDataset.defaultWeight);
+    setFilterField(defaultFilterDimension?.id ?? null);
+    setFilterValue("all");
+    setVariableSetDraftName(nextQuestion.shortLabel);
+  }
+
+  function applyVariableSetSelection(variableSet: SavedVariableSet) {
+    const nextQuestion = defaultDataset.questions.find((item) => item.id === variableSet.primaryQuestionId) ?? defaultQuestion;
+    setSelectedDataSource({ kind: "variableSet", id: variableSet.id });
+    setQuestion(nextQuestion.id);
+    setBreakBy(nextQuestion.allowedBreakBys.includes(variableSet.breakBy) ? variableSet.breakBy : nextQuestion.allowedBreakBys[0]);
+    setMetric(nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric);
+    setChartType(nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+    setWeight(variableSet.weight);
+    setFilterField(variableSet.filterField);
+    setFilterValue(variableSet.filterValue);
+    setVariableSetDraftName(variableSet.label);
+  }
+
+  function saveCurrentVariableSet() {
+    const trimmedLabel = variableSetDraftName.trim();
+    if (!trimmedLabel) {
+      setError("Give the variable set a name before saving it.");
+      return;
+    }
+
+    const nextVariableSet: SavedVariableSet = {
+      id: `variable_set_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: trimmedLabel,
+      description: `Saved view for ${selectedQuestion.shortLabel}`,
+      topic: selectedQuestion.topic,
+      questionIds: [selectedQuestion.id],
+      primaryQuestionId: selectedQuestion.id,
+      breakBy,
+      metric,
+      chartType,
+      weight,
+      filterField,
+      filterValue
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        variableSets: [nextVariableSet, ...current.analysisLibrary.variableSets]
+      }
+    }));
+    setSelectedDataSource({ kind: "variableSet", id: nextVariableSet.id });
+    setError(null);
+  }
+
+  function deleteVariableSet(variableSetId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        variableSets: current.analysisLibrary.variableSets.filter((item) => item.id !== variableSetId)
+      }
+    }));
+    setSelectedDataSource({ kind: "question", id: selectedQuestion.id });
+  }
+
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
     setSaveState("Saved locally");
   }, [dashboard]);
+
+  useEffect(() => {
+    if (selectedVariableSet) {
+      setVariableSetDraftName(selectedVariableSet.label);
+      return;
+    }
+
+    setVariableSetDraftName(selectedQuestion.shortLabel);
+  }, [selectedQuestion.shortLabel, selectedVariableSet]);
 
   useEffect(() => {
     if (!designModal) return;
@@ -2205,10 +2334,11 @@ export default function App() {
 
     try {
       const response = await runAnalyticsQuery(query);
+      const sourceLabel = selectedVariableSet?.label ?? selectedQuestion.shortLabel;
       const tile: DashboardTile = {
         id: makeTileId(),
-        name: selectedQuestion.shortLabel,
-        title: selectedQuestion.shortLabel,
+        name: sourceLabel,
+        title: sourceLabel,
         locked: false,
         hidden: false,
         layout: { x: 48, y: 72 + activePage.tiles.length * 28, width: 760, height: 460, zIndex: nextZIndex(activePage) },
@@ -2888,89 +3018,166 @@ export default function App() {
               {leftPanelView === "data" && (
                 <>
               <div className="panel-title">
-                <h2>Data</h2>
+                <h2>Explore</h2>
               </div>
-              <label>
-                Variable set
-                <select
-                  value={question}
-                  onChange={(event) => {
-                    const nextQuestion = defaultDataset.questions.find((item) => item.id === event.target.value) ?? defaultQuestion;
-                    setQuestion(nextQuestion.id);
-                    setBreakBy(nextQuestion.allowedBreakBys[0]);
-                    setMetric(nextQuestion.defaultMetric);
-                    setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
-                  }}
-                >
-                  {defaultDataset.questions.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.shortLabel}
-                    </option>
-                  ))}
-                </select>
-                <span>{selectedQuestion.topic}</span>
-              </label>
-              <label>
-                Columns
-                <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
-                  {bannerDimensions
-                    .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
-                    .map((item) => (
-                      <option value={item.id} key={item.id}>
-                        {item.label}
-                      </option>
+              <div className="data-explorer">
+                <div className="color-summary-card">
+                  <div>
+                    <span>Dataset</span>
+                    <strong>{defaultDataset.label}</strong>
+                  </div>
+                  <small>{defaultDataset.description}</small>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Variable sets</strong>
+                    <small>{savedVariableSets.length} saved</small>
+                  </div>
+                  <div className="explorer-item-list">
+                    {savedVariableSets.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
+                        onClick={() => applyVariableSetSelection(item)}
+                      >
+                        <strong>{item.label}</strong>
+                        <span>{item.topic}</span>
+                      </button>
                     ))}
-                </select>
-              </label>
-              <div className="compact-grid">
-                <label>
-                  Cells
-                  <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
-                    {selectedQuestion.allowedMetrics.map((item) => (
-                      <option value={item} key={item}>
-                        {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
-                      </option>
+                  </div>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Questions</strong>
+                    <small>{defaultDataset.questions.length} available</small>
+                  </div>
+                  <div className="explorer-item-list">
+                    {defaultDataset.questions.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={selectedDataSource.kind === "question" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
+                        onClick={() => applyQuestionSelection(item)}
+                      >
+                        <strong>{item.shortLabel}</strong>
+                        <span>{item.topic}</span>
+                      </button>
                     ))}
-                  </select>
-                </label>
-                <label>
-                  Weight
-                  <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
-                    <option value="none">Unweighted</option>
-                    {defaultDataset.weights.map((item) => (
-                      <option value={item.id} key={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  </div>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Authoring</strong>
+                    <small>Current analysis object</small>
+                  </div>
+                  <div className="color-summary-card">
+                    <div>
+                      <span>Selected source</span>
+                      <strong>{selectedVariableSet ? selectedVariableSet.label : selectedQuestion.shortLabel}</strong>
+                    </div>
+                    <small>{selectedVariableSet ? selectedVariableSet.description : selectedQuestion.topic}</small>
+                  </div>
+                  <label>
+                    Save as variable set
+                    <input value={variableSetDraftName} onChange={(event) => setVariableSetDraftName(event.target.value)} placeholder="Name this saved set" />
+                  </label>
+                  <div className="compact-grid">
+                    <button type="button" className="secondary" onClick={saveCurrentVariableSet}>Save set</button>
+                    <button type="button" className="secondary" disabled={!selectedVariableSet} onClick={() => selectedVariableSet && deleteVariableSet(selectedVariableSet.id)}>
+                      Delete set
+                    </button>
+                  </div>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Build tile</strong>
+                    <small>Query-driven output</small>
+                  </div>
+                  <label>
+                    Banner
+                    <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
+                      {bannerDimensions
+                        .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
+                        .map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <div className="compact-grid">
+                    <label>
+                      Cells
+                      <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
+                        {selectedQuestion.allowedMetrics.map((item) => (
+                          <option value={item} key={item}>
+                            {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Weight
+                      <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
+                        <option value="none">Unweighted</option>
+                        {defaultDataset.weights.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="compact-grid">
+                    <label>
+                      Filter field
+                      <select value={filterField ?? "none"} onChange={(event) => setFilterField(event.target.value === "none" ? null : (event.target.value as FilterFieldId))}>
+                        <option value="none">No filter</option>
+                        {filterDimensions.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {selectedFilterDimension ? (
+                      <label>
+                        Filter value
+                        <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
+                          <option value="all">All {selectedFilterDimension.label.toLowerCase()}s</option>
+                          {selectedFilterDimension.values.map((item) => (
+                            <option value={item.id} key={item.id}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="explorer-meta-block">
+                        <span>No filter selected</span>
+                      </div>
+                    )}
+                  </div>
+                  <label>
+                    Chart type
+                    <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                      {selectedChartTypes.map((item) => (
+                        <option value={item} key={item}>
+                          {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
+                    {isLoading ? "Adding..." : "Add tile from source"}
+                  </button>
+                </div>
               </div>
-              {selectedFilterDimension && (
-            <label>
-              Filter
-              <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
-                <option value="all">All {selectedFilterDimension.label.toLowerCase()}s</option>
-                {selectedFilterDimension.values.map((item) => (
-                  <option value={item.id} key={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-              )}
-              <label>
-                Chart type
-                <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
-                  {selectedChartTypes.map((item) => (
-                    <option value={item} key={item}>
-                      {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
-                {isLoading ? "Adding..." : "Add tile"}
-              </button>
               {error && <div className="error">{error}</div>}
               </>
               )}

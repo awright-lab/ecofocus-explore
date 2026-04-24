@@ -341,6 +341,84 @@ h2 {
   gap: 8px;
 }
 
+.data-explorer {
+  display: grid;
+  gap: 10px;
+}
+
+.explorer-section-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dce4ea;
+  border-radius: 12px;
+  background: #f8fbfc;
+}
+
+.explorer-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.explorer-section-header strong {
+  color: #1b2f26;
+  font-size: 0.86rem;
+}
+
+.explorer-section-header small,
+.explorer-meta-block span,
+.color-summary-card small {
+  color: #698077;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.explorer-item-list {
+  display: grid;
+  gap: 7px;
+  max-height: 184px;
+  overflow: auto;
+}
+
+.explorer-item {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #dbe3e9;
+  border-radius: 10px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.explorer-item strong {
+  color: #20342a;
+  font-size: 0.8rem;
+}
+
+.explorer-item span {
+  color: #698077;
+  font-size: 0.73rem;
+}
+
+.explorer-item.active {
+  border-color: var(--accent-eco);
+  background: #ebfaf4;
+  box-shadow: 0 0 0 2px var(--accent-eco-soft);
+}
+
+.explorer-meta-block {
+  display: grid;
+  align-content: center;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px dashed #d6dfe5;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
 .insert-grid button,
 .layer-grid button {
   min-height: 32px;
