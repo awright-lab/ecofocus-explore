@@ -547,6 +547,11 @@ h2 {
   background: #ebfaf4;
 }
 
+.explorer-chip-button.secondary-chip {
+  background: #f8fbfc;
+  color: #476156;
+}
+
 .explorer-output-card {
   display: grid;
   gap: 10px;
@@ -986,6 +991,11 @@ button:disabled {
   border: 1px solid #dce4ea;
   border-radius: 10px;
   background: #f8fbfc;
+}
+
+.table-convert-subhead {
+  padding-top: 2px;
+  border-top: 1px solid #e4ebef;
 }
 
 .gradient-editor {

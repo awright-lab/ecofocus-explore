@@ -2746,6 +2746,34 @@ export default function App() {
     };
   }
 
+  function duplicateTileAsVisualization(tile: DashboardTile, nextVisualization: ChartType) {
+    const duplicate: DashboardTile = {
+      ...tile,
+      ...tileWithVisualization(tile, nextVisualization),
+      id: makeTileId(),
+      name: `${tile.name} ${getChartTypeLabel(nextVisualization).toLowerCase()}`,
+      title: tile.title,
+      layout: {
+        ...tile.layout,
+        x: tile.layout.x + 28,
+        y: tile.layout.y + 28,
+        zIndex: nextZIndex(activePage)
+      },
+      appearance: {
+        ...tile.appearance,
+        palette: [...tile.appearance.palette],
+        barStyles: { ...tile.appearance.barStyles }
+      }
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, duplicate] } : page))
+    }));
+    selectTile(duplicate.id);
+  }
+
   function updateSelectedTile(updates: Partial<DashboardTile>) {
     if (!selectedTileId) return;
 
@@ -4388,6 +4416,24 @@ export default function App() {
                           onClick={() => updateSelectedTile(tileWithVisualization(selectedTile, item))}
                         >
                           {getChartTypeLabel(item)}
+                        </button>
+                      ))}
+                  </div>
+                  <div className="explorer-section-header table-convert-subhead">
+                    <strong>Keep table and create chart</strong>
+                    <small>Useful when the page needs both views</small>
+                  </div>
+                  <div className="explorer-chip-row">
+                    {getCompatibleChartTypes(selectedTile.result)
+                      .filter((item) => item !== "table")
+                      .map((item) => (
+                        <button
+                          type="button"
+                          key={`duplicate-${item}`}
+                          className="explorer-chip-button secondary-chip"
+                          onClick={() => duplicateTileAsVisualization(selectedTile, item)}
+                        >
+                          New {getChartTypeLabel(item)}
                         </button>
                       ))}
                   </div>
