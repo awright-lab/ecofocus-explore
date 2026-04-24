@@ -2230,6 +2230,8 @@ export default function App() {
   const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
   const [leftPanelView, setLeftPanelView] = useState<"pages" | "layers" | "insert" | "data">("pages");
   const [exploreView, setExploreView] = useState<"source" | "analyze" | "library">("source");
+  const [sourceLibraryView, setSourceLibraryView] = useState<"variableSets" | "questions">("variableSets");
+  const [analysisLibraryView, setAnalysisLibraryView] = useState<"variableSets" | "banners" | "filters" | "weights">("variableSets");
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
   const [canvasZoom, setCanvasZoom] = useState(85);
@@ -3371,6 +3373,15 @@ export default function App() {
 
                 {exploreView === "source" && (
                   <>
+                    <div className="explore-subtabs">
+                      <button type="button" className={sourceLibraryView === "variableSets" ? "active" : ""} onClick={() => setSourceLibraryView("variableSets")}>
+                        Variable sets
+                      </button>
+                      <button type="button" className={sourceLibraryView === "questions" ? "active" : ""} onClick={() => setSourceLibraryView("questions")}>
+                        Questions
+                      </button>
+                    </div>
+                    {sourceLibraryView === "variableSets" && (
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Variable sets</strong>
@@ -3392,7 +3403,8 @@ export default function App() {
                         ))}
                       </div>
                     </div>
-
+                    )}
+                    {sourceLibraryView === "questions" && (
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Questions</strong>
@@ -3414,11 +3426,28 @@ export default function App() {
                         ))}
                       </div>
                     </div>
+                    )}
                   </>
                 )}
 
                 {exploreView === "analyze" && (
                   <>
+                    <div className="explorer-section-card compact">
+                      <div className="explorer-section-header">
+                        <strong>Analysis summary</strong>
+                        <small>Current setup</small>
+                      </div>
+                      <div className="explorer-chip-row">
+                        <span className="explorer-chip">Banner: {bannerDimensions.find((item) => item.id === breakBy)?.label ?? breakBy}</span>
+                        <span className="explorer-chip">Metric: {defaultDataset.metrics.find((item) => item.id === metric)?.label ?? metric}</span>
+                        <span className="explorer-chip">Weight: {weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted"}</span>
+                        <span className="explorer-chip">
+                          Filter: {selectedFilterDimension && filterValue !== "all"
+                            ? selectedFilterDimension.values.find((item) => item.id === filterValue)?.label ?? filterValue
+                            : "None"}
+                        </span>
+                      </div>
+                    </div>
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Analysis settings</strong>
@@ -3508,6 +3537,21 @@ export default function App() {
 
                 {exploreView === "library" && (
                   <>
+                    <div className="explore-subtabs library">
+                      <button type="button" className={analysisLibraryView === "variableSets" ? "active" : ""} onClick={() => setAnalysisLibraryView("variableSets")}>
+                        Variable sets
+                      </button>
+                      <button type="button" className={analysisLibraryView === "banners" ? "active" : ""} onClick={() => setAnalysisLibraryView("banners")}>
+                        Banners
+                      </button>
+                      <button type="button" className={analysisLibraryView === "filters" ? "active" : ""} onClick={() => setAnalysisLibraryView("filters")}>
+                        Filters
+                      </button>
+                      <button type="button" className={analysisLibraryView === "weights" ? "active" : ""} onClick={() => setAnalysisLibraryView("weights")}>
+                        Weights
+                      </button>
+                    </div>
+                    {analysisLibraryView === "variableSets" && (
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Variable set editor</strong>
@@ -3562,7 +3606,8 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-
+                    )}
+                    {analysisLibraryView === "banners" && (
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Saved banners</strong>
@@ -3581,7 +3626,8 @@ export default function App() {
                         <button type="button" className="secondary" onClick={saveCurrentBanner}>Save banner</button>
                       </div>
                     </div>
-
+                    )}
+                    {analysisLibraryView === "filters" && (
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Saved filters</strong>
@@ -3600,7 +3646,8 @@ export default function App() {
                         <button type="button" className="secondary" onClick={saveCurrentFilter}>Save filter</button>
                       </div>
                     </div>
-
+                    )}
+                    {analysisLibraryView === "weights" && (
                     <div className="explorer-section-card">
                       <div className="explorer-section-header">
                         <strong>Saved weights</strong>
@@ -3619,6 +3666,7 @@ export default function App() {
                         <button type="button" className="secondary" onClick={saveCurrentWeight}>Save weight</button>
                       </div>
                     </div>
+                    )}
                   </>
                 )}
               </div>

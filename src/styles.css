@@ -369,6 +369,32 @@ h2 {
   box-shadow: 0 0 0 2px var(--accent-eco-soft);
 }
 
+.explore-subtabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.explore-subtabs.library {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.explore-subtabs button {
+  min-height: 32px;
+  border: 1px solid #dbe3e9;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #405148;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.explore-subtabs button.active {
+  border-color: var(--accent-eco);
+  background: #ebfaf4;
+  color: #0f5b4b;
+}
+
 .explorer-section-card {
   display: grid;
   gap: 10px;
@@ -376,6 +402,10 @@ h2 {
   border: 1px solid #dce4ea;
   border-radius: 12px;
   background: #f8fbfc;
+}
+
+.explorer-section-card.compact {
+  gap: 8px;
 }
 
 .explorer-section-header {
@@ -444,6 +474,25 @@ h2 {
   border: 1px dashed #d6dfe5;
   border-radius: 10px;
   background: #ffffff;
+}
+
+.explorer-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.explorer-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid #dce5ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #486055;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .explorer-question-picker {
