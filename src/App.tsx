@@ -1649,6 +1649,27 @@ function slugifyFileName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "ecofocus-dashboard";
 }
 
+function pageSummary(page: DashboardPage) {
+  const visibleTiles = page.tiles.filter((tile) => !tile.hidden);
+  const visibleElements = page.elements.filter((element) => !element.hidden);
+  return {
+    tileCount: visibleTiles.length,
+    elementCount: visibleElements.length,
+    chartCount: visibleTiles.filter((tile) => tile.visualization !== "table").length,
+    tableCount: visibleTiles.filter((tile) => tile.visualization === "table").length,
+    primaryTopics: [...new Set(visibleTiles.map((tile) => getQuestionLabel(tile.result.metadataRefs.question)))].slice(0, 4)
+  };
+}
+
+function tilePresentationNotes(tile: DashboardTile) {
+  return [
+    `${getQuestionLabel(tile.result.metadataRefs.question)} (${tileSourceKindLabel(tile.source)})`,
+    `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
+    confidenceLevelLabel(resultConfidenceLevel(tile.result)),
+    ...tile.result.notes.slice(0, 2)
+  ];
+}
+
 function ValueLabel(props: {
   x?: unknown;
   y?: unknown;
@@ -3514,6 +3535,7 @@ export default function App() {
         id: page.id,
         title: page.title,
         order: page.order,
+        summary: pageSummary(page),
         background: {
           mode: page.backgroundMode,
           solid: page.background,
@@ -3571,7 +3593,8 @@ export default function App() {
               questionLabel: getQuestionLabel(tile.result.metadataRefs.question),
               sampleSize: sampleSizeLabel(tile.result),
               weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
-              confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result))
+              confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result)),
+              narrativeNotes: tilePresentationNotes(tile)
             },
             result: {
               columns: tile.result.columns,
@@ -3583,6 +3606,16 @@ export default function App() {
           }))
       })),
       analysisLibrary: dashboard.analysisLibrary,
+      presentationManifest: {
+        title: dashboard.title,
+        pageCount: sortedPages.length,
+        exportedSlides: sortedPages.map((page) => ({
+          id: page.id,
+          title: page.title,
+          order: page.order,
+          summary: pageSummary(page)
+        }))
+      },
       originalDraft: dashboard
     };
     const blob = new Blob([JSON.stringify(exportSpec, null, 2)], { type: "application/json" });
