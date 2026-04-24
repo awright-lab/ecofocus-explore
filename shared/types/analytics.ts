@@ -1,4 +1,4 @@
-export type DatasetId = "ecofocus_2024" | "ecofocus_2025";
+export type DatasetId = "ecofocus_2023" | "ecofocus_2024" | "ecofocus_2025";
 
 export type QuestionId = "Q_PACKAGING_TRUST" | "Q_SUSTAINABILITY_IMPORTANCE" | "Q15_TOP2_BRAND_PRIORITIES";
 

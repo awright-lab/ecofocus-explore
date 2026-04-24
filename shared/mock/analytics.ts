@@ -151,6 +151,24 @@ const mockPercentData: Record<DatasetId, Record<string, Record<string, MockQuest
         not_at_all_important: { summary: { value: 11, base: 1410 } }
       }
     }
+  },
+  ecofocus_2023: {
+    Q_PACKAGING_TRUST: {
+      SUMMARY: {
+        trust_a_lot: { summary: { value: 14, base: 1360 } },
+        trust_somewhat: { summary: { value: 37, base: 1360 } },
+        neutral: { summary: { value: 27, base: 1360 } },
+        distrust: { summary: { value: 22, base: 1360 } }
+      }
+    },
+    Q_SUSTAINABILITY_IMPORTANCE: {
+      SUMMARY: {
+        very_important: { summary: { value: 24, base: 1360 } },
+        somewhat_important: { summary: { value: 39, base: 1360 } },
+        not_very_important: { summary: { value: 24, base: 1360 } },
+        not_at_all_important: { summary: { value: 13, base: 1360 } }
+      }
+    }
   }
 };
 
@@ -168,6 +186,13 @@ const mockMultiBinarySummaryData: Record<DatasetId, Record<string, { value: numb
     Q15r7: { value: 44, base: 3010 },
     Q15r8: { value: 42, base: 3010 },
     Q15r9: { value: 54, base: 3010 }
+  },
+  ecofocus_2023: {
+    Q15r1: { value: 45, base: 2875 },
+    Q15r2: { value: 42, base: 2875 },
+    Q15r7: { value: 40, base: 2875 },
+    Q15r8: { value: 38, base: 2875 },
+    Q15r9: { value: 50, base: 2875 }
   }
 };
 

@@ -75,4 +75,31 @@ describe("mockAnalyticsProvider", () => {
       significanceMethod: "none"
     });
   });
+
+  it("returns multi-wave trend output when multiple comparison datasets are selected", async () => {
+    const query: AnalyticsQueryRequest = {
+      dataset: "ecofocus_2025",
+      question: "Q_SUSTAINABILITY_IMPORTANCE",
+      breakBy: "SUMMARY",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "line_chart",
+      confidenceLevel: 0.95,
+      comparisonMode: "wave",
+      comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"]
+    };
+
+    const result = await mockAnalyticsProvider.runQuery(query);
+
+    expect(result.columns).toEqual([
+      { id: "ecofocus_2025", label: "2025" },
+      { id: "ecofocus_2024", label: "2024" },
+      { id: "ecofocus_2023", label: "2023" }
+    ]);
+    expect(result.table[0]).toMatchObject({
+      optionId: "very_important",
+      values: { ecofocus_2025: 31, ecofocus_2024: 27, ecofocus_2023: 24 }
+    });
+  });
 });

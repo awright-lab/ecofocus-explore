@@ -288,7 +288,23 @@ export const ecofocus2024Metadata: DatasetMetadata = {
   dimensions: sharedDimensions
 };
 
-export const datasets = [ecofocus2025Metadata, ecofocus2024Metadata];
+export const ecofocus2023Metadata: DatasetMetadata = {
+  id: "ecofocus_2023",
+  label: "EcoFocus 2023",
+  wave: "2023",
+  description: "Earlier-wave mock survey metadata for EcoFocus Explore trend comparisons.",
+  defaultQuestion: "Q15_TOP2_BRAND_PRIORITIES",
+  defaultBreakBy: "SUMMARY",
+  defaultWeight: "weightvar",
+  minBaseWarning: 100,
+  metrics: sharedMetrics,
+  chartTypes: sharedChartTypes,
+  weights: sharedWeights,
+  questions: sharedQuestions,
+  dimensions: sharedDimensions
+};
+
+export const datasets = [ecofocus2025Metadata, ecofocus2024Metadata, ecofocus2023Metadata];
 
 export function getDatasetMetadata(datasetId: DatasetId) {
   return datasets.find((dataset) => dataset.id === datasetId);

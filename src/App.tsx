@@ -43,7 +43,7 @@ const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === def
 const defaultFilterDimension = filterDimensions[0];
 const axisFontSizePresets = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24];
 const axisRotationPresets = [0, -45, 45, -90, 90];
-const waveComparisonChartTypes: ChartType[] = ["table", "grouped_bar", "stacked_bar", "line_chart"];
+const waveComparisonChartTypes: ChartType[] = ["line_chart", "grouped_bar", "stacked_bar", "table"];
 
 const palettes = [
   { id: "forest", label: "Forest", colors: ["#39784d", "#6c9b4d", "#2d6f73", "#9a7a38", "#6f6697"] },
@@ -214,8 +214,29 @@ function seedVariableSets(): SavedVariableSet[] {
       breakBy: "SUMMARY",
       metric: "percent_selected",
       chartType: "horizontal_bar",
+      comparisonMode: "none",
+      comparisonDatasets: [],
       weight: defaultDataset.defaultWeight,
       filterField: defaultFilterDimension?.id ?? null,
+      filterValue: "all"
+    },
+    {
+      id: "vs_packaging_trust_trend",
+      datasetId: defaultDataset.id,
+      label: "Packaging trust trend",
+      description: "Saved trend view for packaging claim trust across prior waves.",
+      topic: "Packaging",
+      questionIds: ["Q_PACKAGING_TRUST"],
+      primaryQuestionId: "Q_PACKAGING_TRUST",
+      rowMode: "authored",
+      rows: defaultVariableSetRows("Q_PACKAGING_TRUST"),
+      breakBy: "SUMMARY",
+      metric: "column_percent",
+      chartType: "line_chart",
+      comparisonMode: "wave",
+      comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"],
+      weight: defaultDataset.defaultWeight,
+      filterField: null,
       filterValue: "all"
     }
   ];
@@ -1630,6 +1651,14 @@ function comparisonSummaryLabel(query: AnalyticsQueryRequest) {
   return query.comparisonMode === "wave" ? `Wave: ${comparisonDatasetsLabel(query.comparisonDatasets ?? [])}` : "None";
 }
 
+function trendSpanLabel(query: AnalyticsQueryRequest) {
+  if (query.comparisonMode !== "wave") return null;
+  const waves = [query.dataset, ...(query.comparisonDatasets ?? [])]
+    .map((datasetId) => datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId)
+    .sort();
+  return `${waves[0]}-${waves[waves.length - 1]} trend`;
+}
+
 function tileSourceKindLabel(source: DashboardTile["source"]) {
   if (!source) return "Query";
   return source.kind === "variableSet" ? "Variable set" : "Question";
@@ -1647,6 +1676,7 @@ function pageSummary(page: DashboardPage) {
     elementCount: visibleElements.length,
     chartCount: visibleTiles.filter((tile) => tile.visualization !== "table").length,
     tableCount: visibleTiles.filter((tile) => tile.visualization === "table").length,
+    trendTileCount: visibleTiles.filter((tile) => tile.query.comparisonMode === "wave").length,
     primaryTopics: [...new Set(visibleTiles.map((tile) => getQuestionLabel(tile.result.metadataRefs.question)))].slice(0, 4)
   };
 }
@@ -1654,6 +1684,7 @@ function pageSummary(page: DashboardPage) {
 function tilePresentationNotes(tile: DashboardTile) {
   return [
     `${getQuestionLabel(tile.result.metadataRefs.question)} (${tileSourceKindLabel(tile.source)})`,
+    ...(trendSpanLabel(tile.query) ? [trendSpanLabel(tile.query)!] : []),
     `Comparison: ${comparisonSummaryLabel(tile.query)}`,
     `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
     confidenceLevelLabel(resultConfidenceLevel(tile.result)),
@@ -2310,6 +2341,8 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           breakBy: variableSet.breakBy ?? (defaultBreakBy.id as BreakById),
           metric: variableSet.metric ?? defaultQuestion.defaultMetric,
           chartType: variableSet.chartType ?? defaultVisualizationForQuestion(defaultQuestion),
+          comparisonMode: variableSet.comparisonMode ?? "none",
+          comparisonDatasets: variableSet.comparisonDatasets ?? [],
           weight: variableSet.weight ?? defaultDataset.defaultWeight,
           filterField: variableSet.filterField ?? (defaultFilterDimension?.id ?? null),
           filterValue: variableSet.filterValue ?? "all"
@@ -2568,17 +2601,28 @@ export default function App() {
 
   function queryForVariableSet(variableSet: SavedVariableSet): AnalyticsQueryRequest {
     const nextQuestion = defaultDataset.questions.find((item) => item.id === variableSet.primaryQuestionId) ?? defaultQuestion;
+    const nextComparisonMode = variableSet.comparisonMode ?? "none";
     return {
       dataset: defaultDataset.id,
       question: nextQuestion.id,
-      breakBy: nextQuestion.allowedBreakBys.includes(variableSet.breakBy) ? variableSet.breakBy : nextQuestion.allowedBreakBys[0],
+      breakBy:
+        nextComparisonMode === "wave"
+          ? "SUMMARY"
+          : nextQuestion.allowedBreakBys.includes(variableSet.breakBy)
+            ? variableSet.breakBy
+            : nextQuestion.allowedBreakBys[0],
       filters: variableSet.filterField && variableSet.filterValue !== "all" ? [{ field: variableSet.filterField, values: [variableSet.filterValue] }] : [],
       weight: variableSet.weight,
       metric: nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric,
-      chartType: nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : defaultVisualizationForQuestion(nextQuestion),
+      chartType:
+        nextComparisonMode === "wave"
+          ? (waveComparisonChartTypes.find((item) => item === variableSet.chartType) ?? waveComparisonChartTypes[0])
+          : nextQuestion.allowedChartTypes.includes(variableSet.chartType)
+            ? variableSet.chartType
+            : defaultVisualizationForQuestion(nextQuestion),
       confidenceLevel: 0.95,
-      comparisonMode: "none",
-      comparisonDatasets: []
+      comparisonMode: nextComparisonMode,
+      comparisonDatasets: variableSet.comparisonDatasets ?? []
     };
   }
 
@@ -2672,16 +2716,29 @@ export default function App() {
 
   function applyVariableSetSelection(variableSet: SavedVariableSet) {
     const nextQuestion = defaultDataset.questions.find((item) => item.id === variableSet.primaryQuestionId) ?? defaultQuestion;
+    const nextComparisonMode = variableSet.comparisonMode ?? "none";
+    const nextChartType =
+      nextComparisonMode === "wave"
+        ? (waveComparisonChartTypes.find((item) => item === variableSet.chartType) ?? waveComparisonChartTypes[0])
+        : nextQuestion.allowedChartTypes.includes(variableSet.chartType)
+          ? variableSet.chartType
+          : defaultVisualizationForQuestion(nextQuestion);
     setSelectedDataSource({ kind: "variableSet", id: variableSet.id });
     setQuestion(nextQuestion.id);
-    setBreakBy(nextQuestion.allowedBreakBys.includes(variableSet.breakBy) ? variableSet.breakBy : nextQuestion.allowedBreakBys[0]);
+    setBreakBy(
+      nextComparisonMode === "wave"
+        ? "SUMMARY"
+        : nextQuestion.allowedBreakBys.includes(variableSet.breakBy)
+          ? variableSet.breakBy
+          : nextQuestion.allowedBreakBys[0]
+    );
     setMetric(nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric);
-    setChartType(nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : defaultVisualizationForQuestion(nextQuestion));
+    setChartType(nextChartType);
     setWeight(variableSet.weight);
     setFilterField(variableSet.filterField);
     setFilterValue(variableSet.filterValue);
-    setComparisonMode("none");
-    setComparisonDatasets([]);
+    setComparisonMode(nextComparisonMode);
+    setComparisonDatasets(variableSet.comparisonDatasets ?? []);
     setVariableSetDraftName(variableSet.label);
     setVariableSetDescription(variableSet.description);
     setVariableSetQuestionIds(variableSet.questionIds);
@@ -2713,6 +2770,8 @@ export default function App() {
       breakBy,
       metric,
       chartType,
+      comparisonMode,
+      comparisonDatasets,
       weight,
       filterField,
       filterValue
@@ -2982,6 +3041,8 @@ export default function App() {
       breakBy: selectedTile.query.breakBy,
       metric: selectedTile.query.metric,
       chartType: selectedTile.visualization,
+      comparisonMode: selectedTile.query.comparisonMode ?? "none",
+      comparisonDatasets: selectedTile.query.comparisonDatasets ?? [],
       weight: selectedTile.query.weight,
       filterField: (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ?? null,
       filterValue: selectedTile.query.filters[0]?.values[0] ?? "all"
@@ -3698,6 +3759,7 @@ export default function App() {
               metricLabel: tile.result.metric.label,
               questionLabel: getQuestionLabel(tile.result.metadataRefs.question),
               comparison: comparisonSummaryLabel(tile.query),
+              trendSpan: trendSpanLabel(tile.query),
               sampleSize: sampleSizeLabel(tile.result),
               weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
               confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result)),
@@ -5377,16 +5439,23 @@ export default function App() {
                       Comparison
                       <select
                         value={selectedTile.query.comparisonMode ?? "none"}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const nextMode = event.target.value as ComparisonMode;
+                          const nextVisualization =
+                            nextMode === "wave" && !waveComparisonChartTypes.includes(selectedTile.visualization)
+                              ? waveComparisonChartTypes[0]
+                              : selectedTile.visualization;
                           updateSelectedTile({
+                            visualization: nextVisualization,
                             query: {
                               ...selectedTile.query,
-                              comparisonMode: event.target.value as ComparisonMode,
-                              breakBy: event.target.value === "wave" ? "SUMMARY" : selectedTile.query.breakBy,
-                              comparisonDatasets: event.target.value === "wave" ? selectedTile.query.comparisonDatasets ?? [] : []
+                              chartType: nextVisualization,
+                              comparisonMode: nextMode,
+                              breakBy: nextMode === "wave" ? "SUMMARY" : selectedTile.query.breakBy,
+                              comparisonDatasets: nextMode === "wave" ? selectedTile.query.comparisonDatasets ?? [] : []
                             }
-                          })
-                        }
+                          });
+                        }}
                       >
                         <option value="none">None</option>
                         <option value="wave">Wave comparison</option>

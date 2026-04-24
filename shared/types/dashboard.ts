@@ -1,5 +1,6 @@
 import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
+import type { ComparisonMode } from "./analytics";
 
 export type DashboardStatus = "draft" | "published";
 
@@ -194,6 +195,8 @@ export interface SavedVariableSet {
   breakBy: BreakById;
   metric: Metric;
   chartType: ChartType;
+  comparisonMode?: ComparisonMode;
+  comparisonDatasets?: DatasetId[];
   weight: WeightId | null;
   filterField: FilterFieldId | null;
   filterValue: string;
