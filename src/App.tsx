@@ -32,7 +32,24 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TileAppearance } from "../shared/types/dashboard";
+import type {
+  CanvasLayout,
+  DashboardCanvasElement,
+  DashboardCanvasElementType,
+  DashboardDraft,
+  DashboardPage,
+  DashboardTile,
+  DesignColorPalette,
+  GradientStop,
+  GradientType,
+  PageThemePreset,
+  SavedBanner,
+  SavedFilterSet,
+  SavedVariableSet,
+  SavedWeightProfile,
+  TextStylePreset,
+  TileAppearance
+} from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -137,6 +154,133 @@ const fontFamilies = [
   { label: "Times", value: "\"Times New Roman\", Times, serif" },
   { label: "Courier", value: "\"Courier New\", Courier, monospace" }
 ];
+
+function seedDesignPalettes(): DesignColorPalette[] {
+  return [
+    ...palettes.map((palette) => ({
+      id: palette.id,
+      label: palette.label,
+      description: `${palette.label} reporting palette`,
+      colors: palette.colors
+    })),
+    {
+      id: "aurora",
+      label: "Aurora",
+      description: "Bright presentation palette for highlight pages and lighter storytelling tiles.",
+      colors: ["#16c9c3", "#00d17f", "#4f8ef7", "#ffd166", "#102332"]
+    }
+  ];
+}
+
+function seedTextStyles(): TextStylePreset[] {
+  return [
+    {
+      id: "display_title",
+      label: "Display title",
+      description: "Hero-sized page heading for lead slides and landing sections.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 36,
+      fontWeight: "800",
+      lineHeight: 1.05,
+      textAlign: "left",
+      textColor: "#102332"
+    },
+    {
+      id: "section_heading",
+      label: "Section heading",
+      description: "Strong panel or section header for titles inside the report canvas.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 22,
+      fontWeight: "700",
+      lineHeight: 1.15,
+      textAlign: "left",
+      textColor: "#183528"
+    },
+    {
+      id: "body_copy",
+      label: "Body copy",
+      description: "Default readable paragraph style for editorial and annotation blocks.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 16,
+      fontWeight: "500",
+      lineHeight: 1.45,
+      textAlign: "left",
+      textColor: "#33473d"
+    },
+    {
+      id: "stat_callout",
+      label: "Stat callout",
+      description: "Compact numeric highlight style for short metrics and callout boxes.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 28,
+      fontWeight: "800",
+      lineHeight: 1.1,
+      textAlign: "center",
+      textColor: "#0e6958"
+    },
+    {
+      id: "caption",
+      label: "Caption",
+      description: "Small supporting style for footnotes, sources, and chart callouts.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 12,
+      fontWeight: "600",
+      lineHeight: 1.3,
+      textAlign: "left",
+      textColor: "#607267"
+    }
+  ];
+}
+
+function seedPageThemes(): PageThemePreset[] {
+  return [
+    {
+      id: "paper",
+      label: "Paper",
+      description: "Quiet white canvas with a subtle reporting gradient.",
+      backgroundMode: "solid",
+      background: "#ffffff",
+      backgroundImage: "",
+      backgroundImageFit: "cover",
+      gradientFrom: "#ffffff",
+      gradientTo: "#eef7ef",
+      gradientType: "linear",
+      gradientAngle: 135,
+      gradientStops: [],
+      showCanvasGrid: true
+    },
+    {
+      id: "mist",
+      label: "Mist",
+      description: "Soft branded gradient that keeps the canvas airy but recognizable.",
+      backgroundMode: "gradient",
+      background: "#eff8f4",
+      backgroundImage: "",
+      backgroundImageFit: "cover",
+      gradientFrom: "#f8fcfb",
+      gradientTo: "#bcefd6",
+      gradientType: "linear",
+      gradientAngle: 135,
+      gradientStops: [],
+      showCanvasGrid: false
+    },
+    {
+      id: "night",
+      label: "Night",
+      description: "Dark presentation stage for statement pages and executive storytelling.",
+      backgroundMode: "gradient",
+      background: "#102332",
+      backgroundImage: "",
+      backgroundImageFit: "cover",
+      gradientFrom: "#102332",
+      gradientTo: "#1a5b67",
+      gradientType: "linear",
+      gradientAngle: 135,
+      gradientStops: [],
+      showCanvasGrid: false
+    }
+  ];
+}
 
 let lastSolidPickerHue = 150;
 
@@ -301,6 +445,14 @@ function seedSavedWeights(): SavedWeightProfile[] {
   ];
 }
 
+function seedDesignLibrary() {
+  return {
+    palettes: seedDesignPalettes(),
+    textStyles: seedTextStyles(),
+    pageThemes: seedPageThemes()
+  };
+}
+
 const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
   title: "2025 EcoFocus Builder Draft",
@@ -311,6 +463,7 @@ const initialDashboard: DashboardDraft = {
     filters: seedSavedFilters(),
     weights: seedSavedWeights()
   },
+  designLibrary: seedDesignLibrary(),
   pages: [
     {
       id: "page_overview",
@@ -2313,6 +2466,7 @@ function clampZIndex(value: number) {
 }
 
 function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
+  const seededDesignLibrary = seedDesignLibrary();
   return {
     ...dashboard,
     analysisLibrary: {
@@ -2375,6 +2529,46 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           description: weightProfile.description ?? "",
           weight: weightProfile.weight ?? null
         })) ?? seedSavedWeights()
+    },
+    designLibrary: {
+      palettes:
+        dashboard.designLibrary?.palettes?.map((palette, index) => ({
+          ...palette,
+          id: palette.id ?? `palette_${index + 1}`,
+          label: palette.label ?? `Palette ${index + 1}`,
+          description: palette.description ?? "",
+          colors: palette.colors?.length ? palette.colors : seededDesignLibrary.palettes[index % seededDesignLibrary.palettes.length].colors
+        })) ?? seededDesignLibrary.palettes,
+      textStyles:
+        dashboard.designLibrary?.textStyles?.map((textStyle, index) => ({
+          ...textStyle,
+          id: textStyle.id ?? `text_style_${index + 1}`,
+          label: textStyle.label ?? `Text style ${index + 1}`,
+          description: textStyle.description ?? "",
+          fontFamily: textStyle.fontFamily ?? fontFamilies[0].value,
+          fontSize: textStyle.fontSize ?? 16,
+          fontWeight: textStyle.fontWeight ?? "500",
+          lineHeight: textStyle.lineHeight ?? 1.4,
+          textAlign: textStyle.textAlign ?? "left",
+          textColor: textStyle.textColor ?? "#33473d"
+        })) ?? seededDesignLibrary.textStyles,
+      pageThemes:
+        dashboard.designLibrary?.pageThemes?.map((pageTheme, index) => ({
+          ...pageTheme,
+          id: pageTheme.id ?? `page_theme_${index + 1}`,
+          label: pageTheme.label ?? `Page theme ${index + 1}`,
+          description: pageTheme.description ?? "",
+          backgroundMode: pageTheme.backgroundMode ?? "solid",
+          background: pageTheme.background ?? "#ffffff",
+          backgroundImage: pageTheme.backgroundImage ?? "",
+          backgroundImageFit: pageTheme.backgroundImageFit ?? "cover",
+          gradientFrom: pageTheme.gradientFrom ?? "#ffffff",
+          gradientTo: pageTheme.gradientTo ?? "#eef7ef",
+          gradientType: pageTheme.gradientType ?? "linear",
+          gradientAngle: pageTheme.gradientAngle ?? 135,
+          gradientStops: pageTheme.gradientStops ?? [],
+          showCanvasGrid: pageTheme.showCanvasGrid ?? true
+        })) ?? seededDesignLibrary.pageThemes
     },
     pages: dashboard.pages.map((page) => ({
           ...page,
@@ -2461,7 +2655,7 @@ export default function App() {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
-  const [leftPanelView, setLeftPanelView] = useState<"pages" | "layers" | "insert" | "data">("pages");
+  const [leftPanelView, setLeftPanelView] = useState<"pages" | "layers" | "insert" | "data" | "brand">("pages");
   const [exploreView, setExploreView] = useState<"source" | "analyze" | "library">("source");
   const [sourceLibraryView, setSourceLibraryView] = useState<"variableSets" | "questions">("variableSets");
   const [analysisLibraryView, setAnalysisLibraryView] = useState<"variableSets" | "banners" | "filters" | "weights">("variableSets");
@@ -2501,6 +2695,9 @@ export default function App() {
   const savedBanners = dashboard.analysisLibrary.banners;
   const savedFilters = dashboard.analysisLibrary.filters;
   const savedWeights = dashboard.analysisLibrary.weights;
+  const designPalettes = dashboard.designLibrary.palettes;
+  const textStylePresets = dashboard.designLibrary.textStyles;
+  const pageThemes = dashboard.designLibrary.pageThemes;
   const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
   const normalizedSourceSearch = sourceSearch.trim().toLowerCase();
   const filteredVariableSets = savedVariableSets.filter((item) =>
@@ -2520,6 +2717,7 @@ export default function App() {
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
+  const selectedTextElement = selectedElement?.type === "text" ? selectedElement : null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes =
     comparisonMode === "wave"
@@ -3427,6 +3625,72 @@ export default function App() {
     }));
   }
 
+  function applyPaletteToTile(palette: DesignColorPalette, scope: "selected" | "all" = "selected") {
+    const updateAppearance = (appearance: TileAppearance): TileAppearance => ({
+      ...appearance,
+      primaryColor: palette.colors[0],
+      palette: palette.colors,
+      labelColor: palette.colors[0],
+      barFillMode: "solid",
+      barGradientStops: [],
+      barStyles: {},
+      gridColor: appearance.gridColor,
+      xAxisTextColor: appearance.xAxisTextColor,
+      yAxisTextColor: appearance.yAxisTextColor
+    });
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) => {
+                if (scope === "selected" && tile.id !== selectedTileId) {
+                  return tile;
+                }
+                return {
+                  ...tile,
+                  appearance: updateAppearance(tile.appearance)
+                };
+              })
+            }
+          : page
+      )
+    }));
+  }
+
+  function applyTextStylePresetToSelection(preset: TextStylePreset) {
+    if (!selectedTextElement) return;
+    updateSelectedElement({
+      style: {
+        ...selectedTextElement.style,
+        fontFamily: preset.fontFamily,
+        fontSize: preset.fontSize,
+        fontWeight: preset.fontWeight,
+        textAlign: preset.textAlign,
+        lineHeight: preset.lineHeight,
+        textColor: preset.textColor
+      }
+    });
+  }
+
+  function applyPageTheme(theme: PageThemePreset) {
+    updateActivePage({
+      backgroundMode: theme.backgroundMode,
+      background: theme.background,
+      backgroundImage: theme.backgroundImage,
+      backgroundImageFit: theme.backgroundImageFit,
+      gradientFrom: theme.gradientFrom,
+      gradientTo: theme.gradientTo,
+      gradientType: theme.gradientType,
+      gradientAngle: theme.gradientAngle,
+      gradientStops: theme.gradientStops,
+      showCanvasGrid: theme.showCanvasGrid
+    });
+  }
+
   function updateElement(elementId: string, updates: Partial<DashboardCanvasElement>) {
     setDashboard((current) => ({
       ...current,
@@ -4142,6 +4406,10 @@ export default function App() {
             <span>＋</span>
             Elements
           </button>
+          <button type="button" className={leftPanelView === "brand" ? "active" : ""} onClick={() => setLeftPanelView("brand")}>
+            <span>◐</span>
+            Brand
+          </button>
           <button type="button" className={leftPanelView === "data" ? "active" : ""} onClick={() => setLeftPanelView("data")}>
             <span>▥</span>
             Charts
@@ -4229,6 +4497,121 @@ export default function App() {
                 <button type="button" className="secondary" onClick={() => addCanvasElement("rectangle")}>Rectangle</button>
                 <button type="button" className="secondary" onClick={() => addCanvasElement("circle")}>Circle</button>
                 <button type="button" className="secondary" onClick={() => addCanvasElement("image")}>Image</button>
+              </div>
+              </>
+              )}
+
+              {leftPanelView === "brand" && (
+                <>
+              <div className="panel-title">
+                <h2>Brand</h2>
+              </div>
+              <div className="brand-panel">
+                <div className="color-summary-card">
+                  <div>
+                    <span>Design library</span>
+                    <strong>EcoFocus system</strong>
+                  </div>
+                  <small>Reusable palettes, typography presets, and page themes for faster report building.</small>
+                </div>
+                <div className="brand-context-card">
+                  <span>Current focus</span>
+                  <strong>
+                    {selectedTextElement
+                      ? "Selected text block"
+                      : selectedTile
+                      ? selectedTile.title
+                      : "Active page"}
+                  </strong>
+                  <small>
+                    {selectedTextElement
+                      ? "Apply text styles directly to the selected text element."
+                      : selectedTile
+                      ? "Apply a palette to the selected chart tile or across all chart tiles."
+                      : "Apply page themes to the active canvas while you build."}
+                  </small>
+                </div>
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Palettes</strong>
+                    <small>{designPalettes.length} saved</small>
+                  </div>
+                  <div className="brand-palette-list">
+                    {designPalettes.map((palette) => (
+                      <div key={palette.id} className="brand-palette-card">
+                        <div className="brand-palette-header">
+                          <div>
+                            <strong>{palette.label}</strong>
+                            <small>{palette.description}</small>
+                          </div>
+                          <div className="brand-swatch-row">
+                            {palette.colors.map((color) => (
+                              <span key={color} className="brand-swatch" style={{ background: color }} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="brand-card-actions">
+                          <button type="button" className="secondary" onClick={() => applyPaletteToTile(palette, "selected")} disabled={!selectedTile}>
+                            Apply to tile
+                          </button>
+                          <button type="button" className="secondary" onClick={() => applyPaletteToTile(palette, "all")}>
+                            Apply to all charts
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Text styles</strong>
+                    <small>{textStylePresets.length} presets</small>
+                  </div>
+                  <div className="brand-style-list">
+                    {textStylePresets.map((preset) => (
+                      <button type="button" key={preset.id} className="brand-text-style-card" onClick={() => applyTextStylePresetToSelection(preset)} disabled={!selectedTextElement}>
+                        <span>{preset.label}</span>
+                        <strong
+                          style={{
+                            fontFamily: preset.fontFamily,
+                            fontSize: Math.min(preset.fontSize, 22),
+                            fontWeight: preset.fontWeight,
+                            color: preset.textColor,
+                            textAlign: preset.textAlign
+                          }}
+                        >
+                          EcoFocus
+                        </strong>
+                        <small>{preset.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Page themes</strong>
+                    <small>{pageThemes.length} saved</small>
+                  </div>
+                  <div className="brand-theme-list">
+                    {pageThemes.map((theme) => (
+                      <button type="button" key={theme.id} className="brand-theme-card" onClick={() => applyPageTheme(theme)}>
+                        <span
+                          className="brand-theme-preview"
+                          style={{
+                            background:
+                              theme.backgroundMode === "gradient"
+                                ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
+                                : theme.background
+                          }}
+                        />
+                        <div>
+                          <strong>{theme.label}</strong>
+                          <small>{theme.description}</small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               </>
               )}
@@ -5121,6 +5504,14 @@ export default function App() {
                 <>
                   <div className="panel-title subtle">
                     <h2>Typography</h2>
+                  </div>
+                  <div className="settings-menu">
+                    {textStylePresets.map((preset) => (
+                      <button type="button" key={preset.id} className="menu-card" onClick={() => applyTextStylePresetToSelection(preset)}>
+                        <strong>{preset.label}</strong>
+                        <span>{preset.description}</span>
+                      </button>
+                    ))}
                   </div>
                   <label>
                     Font

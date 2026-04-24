@@ -227,6 +227,47 @@ export interface SavedWeightProfile {
   weight: WeightId | null;
 }
 
+export interface DesignColorPalette {
+  id: string;
+  label: string;
+  description: string;
+  colors: string[];
+}
+
+export interface TextStylePreset {
+  id: string;
+  label: string;
+  description: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: string;
+  lineHeight: number;
+  textAlign: "left" | "center" | "right";
+  textColor: string;
+}
+
+export interface PageThemePreset {
+  id: string;
+  label: string;
+  description: string;
+  backgroundMode: DashboardPage["backgroundMode"];
+  background: string;
+  backgroundImage: string;
+  backgroundImageFit: DashboardPage["backgroundImageFit"];
+  gradientFrom: string;
+  gradientTo: string;
+  gradientType: GradientType;
+  gradientAngle: number;
+  gradientStops: GradientStop[];
+  showCanvasGrid: boolean;
+}
+
+export interface DesignLibrary {
+  palettes: DesignColorPalette[];
+  textStyles: TextStylePreset[];
+  pageThemes: PageThemePreset[];
+}
+
 export interface DashboardDraft {
   id: string;
   title: string;
@@ -237,5 +278,6 @@ export interface DashboardDraft {
     filters: SavedFilterSet[];
     weights: SavedWeightProfile[];
   };
+  designLibrary: DesignLibrary;
   pages: DashboardPage[];
 }
