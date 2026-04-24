@@ -2229,6 +2229,7 @@ export default function App() {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedChartPartId, setSelectedChartPartId] = useState<string>("all");
   const [leftPanelView, setLeftPanelView] = useState<"pages" | "layers" | "insert" | "data">("pages");
+  const [exploreView, setExploreView] = useState<"source" | "analyze" | "library">("source");
   const [settingsView, setSettingsView] = useState<"home" | "page" | "layout" | "element" | "chart" | "container">("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
   const [canvasZoom, setCanvasZoom] = useState(85);
@@ -3345,259 +3346,281 @@ export default function App() {
                   </div>
                   <small>{defaultDataset.description}</small>
                 </div>
-
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Variable sets</strong>
-                    <small>{savedVariableSets.length} saved</small>
+                <div className="explore-flow-tabs">
+                  <button type="button" className={exploreView === "source" ? "active" : ""} onClick={() => setExploreView("source")}>
+                    1. Source
+                  </button>
+                  <button type="button" className={exploreView === "analyze" ? "active" : ""} onClick={() => setExploreView("analyze")}>
+                    2. Analyze
+                  </button>
+                  <button type="button" className={exploreView === "library" ? "active" : ""} onClick={() => setExploreView("library")}>
+                    3. Library
+                  </button>
+                </div>
+                <div className="color-summary-card">
+                  <div>
+                    <span>Current source</span>
+                    <strong>{selectedVariableSet ? selectedVariableSet.label : selectedQuestion.shortLabel}</strong>
                   </div>
-                  <div className="explorer-item-list">
-                    {savedVariableSets.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        draggable
-                        className={selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
-                        onClick={() => applyVariableSetSelection(item)}
-                        onDragStart={(event) => startDataSourceDrag({ kind: "variableSet", id: item.id }, event)}
-                      >
-                        <strong>{item.label}</strong>
-                        <span>{item.topic} · Drag to canvas</span>
-                      </button>
-                    ))}
-                  </div>
+                  <small>
+                    {selectedVariableSet
+                      ? `${selectedVariableSet.description} · Drag to canvas or continue to Analyze.`
+                      : `${selectedQuestion.topic} · Drag to canvas or continue to Analyze.`}
+                  </small>
                 </div>
 
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Questions</strong>
-                    <small>{defaultDataset.questions.length} available</small>
-                  </div>
-                  <div className="explorer-item-list">
-                    {defaultDataset.questions.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        draggable
-                        className={selectedDataSource.kind === "question" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
-                        onClick={() => applyQuestionSelection(item)}
-                        onDragStart={(event) => startDataSourceDrag({ kind: "question", id: item.id }, event)}
-                      >
-                        <strong>{item.shortLabel}</strong>
-                        <span>{item.topic} · Drag to canvas</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Banners</strong>
-                    <small>{savedBanners.length} saved</small>
-                  </div>
-                  <div className="explorer-item-list compact">
-                    {savedBanners.map((item) => (
-                      <button type="button" key={item.id} className={item.breakBy === breakBy ? "explorer-item active" : "explorer-item"} onClick={() => applySavedBanner(item)}>
-                        <strong>{item.label}</strong>
-                        <span>{item.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="compact-grid">
-                    <input value={bannerDraftName} onChange={(event) => setBannerDraftName(event.target.value)} placeholder="Save current banner" />
-                    <button type="button" className="secondary" onClick={saveCurrentBanner}>Save banner</button>
-                  </div>
-                </div>
-
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Filters</strong>
-                    <small>{savedFilters.length} saved</small>
-                  </div>
-                  <div className="explorer-item-list compact">
-                    {savedFilters.map((item) => (
-                      <button type="button" key={item.id} className={item.filterField === filterField && item.filterValue === filterValue ? "explorer-item active" : "explorer-item"} onClick={() => applySavedFilter(item)}>
-                        <strong>{item.label}</strong>
-                        <span>{item.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="compact-grid">
-                    <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Save current filter" />
-                    <button type="button" className="secondary" onClick={saveCurrentFilter}>Save filter</button>
-                  </div>
-                </div>
-
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Weights</strong>
-                    <small>{savedWeights.length} saved</small>
-                  </div>
-                  <div className="explorer-item-list compact">
-                    {savedWeights.map((item) => (
-                      <button type="button" key={item.id} className={item.weight === weight ? "explorer-item active" : "explorer-item"} onClick={() => applySavedWeight(item)}>
-                        <strong>{item.label}</strong>
-                        <span>{item.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="compact-grid">
-                    <input value={weightDraftName} onChange={(event) => setWeightDraftName(event.target.value)} placeholder="Save current weight" />
-                    <button type="button" className="secondary" onClick={saveCurrentWeight}>Save weight</button>
-                  </div>
-                </div>
-
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Authoring</strong>
-                    <small>Current analysis object</small>
-                  </div>
-                  <div className="color-summary-card">
-                    <div>
-                      <span>Selected source</span>
-                      <strong>{selectedVariableSet ? selectedVariableSet.label : selectedQuestion.shortLabel}</strong>
+                {exploreView === "source" && (
+                  <>
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Variable sets</strong>
+                        <small>{savedVariableSets.length} saved</small>
+                      </div>
+                      <div className="explorer-item-list">
+                        {savedVariableSets.map((item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            draggable
+                            className={selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
+                            onClick={() => applyVariableSetSelection(item)}
+                            onDragStart={(event) => startDataSourceDrag({ kind: "variableSet", id: item.id }, event)}
+                          >
+                            <strong>{item.label}</strong>
+                            <span>{item.topic} · Drag to canvas</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <small>{selectedVariableSet ? selectedVariableSet.description : selectedQuestion.topic}</small>
-                  </div>
-                  <label>
-                    Save as variable set
-                    <input value={variableSetDraftName} onChange={(event) => setVariableSetDraftName(event.target.value)} placeholder="Name this saved set" />
-                  </label>
-                  <label>
-                    Description
-                    <input value={variableSetDescription} onChange={(event) => setVariableSetDescription(event.target.value)} placeholder="Describe this variable set" />
-                  </label>
-                  <label>
-                    Primary question
-                    <select value={question} onChange={(event) => setQuestion(event.target.value as QuestionId)}>
-                      {variableSetQuestionIds.map((questionId) => {
-                        const item = defaultDataset.questions.find((entry) => entry.id === questionId);
-                        if (!item) return null;
-                        return (
-                          <option value={item.id} key={item.id}>
-                            {item.shortLabel}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
-                  <div className="explorer-question-picker">
-                    <span>Included questions</span>
-                    <div className="explorer-question-list">
-                      {defaultDataset.questions.map((item) => (
-                        <label key={item.id} className={variableSetQuestionIds.includes(item.id) ? "explorer-question-option active" : "explorer-question-option"}>
-                          <input
-                            type="checkbox"
-                            checked={variableSetQuestionIds.includes(item.id)}
-                            onChange={() => toggleVariableSetQuestion(item.id)}
-                          />
-                          <div>
+
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Questions</strong>
+                        <small>{defaultDataset.questions.length} available</small>
+                      </div>
+                      <div className="explorer-item-list">
+                        {defaultDataset.questions.map((item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            draggable
+                            className={selectedDataSource.kind === "question" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
+                            onClick={() => applyQuestionSelection(item)}
+                            onDragStart={(event) => startDataSourceDrag({ kind: "question", id: item.id }, event)}
+                          >
                             <strong>{item.shortLabel}</strong>
-                            <span>{item.topic}</span>
-                          </div>
-                        </label>
-                      ))}
+                            <span>{item.topic} · Drag to canvas</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="compact-grid">
-                    <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(!selectedVariableSet)}>
-                      {selectedVariableSet ? "Update set" : "Save set"}
-                    </button>
-                    <button type="button" className="secondary" disabled={!selectedVariableSet} onClick={() => selectedVariableSet && deleteVariableSet(selectedVariableSet.id)}>
-                      Delete set
-                    </button>
-                  </div>
-                  {!selectedVariableSet && (
-                    <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(true)}>
-                      Save as new set
-                    </button>
-                  )}
-                </div>
+                  </>
+                )}
 
-                <div className="explorer-section-card">
-                  <div className="explorer-section-header">
-                    <strong>Build tile</strong>
-                    <small>Query-driven output</small>
-                  </div>
-                  <label>
-                    Banner
-                    <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
-                      {bannerDimensions
-                        .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
-                        .map((item) => (
-                          <option value={item.id} key={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <div className="compact-grid">
-                    <label>
-                      Cells
-                      <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
-                        {selectedQuestion.allowedMetrics.map((item) => (
-                          <option value={item} key={item}>
-                            {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Weight
-                      <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
-                        <option value="none">Unweighted</option>
-                        {defaultDataset.weights.map((item) => (
-                          <option value={item.id} key={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="compact-grid">
-                    <label>
-                      Filter field
-                      <select value={filterField ?? "none"} onChange={(event) => setFilterField(event.target.value === "none" ? null : (event.target.value as FilterFieldId))}>
-                        <option value="none">No filter</option>
-                        {filterDimensions.map((item) => (
-                          <option value={item.id} key={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {selectedFilterDimension ? (
+                {exploreView === "analyze" && (
+                  <>
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Analysis settings</strong>
+                        <small>Current query</small>
+                      </div>
                       <label>
-                        Filter value
-                        <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
-                          <option value="all">All {selectedFilterDimension.label.toLowerCase()}s</option>
-                          {selectedFilterDimension.values.map((item) => (
-                            <option value={item.id} key={item.id}>
-                              {item.label}
+                        Banner
+                        <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
+                          {bannerDimensions
+                            .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
+                            .map((item) => (
+                              <option value={item.id} key={item.id}>
+                                {item.label}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <div className="compact-grid">
+                        <label>
+                          Cells
+                          <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
+                            {selectedQuestion.allowedMetrics.map((item) => (
+                              <option value={item} key={item}>
+                                {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Weight
+                          <select value={weight ?? "none"} onChange={(event) => setWeight(event.target.value === "none" ? null : (event.target.value as WeightId))}>
+                            <option value="none">Unweighted</option>
+                            {defaultDataset.weights.map((item) => (
+                              <option value={item.id} key={item.id}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="compact-grid">
+                        <label>
+                          Filter field
+                          <select value={filterField ?? "none"} onChange={(event) => setFilterField(event.target.value === "none" ? null : (event.target.value as FilterFieldId))}>
+                            <option value="none">No filter</option>
+                            {filterDimensions.map((item) => (
+                              <option value={item.id} key={item.id}>
+                                {item.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {selectedFilterDimension ? (
+                          <label>
+                            Filter value
+                            <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
+                              <option value="all">All {selectedFilterDimension.label.toLowerCase()}s</option>
+                              {selectedFilterDimension.values.map((item) => (
+                                <option value={item.id} key={item.id}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : (
+                          <div className="explorer-meta-block">
+                            <span>No filter selected</span>
+                          </div>
+                        )}
+                      </div>
+                      <label>
+                        Chart type
+                        <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                          {selectedChartTypes.map((item) => (
+                            <option value={item} key={item}>
+                              {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
                             </option>
                           ))}
                         </select>
                       </label>
-                    ) : (
-                      <div className="explorer-meta-block">
-                        <span>No filter selected</span>
+                      <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
+                        {isLoading ? "Adding..." : "Add tile from source"}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {exploreView === "library" && (
+                  <>
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Variable set editor</strong>
+                        <small>Save and update reusable sources</small>
                       </div>
-                    )}
-                  </div>
-                  <label>
-                    Chart type
-                    <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
-                      {selectedChartTypes.map((item) => (
-                        <option value={item} key={item}>
-                          {defaultDataset.chartTypes.find((chartItem) => chartItem.id === item)?.label ?? item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" onClick={addTileFromQuery} disabled={isLoading}>
-                    {isLoading ? "Adding..." : "Add tile from source"}
-                  </button>
-                </div>
+                      <label>
+                        Variable set name
+                        <input value={variableSetDraftName} onChange={(event) => setVariableSetDraftName(event.target.value)} placeholder="Name this saved set" />
+                      </label>
+                      <label>
+                        Description
+                        <input value={variableSetDescription} onChange={(event) => setVariableSetDescription(event.target.value)} placeholder="Describe this variable set" />
+                      </label>
+                      <label>
+                        Primary question
+                        <select value={question} onChange={(event) => setQuestion(event.target.value as QuestionId)}>
+                          {variableSetQuestionIds.map((questionId) => {
+                            const item = defaultDataset.questions.find((entry) => entry.id === questionId);
+                            if (!item) return null;
+                            return (
+                              <option value={item.id} key={item.id}>
+                                {item.shortLabel}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </label>
+                      <div className="explorer-question-picker">
+                        <span>Included questions</span>
+                        <div className="explorer-question-list">
+                          {defaultDataset.questions.map((item) => (
+                            <label key={item.id} className={variableSetQuestionIds.includes(item.id) ? "explorer-question-option active" : "explorer-question-option"}>
+                              <input
+                                type="checkbox"
+                                checked={variableSetQuestionIds.includes(item.id)}
+                                onChange={() => toggleVariableSetQuestion(item.id)}
+                              />
+                              <div>
+                                <strong>{item.shortLabel}</strong>
+                                <span>{item.topic}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="compact-grid">
+                        <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(!selectedVariableSet)}>
+                          {selectedVariableSet ? "Update set" : "Save set"}
+                        </button>
+                        <button type="button" className="secondary" disabled={!selectedVariableSet} onClick={() => selectedVariableSet && deleteVariableSet(selectedVariableSet.id)}>
+                          Delete set
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Saved banners</strong>
+                        <small>{savedBanners.length} saved</small>
+                      </div>
+                      <div className="explorer-item-list compact">
+                        {savedBanners.map((item) => (
+                          <button type="button" key={item.id} className={item.breakBy === breakBy ? "explorer-item active" : "explorer-item"} onClick={() => applySavedBanner(item)}>
+                            <strong>{item.label}</strong>
+                            <span>{item.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="compact-grid">
+                        <input value={bannerDraftName} onChange={(event) => setBannerDraftName(event.target.value)} placeholder="Save current banner" />
+                        <button type="button" className="secondary" onClick={saveCurrentBanner}>Save banner</button>
+                      </div>
+                    </div>
+
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Saved filters</strong>
+                        <small>{savedFilters.length} saved</small>
+                      </div>
+                      <div className="explorer-item-list compact">
+                        {savedFilters.map((item) => (
+                          <button type="button" key={item.id} className={item.filterField === filterField && item.filterValue === filterValue ? "explorer-item active" : "explorer-item"} onClick={() => applySavedFilter(item)}>
+                            <strong>{item.label}</strong>
+                            <span>{item.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="compact-grid">
+                        <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Save current filter" />
+                        <button type="button" className="secondary" onClick={saveCurrentFilter}>Save filter</button>
+                      </div>
+                    </div>
+
+                    <div className="explorer-section-card">
+                      <div className="explorer-section-header">
+                        <strong>Saved weights</strong>
+                        <small>{savedWeights.length} saved</small>
+                      </div>
+                      <div className="explorer-item-list compact">
+                        {savedWeights.map((item) => (
+                          <button type="button" key={item.id} className={item.weight === weight ? "explorer-item active" : "explorer-item"} onClick={() => applySavedWeight(item)}>
+                            <strong>{item.label}</strong>
+                            <span>{item.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="compact-grid">
+                        <input value={weightDraftName} onChange={(event) => setWeightDraftName(event.target.value)} placeholder="Save current weight" />
+                        <button type="button" className="secondary" onClick={saveCurrentWeight}>Save weight</button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
               {error && <div className="error">{error}</div>}
               </>

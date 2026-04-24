@@ -346,6 +346,29 @@ h2 {
   gap: 10px;
 }
 
+.explore-flow-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.explore-flow-tabs button {
+  min-height: 34px;
+  border: 1px solid #d8e1e7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #3a4d43;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.explore-flow-tabs button.active {
+  border-color: var(--accent-eco);
+  background: linear-gradient(90deg, rgba(22, 201, 195, 0.1), rgba(0, 209, 127, 0.1));
+  color: #0d5d4d;
+  box-shadow: 0 0 0 2px var(--accent-eco-soft);
+}
+
 .explorer-section-card {
   display: grid;
   gap: 10px;
