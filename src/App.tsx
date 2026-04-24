@@ -1570,6 +1570,11 @@ function resultConfidenceLevel(result: AnalyticsQueryResponse) {
   return result.statistics?.confidenceLevel ?? result.query.confidenceLevel ?? 0.95;
 }
 
+function tileSourceKindLabel(source: DashboardTile["source"]) {
+  if (!source) return "Query";
+  return source.kind === "variableSet" ? "Variable set" : "Question";
+}
+
 function ValueLabel(props: {
   x?: unknown;
   y?: unknown;
@@ -2012,6 +2017,7 @@ function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selec
     >
       <div className="tile-header tile-drag-handle">
         <div>
+          {tile.source && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
           <h2>{tile.title}</h2>
         </div>
       </div>
@@ -2385,7 +2391,12 @@ export default function App() {
     };
   }
 
-  async function createTileFromSource(tileQuery: AnalyticsQueryRequest, sourceLabel: string, position?: { x: number; y: number }) {
+  async function createTileFromSource(
+    tileQuery: AnalyticsQueryRequest,
+    sourceLabel: string,
+    position?: { x: number; y: number },
+    source?: DashboardTile["source"]
+  ) {
     setIsLoading(true);
     setError(null);
 
@@ -2395,6 +2406,7 @@ export default function App() {
         id: makeTileId(),
         name: sourceLabel,
         title: sourceLabel,
+        source,
         locked: false,
         hidden: false,
         layout: {
@@ -2642,14 +2654,24 @@ export default function App() {
         const variableSet = savedVariableSets.find((item) => item.id === parsed.id);
         if (!variableSet) return;
         applyVariableSetSelection(variableSet);
-        await createTileFromSource(queryForVariableSet(variableSet), variableSet.label, { x: dropX, y: dropY });
+        await createTileFromSource(
+          queryForVariableSet(variableSet),
+          variableSet.label,
+          { x: dropX, y: dropY },
+          { kind: "variableSet", id: variableSet.id, label: variableSet.label }
+        );
         return;
       }
 
       const nextQuestion = defaultDataset.questions.find((item) => item.id === parsed.id);
       if (!nextQuestion) return;
       applyQuestionSelection(nextQuestion);
-      await createTileFromSource(queryForQuestion(nextQuestion), nextQuestion.shortLabel, { x: dropX, y: dropY });
+      await createTileFromSource(
+        queryForQuestion(nextQuestion),
+        nextQuestion.shortLabel,
+        { x: dropX, y: dropY },
+        { kind: "question", id: nextQuestion.id, label: nextQuestion.shortLabel }
+      );
     } catch {
       setError("Could not drop that source onto the canvas.");
     }
@@ -2730,12 +2752,26 @@ export default function App() {
   }
 
   async function addTileFromQuery() {
-    await createTileFromSource(query, selectedVariableSet?.label ?? selectedQuestion.shortLabel);
+    await createTileFromSource(
+      query,
+      selectedVariableSet?.label ?? selectedQuestion.shortLabel,
+      undefined,
+      selectedVariableSet
+        ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
+        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
+    );
   }
 
   async function addTileFromSourceWithVisualization(nextVisualization: ChartType) {
     const nextQuery = { ...query, chartType: nextVisualization };
-    await createTileFromSource(nextQuery, selectedVariableSet?.label ?? selectedQuestion.shortLabel);
+    await createTileFromSource(
+      nextQuery,
+      selectedVariableSet?.label ?? selectedQuestion.shortLabel,
+      undefined,
+      selectedVariableSet
+        ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
+        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
+    );
   }
 
   function tileWithVisualization(tile: DashboardTile, nextVisualization: ChartType): Partial<DashboardTile> {
@@ -4383,6 +4419,23 @@ export default function App() {
                 Title
                 <input value={selectedTile.title} onChange={(event) => updateSelectedTile({ title: event.target.value })} />
               </label>
+              <div className="panel-title subtle">
+                <h2>Analysis</h2>
+              </div>
+              <div className="inspector-summary-card">
+                <span className="inspector-summary-kicker">
+                  {tileSourceKindLabel(selectedTile.source)}{selectedTile.source ? `: ${selectedTile.source.label}` : ""}
+                </span>
+                <strong>{getQuestionLabel(selectedTile.result.metadataRefs.question)}</strong>
+                <div className="explorer-chip-row">
+                  <span className="explorer-chip">Banner: {bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy}</span>
+                  <span className="explorer-chip">Metric: {selectedTile.result.metric.label}</span>
+                  <span className="explorer-chip">Weight: {selectedTile.result.weighting.applied ? selectedTile.result.weighting.label : "Unweighted"}</span>
+                  <span className="explorer-chip">
+                    Filter: {selectedTile.query.filters.length > 0 ? selectedTile.query.filters.map((filter) => filter.values.join(", ")).join(" · ") : "None"}
+                  </span>
+                </div>
+              </div>
               <label>
                 Visualization
                 <select

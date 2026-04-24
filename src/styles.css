@@ -984,6 +984,28 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.inspector-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #f8fbfc;
+}
+
+.inspector-summary-kicker {
+  color: #6a7f75;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.inspector-summary-card strong {
+  color: #1b2f26;
+  font-size: 0.88rem;
+}
+
 .table-convert-card {
   display: grid;
   gap: 8px;
@@ -1823,6 +1845,20 @@ button.secondary.compact {
   justify-content: space-between;
   padding-bottom: 10px;
   border-bottom: 1px solid #edf0ea;
+}
+
+.tile-source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  margin-bottom: 6px;
+  padding: 0 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 999px;
+  background: #f8fbfc;
+  color: #4f665b;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .tile-drag-handle {

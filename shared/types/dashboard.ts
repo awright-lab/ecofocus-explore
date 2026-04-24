@@ -94,6 +94,11 @@ export interface DashboardTile {
   id: string;
   name: string;
   title: string;
+  source?: {
+    kind: "question" | "variableSet";
+    id: string;
+    label: string;
+  };
   locked: boolean;
   hidden: boolean;
   layout: CanvasLayout;
