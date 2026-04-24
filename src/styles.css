@@ -1819,6 +1819,49 @@ code {
   background: rgba(251, 252, 250, 0.82);
 }
 
+.table-card {
+  display: grid;
+}
+
+.table-shell {
+  height: 100%;
+  overflow: auto;
+  border-radius: 6px;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  color: #34463d;
+}
+
+.analytics-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(248, 251, 252, 0.98);
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e4ebef;
+  text-align: left;
+  vertical-align: top;
+}
+
+.analytics-table tbody th {
+  width: 42%;
+  min-width: 180px;
+  font-weight: 700;
+}
+
+.analytics-table td {
+  white-space: nowrap;
+  font-weight: 650;
+}
+
 .canvas-element {
   width: 100%;
   height: 100%;

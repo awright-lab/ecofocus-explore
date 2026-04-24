@@ -1505,9 +1505,15 @@ const gradientStylePresets = [
 function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const isSingleSeries = result.columns.length === 1;
   const chartTypes: ChartType[] = isSingleSeries
-    ? ["vertical_bar", "horizontal_bar", "donut"]
-    : ["grouped_bar", "stacked_bar", "line_chart"];
+    ? ["table", "vertical_bar", "horizontal_bar", "donut"]
+    : ["table", "grouped_bar", "stacked_bar", "line_chart"];
   return chartTypes.filter((chartType) => defaultDataset.chartTypes.some((item) => item.id === chartType));
+}
+
+function defaultVisualizationForQuestion(questionMetadata: typeof defaultDataset.questions[number]) {
+  return questionMetadata.allowedChartTypes.includes("table")
+    ? "table"
+    : questionMetadata.allowedChartTypes.find((item) => item !== "table") ?? "table";
 }
 
 function AxisTick(props: { x?: string | number; y?: string | number; payload?: { value: string }; appearance: TileAppearance; axisDirection?: "x" | "y" }) {
@@ -1947,7 +1953,39 @@ function DonutChartView({ tile }: { tile: DashboardTile }) {
   );
 }
 
+function TableView({ tile }: { tile: DashboardTile }) {
+  const { result, appearance } = tile;
+
+  return (
+    <div className="chart-card table-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven table">
+      <div className="table-shell">
+        <table className="analytics-table">
+          <thead>
+            <tr>
+              <th>Answer</th>
+              {result.columns.map((column) => (
+                <th key={column.id}>{column.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {result.table.map((row) => (
+              <tr key={row.optionId}>
+                <th>{getAxisLabel(appearance, row.optionId, row.label)}</th>
+                {result.columns.map((column) => (
+                  <td key={column.id}>{formatValue(row.values[column.id], result.metric.valueFormat)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function ChartView({ tile }: { tile: DashboardTile }) {
+  if (tile.visualization === "table") return <TableView tile={tile} />;
   if (tile.visualization === "vertical_bar") return <VerticalBarChartView tile={tile} />;
   if (tile.visualization === "horizontal_bar") return <HorizontalBarChartView tile={tile} />;
   if (tile.visualization === "grouped_bar") return <GroupedBarChartView tile={tile} />;
@@ -2109,7 +2147,7 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           primaryQuestionId: variableSet.primaryQuestionId ?? variableSet.questionIds?.[0] ?? defaultQuestion.id,
           breakBy: variableSet.breakBy ?? (defaultBreakBy.id as BreakById),
           metric: variableSet.metric ?? defaultQuestion.defaultMetric,
-          chartType: variableSet.chartType ?? (defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table"),
+          chartType: variableSet.chartType ?? defaultVisualizationForQuestion(defaultQuestion),
           weight: variableSet.weight ?? defaultDataset.defaultWeight,
           filterField: variableSet.filterField ?? (defaultFilterDimension?.id ?? null),
           filterValue: variableSet.filterValue ?? "all"
@@ -2243,7 +2281,7 @@ export default function App() {
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
-  const [chartType, setChartType] = useState<ChartType>(defaultQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+  const [chartType, setChartType] = useState<ChartType>(defaultVisualizationForQuestion(defaultQuestion));
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField, setFilterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
@@ -2283,7 +2321,7 @@ export default function App() {
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
-  const selectedChartTypes = selectedQuestion.allowedChartTypes.filter((item) => item !== "table");
+  const selectedChartTypes = selectedQuestion.allowedChartTypes;
   const chartStyleTargets =
     selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
       ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
@@ -2328,7 +2366,7 @@ export default function App() {
       filters: [],
       weight: defaultDataset.defaultWeight,
       metric: nextQuestion.defaultMetric,
-      chartType: nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table",
+      chartType: defaultVisualizationForQuestion(nextQuestion),
       confidenceLevel: 0.95
     };
   }
@@ -2342,7 +2380,7 @@ export default function App() {
       filters: variableSet.filterField && variableSet.filterValue !== "all" ? [{ field: variableSet.filterField, values: [variableSet.filterValue] }] : [],
       weight: variableSet.weight,
       metric: nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric,
-      chartType: nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table",
+      chartType: nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : defaultVisualizationForQuestion(nextQuestion),
       confidenceLevel: 0.95
     };
   }
@@ -2390,7 +2428,7 @@ export default function App() {
     setQuestion(nextQuestion.id);
     setBreakBy(nextQuestion.allowedBreakBys[0]);
     setMetric(nextQuestion.defaultMetric);
-    setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+    setChartType(defaultVisualizationForQuestion(nextQuestion));
     setWeight(defaultDataset.defaultWeight);
     setFilterField(defaultFilterDimension?.id ?? null);
     setFilterValue("all");
@@ -2405,7 +2443,7 @@ export default function App() {
     setQuestion(nextQuestion.id);
     setBreakBy(nextQuestion.allowedBreakBys.includes(variableSet.breakBy) ? variableSet.breakBy : nextQuestion.allowedBreakBys[0]);
     setMetric(nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric);
-    setChartType(nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+    setChartType(nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : defaultVisualizationForQuestion(nextQuestion));
     setWeight(variableSet.weight);
     setFilterField(variableSet.filterField);
     setFilterValue(variableSet.filterValue);
@@ -2476,7 +2514,7 @@ export default function App() {
           setQuestion(nextQuestion.id);
           setBreakBy(nextQuestion.allowedBreakBys[0]);
           setMetric(nextQuestion.defaultMetric);
-          setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+          setChartType(defaultVisualizationForQuestion(nextQuestion));
         }
         return next;
       }
@@ -4305,9 +4343,9 @@ export default function App() {
                 <h2>Display</h2>
               </div>
               <div className="toggle-list">
-                <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> Chart grid</label>
-                <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> Value labels</label>
-                <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> Arrows</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> {selectedTile.visualization === "table" ? "Table guides" : "Chart grid"}</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> {selectedTile.visualization === "table" ? "Cell values" : "Value labels"}</label>
+                <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> {selectedTile.visualization === "table" ? "Highlights" : "Arrows"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>
               <div className="panel-title subtle">
