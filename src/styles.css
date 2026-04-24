@@ -505,6 +505,7 @@ h2 {
 
 .brand-palette-list,
 .brand-style-list,
+.brand-block-list,
 .brand-theme-list {
   display: grid;
   gap: 10px;
@@ -577,6 +578,31 @@ h2 {
   font-weight: 800;
 }
 
+.brand-block-card {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dde4ea;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #223429;
+  text-align: left;
+}
+
+.brand-block-card__header {
+  display: grid;
+  gap: 4px;
+}
+
+.brand-block-card p {
+  margin: 0;
+  color: #284236;
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .brand-theme-card {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);
@@ -600,6 +626,7 @@ h2 {
 }
 
 .brand-theme-card:hover:not(:disabled),
+.brand-block-card:hover:not(:disabled),
 .brand-text-style-card:hover:not(:disabled),
 .brand-palette-card:hover:not(:disabled) {
   border-color: #11a58f;

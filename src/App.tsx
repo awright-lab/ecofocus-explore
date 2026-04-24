@@ -47,6 +47,7 @@ import type {
   SavedFilterSet,
   SavedVariableSet,
   SavedWeightProfile,
+  TextBlockPreset,
   TextStylePreset,
   TileAppearance
 } from "../shared/types/dashboard";
@@ -228,6 +229,96 @@ function seedTextStyles(): TextStylePreset[] {
       lineHeight: 1.3,
       textAlign: "left",
       textColor: "#607267"
+    }
+  ];
+}
+
+function seedTextBlocks(): TextBlockPreset[] {
+  return [
+    {
+      id: "hero_headline",
+      label: "Hero headline",
+      description: "Large headline block for opening pages and section resets.",
+      content: "What’s shifting in sustainable shopping behavior?",
+      width: 520,
+      height: 140,
+      style: {
+        ...defaultElementStyle("text"),
+        fill: "transparent",
+        textColor: "#102332",
+        fontFamily: fontFamilies[0].value,
+        fontSize: 38,
+        fontWeight: "800",
+        textAlign: "left",
+        lineHeight: 1.05,
+        padding: 0
+      }
+    },
+    {
+      id: "section_intro",
+      label: "Section intro",
+      description: "Mid-sized title and support copy for chapter openers and page framing.",
+      content: "Consumers continue to reward brands that feel visibly responsible, especially when packaging and sourcing cues are easy to understand.",
+      width: 420,
+      height: 128,
+      style: {
+        ...defaultElementStyle("text"),
+        fill: "rgba(255,255,255,0.72)",
+        textColor: "#1f3b30",
+        fontFamily: fontFamilies[0].value,
+        fontSize: 20,
+        fontWeight: "600",
+        textAlign: "left",
+        lineHeight: 1.35,
+        padding: 18,
+        borderColor: "#d8e7dd",
+        borderWidth: 1,
+        borderRadius: 18
+      }
+    },
+    {
+      id: "stat_callout_block",
+      label: "Stat callout",
+      description: "Compact highlighted metric for stand-alone story moments.",
+      content: "58%\nprioritize responsible sourcing",
+      width: 260,
+      height: 180,
+      style: {
+        ...defaultElementStyle("text"),
+        fill: "#102332",
+        textColor: "#f6fffb",
+        fontFamily: fontFamilies[0].value,
+        fontSize: 30,
+        fontWeight: "800",
+        textAlign: "center",
+        lineHeight: 1.1,
+        padding: 22,
+        borderColor: "#102332",
+        borderWidth: 0,
+        borderRadius: 24
+      }
+    },
+    {
+      id: "source_note",
+      label: "Source note",
+      description: "Small footer-style source block for notes, sample language, and methodology.",
+      content: "Source: EcoFocus 2025 weighted respondent sample. Internal working draft.",
+      width: 380,
+      height: 64,
+      style: {
+        ...defaultElementStyle("text"),
+        fill: "rgba(255,255,255,0.82)",
+        textColor: "#66776d",
+        fontFamily: fontFamilies[0].value,
+        fontSize: 12,
+        fontWeight: "600",
+        textAlign: "left",
+        lineHeight: 1.25,
+        padding: 12,
+        borderColor: "#dfe6dc",
+        borderWidth: 1,
+        borderRadius: 14
+      }
     }
   ];
 }
@@ -449,6 +540,7 @@ function seedDesignLibrary() {
   return {
     palettes: seedDesignPalettes(),
     textStyles: seedTextStyles(),
+    textBlocks: seedTextBlocks(),
     pageThemes: seedPageThemes()
   };
 }
@@ -2552,6 +2644,22 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           textAlign: textStyle.textAlign ?? "left",
           textColor: textStyle.textColor ?? "#33473d"
         })) ?? seededDesignLibrary.textStyles,
+      textBlocks:
+        dashboard.designLibrary?.textBlocks?.map((textBlock, index) => ({
+          ...textBlock,
+          id: textBlock.id ?? `text_block_${index + 1}`,
+          label: textBlock.label ?? `Text block ${index + 1}`,
+          description: textBlock.description ?? "",
+          content: textBlock.content ?? "Text block",
+          width: textBlock.width ?? 320,
+          height: textBlock.height ?? 120,
+          style: {
+            ...defaultElementStyle("text"),
+            ...textBlock.style,
+            gradientType: textBlock.style?.gradientType ?? "linear",
+            gradientStops: textBlock.style?.gradientStops ?? []
+          }
+        })) ?? seededDesignLibrary.textBlocks,
       pageThemes:
         dashboard.designLibrary?.pageThemes?.map((pageTheme, index) => ({
           ...pageTheme,
@@ -2697,6 +2805,7 @@ export default function App() {
   const savedWeights = dashboard.analysisLibrary.weights;
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
+  const textBlockPresets = dashboard.designLibrary.textBlocks;
   const pageThemes = dashboard.designLibrary.pageThemes;
   const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
   const normalizedSourceSearch = sourceSearch.trim().toLowerCase();
@@ -3816,6 +3925,52 @@ export default function App() {
     selectElement(element.id);
   }
 
+  function addTextBlockPreset(block: TextBlockPreset) {
+    const element: DashboardCanvasElement = {
+      id: makeElementId(),
+      name: block.label,
+      type: "text",
+      locked: false,
+      hidden: false,
+      layout: {
+        x: Math.round((canvasWidth - block.width) / 2),
+        y: Math.round((canvasHeight - block.height) / 2),
+        width: block.width,
+        height: block.height,
+        zIndex: nextZIndex(activePage)
+      },
+      content: block.content,
+      style: {
+        ...defaultElementStyle("text"),
+        ...block.style
+      }
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, element] } : page))
+    }));
+    selectElement(element.id);
+    setSettingsView("element");
+  }
+
+  function applyLayoutPreset(preset: "hero" | "leftColumn" | "rightColumn" | "footer") {
+    const layout = selectedTile?.layout ?? selectedElement?.layout;
+    if (!layout) return;
+
+    const nextLayout: Partial<CanvasLayout> =
+      preset === "hero"
+        ? { x: 80, y: 72, width: Math.min(720, canvasWidth - 160) }
+        : preset === "leftColumn"
+          ? { x: 72, y: layout.y, width: Math.min(460, canvasWidth / 2 - 96) }
+          : preset === "rightColumn"
+            ? { x: Math.round(canvasWidth / 2 + 24), y: layout.y, width: Math.min(460, canvasWidth / 2 - 96) }
+            : { x: 72, y: canvasHeight - Math.min(layout.height, 120) - 48, width: Math.min(460, canvasWidth - 144), height: Math.min(layout.height, 120) };
+
+    updateSelectedLayout(nextLayout);
+  }
+
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
     if (!selectedTile) return;
     updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
@@ -4583,6 +4738,23 @@ export default function App() {
                           EcoFocus
                         </strong>
                         <small>{preset.description}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Content blocks</strong>
+                    <small>{textBlockPresets.length} ready to place</small>
+                  </div>
+                  <div className="brand-block-list">
+                    {textBlockPresets.map((block) => (
+                      <button type="button" key={block.id} className="brand-block-card" onClick={() => addTextBlockPreset(block)}>
+                        <div className="brand-block-card__header">
+                          <strong>{block.label}</strong>
+                          <small>{block.description}</small>
+                        </div>
+                        <p>{block.content}</p>
                       </button>
                     ))}
                   </div>
@@ -5447,6 +5619,27 @@ export default function App() {
                 <button type="button" className="secondary" onClick={() => alignSelected("top")}>Top</button>
                 <button type="button" className="secondary" onClick={() => alignSelected("middle")}>Middle</button>
                 <button type="button" className="secondary" onClick={() => alignSelected("bottom")}>Bottom</button>
+              </div>
+              <div className="panel-title subtle">
+                <h2>Quick layouts</h2>
+              </div>
+              <div className="settings-menu">
+                <button type="button" className="menu-card" onClick={() => applyLayoutPreset("hero")}>
+                  <strong>Hero frame</strong>
+                  <span>Wide placement near the top for lead stories and opening statements.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => applyLayoutPreset("leftColumn")}>
+                  <strong>Left column</strong>
+                  <span>Anchor the selected item into a narrow left reading column.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => applyLayoutPreset("rightColumn")}>
+                  <strong>Right column</strong>
+                  <span>Move the selected item into a right-side comparison or support slot.</span>
+                </button>
+                <button type="button" className="menu-card" onClick={() => applyLayoutPreset("footer")}>
+                  <strong>Footer note</strong>
+                  <span>Place the selected item low on the canvas for sources or supporting notes.</span>
+                </button>
               </div>
               <div className="layout-grid">
                 <label>

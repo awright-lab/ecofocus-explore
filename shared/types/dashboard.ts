@@ -246,6 +246,47 @@ export interface TextStylePreset {
   textColor: string;
 }
 
+export interface TextBlockPreset {
+  id: string;
+  label: string;
+  description: string;
+  content: string;
+  width: number;
+  height: number;
+  style: {
+    fill: string;
+    fillMode: "solid" | "gradient";
+    gradientFrom: string;
+    gradientTo: string;
+    gradientType: GradientType;
+    gradientStops: GradientStop[];
+    textColor: string;
+    borderColor: string;
+    borderWidth: number;
+    borderStyle: "solid" | "dashed" | "dotted" | "none";
+    borderRadius: number;
+    opacity: number;
+    shadow: boolean;
+    shadowPreset: "soft" | "lifted" | "dramatic" | "glow";
+    shadowColor: string;
+    shadowOpacity: number;
+    shadowBlur: number;
+    shadowOffsetX: number;
+    shadowOffsetY: number;
+    glow: boolean;
+    glowColor: string;
+    glowSize: number;
+    fontFamily: string;
+    fontSize: number;
+    fontWeight: string;
+    fontStyle: "normal" | "italic";
+    textDecoration: "none" | "underline";
+    textAlign: "left" | "center" | "right";
+    lineHeight: number;
+    padding: number;
+  };
+}
+
 export interface PageThemePreset {
   id: string;
   label: string;
@@ -265,6 +306,7 @@ export interface PageThemePreset {
 export interface DesignLibrary {
   palettes: DesignColorPalette[];
   textStyles: TextStylePreset[];
+  textBlocks: TextBlockPreset[];
   pageThemes: PageThemePreset[];
 }
 
