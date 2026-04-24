@@ -181,6 +181,14 @@ export interface SavedVariableSet {
   topic: string;
   questionIds: QuestionId[];
   primaryQuestionId: QuestionId;
+  rowMode?: "question" | "authored";
+  rows: Array<{
+    id: string;
+    label: string;
+    kind: "option" | "net";
+    sourceOptionIds: string[];
+    rowOrder: number;
+  }>;
   breakBy: BreakById;
   metric: Metric;
   chartType: ChartType;

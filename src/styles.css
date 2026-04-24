@@ -436,6 +436,11 @@ h2 {
   gap: 8px;
 }
 
+.explorer-section-card.nested {
+  padding: 10px;
+  background: #ffffff;
+}
+
 .color-summary-card.compact {
   padding: 10px;
 }
@@ -592,6 +597,10 @@ h2 {
   overflow: auto;
 }
 
+.explorer-question-list.compact {
+  max-height: 156px;
+}
+
 .explorer-question-option {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -625,6 +634,27 @@ h2 {
 .explorer-question-option span {
   color: #698077;
   font-size: 0.72rem;
+}
+
+.variable-set-row {
+  gap: 8px;
+}
+
+.variable-set-row__top {
+  display: grid;
+  gap: 2px;
+}
+
+.variable-set-row__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mini-button.active {
+  border-color: var(--accent-eco);
+  background: #ebfaf4;
+  color: #0f5b4b;
 }
 
 .insert-grid button,
