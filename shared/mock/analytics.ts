@@ -231,7 +231,11 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
     optionId: item.id,
     label: item.label,
     values: Object.fromEntries(dimension.values.map((dimensionValue, index) => [dimensionValue.id, item.values[index]])),
-    bases: Object.fromEntries(dimension.values.map((dimensionValue, index) => [dimensionValue.id, item.bases[index]]))
+    bases: Object.fromEntries(dimension.values.map((dimensionValue, index) => [dimensionValue.id, item.bases[index]])),
+    presentation: {
+      rowKind: "option",
+      emphasis: "detail"
+    }
   }));
 
   return {
@@ -310,7 +314,11 @@ function runMockWaveComparisonQuery(
     optionId: item.id,
     label: item.label,
     values: Object.fromEntries(columns.map((column, index) => [column.id, item.values[index]])),
-    bases: Object.fromEntries(columns.map((column, index) => [column.id, item.bases[index]]))
+    bases: Object.fromEntries(columns.map((column, index) => [column.id, item.bases[index]])),
+    presentation: {
+      rowKind: "option",
+      emphasis: "detail"
+    }
   }));
 
   return {
@@ -370,7 +378,11 @@ function runMockMultiBinarySetQuery(
     optionId: item.id,
     label: item.label,
     values: { summary: item.values[0] },
-    bases: { summary: item.bases[0] }
+    bases: { summary: item.bases[0] },
+    presentation: {
+      rowKind: "option",
+      emphasis: "detail"
+    }
   }));
 
   return {

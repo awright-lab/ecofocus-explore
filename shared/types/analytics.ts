@@ -48,6 +48,10 @@ export interface AnalyticsTableRow {
   label: string;
   values: Record<string, number>;
   bases: Record<string, number>;
+  presentation?: {
+    rowKind: "option" | "net" | "topbox" | "bottombox";
+    emphasis: "detail" | "summary";
+  };
 }
 
 export interface AnalyticsTableColumn {

@@ -68,7 +68,17 @@ describe("applyVariableSetRows", () => {
     expect(result.table[0]).toMatchObject({
       label: "Top 2 box",
       values: { summary: 100 },
-      bases: { summary: 3125 }
+      bases: { summary: 3125 },
+      presentation: {
+        rowKind: "topbox",
+        emphasis: "summary"
+      }
+    });
+    expect(result.table[1]).toMatchObject({
+      presentation: {
+        rowKind: "option",
+        emphasis: "detail"
+      }
     });
     expect(result.notes[result.notes.length - 1]).toContain("Summary rows: Top 2 box");
     expect(result.notes[result.notes.length - 1]).toContain("Hidden rows: Charity");

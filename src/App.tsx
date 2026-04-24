@@ -2046,6 +2046,12 @@ function DonutChartView({ tile }: { tile: DashboardTile }) {
 
 function TableView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
+  const visibleColumns = result.columns;
+
+  function tableCellAnnotation(rowId: string, columnId: string) {
+    if (!appearance.showAnnotations) return null;
+    return getAnnotation(result.annotations, rowId, columnId);
+  }
 
   return (
     <div className="chart-card table-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven table">
@@ -2054,20 +2060,71 @@ function TableView({ tile }: { tile: DashboardTile }) {
           <thead>
             <tr>
               <th>Answer</th>
-              {result.columns.map((column) => (
+              {visibleColumns.map((column) => (
                 <th key={column.id}>{column.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {result.table.map((row) => (
-              <tr key={row.optionId}>
-                <th>{getAxisLabel(appearance, row.optionId, row.label)}</th>
-                {result.columns.map((column) => (
-                  <td key={column.id}>{formatValue(row.values[column.id], result.metric.valueFormat)}</td>
-                ))}
+              <tr
+                key={row.optionId}
+                className={
+                  row.presentation?.emphasis === "summary"
+                    ? "table-row summary"
+                    : row.presentation?.rowKind === "option"
+                    ? "table-row detail"
+                    : "table-row"
+                }
+              >
+                <th>
+                  <div className="table-row-label">
+                    <span>{getAxisLabel(appearance, row.optionId, row.label)}</span>
+                    {row.presentation?.emphasis === "summary" && (
+                      <small>{row.presentation.rowKind === "topbox" ? "Top box" : row.presentation.rowKind === "bottombox" ? "Bottom box" : "Summary row"}</small>
+                    )}
+                  </div>
+                </th>
+                {visibleColumns.map((column) => {
+                  const annotation = tableCellAnnotation(row.optionId, column.id);
+                  return (
+                    <td key={column.id}>
+                      <div className="table-cell-stack">
+                        {appearance.showValueLabels && (
+                          <span className={annotation ? `table-value ${annotation.direction}` : "table-value"}>
+                            {formatValue(row.values[column.id], result.metric.valueFormat)}
+                            {annotation && <span className={`direction direction-${annotation.direction}`}>{annotation.direction === "up" ? "↑" : "↓"}</span>}
+                          </span>
+                        )}
+                        {appearance.showBases && <small>Base {row.bases[column.id].toLocaleString()}</small>}
+                      </div>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
+            {appearance.showNotes && result.notes.length > 0 && (
+              <tr className="table-notes-row">
+                <td colSpan={visibleColumns.length + 1}>
+                  <div className="table-note-list">
+                    {result.notes.slice(0, 2).map((note) => (
+                      <span key={note}>{note}</span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            )}
+            {appearance.showNotes && result.warnings.length > 0 && (
+              <tr className="table-warning-row">
+                <td colSpan={visibleColumns.length + 1}>
+                  <div className="table-note-list warning">
+                    {result.warnings.map((warning) => (
+                      <span key={warning}>{warning}</span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

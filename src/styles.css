@@ -2143,6 +2143,74 @@ code {
   font-weight: 650;
 }
 
+.table-row.detail th {
+  font-weight: 700;
+}
+
+.table-row.summary th,
+.table-row.summary td {
+  background: rgba(16, 105, 88, 0.06);
+}
+
+.table-row.summary th {
+  font-weight: 800;
+}
+
+.table-row-label {
+  display: grid;
+  gap: 3px;
+}
+
+.table-row-label small {
+  color: #5e7a6c;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.table-cell-stack {
+  display: grid;
+  gap: 2px;
+}
+
+.table-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.table-value.up {
+  color: #1a3cff;
+}
+
+.table-value.down {
+  color: #e01818;
+}
+
+.table-cell-stack small {
+  color: #6d7c74;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.table-notes-row td,
+.table-warning-row td {
+  padding-top: 10px;
+  background: #fbfcfd;
+}
+
+.table-note-list {
+  display: grid;
+  gap: 4px;
+  color: #5a6f64;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.table-note-list.warning {
+  color: #9d351a;
+}
+
 .canvas-element {
   width: 100%;
   height: 100%;

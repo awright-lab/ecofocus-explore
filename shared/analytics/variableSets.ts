@@ -64,10 +64,14 @@ export function applyVariableSetRows(response: AnalyticsQueryResponse, variableS
         optionId: row.id,
         label: row.label,
         values,
-        bases
+        bases,
+        presentation: {
+          rowKind: row.kind,
+          emphasis: row.emphasis
+        }
       };
     })
-    .filter((item): item is AnalyticsTableRow => Boolean(item));
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
   const nextSeries = nextTable.map((row) => ({
     id: row.optionId,
