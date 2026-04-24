@@ -29,7 +29,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, SavedBanner, SavedFilterSet, SavedVariableSet, TileAppearance } from "../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -212,6 +212,25 @@ function seedSavedFilters(): SavedFilterSet[] {
   ];
 }
 
+function seedSavedWeights(): SavedWeightProfile[] {
+  return [
+    {
+      id: "weight_default",
+      datasetId: defaultDataset.id,
+      label: "EcoFocus respondent weight",
+      description: "Default weighted view for EcoFocus reporting.",
+      weight: defaultDataset.defaultWeight
+    },
+    {
+      id: "weight_unweighted",
+      datasetId: defaultDataset.id,
+      label: "Unweighted sample",
+      description: "Raw sample without respondent weighting.",
+      weight: null
+    }
+  ];
+}
+
 const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
   title: "2025 EcoFocus Builder Draft",
@@ -219,7 +238,8 @@ const initialDashboard: DashboardDraft = {
   analysisLibrary: {
     variableSets: seedVariableSets(),
     banners: seedSavedBanners(),
-    filters: seedSavedFilters()
+    filters: seedSavedFilters(),
+    weights: seedSavedWeights()
   },
   pages: [
     {
@@ -2112,7 +2132,16 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           description: filter.description ?? "",
           filterField: filter.filterField ?? (defaultFilterDimension?.id ?? null),
           filterValue: filter.filterValue ?? "all"
-        })) ?? seedSavedFilters()
+        })) ?? seedSavedFilters(),
+      weights:
+        dashboard.analysisLibrary?.weights?.map((weightProfile, index) => ({
+          ...weightProfile,
+          id: weightProfile.id ?? `weight_${index + 1}`,
+          datasetId: weightProfile.datasetId ?? defaultDataset.id,
+          label: weightProfile.label ?? `Weight ${index + 1}`,
+          description: weightProfile.description ?? "",
+          weight: weightProfile.weight ?? null
+        })) ?? seedSavedWeights()
     },
     pages: dashboard.pages.map((page) => ({
           ...page,
@@ -2214,6 +2243,7 @@ export default function App() {
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField, setFilterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
+  const [weightDraftName, setWeightDraftName] = useState(defaultDataset.weights.find((item) => item.id === defaultDataset.defaultWeight)?.label ?? "Unweighted sample");
   const [variableSetDraftName, setVariableSetDraftName] = useState(defaultQuestion.shortLabel);
   const [variableSetDescription, setVariableSetDescription] = useState("");
   const [variableSetQuestionIds, setVariableSetQuestionIds] = useState<QuestionId[]>([defaultQuestion.id]);
@@ -2228,6 +2258,7 @@ export default function App() {
   const savedVariableSets = dashboard.analysisLibrary.variableSets;
   const savedBanners = dashboard.analysisLibrary.banners;
   const savedFilters = dashboard.analysisLibrary.filters;
+  const savedWeights = dashboard.analysisLibrary.weights;
   const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
 
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
@@ -2504,6 +2535,37 @@ export default function App() {
     setError(null);
   }
 
+  function applySavedWeight(weightProfile: SavedWeightProfile) {
+    setWeight(weightProfile.weight);
+    setWeightDraftName(weightProfile.label);
+  }
+
+  function saveCurrentWeight() {
+    const trimmedLabel = weightDraftName.trim();
+    if (!trimmedLabel) {
+      setError("Give the weight profile a name before saving it.");
+      return;
+    }
+
+    const nextWeight: SavedWeightProfile = {
+      id: `weight_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: trimmedLabel,
+      description: weight ? `Uses ${defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight}` : "No weight applied.",
+      weight
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        weights: [nextWeight, ...current.analysisLibrary.weights]
+      }
+    }));
+    setError(null);
+  }
+
   function startDataSourceDrag(source: { kind: "question" | "variableSet"; id: string }, event: React.DragEvent<HTMLElement>) {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData("application/ecofocus-source", JSON.stringify(source));
@@ -2570,6 +2632,10 @@ export default function App() {
     const value = field?.values.find((item) => item.id === filterValue);
     setFilterDraftName(value?.label ?? field?.label ?? "Saved filter");
   }, [filterField, filterValue]);
+
+  useEffect(() => {
+    setWeightDraftName(weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? "Saved weight" : "Unweighted sample");
+  }, [weight]);
 
   useEffect(() => {
     if (!designModal) return;
@@ -3359,6 +3425,25 @@ export default function App() {
                   <div className="compact-grid">
                     <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Save current filter" />
                     <button type="button" className="secondary" onClick={saveCurrentFilter}>Save filter</button>
+                  </div>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Weights</strong>
+                    <small>{savedWeights.length} saved</small>
+                  </div>
+                  <div className="explorer-item-list compact">
+                    {savedWeights.map((item) => (
+                      <button type="button" key={item.id} className={item.weight === weight ? "explorer-item active" : "explorer-item"} onClick={() => applySavedWeight(item)}>
+                        <strong>{item.label}</strong>
+                        <span>{item.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="compact-grid">
+                    <input value={weightDraftName} onChange={(event) => setWeightDraftName(event.target.value)} placeholder="Save current weight" />
+                    <button type="button" className="secondary" onClick={saveCurrentWeight}>Save weight</button>
                   </div>
                 </div>
 

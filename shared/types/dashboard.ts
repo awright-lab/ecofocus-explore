@@ -201,6 +201,14 @@ export interface SavedFilterSet {
   filterValue: string;
 }
 
+export interface SavedWeightProfile {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  weight: WeightId | null;
+}
+
 export interface DashboardDraft {
   id: string;
   title: string;
@@ -209,6 +217,7 @@ export interface DashboardDraft {
     variableSets: SavedVariableSet[];
     banners: SavedBanner[];
     filters: SavedFilterSet[];
+    weights: SavedWeightProfile[];
   };
   pages: DashboardPage[];
 }
