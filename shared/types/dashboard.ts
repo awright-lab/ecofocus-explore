@@ -185,9 +185,11 @@ export interface SavedVariableSet {
   rows: Array<{
     id: string;
     label: string;
-    kind: "option" | "net";
+    kind: "option" | "net" | "topbox" | "bottombox";
     sourceOptionIds: string[];
     rowOrder: number;
+    visible: boolean;
+    emphasis: "detail" | "summary";
   }>;
   breakBy: BreakById;
   metric: Metric;

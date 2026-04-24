@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { runAnalyticsQuery } from "./lib/api";
 import { datasets, getBannerDimensions, getComparisonDatasetOptions, getFilterDimensions } from "./lib/metadata";
+import { applyVariableSetRows } from "../shared/analytics/variableSets";
 import type {
   AnalyticsAnnotation,
   AnalyticsQueryRequest,
@@ -149,8 +150,36 @@ function defaultVariableSetRows(questionId: QuestionId) {
       label: option.label,
       kind: "option" as const,
       sourceOptionIds: [option.id],
-      rowOrder: index + 1
+      rowOrder: index + 1,
+      visible: true,
+      emphasis: "detail" as const
     }));
+}
+
+function rowKindLabel(kind: SavedVariableSet["rows"][number]["kind"]) {
+  if (kind === "topbox") return "Top box";
+  if (kind === "bottombox") return "Bottom box";
+  if (kind === "net") return "Net";
+  return "Option";
+}
+
+function normalizeVariableSetRows(rows: SavedVariableSet["rows"], questionId: QuestionId) {
+  const fallbackRows = defaultVariableSetRows(questionId);
+  const fallbackById = new Map(fallbackRows.map((row) => [row.id, row]));
+  return (rows.length ? rows : fallbackRows)
+    .map((row, index) => {
+      const fallback = fallbackById.get(row.id);
+      return {
+        ...fallback,
+        ...row,
+        kind: row.kind ?? fallback?.kind ?? "option",
+        visible: row.visible ?? true,
+        emphasis: row.emphasis ?? (row.kind === "option" ? "detail" : "summary"),
+        rowOrder: row.rowOrder ?? index + 1
+      };
+    })
+    .sort((a, b) => a.rowOrder - b.rowOrder)
+    .map((row, index) => ({ ...row, rowOrder: index + 1 }));
 }
 
 function defaultPageDesign() {
@@ -1601,60 +1630,6 @@ function comparisonSummaryLabel(query: AnalyticsQueryRequest) {
   return query.comparisonMode === "wave" ? `Wave: ${comparisonDatasetsLabel(query.comparisonDatasets ?? [])}` : "None";
 }
 
-function applyVariableSetRows(response: AnalyticsQueryResponse, variableSet: SavedVariableSet): AnalyticsQueryResponse {
-  if (!variableSet.rows.length) return response;
-
-  const orderedRows = variableSet.rows.slice().sort((a, b) => a.rowOrder - b.rowOrder);
-  const nextTable = orderedRows
-    .map((row) => {
-      const sourceRows = row.sourceOptionIds
-        .map((optionId) => response.table.find((tableRow) => tableRow.optionId === optionId))
-        .filter((item): item is AnalyticsQueryResponse["table"][number] => Boolean(item));
-
-      if (sourceRows.length === 0) return null;
-
-      const values = Object.fromEntries(
-        response.columns.map((column) => {
-          const columnValues = sourceRows.map((sourceRow) => sourceRow.values[column.id] ?? 0);
-          const aggregateValue =
-            response.metric.id === "count"
-              ? columnValues.reduce((sum, value) => sum + value, 0)
-              : Math.min(100, Math.round(columnValues.reduce((sum, value) => sum + value, 0) * 10) / 10);
-          return [column.id, aggregateValue];
-        })
-      );
-
-      const bases = Object.fromEntries(
-        response.columns.map((column) => {
-          const sourceBases = sourceRows.map((sourceRow) => sourceRow.bases[column.id] ?? 0);
-          return [column.id, Math.max(...sourceBases)];
-        })
-      );
-
-      return {
-        optionId: row.id,
-        label: row.label,
-        values,
-        bases
-      };
-    })
-    .filter((item): item is AnalyticsQueryResponse["table"][number] => Boolean(item));
-
-  const nextSeries = nextTable.map((row) => ({
-    id: row.optionId,
-    label: row.label,
-    values: response.columns.map((column) => row.values[column.id]),
-    bases: response.columns.map((column) => row.bases[column.id])
-  }));
-
-  return {
-    ...response,
-    series: nextSeries,
-    table: nextTable,
-    notes: [...response.notes, `Variable set logic applied from ${variableSet.label}.`]
-  };
-}
-
 function tileSourceKindLabel(source: DashboardTile["source"]) {
   if (!source) return "Query";
   return source.kind === "variableSet" ? "Variable set" : "Question";
@@ -2263,17 +2238,18 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           questionIds: variableSet.questionIds?.length ? variableSet.questionIds : [variableSet.primaryQuestionId ?? defaultQuestion.id],
           primaryQuestionId: variableSet.primaryQuestionId ?? variableSet.questionIds?.[0] ?? defaultQuestion.id,
           rowMode: variableSet.rowMode ?? "authored",
-          rows: variableSet.rows?.length
-            ? variableSet.rows
-                .map((row, rowIndex) => ({
-                  id: row.id ?? `row_${index + 1}_${rowIndex + 1}`,
-                  label: row.label ?? row.id ?? `Row ${rowIndex + 1}`,
-                  kind: row.kind ?? "option",
-                  sourceOptionIds: row.sourceOptionIds?.length ? row.sourceOptionIds : [row.id],
-                  rowOrder: row.rowOrder ?? rowIndex + 1
-                }))
-                .sort((a, b) => a.rowOrder - b.rowOrder)
-            : defaultVariableSetRows(variableSet.primaryQuestionId ?? variableSet.questionIds?.[0] ?? defaultQuestion.id),
+          rows: normalizeVariableSetRows(
+            (variableSet.rows ?? []).map((row, rowIndex) => ({
+              id: row.id ?? `row_${index + 1}_${rowIndex + 1}`,
+              label: row.label ?? row.id ?? `Row ${rowIndex + 1}`,
+              kind: row.kind ?? "option",
+              sourceOptionIds: row.sourceOptionIds?.length ? row.sourceOptionIds : [row.id],
+              rowOrder: row.rowOrder ?? rowIndex + 1,
+              visible: row.visible ?? true,
+              emphasis: row.emphasis ?? (row.kind === "option" ? "detail" : "summary")
+            })),
+            variableSet.primaryQuestionId ?? variableSet.questionIds?.[0] ?? defaultQuestion.id
+          ),
           breakBy: variableSet.breakBy ?? (defaultBreakBy.id as BreakById),
           metric: variableSet.metric ?? defaultQuestion.defaultMetric,
           chartType: variableSet.chartType ?? defaultVisualizationForQuestion(defaultQuestion),
@@ -2652,7 +2628,7 @@ export default function App() {
     setVariableSetDraftName(variableSet.label);
     setVariableSetDescription(variableSet.description);
     setVariableSetQuestionIds(variableSet.questionIds);
-    setVariableSetRows(variableSet.rows);
+    setVariableSetRows(normalizeVariableSetRows(variableSet.rows, nextQuestion.id));
     setVariableSetOptionSelection([]);
   }
 
@@ -2676,7 +2652,7 @@ export default function App() {
       questionIds: variableSetQuestionIds,
       primaryQuestionId: selectedQuestion.id,
       rowMode: "authored",
-      rows: variableSetRows.length ? variableSetRows : defaultVariableSetRows(selectedQuestion.id),
+      rows: normalizeVariableSetRows(variableSetRows, selectedQuestion.id),
       breakBy,
       metric,
       chartType,
@@ -2744,12 +2720,15 @@ export default function App() {
 
   function updateVariableSetRow(rowId: string, updates: Partial<SavedVariableSet["rows"][number]>) {
     setVariableSetRows((current) =>
-      current.map((row) => (row.id === rowId ? { ...row, ...updates } : row))
+      normalizeVariableSetRows(
+        current.map((row) => (row.id === rowId ? { ...row, ...updates } : row)),
+        question
+      )
     );
   }
 
   function removeVariableSetRow(rowId: string) {
-    setVariableSetRows((current) => current.filter((row) => row.id !== rowId).map((row, index) => ({ ...row, rowOrder: index + 1 })));
+    setVariableSetRows((current) => normalizeVariableSetRows(current.filter((row) => row.id !== rowId), question));
   }
 
   function toggleVariableSetOptionRow(optionId: string, label: string) {
@@ -2765,7 +2744,9 @@ export default function App() {
           label,
           kind: "option",
           sourceOptionIds: [optionId],
-          rowOrder: current.length + 1
+          rowOrder: current.length + 1,
+          visible: true,
+          emphasis: "detail"
         }
       ];
     });
@@ -2795,16 +2776,31 @@ export default function App() {
 
     setVariableSetRows((current) => [
       ...current,
-      {
-        id: `net_${Date.now()}_${current.length + 1}`,
-        label,
-        kind: "net",
-        sourceOptionIds,
-        rowOrder: current.length + 1
-      }
-    ]);
+        {
+          id: `net_${Date.now()}_${current.length + 1}`,
+          label,
+          kind: kind === "top" ? "topbox" : kind === "bottom" ? "bottombox" : "net",
+          sourceOptionIds,
+          rowOrder: current.length + 1,
+          visible: true,
+          emphasis: "summary"
+        }
+      ]);
     setVariableSetOptionSelection([]);
     setError(null);
+  }
+
+  function resetVariableSetRows() {
+    setVariableSetRows(defaultVariableSetRows(question));
+    setVariableSetOptionSelection([]);
+  }
+
+  function markVariableSetRowsAsDetails() {
+    setVariableSetRows((current) => normalizeVariableSetRows(current.map((row) => ({ ...row, emphasis: "detail" })), question));
+  }
+
+  function revealAllVariableSetRows() {
+    setVariableSetRows((current) => normalizeVariableSetRows(current.map((row) => ({ ...row, visible: true })), question));
   }
 
   function applySavedBanner(banner: SavedBanner) {
@@ -4508,6 +4504,17 @@ export default function App() {
                           <strong>Variable logic</strong>
                           <small>Author visible rows, nets, and boxes</small>
                         </div>
+                        <div className="explorer-chip-row">
+                          <button type="button" className="explorer-chip-button secondary-chip" onClick={resetVariableSetRows}>
+                            Reset rows
+                          </button>
+                          <button type="button" className="explorer-chip-button secondary-chip" onClick={revealAllVariableSetRows}>
+                            Reveal all
+                          </button>
+                          <button type="button" className="explorer-chip-button secondary-chip" onClick={markVariableSetRowsAsDetails}>
+                            Mark all detail
+                          </button>
+                        </div>
                         <div className="explorer-question-list compact">
                           {selectedQuestion.options.map((option) => {
                             const included = variableSetRows.some((row) => row.kind === "option" && row.sourceOptionIds[0] === option.id);
@@ -4559,10 +4566,36 @@ export default function App() {
                             .map((row, index) => (
                               <div key={row.id} className="explorer-item active variable-set-row">
                                 <div className="variable-set-row__top">
-                                  <strong>{row.kind === "net" ? "Net row" : "Option row"}</strong>
+                                  <strong>{rowKindLabel(row.kind)}</strong>
                                   <span>{row.sourceOptionIds.join(", ")}</span>
                                 </div>
+                                <div className="explorer-chip-row variable-set-row__chips">
+                                  <span className="explorer-chip">{row.emphasis === "summary" ? "Summary row" : "Detail row"}</span>
+                                  <span className="explorer-chip">{row.visible ? "Visible" : "Hidden"}</span>
+                                </div>
                                 <input value={row.label} onChange={(event) => updateVariableSetRow(row.id, { label: event.target.value })} />
+                                <div className="compact-grid">
+                                  <label>
+                                    Row style
+                                    <select
+                                      value={row.emphasis}
+                                      onChange={(event) => updateVariableSetRow(row.id, { emphasis: event.target.value as "detail" | "summary" })}
+                                    >
+                                      <option value="detail">Detail</option>
+                                      <option value="summary">Summary</option>
+                                    </select>
+                                  </label>
+                                  <label>
+                                    Visibility
+                                    <select
+                                      value={row.visible ? "visible" : "hidden"}
+                                      onChange={(event) => updateVariableSetRow(row.id, { visible: event.target.value === "visible" })}
+                                    >
+                                      <option value="visible">Visible</option>
+                                      <option value="hidden">Hidden</option>
+                                    </select>
+                                  </label>
+                                </div>
                                 <div className="variable-set-row__actions">
                                   <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "up")} disabled={index === 0}>
                                     Up

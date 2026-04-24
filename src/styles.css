@@ -789,6 +789,10 @@ h2 {
   gap: 2px;
 }
 
+.variable-set-row__chips {
+  margin-top: -2px;
+}
+
 .variable-set-row__actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
