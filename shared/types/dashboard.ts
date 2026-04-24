@@ -287,6 +287,19 @@ export interface TextBlockPreset {
   };
 }
 
+export interface PageTemplatePreset {
+  id: string;
+  label: string;
+  description: string;
+  pageThemeId: string;
+  elements: Array<{
+    name: string;
+    content: string;
+    layout: Omit<CanvasLayout, "zIndex">;
+    style: TextBlockPreset["style"];
+  }>;
+}
+
 export interface PageThemePreset {
   id: string;
   label: string;
@@ -308,6 +321,7 @@ export interface DesignLibrary {
   textStyles: TextStylePreset[];
   textBlocks: TextBlockPreset[];
   pageThemes: PageThemePreset[];
+  pageTemplates: PageTemplatePreset[];
 }
 
 export interface DashboardDraft {

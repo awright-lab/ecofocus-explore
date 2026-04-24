@@ -42,6 +42,7 @@ import type {
   DesignColorPalette,
   GradientStop,
   GradientType,
+  PageTemplatePreset,
   PageThemePreset,
   SavedBanner,
   SavedFilterSet,
@@ -373,6 +374,71 @@ function seedPageThemes(): PageThemePreset[] {
   ];
 }
 
+function seedPageTemplates(): PageTemplatePreset[] {
+  const displayStyle = seedTextBlocks().find((block) => block.id === "hero_headline")?.style ?? defaultElementStyle("text");
+  const introStyle = seedTextBlocks().find((block) => block.id === "section_intro")?.style ?? defaultElementStyle("text");
+  const noteStyle = seedTextBlocks().find((block) => block.id === "source_note")?.style ?? defaultElementStyle("text");
+
+  return [
+    {
+      id: "blank_page",
+      label: "Blank page",
+      description: "Clean page with the default canvas and no starter blocks.",
+      pageThemeId: "paper",
+      elements: []
+    },
+    {
+      id: "story_intro",
+      label: "Story intro",
+      description: "Headline plus supporting text for a clean section opener.",
+      pageThemeId: "mist",
+      elements: [
+        {
+          name: "Headline",
+          content: "What’s shifting in eco-aware shopping decisions?",
+          layout: { x: 92, y: 84, width: 720, height: 132 },
+          style: displayStyle
+        },
+        {
+          name: "Intro",
+          content: "Use this page to frame the story before charts come in. It works well for a wave summary, a client brief setup, or a transition between sections.",
+          layout: { x: 96, y: 248, width: 460, height: 132 },
+          style: introStyle
+        }
+      ]
+    },
+    {
+      id: "insight_with_note",
+      label: "Insight page",
+      description: "Starter structure for a chart plus narrative and methodology note.",
+      pageThemeId: "paper",
+      elements: [
+        {
+          name: "Section title",
+          content: "Brand and retailer priorities",
+          layout: { x: 84, y: 70, width: 540, height: 84 },
+          style: {
+            ...displayStyle,
+            fontSize: 30
+          }
+        },
+        {
+          name: "Insight note",
+          content: "Lead with the one takeaway you want the page to carry. The chart can then support it rather than doing all the explaining by itself.",
+          layout: { x: 86, y: 178, width: 360, height: 160 },
+          style: introStyle
+        },
+        {
+          name: "Source",
+          content: "Source: EcoFocus weighted sample. Add chart notes or methodology here.",
+          layout: { x: 84, y: 642, width: 420, height: 70 },
+          style: noteStyle
+        }
+      ]
+    }
+  ];
+}
+
 let lastSolidPickerHue = 150;
 
 function defaultVariableSetRows(questionId: QuestionId) {
@@ -541,7 +607,8 @@ function seedDesignLibrary() {
     palettes: seedDesignPalettes(),
     textStyles: seedTextStyles(),
     textBlocks: seedTextBlocks(),
-    pageThemes: seedPageThemes()
+    pageThemes: seedPageThemes(),
+    pageTemplates: seedPageTemplates()
   };
 }
 
@@ -841,6 +908,13 @@ function svgLinearGradientVector(angle: number) {
 
 function backgroundStyle(mode: "solid" | "gradient", solid: string, gradientFrom: string, gradientTo: string, gradientStops?: GradientStop[], gradientType: GradientType = "linear") {
   return mode === "gradient" ? gradientCss(gradientFrom, gradientTo, gradientStops, gradientType, "135deg") : solid;
+}
+
+function themePreviewBackground(theme?: PageThemePreset) {
+  if (!theme) return "#ffffff";
+  return theme.backgroundMode === "gradient"
+    ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
+    : theme.background;
 }
 
 function hexToRgb(color: string) {
@@ -2660,6 +2734,31 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             gradientStops: textBlock.style?.gradientStops ?? []
           }
         })) ?? seededDesignLibrary.textBlocks,
+      pageTemplates:
+        dashboard.designLibrary?.pageTemplates?.map((pageTemplate, index) => ({
+          ...pageTemplate,
+          id: pageTemplate.id ?? `page_template_${index + 1}`,
+          label: pageTemplate.label ?? `Page template ${index + 1}`,
+          description: pageTemplate.description ?? "",
+          pageThemeId: pageTemplate.pageThemeId ?? seededDesignLibrary.pageThemes[0].id,
+          elements: (pageTemplate.elements ?? []).map((element) => ({
+            ...element,
+            name: element.name ?? "Text block",
+            content: element.content ?? "Text block",
+            layout: {
+              x: element.layout?.x ?? 84,
+              y: element.layout?.y ?? 84,
+              width: element.layout?.width ?? 360,
+              height: element.layout?.height ?? 120
+            },
+            style: {
+              ...defaultElementStyle("text"),
+              ...element.style,
+              gradientType: element.style?.gradientType ?? "linear",
+              gradientStops: element.style?.gradientStops ?? []
+            }
+          }))
+        })) ?? seededDesignLibrary.pageTemplates,
       pageThemes:
         dashboard.designLibrary?.pageThemes?.map((pageTheme, index) => ({
           ...pageTheme,
@@ -2807,6 +2906,7 @@ export default function App() {
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
   const pageThemes = dashboard.designLibrary.pageThemes;
+  const pageTemplates = dashboard.designLibrary.pageTemplates;
   const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
   const normalizedSourceSearch = sourceSearch.trim().toLowerCase();
   const filteredVariableSets = savedVariableSets.filter((item) =>
@@ -4223,18 +4323,88 @@ export default function App() {
     }));
   }
 
-  function addPage() {
-    const page: DashboardPage = {
+  function buildPageFromTemplate(template?: PageTemplatePreset) {
+    const pageTheme = pageThemes.find((item) => item.id === template?.pageThemeId) ?? pageThemes[0];
+    return {
       id: makePageId(),
-      title: `Page ${dashboard.pages.length + 1}`,
+      title: template ? template.label : `Page ${dashboard.pages.length + 1}`,
       order: dashboard.pages.length + 1,
       ...defaultPageDesign(),
-      elements: [],
+      ...(pageTheme
+        ? {
+            backgroundMode: pageTheme.backgroundMode,
+            background: pageTheme.background,
+            backgroundImage: pageTheme.backgroundImage,
+            backgroundImageFit: pageTheme.backgroundImageFit,
+            gradientFrom: pageTheme.gradientFrom,
+            gradientTo: pageTheme.gradientTo,
+            gradientType: pageTheme.gradientType,
+            gradientAngle: pageTheme.gradientAngle,
+            gradientStops: pageTheme.gradientStops,
+            showCanvasGrid: pageTheme.showCanvasGrid
+          }
+        : {}),
+      elements:
+        template?.elements.map((element, index) => ({
+          id: makeElementId(),
+          name: element.name,
+          type: "text" as const,
+          locked: false,
+          hidden: false,
+          layout: { ...element.layout, zIndex: index + 1 },
+          content: element.content,
+          style: {
+            ...defaultElementStyle("text"),
+            ...element.style
+          }
+        })) ?? [],
       tiles: []
-    };
+    } satisfies DashboardPage;
+  }
+
+  function addPage(template?: PageTemplatePreset) {
+    const page = buildPageFromTemplate(template);
 
     setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
     setActivePageId(page.id);
+    selectPage();
+  }
+
+  function duplicateActivePage() {
+    const duplicate: DashboardPage = {
+      ...activePage,
+      id: makePageId(),
+      title: `${activePage.title} copy`,
+      order: dashboard.pages.length + 1,
+      elements: activePage.elements.map((element) => ({
+        ...element,
+        id: makeElementId(),
+        layout: { ...element.layout, zIndex: element.layout.zIndex }
+      })),
+      tiles: activePage.tiles.map((tile) => ({
+        ...tile,
+        id: makeTileId(),
+        layout: { ...tile.layout, zIndex: tile.layout.zIndex },
+        appearance: {
+          ...tile.appearance,
+          palette: [...tile.appearance.palette],
+          gradientStops: [...tile.appearance.gradientStops],
+          barGradientStops: [...tile.appearance.barGradientStops],
+          barStyles: Object.fromEntries(
+            Object.entries(tile.appearance.barStyles).map(([id, style]) => [
+              id,
+              {
+                ...style,
+                gradientStops: style.gradientStops ? [...style.gradientStops] : style.gradientStops
+              }
+            ])
+          )
+        }
+      }))
+    };
+
+    setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, duplicate] }));
+    setActivePageId(duplicate.id);
     selectPage();
   }
 
@@ -4636,9 +4806,34 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <button type="button" className="secondary" onClick={addPage}>
+              <div className="brand-card-actions">
+                <button type="button" className="secondary" onClick={() => addPage()}>
                 New page
-              </button>
+                </button>
+                <button type="button" className="secondary" onClick={duplicateActivePage}>
+                  Duplicate page
+                </button>
+              </div>
+              <div className="explorer-section-card">
+                <div className="explorer-section-header">
+                  <strong>Page templates</strong>
+                  <small>{pageTemplates.length} ready to use</small>
+                </div>
+                <div className="brand-theme-list">
+                  {pageTemplates.map((template) => (
+                    <button type="button" key={template.id} className="brand-theme-card" onClick={() => addPage(template)}>
+                      <span
+                        className="brand-theme-preview"
+                        style={{ background: themePreviewBackground(pageThemes.find((theme) => theme.id === template.pageThemeId)) }}
+                      />
+                      <div>
+                        <strong>{template.label}</strong>
+                        <small>{template.description}</small>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
               </>
               )}
 
@@ -5517,7 +5712,7 @@ export default function App() {
                 </div>
               </button>
             ))}
-            <button type="button" className="page-thumb add" onClick={addPage}>+</button>
+            <button type="button" className="page-thumb add" onClick={() => addPage()}>+</button>
           </div>
         </section>
 
@@ -5593,9 +5788,14 @@ export default function App() {
             <span>Background</span>
             <small>{activePage.backgroundMode === "image" ? "Image" : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}</small>
           </button>
+          <div className="brand-card-actions">
+            <button type="button" className="secondary" onClick={duplicateActivePage}>
+              Duplicate page
+            </button>
           <button type="button" className="secondary" onClick={deleteActivePage} disabled={dashboard.pages.length <= 1}>
             Delete page
           </button>
+          </div>
             </>
           )}
           {settingsView === "layout" && (selectedTile || selectedElement) && (
