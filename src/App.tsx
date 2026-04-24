@@ -2207,6 +2207,71 @@ export default function App() {
     confidenceLevel: 0.95
   };
 
+  function queryForQuestion(nextQuestion: typeof defaultDataset.questions[number]): AnalyticsQueryRequest {
+    return {
+      dataset: defaultDataset.id,
+      question: nextQuestion.id,
+      breakBy: nextQuestion.allowedBreakBys[0],
+      filters: [],
+      weight: defaultDataset.defaultWeight,
+      metric: nextQuestion.defaultMetric,
+      chartType: nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table",
+      confidenceLevel: 0.95
+    };
+  }
+
+  function queryForVariableSet(variableSet: SavedVariableSet): AnalyticsQueryRequest {
+    const nextQuestion = defaultDataset.questions.find((item) => item.id === variableSet.primaryQuestionId) ?? defaultQuestion;
+    return {
+      dataset: defaultDataset.id,
+      question: nextQuestion.id,
+      breakBy: nextQuestion.allowedBreakBys.includes(variableSet.breakBy) ? variableSet.breakBy : nextQuestion.allowedBreakBys[0],
+      filters: variableSet.filterField && variableSet.filterValue !== "all" ? [{ field: variableSet.filterField, values: [variableSet.filterValue] }] : [],
+      weight: variableSet.weight,
+      metric: nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric,
+      chartType: nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table",
+      confidenceLevel: 0.95
+    };
+  }
+
+  async function createTileFromSource(tileQuery: AnalyticsQueryRequest, sourceLabel: string, position?: { x: number; y: number }) {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await runAnalyticsQuery(tileQuery);
+      const tile: DashboardTile = {
+        id: makeTileId(),
+        name: sourceLabel,
+        title: sourceLabel,
+        locked: false,
+        hidden: false,
+        layout: {
+          x: position?.x ?? 48,
+          y: position?.y ?? 72 + activePage.tiles.length * 28,
+          width: 760,
+          height: 460,
+          zIndex: nextZIndex(activePage)
+        },
+        query: tileQuery,
+        visualization: tileQuery.chartType,
+        appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
+        result: response
+      };
+
+      setDashboard((current) => ({
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
+      }));
+      selectTile(tile.id);
+    } catch (queryError) {
+      setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   function applyQuestionSelection(nextQuestion: typeof defaultDataset.questions[number], sourceId = nextQuestion.id) {
     setSelectedDataSource({ kind: "question", id: sourceId });
     setQuestion(nextQuestion.id);
@@ -2307,6 +2372,40 @@ export default function App() {
     });
   }
 
+  function startDataSourceDrag(source: { kind: "question" | "variableSet"; id: string }, event: React.DragEvent<HTMLElement>) {
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/ecofocus-source", JSON.stringify(source));
+  }
+
+  async function handleCanvasDrop(event: React.DragEvent<HTMLDivElement>) {
+    const raw = event.dataTransfer.getData("application/ecofocus-source");
+    if (!raw) return;
+
+    event.preventDefault();
+
+    try {
+      const parsed = JSON.parse(raw) as { kind: "question" | "variableSet"; id: string };
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const dropX = Math.max(24, Math.min(canvasWidth - 784, Math.round((event.clientX - bounds.left) / canvasScale) - 120));
+      const dropY = Math.max(24, Math.min(canvasHeight - 484, Math.round((event.clientY - bounds.top) / canvasScale) - 48));
+
+      if (parsed.kind === "variableSet") {
+        const variableSet = savedVariableSets.find((item) => item.id === parsed.id);
+        if (!variableSet) return;
+        applyVariableSetSelection(variableSet);
+        await createTileFromSource(queryForVariableSet(variableSet), variableSet.label, { x: dropX, y: dropY });
+        return;
+      }
+
+      const nextQuestion = defaultDataset.questions.find((item) => item.id === parsed.id);
+      if (!nextQuestion) return;
+      applyQuestionSelection(nextQuestion);
+      await createTileFromSource(queryForQuestion(nextQuestion), nextQuestion.shortLabel, { x: dropX, y: dropY });
+    } catch {
+      setError("Could not drop that source onto the canvas.");
+    }
+  }
+
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
     setSaveState("Saved locally");
@@ -2363,36 +2462,7 @@ export default function App() {
   }
 
   async function addTileFromQuery() {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await runAnalyticsQuery(query);
-      const sourceLabel = selectedVariableSet?.label ?? selectedQuestion.shortLabel;
-      const tile: DashboardTile = {
-        id: makeTileId(),
-        name: sourceLabel,
-        title: sourceLabel,
-        locked: false,
-        hidden: false,
-        layout: { x: 48, y: 72 + activePage.tiles.length * 28, width: 760, height: 460, zIndex: nextZIndex(activePage) },
-        query,
-        visualization: chartType,
-        appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
-        result: response
-      };
-
-      setDashboard((current) => ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
-      }));
-      selectTile(tile.id);
-    } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
-    } finally {
-      setIsLoading(false);
-    }
+    await createTileFromSource(query, selectedVariableSet?.label ?? selectedQuestion.shortLabel);
   }
 
   function updateSelectedTile(updates: Partial<DashboardTile>) {
@@ -3073,11 +3143,13 @@ export default function App() {
                       <button
                         type="button"
                         key={item.id}
+                        draggable
                         className={selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
                         onClick={() => applyVariableSetSelection(item)}
+                        onDragStart={(event) => startDataSourceDrag({ kind: "variableSet", id: item.id }, event)}
                       >
                         <strong>{item.label}</strong>
-                        <span>{item.topic}</span>
+                        <span>{item.topic} · Drag to canvas</span>
                       </button>
                     ))}
                   </div>
@@ -3093,11 +3165,13 @@ export default function App() {
                       <button
                         type="button"
                         key={item.id}
+                        draggable
                         className={selectedDataSource.kind === "question" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
                         onClick={() => applyQuestionSelection(item)}
+                        onDragStart={(event) => startDataSourceDrag({ kind: "question", id: item.id }, event)}
                       >
                         <strong>{item.shortLabel}</strong>
-                        <span>{item.topic}</span>
+                        <span>{item.topic} · Drag to canvas</span>
                       </button>
                     ))}
                   </div>
@@ -3290,6 +3364,15 @@ export default function App() {
             <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>
               <div
                 className="freeform-canvas"
+                onDragOver={(event) => {
+                  if (event.dataTransfer.types.includes("application/ecofocus-source")) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                  }
+                }}
+                onDrop={(event) => {
+                  void handleCanvasDrop(event);
+                }}
                 onClick={(event) => {
                   if (event.currentTarget === event.target) {
                     selectPage();
