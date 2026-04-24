@@ -2328,6 +2328,11 @@ export default function App() {
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
   const selectedChartTypes = selectedQuestion.allowedChartTypes;
+  const selectedTileQuestion = selectedTile
+    ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion
+    : null;
+  const selectedTileFilterDimension =
+    selectedTile?.query.filters[0]?.field ? filterDimensions.find((item) => item.id === selectedTile.query.filters[0]?.field) : undefined;
   const chartStyleTargets =
     selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
       ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
@@ -2780,6 +2785,32 @@ export default function App() {
       query: { ...tile.query, chartType: nextVisualization },
       result: { ...tile.result, query: { ...tile.result.query, chartType: nextVisualization } }
     };
+  }
+
+  async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await runAnalyticsQuery(nextQuery);
+      const compatibleVisualizations = getCompatibleChartTypes(response);
+      const nextVisualization = compatibleVisualizations.includes(tile.visualization)
+        ? tile.visualization
+        : compatibleVisualizations[0] ?? "table";
+
+      updateTile(tile.id, {
+        query: { ...nextQuery, chartType: nextVisualization, confidenceLevel: nextQuery.confidenceLevel ?? 0.95 },
+        visualization: nextVisualization,
+        result: {
+          ...response,
+          query: { ...response.query, chartType: nextVisualization, confidenceLevel: response.query.confidenceLevel ?? nextQuery.confidenceLevel ?? 0.95 }
+        }
+      });
+    } catch (queryError) {
+      setError(queryError instanceof Error ? queryError.message : "Something went wrong refreshing this analysis.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function duplicateTileAsVisualization(tile: DashboardTile, nextVisualization: ChartType) {
@@ -4436,6 +4467,132 @@ export default function App() {
                   </span>
                 </div>
               </div>
+              {selectedTileQuestion && (
+                <div className="inspector-summary-card">
+                  <span className="inspector-summary-kicker">Edit analysis</span>
+                  <div className="compact-grid">
+                    <label>
+                      Banner
+                      <select
+                        value={selectedTile.query.breakBy}
+                        onChange={(event) =>
+                          updateSelectedTile({
+                            query: { ...selectedTile.query, breakBy: event.target.value as BreakById }
+                          })
+                        }
+                      >
+                        {bannerDimensions
+                          .filter((item) => selectedTileQuestion.allowedBreakBys.includes(item.id as BreakById))
+                          .map((item) => (
+                            <option value={item.id} key={item.id}>
+                              {item.label}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      Cells
+                      <select
+                        value={selectedTile.query.metric}
+                        onChange={(event) =>
+                          updateSelectedTile({
+                            query: { ...selectedTile.query, metric: event.target.value as Metric }
+                          })
+                        }
+                      >
+                        {selectedTileQuestion.allowedMetrics.map((item) => (
+                          <option value={item} key={item}>
+                            {defaultDataset.metrics.find((metricItem) => metricItem.id === item)?.label ?? item}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="compact-grid">
+                    <label>
+                      Weight
+                      <select
+                        value={selectedTile.query.weight ?? "none"}
+                        onChange={(event) =>
+                          updateSelectedTile({
+                            query: { ...selectedTile.query, weight: event.target.value === "none" ? null : (event.target.value as WeightId) }
+                          })
+                        }
+                      >
+                        <option value="none">Unweighted</option>
+                        {defaultDataset.weights.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Filter field
+                      <select
+                        value={selectedTile.query.filters[0]?.field ?? "none"}
+                        onChange={(event) =>
+                          updateSelectedTile({
+                            query: {
+                              ...selectedTile.query,
+                              filters:
+                                event.target.value === "none"
+                                  ? []
+                                  : [{ field: event.target.value as FilterFieldId, values: ["all"] }]
+                            }
+                          })
+                        }
+                      >
+                        <option value="none">No filter</option>
+                        {filterDimensions.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {selectedTileFilterDimension && (
+                    <label>
+                      Filter value
+                      <select
+                        value={selectedTile.query.filters[0]?.values[0] ?? "all"}
+                        onChange={(event) =>
+                          updateSelectedTile({
+                            query: {
+                              ...selectedTile.query,
+                              filters: [{ field: selectedTileFilterDimension.id, values: [event.target.value] }]
+                            }
+                          })
+                        }
+                      >
+                        <option value="all">All {selectedTileFilterDimension.label.toLowerCase()}s</option>
+                        {selectedTileFilterDimension.values.map((item) => (
+                          <option value={item.id} key={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      rerunTileAnalysis(selectedTile, {
+                        ...selectedTile.query,
+                        chartType: selectedTile.visualization,
+                        filters:
+                          selectedTile.query.filters[0]?.field && selectedTile.query.filters[0]?.values[0] !== "all"
+                            ? selectedTile.query.filters
+                            : []
+                      })
+                    }
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Refreshing..." : "Refresh analysis"}
+                  </button>
+                </div>
+              )}
               <label>
                 Visualization
                 <select
