@@ -29,7 +29,7 @@ import type {
   QuestionId,
   WeightId
 } from "../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, SavedVariableSet, TileAppearance } from "../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardCanvasElementType, DashboardDraft, DashboardPage, DashboardTile, GradientStop, GradientType, SavedBanner, SavedFilterSet, SavedVariableSet, TileAppearance } from "../shared/types/dashboard";
 
 const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
@@ -172,12 +172,54 @@ function seedVariableSets(): SavedVariableSet[] {
   ];
 }
 
+function seedSavedBanners(): SavedBanner[] {
+  return [
+    {
+      id: "banner_summary",
+      datasetId: defaultDataset.id,
+      label: "Summary",
+      description: "Default overall summary banner.",
+      breakBy: "SUMMARY"
+    },
+    {
+      id: "banner_generation",
+      datasetId: defaultDataset.id,
+      label: "Generation",
+      description: "Saved demographic banner for generation cuts.",
+      breakBy: "GENERATION"
+    }
+  ];
+}
+
+function seedSavedFilters(): SavedFilterSet[] {
+  return [
+    {
+      id: "filter_all_shoppers",
+      datasetId: defaultDataset.id,
+      label: "All shopper segments",
+      description: "No segment filter applied.",
+      filterField: defaultFilterDimension?.id ?? null,
+      filterValue: "all"
+    },
+    {
+      id: "filter_eco_engaged",
+      datasetId: defaultDataset.id,
+      label: "Eco engaged",
+      description: "Filter to eco engaged shoppers.",
+      filterField: "SHOPPER_SEGMENT",
+      filterValue: "eco_engaged"
+    }
+  ];
+}
+
 const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
   title: "2025 EcoFocus Builder Draft",
   status: "draft",
   analysisLibrary: {
-    variableSets: seedVariableSets()
+    variableSets: seedVariableSets(),
+    banners: seedSavedBanners(),
+    filters: seedSavedFilters()
   },
   pages: [
     {
@@ -2051,7 +2093,26 @@ function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           weight: variableSet.weight ?? defaultDataset.defaultWeight,
           filterField: variableSet.filterField ?? (defaultFilterDimension?.id ?? null),
           filterValue: variableSet.filterValue ?? "all"
-        })) ?? seedVariableSets()
+        })) ?? seedVariableSets(),
+      banners:
+        dashboard.analysisLibrary?.banners?.map((banner, index) => ({
+          ...banner,
+          id: banner.id ?? `banner_${index + 1}`,
+          datasetId: banner.datasetId ?? defaultDataset.id,
+          label: banner.label ?? `Banner ${index + 1}`,
+          description: banner.description ?? "",
+          breakBy: banner.breakBy ?? (defaultBreakBy.id as BreakById)
+        })) ?? seedSavedBanners(),
+      filters:
+        dashboard.analysisLibrary?.filters?.map((filter, index) => ({
+          ...filter,
+          id: filter.id ?? `filter_${index + 1}`,
+          datasetId: filter.datasetId ?? defaultDataset.id,
+          label: filter.label ?? `Filter ${index + 1}`,
+          description: filter.description ?? "",
+          filterField: filter.filterField ?? (defaultFilterDimension?.id ?? null),
+          filterValue: filter.filterValue ?? "all"
+        })) ?? seedSavedFilters()
     },
     pages: dashboard.pages.map((page) => ({
           ...page,
@@ -2156,6 +2217,8 @@ export default function App() {
   const [variableSetDraftName, setVariableSetDraftName] = useState(defaultQuestion.shortLabel);
   const [variableSetDescription, setVariableSetDescription] = useState("");
   const [variableSetQuestionIds, setVariableSetQuestionIds] = useState<QuestionId[]>([defaultQuestion.id]);
+  const [bannerDraftName, setBannerDraftName] = useState("Summary");
+  const [filterDraftName, setFilterDraftName] = useState("All shopper segments");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2163,6 +2226,8 @@ export default function App() {
     return defaultDataset.questions.find((item) => item.id === question) ?? defaultQuestion;
   }, [question]);
   const savedVariableSets = dashboard.analysisLibrary.variableSets;
+  const savedBanners = dashboard.analysisLibrary.banners;
+  const savedFilters = dashboard.analysisLibrary.filters;
   const selectedVariableSet = selectedDataSource.kind === "variableSet" ? savedVariableSets.find((item) => item.id === selectedDataSource.id) ?? null : null;
 
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
@@ -2372,6 +2437,73 @@ export default function App() {
     });
   }
 
+  function applySavedBanner(banner: SavedBanner) {
+    setBreakBy(banner.breakBy);
+    setBannerDraftName(banner.label);
+  }
+
+  function saveCurrentBanner() {
+    const trimmedLabel = bannerDraftName.trim();
+    if (!trimmedLabel) {
+      setError("Give the banner a name before saving it.");
+      return;
+    }
+
+    const nextBanner: SavedBanner = {
+      id: `banner_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: trimmedLabel,
+      description: `Saved banner for ${bannerDimensions.find((item) => item.id === breakBy)?.label ?? breakBy}`,
+      breakBy
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        banners: [nextBanner, ...current.analysisLibrary.banners]
+      }
+    }));
+    setError(null);
+  }
+
+  function applySavedFilter(filter: SavedFilterSet) {
+    setFilterField(filter.filterField);
+    setFilterValue(filter.filterValue);
+    setFilterDraftName(filter.label);
+  }
+
+  function saveCurrentFilter() {
+    const trimmedLabel = filterDraftName.trim();
+    if (!trimmedLabel) {
+      setError("Give the filter a name before saving it.");
+      return;
+    }
+
+    const nextFilter: SavedFilterSet = {
+      id: `filter_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label: trimmedLabel,
+      description:
+        filterField && filterValue !== "all"
+          ? `Saved filter for ${filterDimensions.find((item) => item.id === filterField)?.label ?? filterField}`
+          : "No segment filter applied.",
+      filterField,
+      filterValue
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        filters: [nextFilter, ...current.analysisLibrary.filters]
+      }
+    }));
+    setError(null);
+  }
+
   function startDataSourceDrag(source: { kind: "question" | "variableSet"; id: string }, event: React.DragEvent<HTMLElement>) {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData("application/ecofocus-source", JSON.stringify(source));
@@ -2423,6 +2555,21 @@ export default function App() {
     setVariableSetDescription(`Saved view for ${selectedQuestion.shortLabel}`);
     setVariableSetQuestionIds([selectedQuestion.id]);
   }, [selectedQuestion.id, selectedQuestion.shortLabel, selectedVariableSet]);
+
+  useEffect(() => {
+    setBannerDraftName(bannerDimensions.find((item) => item.id === breakBy)?.label ?? "Saved banner");
+  }, [breakBy]);
+
+  useEffect(() => {
+    if (!filterField || filterValue === "all") {
+      setFilterDraftName("All shopper segments");
+      return;
+    }
+
+    const field = filterDimensions.find((item) => item.id === filterField);
+    const value = field?.values.find((item) => item.id === filterValue);
+    setFilterDraftName(value?.label ?? field?.label ?? "Saved filter");
+  }, [filterField, filterValue]);
 
   useEffect(() => {
     if (!designModal) return;
@@ -3174,6 +3321,44 @@ export default function App() {
                         <span>{item.topic} · Drag to canvas</span>
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Banners</strong>
+                    <small>{savedBanners.length} saved</small>
+                  </div>
+                  <div className="explorer-item-list compact">
+                    {savedBanners.map((item) => (
+                      <button type="button" key={item.id} className={item.breakBy === breakBy ? "explorer-item active" : "explorer-item"} onClick={() => applySavedBanner(item)}>
+                        <strong>{item.label}</strong>
+                        <span>{item.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="compact-grid">
+                    <input value={bannerDraftName} onChange={(event) => setBannerDraftName(event.target.value)} placeholder="Save current banner" />
+                    <button type="button" className="secondary" onClick={saveCurrentBanner}>Save banner</button>
+                  </div>
+                </div>
+
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Filters</strong>
+                    <small>{savedFilters.length} saved</small>
+                  </div>
+                  <div className="explorer-item-list compact">
+                    {savedFilters.map((item) => (
+                      <button type="button" key={item.id} className={item.filterField === filterField && item.filterValue === filterValue ? "explorer-item active" : "explorer-item"} onClick={() => applySavedFilter(item)}>
+                        <strong>{item.label}</strong>
+                        <span>{item.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="compact-grid">
+                    <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Save current filter" />
+                    <button type="button" className="secondary" onClick={saveCurrentFilter}>Save filter</button>
                   </div>
                 </div>
 

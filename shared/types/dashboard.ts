@@ -184,12 +184,31 @@ export interface SavedVariableSet {
   filterValue: string;
 }
 
+export interface SavedBanner {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  breakBy: BreakById;
+}
+
+export interface SavedFilterSet {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  filterField: FilterFieldId | null;
+  filterValue: string;
+}
+
 export interface DashboardDraft {
   id: string;
   title: string;
   status: DashboardStatus;
   analysisLibrary: {
     variableSets: SavedVariableSet[];
+    banners: SavedBanner[];
+    filters: SavedFilterSet[];
   };
   pages: DashboardPage[];
 }
