@@ -42,4 +42,55 @@ describe("validateAnalyticsQuery", () => {
 
     expect(errors).toContain("Filter SHOPPER_SEGMENT contains unsupported values: not_a_segment.");
   });
+
+  it("accepts a valid wave comparison query", () => {
+    expect(
+      validateAnalyticsQuery({
+        dataset: "ecofocus_2025",
+        question: "Q_PACKAGING_TRUST",
+        breakBy: "SUMMARY",
+        filters: [],
+        weight: "weightvar",
+        metric: "column_percent",
+        chartType: "line_chart",
+        confidenceLevel: 0.95,
+        comparisonMode: "wave",
+        comparisonDatasets: ["ecofocus_2024"]
+      })
+    ).toEqual([]);
+  });
+
+  it("rejects wave comparison without a comparison dataset", () => {
+    expect(
+      validateAnalyticsQuery({
+        dataset: "ecofocus_2025",
+        question: "Q_PACKAGING_TRUST",
+        breakBy: "SUMMARY",
+        filters: [],
+        weight: "weightvar",
+        metric: "column_percent",
+        chartType: "line_chart",
+        confidenceLevel: 0.95,
+        comparisonMode: "wave",
+        comparisonDatasets: []
+      })
+    ).toContain("Wave comparison needs at least one comparison dataset.");
+  });
+
+  it("rejects wave comparison on non-summary breakouts", () => {
+    expect(
+      validateAnalyticsQuery({
+        dataset: "ecofocus_2025",
+        question: "Q_PACKAGING_TRUST",
+        breakBy: "GENERATION",
+        filters: [],
+        weight: "weightvar",
+        metric: "column_percent",
+        chartType: "line_chart",
+        confidenceLevel: 0.95,
+        comparisonMode: "wave",
+        comparisonDatasets: ["ecofocus_2024"]
+      })
+    ).toContain("Wave comparison currently supports Summary only.");
+  });
 });

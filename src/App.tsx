@@ -17,13 +17,15 @@ import {
   YAxis
 } from "recharts";
 import { runAnalyticsQuery } from "./lib/api";
-import { datasets, getBannerDimensions, getFilterDimensions } from "./lib/metadata";
+import { datasets, getBannerDimensions, getComparisonDatasetOptions, getFilterDimensions } from "./lib/metadata";
 import type {
   AnalyticsAnnotation,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   BreakById,
   ChartType,
+  ComparisonMode,
+  DatasetId,
   FilterFieldId,
   Metric,
   QuestionId,
@@ -35,10 +37,12 @@ const defaultDataset = datasets[0];
 const defaultQuestion = defaultDataset.questions.find((question) => question.id === defaultDataset.defaultQuestion) ?? defaultDataset.questions[0];
 const bannerDimensions = getBannerDimensions(defaultDataset.id);
 const filterDimensions = getFilterDimensions(defaultDataset.id);
+const comparisonDatasetOptions = getComparisonDatasetOptions(defaultDataset.id);
 const defaultBreakBy = bannerDimensions.find((dimension) => dimension.id === defaultDataset.defaultBreakBy) ?? bannerDimensions[0];
 const defaultFilterDimension = filterDimensions[0];
 const axisFontSizePresets = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24];
 const axisRotationPresets = [0, -45, 45, -90, 90];
+const waveComparisonChartTypes: ChartType[] = ["table", "grouped_bar", "stacked_bar", "line_chart"];
 
 const palettes = [
   { id: "forest", label: "Forest", colors: ["#39784d", "#6c9b4d", "#2d6f73", "#9a7a38", "#6f6697"] },
@@ -2399,6 +2403,8 @@ export default function App() {
   const [weight, setWeight] = useState<WeightId | null>(defaultDataset.defaultWeight);
   const [filterField, setFilterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("none");
+  const [comparisonDatasets, setComparisonDatasets] = useState<DatasetId[]>([]);
   const [weightDraftName, setWeightDraftName] = useState(defaultDataset.weights.find((item) => item.id === defaultDataset.defaultWeight)?.label ?? "Unweighted sample");
   const [variableSetDraftName, setVariableSetDraftName] = useState(defaultQuestion.shortLabel);
   const [variableSetDescription, setVariableSetDescription] = useState("");
@@ -2437,7 +2443,14 @@ export default function App() {
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
-  const selectedChartTypes = selectedQuestion.allowedChartTypes;
+  const selectedChartTypes =
+    comparisonMode === "wave"
+      ? waveComparisonChartTypes.filter((type) => {
+          if (type === "table") return true;
+          const chartMetadata = defaultDataset.chartTypes.find((item) => item.id === type);
+          return Boolean(chartMetadata && chartMetadata.supportedMetrics.includes(metric));
+        })
+      : selectedQuestion.allowedChartTypes;
   const selectedTileQuestion = selectedTile
     ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion
     : null;
@@ -2471,13 +2484,27 @@ export default function App() {
   const query: AnalyticsQueryRequest = {
     dataset: defaultDataset.id,
     question,
-    breakBy,
+    breakBy: comparisonMode === "wave" ? "SUMMARY" : breakBy,
     filters: filterField && filterValue !== "all" ? [{ field: filterField, values: [filterValue] }] : [],
     weight,
     metric,
     chartType,
-    confidenceLevel: 0.95
+    confidenceLevel: 0.95,
+    comparisonMode,
+    comparisonDatasets
   };
+
+  useEffect(() => {
+    if (comparisonMode === "wave" && breakBy !== "SUMMARY") {
+      setBreakBy("SUMMARY");
+    }
+  }, [comparisonMode, breakBy]);
+
+  useEffect(() => {
+    if (!selectedChartTypes.includes(chartType)) {
+      setChartType(selectedChartTypes[0] ?? "table");
+    }
+  }, [chartType, selectedChartTypes]);
 
   function queryForQuestion(nextQuestion: typeof defaultDataset.questions[number]): AnalyticsQueryRequest {
     return {
@@ -2488,7 +2515,9 @@ export default function App() {
       weight: defaultDataset.defaultWeight,
       metric: nextQuestion.defaultMetric,
       chartType: defaultVisualizationForQuestion(nextQuestion),
-      confidenceLevel: 0.95
+      confidenceLevel: 0.95,
+      comparisonMode: "none",
+      comparisonDatasets: []
     };
   }
 
@@ -2502,8 +2531,16 @@ export default function App() {
       weight: variableSet.weight,
       metric: nextQuestion.allowedMetrics.includes(variableSet.metric) ? variableSet.metric : nextQuestion.defaultMetric,
       chartType: nextQuestion.allowedChartTypes.includes(variableSet.chartType) ? variableSet.chartType : defaultVisualizationForQuestion(nextQuestion),
-      confidenceLevel: 0.95
+      confidenceLevel: 0.95,
+      comparisonMode: "none",
+      comparisonDatasets: []
     };
+  }
+
+  function toggleComparisonDataset(datasetId: DatasetId) {
+    setComparisonDatasets((current) =>
+      current.includes(datasetId) ? current.filter((item) => item !== datasetId) : [...current, datasetId]
+    );
   }
 
   async function createTileFromSource(
@@ -2579,6 +2616,8 @@ export default function App() {
     setWeight(defaultDataset.defaultWeight);
     setFilterField(defaultFilterDimension?.id ?? null);
     setFilterValue("all");
+    setComparisonMode("none");
+    setComparisonDatasets([]);
     setVariableSetDraftName(nextQuestion.shortLabel);
     setVariableSetDescription(`Saved view for ${nextQuestion.shortLabel}`);
     setVariableSetQuestionIds([nextQuestion.id]);
@@ -2596,6 +2635,8 @@ export default function App() {
     setWeight(variableSet.weight);
     setFilterField(variableSet.filterField);
     setFilterValue(variableSet.filterValue);
+    setComparisonMode("none");
+    setComparisonDatasets([]);
     setVariableSetDraftName(variableSet.label);
     setVariableSetDescription(variableSet.description);
     setVariableSetQuestionIds(variableSet.questionIds);
@@ -4199,6 +4240,14 @@ export default function App() {
                       </div>
                       <div className="explorer-chip-row">
                         <span className="explorer-chip">Banner: {bannerDimensions.find((item) => item.id === breakBy)?.label ?? breakBy}</span>
+                        <span className="explorer-chip">
+                          Compare: {comparisonMode === "wave"
+                            ? comparisonDatasetOptions
+                                .filter((dataset) => comparisonDatasets.includes(dataset.id))
+                                .map((dataset) => dataset.wave)
+                                .join(" vs ") || "Choose wave(s)"
+                            : "None"}
+                        </span>
                         <span className="explorer-chip">Metric: {defaultDataset.metrics.find((item) => item.id === metric)?.label ?? metric}</span>
                         <span className="explorer-chip">Weight: {weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted"}</span>
                         <span className="explorer-chip">
@@ -4215,7 +4264,7 @@ export default function App() {
                       </div>
                       <label>
                         Banner
-                        <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)}>
+                        <select value={breakBy} onChange={(event) => setBreakBy(event.target.value as BreakById)} disabled={comparisonMode === "wave"}>
                           {bannerDimensions
                             .filter((item) => selectedQuestion.allowedBreakBys.includes(item.id as BreakById))
                             .map((item) => (
@@ -4278,6 +4327,56 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                      <div className="compact-grid">
+                        <label>
+                          Comparison
+                          <select
+                            value={comparisonMode}
+                            onChange={(event) => {
+                              const nextMode = event.target.value as ComparisonMode;
+                              setComparisonMode(nextMode);
+                              if (nextMode === "none") {
+                                setComparisonDatasets([]);
+                              }
+                            }}
+                          >
+                            <option value="none">None</option>
+                            <option value="wave">Wave comparison</option>
+                          </select>
+                        </label>
+                        {comparisonMode === "wave" ? (
+                          <div className="explorer-meta-block">
+                            <span>Wave comparisons use Summary as the banner.</span>
+                          </div>
+                        ) : (
+                          <div className="explorer-meta-block">
+                            <span>Use comparisons to trend the same question across waves.</span>
+                          </div>
+                        )}
+                      </div>
+                      {comparisonMode === "wave" && (
+                        <div className="explorer-section-card compact nested">
+                          <div className="explorer-section-header">
+                            <strong>Comparison waves</strong>
+                            <small>Select one or more historical datasets</small>
+                          </div>
+                          <div className="explorer-chip-row comparison-chip-row">
+                            {comparisonDatasetOptions.map((dataset) => (
+                              <button
+                                type="button"
+                                key={dataset.id}
+                                className={comparisonDatasets.includes(dataset.id) ? "explorer-chip-button active" : "explorer-chip-button secondary-chip"}
+                                onClick={() => toggleComparisonDataset(dataset.id)}
+                              >
+                                {dataset.wave}
+                              </button>
+                            ))}
+                          </div>
+                          <small className="explorer-helper-copy">
+                            Compare the active dataset against one or more prior waves using the same question and summary breakout.
+                          </small>
+                        </div>
+                      )}
                       <label>
                         Output
                         <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>

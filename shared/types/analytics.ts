@@ -1,4 +1,4 @@
-export type DatasetId = "ecofocus_2025";
+export type DatasetId = "ecofocus_2024" | "ecofocus_2025";
 
 export type QuestionId = "Q_PACKAGING_TRUST" | "Q_SUSTAINABILITY_IMPORTANCE" | "Q15_TOP2_BRAND_PRIORITIES";
 
@@ -16,6 +16,8 @@ export type WeightId = "weightvar";
 
 export type ConfidenceLevel = 0.9 | 0.95 | 0.99;
 
+export type ComparisonMode = "none" | "wave";
+
 export interface AnalyticsFilter {
   field: FilterFieldId | QuestionId;
   values: string[];
@@ -30,6 +32,8 @@ export interface AnalyticsQueryRequest {
   metric: Metric;
   chartType: ChartType;
   confidenceLevel: ConfidenceLevel;
+  comparisonMode?: ComparisonMode;
+  comparisonDatasets?: DatasetId[];
 }
 
 export interface AnalyticsSeries {
@@ -85,6 +89,8 @@ export interface AnalyticsQueryResponse {
     dataset: DatasetId;
     question: QuestionId;
     breakBy: BreakById;
+    comparisonMode?: ComparisonMode;
+    comparisonDatasets?: DatasetId[];
   };
 }
 

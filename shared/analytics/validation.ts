@@ -16,6 +16,7 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
   const metric = input.dataset && input.metric ? getMetricMetadata(input.dataset, input.metric) : undefined;
   const chartType = input.dataset && input.chartType ? getChartTypeMetadata(input.dataset, input.chartType) : undefined;
   const weight = input.dataset && input.weight ? getWeightMetadata(input.dataset, input.weight) : undefined;
+  const comparisonDatasets = input.comparisonDatasets ?? [];
 
   if (!dataset) errors.push("Unknown dataset.");
   if (!question) errors.push("Unknown or unsupported question.");
@@ -27,6 +28,22 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
   if (input.weight !== null && input.weight !== undefined && !weight) errors.push("Unsupported weight.");
   if (!Array.isArray(input.filters)) errors.push("filters must be an array.");
   if (input.confidenceLevel !== undefined && ![0.9, 0.95, 0.99].includes(input.confidenceLevel)) errors.push("Unsupported confidence level.");
+  if (input.comparisonMode !== undefined && !["none", "wave"].includes(input.comparisonMode)) errors.push("Unsupported comparison mode.");
+  if (input.comparisonMode === "wave" && input.breakBy !== "SUMMARY") errors.push("Wave comparison currently supports Summary only.");
+  if (input.comparisonMode === "wave" && comparisonDatasets.length === 0) errors.push("Wave comparison needs at least one comparison dataset.");
+
+  if (dataset && comparisonDatasets.length > 0) {
+    for (const comparisonDataset of comparisonDatasets) {
+      const comparisonMetadata = getDatasetMetadata(comparisonDataset);
+      if (!comparisonMetadata) {
+        errors.push(`Unsupported comparison dataset: ${comparisonDataset}.`);
+        continue;
+      }
+      if (!getQuestionMetadata(comparisonDataset, input.question ?? question?.id ?? dataset.defaultQuestion)) {
+        errors.push(`Comparison dataset ${comparisonDataset} does not support the selected question.`);
+      }
+    }
+  }
 
   if (dataset && Array.isArray(input.filters)) {
     for (const filter of input.filters) {

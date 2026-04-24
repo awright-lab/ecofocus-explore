@@ -678,9 +678,27 @@ h2 {
   background: #ebfaf4;
 }
 
+.explorer-chip-button.active {
+  border-color: var(--accent-eco);
+  background: linear-gradient(180deg, #effcf7, #def5ea);
+  color: #174a38;
+  box-shadow: 0 0 0 2px rgba(19, 153, 103, 0.12);
+}
+
 .explorer-chip-button.secondary-chip {
   background: #f8fbfc;
   color: #476156;
+}
+
+.explorer-section-card.nested {
+  gap: 10px;
+  padding: 12px;
+  border-style: dashed;
+  background: #fbfdfd;
+}
+
+.comparison-chip-row {
+  align-items: center;
 }
 
 .explorer-output-card {

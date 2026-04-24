@@ -1,4 +1,5 @@
 export {
+  getComparisonDatasetOptions,
   datasets,
   getBannerDimensions,
   getChartTypeMetadata,

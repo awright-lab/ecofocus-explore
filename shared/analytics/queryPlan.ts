@@ -34,6 +34,10 @@ export interface AnalyticsQueryPlan {
   statistics: {
     confidenceLevel: number;
   };
+  comparison: {
+    mode: string;
+    datasets: string[];
+  };
 }
 
 export function createAnalyticsQueryPlan(query: AnalyticsQueryRequest): AnalyticsQueryPlan {
@@ -73,6 +77,10 @@ export function createAnalyticsQueryPlan(query: AnalyticsQueryRequest): Analytic
     },
     statistics: {
       confidenceLevel: query.confidenceLevel
+    },
+    comparison: {
+      mode: query.comparisonMode ?? "none",
+      datasets: query.comparisonDatasets ?? []
     }
   };
 }

@@ -36,4 +36,26 @@ describe("createAnalyticsQueryPlan", () => {
       }
     });
   });
+
+  it("includes comparison metadata for wave queries", () => {
+    const query: AnalyticsQueryRequest = {
+      dataset: "ecofocus_2025",
+      question: "Q_PACKAGING_TRUST",
+      breakBy: "SUMMARY",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "line_chart",
+      confidenceLevel: 0.95,
+      comparisonMode: "wave",
+      comparisonDatasets: ["ecofocus_2024"]
+    };
+
+    expect(createAnalyticsQueryPlan(query)).toMatchObject({
+      comparison: {
+        mode: "wave",
+        datasets: ["ecofocus_2024"]
+      }
+    });
+  });
 });
