@@ -2154,6 +2154,8 @@ export default function App() {
   const [filterField, setFilterField] = useState<FilterFieldId | null>(defaultFilterDimension?.id ?? null);
   const [filterValue, setFilterValue] = useState("all");
   const [variableSetDraftName, setVariableSetDraftName] = useState(defaultQuestion.shortLabel);
+  const [variableSetDescription, setVariableSetDescription] = useState("");
+  const [variableSetQuestionIds, setVariableSetQuestionIds] = useState<QuestionId[]>([defaultQuestion.id]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2215,6 +2217,8 @@ export default function App() {
     setFilterField(defaultFilterDimension?.id ?? null);
     setFilterValue("all");
     setVariableSetDraftName(nextQuestion.shortLabel);
+    setVariableSetDescription(`Saved view for ${nextQuestion.shortLabel}`);
+    setVariableSetQuestionIds([nextQuestion.id]);
   }
 
   function applyVariableSetSelection(variableSet: SavedVariableSet) {
@@ -2228,22 +2232,28 @@ export default function App() {
     setFilterField(variableSet.filterField);
     setFilterValue(variableSet.filterValue);
     setVariableSetDraftName(variableSet.label);
+    setVariableSetDescription(variableSet.description);
+    setVariableSetQuestionIds(variableSet.questionIds);
   }
 
-  function saveCurrentVariableSet() {
+  function saveCurrentVariableSet(createNew = !selectedVariableSet) {
     const trimmedLabel = variableSetDraftName.trim();
     if (!trimmedLabel) {
       setError("Give the variable set a name before saving it.");
       return;
     }
+    if (variableSetQuestionIds.length === 0) {
+      setError("Choose at least one question for the variable set.");
+      return;
+    }
 
     const nextVariableSet: SavedVariableSet = {
-      id: `variable_set_${Date.now()}`,
+      id: createNew ? `variable_set_${Date.now()}` : (selectedVariableSet?.id ?? `variable_set_${Date.now()}`),
       datasetId: defaultDataset.id,
       label: trimmedLabel,
-      description: `Saved view for ${selectedQuestion.shortLabel}`,
+      description: variableSetDescription.trim() || `Saved view for ${selectedQuestion.shortLabel}`,
       topic: selectedQuestion.topic,
-      questionIds: [selectedQuestion.id],
+      questionIds: variableSetQuestionIds,
       primaryQuestionId: selectedQuestion.id,
       breakBy,
       metric,
@@ -2258,7 +2268,9 @@ export default function App() {
       status: "draft",
       analysisLibrary: {
         ...current.analysisLibrary,
-        variableSets: [nextVariableSet, ...current.analysisLibrary.variableSets]
+        variableSets: createNew
+          ? [nextVariableSet, ...current.analysisLibrary.variableSets]
+          : current.analysisLibrary.variableSets.map((item) => (item.id === nextVariableSet.id ? nextVariableSet : item))
       }
     }));
     setSelectedDataSource({ kind: "variableSet", id: nextVariableSet.id });
@@ -2277,6 +2289,24 @@ export default function App() {
     setSelectedDataSource({ kind: "question", id: selectedQuestion.id });
   }
 
+  function toggleVariableSetQuestion(questionId: QuestionId) {
+    setVariableSetQuestionIds((current) => {
+      if (current.includes(questionId)) {
+        const next = current.filter((item) => item !== questionId);
+        if (question === questionId && next.length > 0) {
+          const nextQuestion = defaultDataset.questions.find((item) => item.id === next[0]) ?? defaultQuestion;
+          setQuestion(nextQuestion.id);
+          setBreakBy(nextQuestion.allowedBreakBys[0]);
+          setMetric(nextQuestion.defaultMetric);
+          setChartType(nextQuestion.allowedChartTypes.find((item) => item !== "table") ?? "table");
+        }
+        return next;
+      }
+
+      return [...current, questionId];
+    });
+  }
+
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
     setSaveState("Saved locally");
@@ -2285,11 +2315,15 @@ export default function App() {
   useEffect(() => {
     if (selectedVariableSet) {
       setVariableSetDraftName(selectedVariableSet.label);
+      setVariableSetDescription(selectedVariableSet.description);
+      setVariableSetQuestionIds(selectedVariableSet.questionIds);
       return;
     }
 
     setVariableSetDraftName(selectedQuestion.shortLabel);
-  }, [selectedQuestion.shortLabel, selectedVariableSet]);
+    setVariableSetDescription(`Saved view for ${selectedQuestion.shortLabel}`);
+    setVariableSetQuestionIds([selectedQuestion.id]);
+  }, [selectedQuestion.id, selectedQuestion.shortLabel, selectedVariableSet]);
 
   useEffect(() => {
     if (!designModal) return;
@@ -3085,12 +3119,55 @@ export default function App() {
                     Save as variable set
                     <input value={variableSetDraftName} onChange={(event) => setVariableSetDraftName(event.target.value)} placeholder="Name this saved set" />
                   </label>
+                  <label>
+                    Description
+                    <input value={variableSetDescription} onChange={(event) => setVariableSetDescription(event.target.value)} placeholder="Describe this variable set" />
+                  </label>
+                  <label>
+                    Primary question
+                    <select value={question} onChange={(event) => setQuestion(event.target.value as QuestionId)}>
+                      {variableSetQuestionIds.map((questionId) => {
+                        const item = defaultDataset.questions.find((entry) => entry.id === questionId);
+                        if (!item) return null;
+                        return (
+                          <option value={item.id} key={item.id}>
+                            {item.shortLabel}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                  <div className="explorer-question-picker">
+                    <span>Included questions</span>
+                    <div className="explorer-question-list">
+                      {defaultDataset.questions.map((item) => (
+                        <label key={item.id} className={variableSetQuestionIds.includes(item.id) ? "explorer-question-option active" : "explorer-question-option"}>
+                          <input
+                            type="checkbox"
+                            checked={variableSetQuestionIds.includes(item.id)}
+                            onChange={() => toggleVariableSetQuestion(item.id)}
+                          />
+                          <div>
+                            <strong>{item.shortLabel}</strong>
+                            <span>{item.topic}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                   <div className="compact-grid">
-                    <button type="button" className="secondary" onClick={saveCurrentVariableSet}>Save set</button>
+                    <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(!selectedVariableSet)}>
+                      {selectedVariableSet ? "Update set" : "Save set"}
+                    </button>
                     <button type="button" className="secondary" disabled={!selectedVariableSet} onClick={() => selectedVariableSet && deleteVariableSet(selectedVariableSet.id)}>
                       Delete set
                     </button>
                   </div>
+                  {!selectedVariableSet && (
+                    <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(true)}>
+                      Save as new set
+                    </button>
+                  )}
                 </div>
 
                 <div className="explorer-section-card">

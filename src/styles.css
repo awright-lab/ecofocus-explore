@@ -419,6 +419,59 @@ h2 {
   background: #ffffff;
 }
 
+.explorer-question-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.explorer-question-picker > span {
+  color: #304239;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.explorer-question-list {
+  display: grid;
+  gap: 7px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.explorer-question-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid #dbe3e9;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.explorer-question-option.active {
+  border-color: var(--accent-eco);
+  background: #ebfaf4;
+}
+
+.explorer-question-option input {
+  margin-top: 2px;
+}
+
+.explorer-question-option div {
+  display: grid;
+  gap: 2px;
+}
+
+.explorer-question-option strong {
+  color: #20342a;
+  font-size: 0.79rem;
+}
+
+.explorer-question-option span {
+  color: #698077;
+  font-size: 0.72rem;
+}
+
 .insert-grid button,
 .layer-grid button {
   min-height: 32px;
