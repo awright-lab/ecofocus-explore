@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
@@ -71,6 +72,13 @@ function SourceInsertionActions({
   addTileFromSourceWithVisualization
 }: Pick<SourceDetailPanelProps, "chartType" | "selectedChartTypes" | "activePageTitle" | "isLoading" | "addTileFromSourceWithVisualization">) {
   const insertion = buildSourceInsertionView(chartType, selectedChartTypes, activePageTitle);
+  const [confirmation, setConfirmation] = useState<{ label: string; pageTitle: string } | null>(null);
+
+  async function createSourceObject(nextChartType: typeof chartType, label: string) {
+    const createdTileId = await addTileFromSourceWithVisualization(nextChartType);
+    if (!createdTileId) return;
+    setConfirmation({ label, pageTitle: activePageTitle });
+  }
 
   return (
     <div className="source-insertion-card">
@@ -83,19 +91,25 @@ function SourceInsertionActions({
         <button
           type="button"
           className="secondary"
-          onClick={() => addTileFromSourceWithVisualization("table")}
+          onClick={() => void createSourceObject("table", "table")}
           disabled={isLoading || !insertion.canCreateTable}
         >
           {isLoading && chartType === "table" ? "Creating..." : insertion.tableActionLabel}
         </button>
         <button
           type="button"
-          onClick={() => addTileFromSourceWithVisualization(insertion.chartType)}
+          onClick={() => void createSourceObject(insertion.chartType, insertion.chartLabel)}
           disabled={isLoading}
         >
           {isLoading && chartType !== "table" ? "Creating..." : insertion.chartActionLabel}
         </button>
       </div>
+      {confirmation && (
+        <div className="source-insertion-confirmation" role="status">
+          <strong>Created {confirmation.label}</strong>
+          <span>Added to "{confirmation.pageTitle}" and selected for inspector editing.</span>
+        </div>
+      )}
     </div>
   );
 }

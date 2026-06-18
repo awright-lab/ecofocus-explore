@@ -989,6 +989,26 @@ h2 {
   gap: 6px;
 }
 
+.source-insertion-confirmation {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #b8d7c5;
+  border-radius: 10px;
+  background: #f2fbf5;
+}
+
+.source-insertion-confirmation strong {
+  color: #174f3d;
+  font-size: 0.78rem;
+}
+
+.source-insertion-confirmation span {
+  color: #4d6a5e;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
 .source-lifecycle-card {
   display: grid;
   gap: 8px;

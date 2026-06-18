@@ -106,7 +106,7 @@ export type AnalysisAuthoringPanelProps = {
   setVariableSetOptionSelection: React.Dispatch<React.SetStateAction<string[]>>;
   addCanvasElement: (type: DashboardCanvasElement["type"]) => void;
   addTileFromQuery: () => void;
-  addTileFromSourceWithVisualization: (chartType: ChartType) => void;
+  addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   isLoading: boolean;
   applySavedBanner: (banner: SavedBanner) => void;
   bannerDraftName: string;

@@ -120,8 +120,10 @@ export function useBuilderTileCommands({
         pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
       }));
       selectTile(tile.id);
+      return tile.id;
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -172,7 +174,7 @@ export function useBuilderTileCommands({
   }
 
   async function addTileFromQuery() {
-    await createTileFromSource(
+    return createTileFromSource(
       query,
       selectedVariableSet?.label ?? selectedQuestion.shortLabel,
       undefined,
@@ -183,7 +185,7 @@ export function useBuilderTileCommands({
   }
 
   async function addTileFromSourceWithVisualization(nextVisualization: ChartType) {
-    await createTileFromSource(
+    return createTileFromSource(
       { ...query, chartType: nextVisualization },
       selectedVariableSet?.label ?? selectedQuestion.shortLabel,
       undefined,
