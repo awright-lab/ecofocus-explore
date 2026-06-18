@@ -23,6 +23,8 @@ export interface VariableSetRowRecodePreview {
   label: string;
   kind: SavedVariableSet["rows"][number]["kind"];
   kindLabel: string;
+  intentLabel: string;
+  intentHelper: string;
   visible: boolean;
   sourceOptionLabels: string[];
   unknownSourceOptionIds: string[];
@@ -55,6 +57,31 @@ export function toggleVariableSetRowSourceOption(row: SavedVariableSet["rows"][n
     ? row.sourceOptionIds.filter((item) => item !== optionId)
     : [...row.sourceOptionIds, optionId];
   return nextSourceOptionIds;
+}
+
+export function variableSetRowIntent(kind: SavedVariableSet["rows"][number]["kind"]) {
+  if (kind === "net") {
+    return {
+      label: "Manual net",
+      helper: "Combines the selected source options into one authored summary row."
+    };
+  }
+  if (kind === "topbox") {
+    return {
+      label: "Top box",
+      helper: "Groups favorable or high-end response options into one authored row."
+    };
+  }
+  if (kind === "bottombox") {
+    return {
+      label: "Bottom box",
+      helper: "Groups unfavorable or low-end response options into one authored row."
+    };
+  }
+  return {
+    label: "Source option",
+    helper: "Represents one original response option from the selected question."
+  };
 }
 
 function normalizedLabel(label: string) {
@@ -116,6 +143,7 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
     .slice()
     .sort((a, b) => a.rowOrder - b.rowOrder)
     .map((row) => {
+      const intent = variableSetRowIntent(row.kind);
       const sourceOptionLabels = row.sourceOptionIds
         .map((optionId) => optionLabels.get(optionId))
         .filter((label): label is string => Boolean(label));
@@ -130,6 +158,8 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
         label: row.label,
         kind: row.kind,
         kindLabel: rowKindLabel(row.kind),
+        intentLabel: intent.label,
+        intentHelper: intent.helper,
         visible: row.visible,
         sourceOptionLabels,
         unknownSourceOptionIds,

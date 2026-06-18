@@ -29,6 +29,12 @@ export function VariableSetRowCompositionEditor({
         <span>Source options</span>
         <strong>{recodeRow?.sourceSummary ?? "No source options"}</strong>
       </div>
+      {recodeRow && (
+        <div className="row-composition-intent">
+          <strong>{recodeRow.intentLabel}</strong>
+          <span>{recodeRow.intentHelper}</span>
+        </div>
+      )}
       <div className="row-composition-editor__options">
         {selectedQuestion.options.map((option) => {
           const checked = row.sourceOptionIds.includes(option.id);

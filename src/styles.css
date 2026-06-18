@@ -1822,6 +1822,28 @@ h2 {
   color: #20342a;
 }
 
+.row-composition-intent {
+  display: grid;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid rgba(47, 127, 95, 0.18);
+  border-radius: 7px;
+  background: #f6fbf8;
+}
+
+.row-composition-intent strong,
+.row-composition-intent span {
+  color: #244537;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.row-composition-intent span {
+  color: #586f65;
+  font-weight: 650;
+}
+
 .row-composition-editor__options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
