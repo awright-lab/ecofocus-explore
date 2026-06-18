@@ -1938,6 +1938,28 @@ h2 {
   line-height: 1.25;
 }
 
+.row-overlap-details {
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid rgba(190, 140, 56, 0.24);
+  border-radius: 7px;
+  background: #fffdf7;
+}
+
+.row-overlap-details strong,
+.row-overlap-details span {
+  color: #6c4c17;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.row-overlap-details span {
+  color: #725f3a;
+  font-weight: 650;
+}
+
 .row-fix-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -49,6 +49,14 @@ export function VariableSetRowCompositionEditor({
           ))}
         </div>
       ) : null}
+      {recodeRow?.overlapDetails.length ? (
+        <div className="row-overlap-details">
+          <strong>Overlap details</strong>
+          {recodeRow.overlapDetails.map((detail) => (
+            <span key={`${detail.optionLabel}-${detail.rowLabels.join("-")}`}>{detail.helper}</span>
+          ))}
+        </div>
+      ) : null}
       <div className="row-fix-actions" aria-label="Row composition fixes">
         <button
           type="button"

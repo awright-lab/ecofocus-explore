@@ -29,6 +29,7 @@ export interface VariableSetRowRecodePreview {
   sourceOptionLabels: string[];
   unknownSourceOptionIds: string[];
   overlapLabels: string[];
+  overlapDetails: VariableSetRowOverlapDetail[];
   issueLabels: string[];
   needsReview: boolean;
   sourceSummary: string;
@@ -37,6 +38,12 @@ export interface VariableSetRowRecodePreview {
 
 export interface VariableSetOverlapWarning {
   id: string;
+  optionLabel: string;
+  rowLabels: string[];
+  helper: string;
+}
+
+export interface VariableSetRowOverlapDetail {
   optionLabel: string;
   rowLabels: string[];
   helper: string;
@@ -143,7 +150,7 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
   const optionLabels = new Map(question.options.map((option) => [option.id, option.label]));
   const visibleRows = rows.filter((row) => row.visible);
   const includedOptionIds = new Set<string>();
-  const authoredUsage = new Map<string, string[]>();
+  const authoredUsage = new Map<string, Array<{ rowId: string; label: string }>>();
 
   visibleRows.forEach((row) => {
     row.sourceOptionIds.forEach((optionId) => {
@@ -151,21 +158,21 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
         includedOptionIds.add(optionId);
       }
       if (isAuthoredVariableSetRow(row) && optionLabels.has(optionId)) {
-        const labels = authoredUsage.get(optionId) ?? [];
-        labels.push(row.label);
-        authoredUsage.set(optionId, labels);
+        const rows = authoredUsage.get(optionId) ?? [];
+        rows.push({ rowId: row.id, label: row.label });
+        authoredUsage.set(optionId, rows);
       }
     });
   });
 
   const overlapByOption = new Map(
-    Array.from(authoredUsage.entries()).filter(([, rowLabels]) => rowLabels.length > 1)
+    Array.from(authoredUsage.entries()).filter(([, authoredRows]) => authoredRows.length > 1)
   );
-  const overlapWarnings: VariableSetOverlapWarning[] = Array.from(overlapByOption.entries()).map(([optionId, rowLabels]) => ({
+  const overlapWarnings: VariableSetOverlapWarning[] = Array.from(overlapByOption.entries()).map(([optionId, authoredRows]) => ({
     id: optionId,
     optionLabel: optionLabels.get(optionId) ?? optionId,
-    rowLabels,
-    helper: `${optionLabels.get(optionId) ?? optionId} appears in ${rowLabels.join(", ")}.`
+    rowLabels: authoredRows.map((item) => item.label),
+    helper: `${optionLabels.get(optionId) ?? optionId} appears in ${authoredRows.map((item) => item.label).join(", ")}.`
   }));
 
   const previewRows = rows
@@ -180,6 +187,18 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
       const overlapLabels = row.sourceOptionIds
         .filter((optionId) => overlapByOption.has(optionId))
         .map((optionId) => optionLabels.get(optionId) ?? optionId);
+      const overlapDetails = row.sourceOptionIds
+        .filter((optionId) => overlapByOption.has(optionId))
+        .map((optionId) => {
+          const optionLabel = optionLabels.get(optionId) ?? optionId;
+          const otherRows = (overlapByOption.get(optionId) ?? []).filter((item) => item.rowId !== row.id);
+          const rowLabels = otherRows.map((item) => item.label);
+          return {
+            optionLabel,
+            rowLabels,
+            helper: `${optionLabel} is also included in ${rowLabels.join(", ")}.`
+          };
+        });
       const compositionLabels = sourceOptionLabels.concat(unknownSourceOptionIds.map((optionId) => `Unknown: ${optionId}`));
       const issueLabels = [
         isAuthoredVariableSetRow(row) && row.sourceOptionIds.length === 0 ? "No source options" : "",
@@ -198,6 +217,7 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
         sourceOptionLabels,
         unknownSourceOptionIds,
         overlapLabels,
+        overlapDetails,
         issueLabels,
         needsReview: issueLabels.length > 0,
         sourceSummary: sourceSummary(sourceOptionLabels.length, unknownSourceOptionIds.length),
