@@ -1736,6 +1736,30 @@ h2 {
   line-height: 1.4;
 }
 
+.analysis-weight-mismatch-cue {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px dashed #dfc98f;
+  border-radius: 8px;
+  background: rgba(255, 249, 237, 0.78);
+}
+
+.analysis-weight-mismatch-cue strong,
+.analysis-weight-mismatch-cue span,
+.analysis-weight-mismatch-cue small {
+  color: #675534;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.analysis-weight-mismatch-cue span,
+.analysis-weight-mismatch-cue small {
+  color: #7d6a46;
+  font-weight: 650;
+}
+
 .variable-set-readiness-card {
   display: grid;
   gap: 8px;

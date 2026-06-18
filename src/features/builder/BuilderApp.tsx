@@ -914,6 +914,7 @@ export default function BuilderApp() {
           clearMultiSelection={clearMultiSelection}
           savedBanners={savedBanners}
           savedFilters={savedFilters}
+          savedVariableSets={savedVariableSets}
           savedWeights={savedWeights}
           selectedTileQuestion={selectedTileQuestion}
           selectedTileFilterDimension={selectedTileFilterDimension}

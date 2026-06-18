@@ -40,7 +40,7 @@ import {
 } from "./InspectorTileQuerySections";
 import { buildReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
 import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
-import { buildAnalysisWeightDiagnostics } from "./analysisWeightDiagnosticsModel";
+import { buildAnalysisWeightDiagnostics, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -65,6 +65,15 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
   const weightDiagnostics = buildAnalysisWeightDiagnostics(selectedTile.query.weight);
+  const sourceVariableSet = props.savedVariableSets.find((item) => selectedTile.source?.kind === "variableSet" && item.id === selectedTile.source.id) ?? null;
+  const weightMismatch = sourceVariableSet
+    ? buildSavedVariableSetWeightMismatch({
+      savedWeight: sourceVariableSet.weight,
+      currentWeight: selectedTile.query.weight,
+      sourceLabel: sourceVariableSet.label,
+      currentContextLabel: "selected tile"
+    })
+    : null;
 
   function selectRelatedObject(item: RelatedAnalyticalObjectRow) {
     if (!selectedTile) return;
@@ -102,7 +111,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
-                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} />
+                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatch={weightMismatch} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="explorer-chip-row">
@@ -211,6 +220,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const {
     selectedTile,
     selectedTileQuestion,
+    savedVariableSets,
     savedBanners,
     savedFilters,
     savedWeights,
@@ -241,6 +251,15 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const showSaveConfirmation = saveConfirmation?.tileId === tile.id && actionState.canSaveSettings;
   const recentlySavedKind = recentlySavedSetting?.tileId === tile.id ? recentlySavedSetting.kind : null;
   const weightDiagnostics = buildAnalysisWeightDiagnostics(tile.query.weight);
+  const sourceVariableSet = savedVariableSets.find((item) => tile.source?.kind === "variableSet" && item.id === tile.source.id) ?? null;
+  const weightMismatch = sourceVariableSet
+    ? buildSavedVariableSetWeightMismatch({
+      savedWeight: sourceVariableSet.weight,
+      currentWeight: tile.query.weight,
+      sourceLabel: sourceVariableSet.label,
+      currentContextLabel: "selected tile"
+    })
+    : null;
 
   function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set">, saveAction: () => void) {
     saveAction();
@@ -398,7 +417,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <strong>Filters and weights</strong>
           <small>Analysis base</small>
         </div>
-        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} />
+        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatch={weightMismatch} />
         <TileFilterWeightControls {...props} />
       </div>
       <div className="tile-query-group">

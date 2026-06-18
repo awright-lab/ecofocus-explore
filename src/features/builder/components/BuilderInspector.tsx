@@ -28,6 +28,7 @@ import type {
   PageThemePreset,
   SavedBanner,
   SavedFilterSet,
+  SavedVariableSet,
   SavedWeightProfile,
   TextStylePreset,
   TileAppearance
@@ -51,6 +52,7 @@ export type BuilderInspectorProps = {
   clearMultiSelection: () => void;
   savedBanners: SavedBanner[];
   savedFilters: SavedFilterSet[];
+  savedVariableSets: SavedVariableSet[];
   savedWeights: SavedWeightProfile[];
   selectedTileQuestion: typeof defaultDataset.questions[number] | null;
   selectedTileFilterDimension?: typeof filterDimensions[number];

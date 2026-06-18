@@ -1,10 +1,11 @@
-import type { AnalysisWeightDiagnosticsView } from "./analysisWeightDiagnosticsModel";
+import type { AnalysisWeightDiagnosticsView, AnalysisWeightMismatchView } from "./analysisWeightDiagnosticsModel";
 
 interface AnalysisWeightDiagnosticsCardProps {
   view: AnalysisWeightDiagnosticsView;
+  mismatch?: AnalysisWeightMismatchView | null;
 }
 
-export function AnalysisWeightDiagnosticsCard({ view }: AnalysisWeightDiagnosticsCardProps) {
+export function AnalysisWeightDiagnosticsCard({ view, mismatch }: AnalysisWeightDiagnosticsCardProps) {
   return (
     <div className={`analysis-weight-diagnostics-card ${view.status}`}>
       <div>
@@ -19,6 +20,20 @@ export function AnalysisWeightDiagnosticsCard({ view }: AnalysisWeightDiagnostic
           </span>
         ))}
       </div>
+      {mismatch && (
+        <div className="analysis-weight-mismatch-cue">
+          <strong>{mismatch.label}</strong>
+          <span>{mismatch.message}</span>
+          <small>{mismatch.helper}</small>
+          <div className="explorer-chip-row">
+            {mismatch.chips.map((chip) => (
+              <span className="explorer-chip warning-chip" key={chip}>
+                {chip}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import type { InsertionContextView } from "./insertionContextModel";
 import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
-import { buildAnalysisWeightDiagnostics } from "./analysisWeightDiagnosticsModel";
+import { buildAnalysisWeightDiagnostics, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
 import {
   buildSourceInsertionView,
   buildVariableSetDraftStatus,
@@ -389,6 +389,15 @@ export function SourceDetailPanel({
   };
   const variableSetReadiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
   const weightDiagnostics = buildAnalysisWeightDiagnostics(weight);
+  const weightMismatch =
+    selectedDataSource.kind === "variableSet" && selectedVariableSet
+      ? buildSavedVariableSetWeightMismatch({
+        savedWeight: selectedVariableSet.weight,
+        currentWeight: weight,
+        sourceLabel: selectedVariableSet.label,
+        currentContextLabel: "current authoring query"
+      })
+      : null;
 
   return (
     <div className="explorer-section-card source-detail-panel">
@@ -409,7 +418,7 @@ export function SourceDetailPanel({
         ))}
       </div>
       <SourceDetailList detail={detail} />
-      <AnalysisWeightDiagnosticsCard view={weightDiagnostics} />
+      <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatch={weightMismatch} />
       <SourceInsertionActions
         chartType={chartType}
         selectedChartTypes={selectedChartTypes}

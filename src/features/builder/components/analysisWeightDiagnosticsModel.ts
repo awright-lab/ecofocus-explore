@@ -11,7 +11,14 @@ export interface AnalysisWeightDiagnosticsView {
   chips: string[];
 }
 
-function weightLabel(weight: WeightId | null) {
+export interface AnalysisWeightMismatchView {
+  label: string;
+  message: string;
+  helper: string;
+  chips: string[];
+}
+
+export function weightLabel(weight: WeightId | null) {
   if (!weight) return "Unweighted";
   return defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight;
 }
@@ -37,5 +44,29 @@ export function buildAnalysisWeightDiagnostics(weight: WeightId | null): Analysi
       differsFromDefault ? "Differs from dataset default" : "Dataset default",
       `Default: ${defaultLabel}`
     ]
+  };
+}
+
+export function buildSavedVariableSetWeightMismatch({
+  savedWeight,
+  currentWeight,
+  sourceLabel,
+  currentContextLabel
+}: {
+  savedWeight: WeightId | null;
+  currentWeight: WeightId | null;
+  sourceLabel: string;
+  currentContextLabel: string;
+}): AnalysisWeightMismatchView | null {
+  if (savedWeight === currentWeight) return null;
+
+  const savedLabel = weightLabel(savedWeight);
+  const currentLabel = weightLabel(currentWeight);
+
+  return {
+    label: "Saved source weight differs",
+    message: `${sourceLabel} defaults to ${savedLabel}; ${currentContextLabel} uses ${currentLabel}.`,
+    helper: "Review this before saving, refreshing, or reusing the source so weighting stays intentional.",
+    chips: [`Saved source: ${savedLabel}`, `Current: ${currentLabel}`]
   };
 }
