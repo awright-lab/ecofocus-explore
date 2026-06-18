@@ -26,6 +26,7 @@ export type SavedSettingOriginCue = {
   tileId: string;
   kind: SavedSettingOriginKind;
   label: string;
+  status: "applied" | "refreshed";
   createdAt: number;
 } | null;
 

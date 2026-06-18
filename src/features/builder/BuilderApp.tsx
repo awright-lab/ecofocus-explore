@@ -730,7 +730,7 @@ export default function BuilderApp() {
           selectedTextElement={selectedTextElement}
           selectedTile={selectedTile}
           focusSelectedTileInspector={() => setSettingsView("chart")}
-          recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, createdAt: Date.now() })}
+          recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() })}
           designPalettes={designPalettes}
           applyPaletteToTile={applyPaletteToTile}
           textStylePresets={textStylePresets}
@@ -897,7 +897,9 @@ export default function BuilderApp() {
           saveSelectedTileWeight={saveSelectedTileWeight}
           onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
           savedSettingOriginCue={savedSettingOriginCue}
-          clearSavedSettingOriginCue={() => setSavedSettingOriginCue(null)}
+          completeSavedSettingOriginCue={(tileId) => {
+            setSavedSettingOriginCue((current) => current?.tileId === tileId ? { ...current, status: "refreshed", createdAt: Date.now() } : current);
+          }}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

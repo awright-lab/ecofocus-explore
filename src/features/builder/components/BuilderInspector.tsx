@@ -64,7 +64,7 @@ export type BuilderInspectorProps = {
   saveSelectedTileWeight: () => void;
   onViewSavedSettingInLibrary: (view: AnalysisLibraryView) => void;
   savedSettingOriginCue: SavedSettingOriginCue;
-  clearSavedSettingOriginCue: () => void;
+  completeSavedSettingOriginCue: (tileId: string) => void;
   deleteSelectedItem: () => void;
   isLoading: boolean;
   comparisonDatasets: DatasetId[];

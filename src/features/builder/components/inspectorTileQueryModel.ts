@@ -35,6 +35,7 @@ export interface SavedSettingOriginCueView {
   label: string;
   message: string;
   helper: string;
+  status: "applied" | "refreshed";
 }
 
 export function updateTileBanner(tile: DashboardTile, breakBy: BreakById): Partial<DashboardTile> {
@@ -195,12 +196,21 @@ export function buildSavedSettingOriginCueView(cue: SavedSettingOriginCue, tile:
 
   const queryStatus = buildTileQueryStatus(tile);
   const kindLabel = cue.kind.charAt(0).toUpperCase() + cue.kind.slice(1);
+  if (cue.status === "refreshed") {
+    return {
+      label: `Results refreshed with saved ${cue.kind}`,
+      message: `${cue.label} was applied and the selected tile result is now current.`,
+      helper: "You can continue editing or save another reusable setting from this updated result.",
+      status: "refreshed"
+    };
+  }
 
   return {
     label: `Saved ${cue.kind} applied`,
     message: `${cue.label} updated this tile's ${kindLabel.toLowerCase()} setting from the saved library.`,
     helper: queryStatus.hasPendingChanges
       ? "Refresh analysis to apply this saved setting to the result."
-      : "The selected tile already reflects this saved setting."
+      : "The selected tile already reflects this saved setting.",
+    status: "applied"
   };
 }

@@ -1883,6 +1883,12 @@ button:disabled {
   background: #f2fbf5;
 }
 
+.tile-query-origin-cue.complete {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+  color: #174f3d;
+}
+
 .tile-query-origin-cue span,
 .tile-query-origin-cue small {
   color: #4d6a5e;

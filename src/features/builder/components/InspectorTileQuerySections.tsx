@@ -195,7 +195,7 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     saveSelectedTileWeight,
     onViewSavedSettingInLibrary,
     savedSettingOriginCue,
-    clearSavedSettingOriginCue,
+    completeSavedSettingOriginCue,
     isLoading
   } = props;
   const [confirmation, setConfirmation] = useState<{ tileId: string; message: string } | null>(null);
@@ -212,9 +212,13 @@ export function TileQueryActions(props: BuilderInspectorProps) {
   async function refreshSelectedTile() {
     const refreshed = await rerunTileAnalysis(tile, tileRefreshQuery(tile));
     if (!refreshed) return;
-    setConfirmation({ tileId: tile.id, message: "Results refreshed for the selected object." });
+    if (originCue) {
+      completeSavedSettingOriginCue(tile.id);
+      setConfirmation(null);
+    } else {
+      setConfirmation({ tileId: tile.id, message: "Results refreshed for the selected object." });
+    }
     setSaveConfirmation(null);
-    clearSavedSettingOriginCue();
   }
   function saveReusableSetting(kind: SavedTileSettingKind, saveAction: () => void) {
     saveAction();
@@ -230,7 +234,7 @@ export function TileQueryActions(props: BuilderInspectorProps) {
         <span>{actionState.refreshHelperText}</span>
       </div>
       {originCue && (
-        <div className={queryStatus.hasPendingChanges ? "tile-query-origin-cue pending" : "tile-query-origin-cue"} role="status">
+        <div className={originCue.status === "refreshed" ? "tile-query-origin-cue complete" : queryStatus.hasPendingChanges ? "tile-query-origin-cue pending" : "tile-query-origin-cue"} role="status">
           <strong>{originCue.label}</strong>
           <span>{originCue.message}</span>
           <small>{originCue.helper}</small>
