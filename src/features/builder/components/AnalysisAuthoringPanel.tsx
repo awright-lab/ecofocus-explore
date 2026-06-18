@@ -35,6 +35,7 @@ export type AnalysisAuthoringPanelProps = {
   pageThemes: PageThemePreset[];
   selectedTextElement: DashboardCanvasElement | null;
   selectedTile: DashboardTile | null;
+  focusSelectedTileInspector: () => void;
   designPalettes: DesignColorPalette[];
   applyPaletteToTile: (palette: DesignColorPalette, scope?: "selected" | "all") => void;
   textStylePresets: TextStylePreset[];

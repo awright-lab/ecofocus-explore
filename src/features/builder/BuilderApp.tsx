@@ -727,6 +727,7 @@ export default function BuilderApp() {
           pageThemes={pageThemes}
           selectedTextElement={selectedTextElement}
           selectedTile={selectedTile}
+          focusSelectedTileInspector={() => setSettingsView("chart")}
           designPalettes={designPalettes}
           applyPaletteToTile={applyPaletteToTile}
           textStylePresets={textStylePresets}

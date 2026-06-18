@@ -499,7 +499,7 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff, selectedTile, updateTile } = props;
+  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, updateTile } = props;
   const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestBanner = savedLibraryHandoff?.view === "banners";
   const selectedTileQuestion = selectedTile ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? null : null;
@@ -536,7 +536,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
                                 Apply to selected tile
                               </button>
                             </div>
-                            {feedback && <SavedSettingApplyStatus feedback={feedback} />}
+                            {feedback && <SavedSettingApplyStatus feedback={feedback} onOpenInspector={focusSelectedTileInspector} />}
                           </div>
                         );
                         })}
@@ -550,7 +550,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff, selectedTile, updateTile } = props;
+  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, updateTile } = props;
   const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestFilter = savedLibraryHandoff?.view === "filters";
 
@@ -591,7 +591,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
                                 Apply to selected tile
                               </button>
                             </div>
-                            {feedback && <SavedSettingApplyStatus feedback={feedback} />}
+                            {feedback && <SavedSettingApplyStatus feedback={feedback} onOpenInspector={focusSelectedTileInspector} />}
                           </div>
                         );
                         })}
@@ -605,7 +605,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
-  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff, selectedTile, updateTile } = props;
+  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, updateTile } = props;
   const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestWeight = savedLibraryHandoff?.view === "weights";
 
@@ -641,7 +641,7 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                                 Apply to selected tile
                               </button>
                             </div>
-                            {feedback && <SavedSettingApplyStatus feedback={feedback} />}
+                            {feedback && <SavedSettingApplyStatus feedback={feedback} onOpenInspector={focusSelectedTileInspector} />}
                           </div>
                         );
                         })}
@@ -654,12 +654,15 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
   );
 }
 
-function SavedSettingApplyStatus({ feedback }: { feedback: SavedSettingApplyFeedback }) {
+function SavedSettingApplyStatus({ feedback, onOpenInspector }: { feedback: SavedSettingApplyFeedback; onOpenInspector: () => void }) {
   return (
     <div className={feedback.needsRefresh ? "library-reuse-confirmation pending" : "library-reuse-confirmation"} role="status">
       <strong>{feedback.label}</strong>
       <span>{feedback.message}</span>
       <small>{feedback.statusLabel}: {feedback.statusDescription}</small>
+      <button type="button" className="inline-action" onClick={onOpenInspector} title={feedback.handoffDescription}>
+        {feedback.handoffLabel}
+      </button>
     </div>
   );
 }

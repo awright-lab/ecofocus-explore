@@ -936,6 +936,11 @@ h2 {
   line-height: 1.35;
 }
 
+.library-reuse-confirmation .inline-action {
+  justify-self: start;
+  min-height: 28px;
+}
+
 .source-metadata-row {
   display: flex;
   flex-wrap: wrap;

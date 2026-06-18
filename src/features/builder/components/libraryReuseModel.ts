@@ -12,6 +12,8 @@ export interface SavedSettingApplyFeedback {
   statusLabel: string;
   statusDescription: string;
   needsRefresh: boolean;
+  handoffLabel: string;
+  handoffDescription: string;
 }
 
 export function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
@@ -66,6 +68,10 @@ export function buildSavedSettingApplyFeedback(
     statusDescription: queryStatus.hasPendingChanges
       ? "Refresh analysis to update the selected object."
       : "The selected object already reflects this setting.",
-    needsRefresh: queryStatus.hasPendingChanges
+    needsRefresh: queryStatus.hasPendingChanges,
+    handoffLabel: queryStatus.hasPendingChanges ? "Refresh in inspector" : "Review in inspector",
+    handoffDescription: queryStatus.hasPendingChanges
+      ? "Open the selected tile's analysis controls to refresh the result."
+      : "Open the selected tile's analysis controls to keep editing."
   };
 }
