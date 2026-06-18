@@ -10,7 +10,8 @@ import {
   updatesForSavedFilter,
   updatesForSavedWeight,
   type SettingProvenanceEmptyState,
-  type SettingProvenanceOption
+  type SettingProvenanceOption,
+  type SettingProvenanceRow
 } from "./inspectorSettingProvenanceModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import {
@@ -107,6 +108,93 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     setRecentlySavedSetting({ tileId: tile.id, kind });
   }
 
+  function applySavedBanner(optionId: string) {
+    const nextBanner = compatibleSavedBanners.find((item) => item.id === optionId);
+    if (!nextBanner) return;
+    updateSelectedTile(updatesForSavedBanner(tile, nextBanner));
+    recordSavedSettingOriginCue("banner", nextBanner.label, tile.id);
+  }
+
+  function applySavedFilter(optionId: string) {
+    const nextFilter = savedFilters.find((item) => item.id === optionId);
+    if (!nextFilter) return;
+    updateSelectedTile(updatesForSavedFilter(tile, nextFilter));
+    recordSavedSettingOriginCue("filter", nextFilter.label, tile.id);
+  }
+
+  function applySavedWeight(optionId: string) {
+    const nextWeight = savedWeights.find((item) => item.id === optionId);
+    if (!nextWeight) return;
+    updateSelectedTile(updatesForSavedWeight(tile, nextWeight));
+    recordSavedSettingOriginCue("weight", nextWeight.label, tile.id);
+  }
+
+  const provenancePickerConfigs = [
+    {
+      kind: "banner" as const,
+      row: provenanceRows.find((row) => row.id === "banner"),
+      options: pickerView.bannerOptions,
+      activeOptionId: pickerView.activeBannerId,
+      activeOption: activeBannerOption,
+      emptyState: bannerDisabled ? { label: "Wave comparison uses Summary", helper: "Turn off wave comparison before applying a saved banner." } : pickerView.bannerEmptyState,
+      placeholder: bannerDisabled ? "Wave comparison" : pickerView.bannerOptions.length === 0 ? "No saved banners" : "Apply saved banner",
+      selectLabel: "Apply saved banner",
+      disabled: bannerDisabled || pickerView.bannerOptions.length === 0,
+      onApply: applySavedBanner,
+      action:
+        !bannerDisabled && pickerView.bannerOptions.length === 0
+          ? {
+            label: "Save current banner",
+            disabled: !actionState.canSaveSettings,
+            disabledReason: actionState.saveHelperText,
+            onClick: () => saveEmptyStateSetting("banner", saveSelectedTileBanner)
+          }
+          : undefined
+    },
+    {
+      kind: "filter" as const,
+      row: provenanceRows.find((row) => row.id === "filter"),
+      options: pickerView.filterOptions,
+      activeOptionId: pickerView.activeFilterId,
+      activeOption: activeFilterOption,
+      emptyState: pickerView.filterEmptyState,
+      placeholder: pickerView.filterOptions.length === 0 ? "No saved filters" : "Apply saved filter",
+      selectLabel: "Apply saved filter",
+      disabled: pickerView.filterOptions.length === 0,
+      onApply: applySavedFilter,
+      action:
+        pickerView.filterOptions.length === 0
+          ? {
+            label: "Save current filter",
+            disabled: !actionState.canSaveSettings,
+            disabledReason: actionState.saveHelperText,
+            onClick: () => saveEmptyStateSetting("filter", saveSelectedTileFilter)
+          }
+          : undefined
+    },
+    {
+      kind: "weight" as const,
+      row: provenanceRows.find((row) => row.id === "weight"),
+      options: pickerView.weightOptions,
+      activeOptionId: pickerView.activeWeightId,
+      activeOption: activeWeightOption,
+      emptyState: pickerView.weightEmptyState,
+      placeholder: pickerView.weightOptions.length === 0 ? "No saved weights" : "Apply saved weight",
+      selectLabel: "Apply saved weight",
+      disabled: pickerView.weightOptions.length === 0,
+      onApply: applySavedWeight,
+      action:
+        pickerView.weightOptions.length === 0
+          ? {
+            label: "Save current weight",
+            disabled: !actionState.canSaveSettings,
+            disabledReason: actionState.saveHelperText,
+            onClick: () => saveEmptyStateSetting("weight", saveSelectedTileWeight)
+          }
+          : undefined
+    }
+  ];
+
   return (
     <div className="inspector-summary-card">
       <span className="inspector-summary-kicker">Edit analysis</span>
@@ -118,119 +206,23 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         <small>{queryStatus.visualizationLabel}</small>
       </div>
       <div className="settings-provenance-row" aria-label="Current analytical setting provenance">
-        {provenanceRows.map((row) => (
-          <div className={row.saved ? "settings-provenance-item saved" : "settings-provenance-item"} key={row.id}>
-            <span>{row.label}</span>
-            <strong>{row.value}</strong>
-            <small>{row.source}</small>
-            {row.id === "banner" && (
-              <select
-                aria-label="Apply saved banner"
-                value={pickerView.activeBannerId}
-                disabled={bannerDisabled || pickerView.bannerOptions.length === 0}
-                onChange={(event) => {
-                  const nextBanner = compatibleSavedBanners.find((item) => item.id === event.target.value);
-                  if (!nextBanner) return;
-                  updateSelectedTile(updatesForSavedBanner(selectedTile, nextBanner));
-                  recordSavedSettingOriginCue("banner", nextBanner.label, selectedTile.id);
-                }}
-              >
-                <option value="">
-                  {bannerDisabled ? "Wave comparison" : pickerView.bannerOptions.length === 0 ? "No saved banners" : "Apply saved banner"}
-                </option>
-                {pickerView.bannerOptions.map((item) => (
-                  <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
-                ))}
-              </select>
-            )}
-            {row.id === "banner" && (
-              <SettingProvenanceOptionDetail
-                option={activeBannerOption}
-                recentlySaved={recentlySavedKind === "banner" && Boolean(activeBannerOption)}
-                emptyState={bannerDisabled ? { label: "Wave comparison uses Summary", helper: "Turn off wave comparison before applying a saved banner." } : pickerView.bannerEmptyState}
-                action={
-                  !bannerDisabled && pickerView.bannerOptions.length === 0
-                    ? {
-                      label: "Save current banner",
-                      disabled: !actionState.canSaveSettings,
-                      disabledReason: actionState.saveHelperText,
-                      onClick: () => saveEmptyStateSetting("banner", saveSelectedTileBanner)
-                    }
-                    : undefined
-                }
-              />
-            )}
-            {row.id === "filter" && (
-              <select
-                aria-label="Apply saved filter"
-                value={pickerView.activeFilterId}
-                disabled={pickerView.filterOptions.length === 0}
-                onChange={(event) => {
-                  const nextFilter = savedFilters.find((item) => item.id === event.target.value);
-                  if (!nextFilter) return;
-                  updateSelectedTile(updatesForSavedFilter(selectedTile, nextFilter));
-                  recordSavedSettingOriginCue("filter", nextFilter.label, selectedTile.id);
-                }}
-              >
-                <option value="">{pickerView.filterOptions.length === 0 ? "No saved filters" : "Apply saved filter"}</option>
-                {pickerView.filterOptions.map((item) => (
-                  <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
-                ))}
-              </select>
-            )}
-            {row.id === "filter" && (
-              <SettingProvenanceOptionDetail
-                option={activeFilterOption}
-                recentlySaved={recentlySavedKind === "filter" && Boolean(activeFilterOption)}
-                emptyState={pickerView.filterEmptyState}
-                action={
-                  pickerView.filterOptions.length === 0
-                    ? {
-                      label: "Save current filter",
-                      disabled: !actionState.canSaveSettings,
-                      disabledReason: actionState.saveHelperText,
-                      onClick: () => saveEmptyStateSetting("filter", saveSelectedTileFilter)
-                    }
-                    : undefined
-                }
-              />
-            )}
-            {row.id === "weight" && (
-              <select
-                aria-label="Apply saved weight"
-                value={pickerView.activeWeightId}
-                disabled={pickerView.weightOptions.length === 0}
-                onChange={(event) => {
-                  const nextWeight = savedWeights.find((item) => item.id === event.target.value);
-                  if (!nextWeight) return;
-                  updateSelectedTile(updatesForSavedWeight(selectedTile, nextWeight));
-                  recordSavedSettingOriginCue("weight", nextWeight.label, selectedTile.id);
-                }}
-              >
-                <option value="">{pickerView.weightOptions.length === 0 ? "No saved weights" : "Apply saved weight"}</option>
-                {pickerView.weightOptions.map((item) => (
-                  <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
-                ))}
-              </select>
-            )}
-            {row.id === "weight" && (
-              <SettingProvenanceOptionDetail
-                option={activeWeightOption}
-                recentlySaved={recentlySavedKind === "weight" && Boolean(activeWeightOption)}
-                emptyState={pickerView.weightEmptyState}
-                action={
-                  pickerView.weightOptions.length === 0
-                    ? {
-                      label: "Save current weight",
-                      disabled: !actionState.canSaveSettings,
-                      disabledReason: actionState.saveHelperText,
-                      onClick: () => saveEmptyStateSetting("weight", saveSelectedTileWeight)
-                    }
-                    : undefined
-                }
-              />
-            )}
-          </div>
+        {provenancePickerConfigs.map((config) => (
+          config.row && (
+            <SettingProvenancePickerCard
+              key={config.kind}
+              row={config.row}
+              options={config.options}
+              activeOptionId={config.activeOptionId}
+              activeOption={config.activeOption}
+              emptyState={config.emptyState}
+              placeholder={config.placeholder}
+              selectLabel={config.selectLabel}
+              disabled={config.disabled}
+              recentlySaved={recentlySavedKind === config.kind && Boolean(config.activeOption)}
+              action={config.action}
+              onApply={config.onApply}
+            />
+          )
         ))}
       </div>
       {showSaveConfirmation && (
@@ -274,6 +266,57 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         </div>
         <TileQueryActions {...props} />
       </div>
+    </div>
+  );
+}
+
+function SettingProvenancePickerCard({
+  row,
+  options,
+  activeOptionId,
+  activeOption,
+  emptyState,
+  placeholder,
+  selectLabel,
+  disabled,
+  recentlySaved,
+  action,
+  onApply
+}: {
+  row: SettingProvenanceRow;
+  options: SettingProvenanceOption[];
+  activeOptionId: string;
+  activeOption?: SettingProvenanceOption;
+  emptyState: SettingProvenanceEmptyState;
+  placeholder: string;
+  selectLabel: string;
+  disabled: boolean;
+  recentlySaved: boolean;
+  action?: { label: string; disabled: boolean; disabledReason: string; onClick: () => void };
+  onApply: (optionId: string) => void;
+}) {
+  return (
+    <div className={row.saved ? "settings-provenance-item saved" : "settings-provenance-item"}>
+      <span>{row.label}</span>
+      <strong>{row.value}</strong>
+      <small>{row.source}</small>
+      <select
+        aria-label={selectLabel}
+        value={activeOptionId}
+        disabled={disabled}
+        onChange={(event) => onApply(event.target.value)}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((item) => (
+          <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
+        ))}
+      </select>
+      <SettingProvenanceOptionDetail
+        option={activeOption}
+        recentlySaved={recentlySaved}
+        emptyState={emptyState}
+        action={action}
+      />
     </div>
   );
 }
