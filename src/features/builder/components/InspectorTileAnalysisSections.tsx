@@ -1,12 +1,8 @@
 import type React from "react";
-import {
-  bannerDimensions,
-  defaultDataset
-} from "../builderConstants";
-import { comparisonSummaryLabel, tileSourceKindLabel } from "./CanvasRenderers";
-import { getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../../analytics/analyticsDisplay";
+import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import type { ChartType } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
+import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import {
   TileComparisonControls,
   TileFilterWeightControls,
@@ -20,6 +16,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   if (!selectedTile) {
     return null;
   }
+  const summary = buildInspectorTileSummary(selectedTile);
 
   return (
     <>
@@ -31,22 +28,22 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <input value={selectedTile.title} onChange={(event) => updateSelectedTile({ title: event.target.value })} />
               </label>
               <div className="panel-title subtle">
-                <h2>Analysis</h2>
+                <h2>Selected object</h2>
               </div>
-              <div className="inspector-summary-card">
-                <span className="inspector-summary-kicker">
-                  {tileSourceKindLabel(selectedTile.source)}{selectedTile.source ? `: ${selectedTile.source.label}` : ""}
-                </span>
-                <strong>{getQuestionLabel(selectedTile.result.metadataRefs.question)}</strong>
-                <div className="explorer-chip-row">
-                  <span className="explorer-chip">Banner: {bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy}</span>
-                  <span className="explorer-chip">Compare: {comparisonSummaryLabel(selectedTile.query)}</span>
-                  <span className="explorer-chip">Metric: {selectedTile.result.metric.label}</span>
-                  <span className="explorer-chip">Weight: {selectedTile.result.weighting.applied ? selectedTile.result.weighting.label : "Unweighted"}</span>
-                  <span className="explorer-chip">
-                    Filter: {selectedTile.query.filters.length > 0 ? selectedTile.query.filters.map((filter) => filter.values.join(", ")).join(" · ") : "None"}
-                  </span>
+              <div className="inspector-summary-card tile-handoff-card">
+                <span className="inspector-summary-kicker">{summary.sourceKind}</span>
+                <strong>{summary.title}</strong>
+                <p>{summary.subtitle}</p>
+                <div className="tile-handoff-source">
+                  <span>{summary.sourceLabel}</span>
+                  <small>{summary.sourceDescription}</small>
                 </div>
+                <div className="explorer-chip-row">
+                  {summary.chips.map((chip) => (
+                    <span className="explorer-chip" key={chip}>{chip}</span>
+                  ))}
+                </div>
+                <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
   );

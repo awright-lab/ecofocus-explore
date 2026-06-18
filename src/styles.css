@@ -1690,6 +1690,36 @@ button:disabled {
   font-size: 0.88rem;
 }
 
+.tile-handoff-card p {
+  margin: 0;
+  color: #5f746a;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.tile-handoff-source {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.tile-handoff-source span {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.tile-handoff-source small,
+.tile-handoff-cue {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .analysis-library-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
