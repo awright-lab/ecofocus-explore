@@ -2,6 +2,7 @@ import type { ChartType } from "../../../../shared/types/analytics";
 import type { DashboardTile, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedSettingOriginKind } from "../builderTypes";
+import type { InsertionContextView } from "./insertionContextModel";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type SavedSettingReuseKind = SavedSettingOriginKind;
@@ -17,6 +18,12 @@ export interface SavedSettingApplyFeedback {
   handoffDescription: string;
 }
 
+export interface SavedVariableSetInsertionFeedback {
+  itemId: string;
+  label: string;
+  message: string;
+}
+
 export function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
   return ["explorer-item", active ? "active" : "", recentlySaved ? "recently-saved" : ""].filter(Boolean).join(" ");
 }
@@ -26,6 +33,18 @@ export function variableSetChartAction(variableSet: SavedVariableSet): { chartTy
   return {
     chartType,
     label: chartType === "vertical_bar" ? "chart" : chartType.replace(/_/g, " ")
+  };
+}
+
+export function buildSavedVariableSetInsertionFeedback(
+  variableSet: SavedVariableSet,
+  objectLabel: string,
+  insertionContext: InsertionContextView
+): SavedVariableSetInsertionFeedback {
+  return {
+    itemId: variableSet.id,
+    label: `Created ${objectLabel}`,
+    message: `Added "${variableSet.label}" to "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()} and selected it for inspector editing.`
   };
 }
 

@@ -22,10 +22,12 @@ import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 import {
   bannerReuseState,
+  buildSavedVariableSetInsertionFeedback,
   buildSavedSettingApplyFeedback,
   filterReuseState,
   savedLibraryItemClass,
   type SavedSettingApplyFeedback,
+  type SavedVariableSetInsertionFeedback,
   variableSetChartAction,
   weightReuseState
 } from "./libraryReuseModel";
@@ -471,9 +473,27 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
     addTileFromVariableSet,
     isLoading,
     saveCurrentVariableSet,
-    deleteVariableSet
+    deleteVariableSet,
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId
   } = props;
   const highlightNewestSet = savedLibraryHandoff?.view === "variableSets";
+  const [insertionFeedback, setInsertionFeedback] = useState<SavedVariableSetInsertionFeedback | null>(null);
+  const insertionContext = buildInsertionContextView({
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    objectKind: "analytical"
+  });
+
+  async function createSavedVariableSetObject(variableSet: typeof savedVariableSets[number], chartType: ChartType, objectLabel: string) {
+    const createdTileId = await addTileFromVariableSet(variableSet, chartType);
+    if (!createdTileId) return;
+    setInsertionFeedback(buildSavedVariableSetInsertionFeedback(variableSet, objectLabel, insertionContext));
+  }
 
   return (
     <div className="explorer-section-card">
@@ -484,7 +504,20 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
       <div className="explorer-section-card compact nested">
         <div className="explorer-section-header">
           <strong>Saved variable sets</strong>
-          <small>{savedVariableSets.length} saved</small>
+          <small>{savedVariableSets.length} saved · {insertionContext.targetPageLabel} · {insertionContext.placementLabel}</small>
+        </div>
+        <div className="library-insertion-context">
+          <div className="insertion-context-grid">
+            <div>
+              <span>Selection</span>
+              <strong>{insertionContext.selectedObjectLabel}</strong>
+            </div>
+            <div>
+              <span>Placement</span>
+              <strong>{insertionContext.placementLabel}</strong>
+            </div>
+          </div>
+          <small>{insertionContext.helperText}</small>
         </div>
         <div className="explorer-item-list compact">
           {savedVariableSets.map((item, index) => {
@@ -499,11 +532,17 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
               {highlightNewestSet && index === 0 && <small className="recently-saved-label">Recently saved</small>}
               <div className="library-reuse-actions">
                 <button type="button" className="secondary" onClick={() => applyVariableSetSelection(item)}>Load source</button>
-                <button type="button" className="secondary" onClick={() => void addTileFromVariableSet(item, "table")} disabled={isLoading}>Create table</button>
-                <button type="button" className="secondary" onClick={() => void addTileFromVariableSet(item, chartAction.chartType)} disabled={isLoading}>
+                <button type="button" className="secondary" onClick={() => void createSavedVariableSetObject(item, "table", "table")} disabled={isLoading}>Create table</button>
+                <button type="button" className="secondary" onClick={() => void createSavedVariableSetObject(item, chartAction.chartType, chartAction.label)} disabled={isLoading}>
                   Create {chartAction.label}
                 </button>
               </div>
+              {insertionFeedback?.itemId === item.id && (
+                <div className="source-insertion-confirmation" role="status">
+                  <strong>{insertionFeedback.label}</strong>
+                  <span>{insertionFeedback.message}</span>
+                </div>
+              )}
             </div>
           );
           })}
