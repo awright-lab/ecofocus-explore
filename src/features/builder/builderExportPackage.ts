@@ -23,7 +23,8 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
     dashboard: {
       id: dashboard.id,
       title: dashboard.title,
-      status: dashboard.status
+      status: dashboard.status,
+      publishMetadata: dashboard.publishMetadata
     },
     slides: sortedPages.map((page) => ({
       id: page.id,
@@ -104,6 +105,7 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
     analysisLibrary: dashboard.analysisLibrary,
     presentationManifest: {
       title: dashboard.title,
+      publishMetadata: dashboard.publishMetadata,
       pageCount: sortedPages.length,
       exportedSlides: sortedPages.map((page) => ({
         id: page.id,

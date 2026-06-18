@@ -356,6 +356,11 @@ export interface DashboardDraft {
   id: string;
   title: string;
   status: DashboardStatus;
+  publishMetadata: {
+    publishedAt?: string;
+    publishCount: number;
+    versionLabel: string;
+  };
   analysisLibrary: {
     variableSets: SavedVariableSet[];
     banners: SavedBanner[];

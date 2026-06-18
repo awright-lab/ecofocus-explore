@@ -457,12 +457,30 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function publishDashboard() {
-    setDashboard((current) => ({ ...current, status: "published" }));
+    setDashboard((current) => {
+      const nextPublishCount = current.publishMetadata.publishCount + 1;
+      return {
+        ...current,
+        status: "published",
+        publishMetadata: {
+          publishedAt: new Date().toISOString(),
+          publishCount: nextPublishCount,
+          versionLabel: `v${nextPublishCount}`
+        }
+      };
+    });
     setViewerMode(true);
   }
 
   function unpublishDashboard() {
-    setDashboard((current) => ({ ...current, status: "draft" }));
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      publishMetadata: {
+        ...current.publishMetadata,
+        versionLabel: current.publishMetadata.publishCount > 0 ? `Draft after ${current.publishMetadata.versionLabel}` : "Draft"
+      }
+    }));
     setViewerMode(false);
   }
 

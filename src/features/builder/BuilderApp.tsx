@@ -34,6 +34,7 @@ import { useBuilderDocumentSessionCommands } from "./hooks/useBuilderDocumentSes
 import { useEditorSessionState } from "./hooks/useEditorSessionState";
 import { useBuilderDesignCommands } from "./hooks/useBuilderDesignCommands";
 import { useBuilderTileCommands } from "./hooks/useBuilderTileCommands";
+import { publishMetadataLabel } from "./builderPublishModel";
 import {
   applyGradientStylePreset,
   backgroundStyle,
@@ -617,6 +618,7 @@ export default function BuilderApp() {
           <div className="published-header__copy">
             <span className="published-kicker">{dashboard.status === "published" ? "Published report" : "Report preview"}</span>
             <h1>{dashboard.title}</h1>
+            <small className="published-version-cue">{publishMetadataLabel(dashboard)}</small>
           </div>
           <div className="published-header__actions">
             <span className="status published">{dashboard.status}</span>

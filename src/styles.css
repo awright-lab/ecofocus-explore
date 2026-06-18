@@ -87,6 +87,12 @@ textarea {
   text-transform: uppercase;
 }
 
+.published-version-cue {
+  color: #60756b;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
 .published-header__actions {
   display: flex;
   align-items: center;
@@ -168,6 +174,16 @@ h2 {
   color: rgba(255, 255, 255, 0.84);
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.publish-version-cue {
+  max-width: 190px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status {

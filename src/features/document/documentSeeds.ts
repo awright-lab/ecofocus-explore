@@ -493,6 +493,10 @@ export const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
   title: "2025 EcoFocus Builder Draft",
   status: "draft",
+  publishMetadata: {
+    publishCount: 0,
+    versionLabel: "Draft"
+  },
   analysisLibrary: {
     variableSets: seedVariableSets(),
     banners: seedSavedBanners(),

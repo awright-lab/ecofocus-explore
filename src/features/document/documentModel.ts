@@ -77,6 +77,11 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
   const seededDesignLibrary = seedDesignLibrary();
   return {
     ...dashboard,
+    publishMetadata: {
+      publishedAt: dashboard.publishMetadata?.publishedAt,
+      publishCount: dashboard.publishMetadata?.publishCount ?? (dashboard.status === "published" ? 1 : 0),
+      versionLabel: dashboard.publishMetadata?.versionLabel ?? (dashboard.status === "published" ? "v1" : "Draft")
+    },
     analysisLibrary: {
       variableSets:
         dashboard.analysisLibrary?.variableSets?.map((variableSet, index) => ({

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { DashboardDraft } from "../../../../shared/types/dashboard";
+import { publishMetadataLabel } from "../builderPublishModel";
 
 export function BuilderHeader({
   dashboard,
@@ -62,6 +63,7 @@ export function BuilderHeader({
           Export package
         </button>
         <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
+        <span className="publish-version-cue">{publishMetadataLabel(dashboard)}</span>
         {dashboard.status === "published" ? (
           <>
             <button type="button" className="secondary" onClick={onOpenPublished}>
