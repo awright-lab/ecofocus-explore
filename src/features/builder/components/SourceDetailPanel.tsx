@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
+import type { InsertionContextView } from "./insertionContextModel";
 import {
   buildSourceInsertionView,
   buildVariableSetDraftStatus,
@@ -34,7 +35,7 @@ interface SourceDetailPanelProps {
   selectedChartTypes: AnalysisAuthoringPanelProps["selectedChartTypes"];
   addTileFromSourceWithVisualization: AnalysisAuthoringPanelProps["addTileFromSourceWithVisualization"];
   isLoading: AnalysisAuthoringPanelProps["isLoading"];
-  activePageTitle: string;
+  insertionContext: InsertionContextView;
 }
 
 function SourceDetailList({ detail }: { detail: SourceDetailView }) {
@@ -67,17 +68,17 @@ function SourceDetailList({ detail }: { detail: SourceDetailView }) {
 function SourceInsertionActions({
   chartType,
   selectedChartTypes,
-  activePageTitle,
+  insertionContext,
   isLoading,
   addTileFromSourceWithVisualization
-}: Pick<SourceDetailPanelProps, "chartType" | "selectedChartTypes" | "activePageTitle" | "isLoading" | "addTileFromSourceWithVisualization">) {
-  const insertion = buildSourceInsertionView(chartType, selectedChartTypes, activePageTitle);
+}: Pick<SourceDetailPanelProps, "chartType" | "selectedChartTypes" | "insertionContext" | "isLoading" | "addTileFromSourceWithVisualization">) {
+  const insertion = buildSourceInsertionView(chartType, selectedChartTypes, insertionContext);
   const [confirmation, setConfirmation] = useState<{ label: string; pageTitle: string } | null>(null);
 
   async function createSourceObject(nextChartType: typeof chartType, label: string) {
     const createdTileId = await addTileFromSourceWithVisualization(nextChartType);
     if (!createdTileId) return;
-    setConfirmation({ label, pageTitle: activePageTitle });
+    setConfirmation({ label, pageTitle: insertionContext.targetPageLabel });
   }
 
   return (
@@ -87,6 +88,17 @@ function SourceInsertionActions({
         <strong>Create a report object</strong>
         <p>{insertion.helperText}</p>
       </div>
+      <div className="insertion-context-grid source-insertion-context">
+        <div>
+          <span>Selection</span>
+          <strong>{insertionContext.selectedObjectLabel}</strong>
+        </div>
+        <div>
+          <span>Placement</span>
+          <strong>{insertionContext.placementLabel}</strong>
+        </div>
+      </div>
+      {insertionContext.dropHelperText && <small className="source-insertion-drop-note">{insertionContext.dropHelperText}</small>}
       <div className="source-insertion-card__actions">
         <button
           type="button"
@@ -230,7 +242,7 @@ export function SourceDetailPanel({
   selectedChartTypes,
   addTileFromSourceWithVisualization,
   isLoading,
-  activePageTitle
+  insertionContext
 }: SourceDetailPanelProps) {
   const detail =
     selectedDataSource.kind === "variableSet" && selectedVariableSet
@@ -275,7 +287,7 @@ export function SourceDetailPanel({
       <SourceInsertionActions
         chartType={chartType}
         selectedChartTypes={selectedChartTypes}
-        activePageTitle={activePageTitle}
+        insertionContext={insertionContext}
         isLoading={isLoading}
         addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
       />

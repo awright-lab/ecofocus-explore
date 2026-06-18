@@ -9,6 +9,10 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { BreakById, ChartType, ComparisonMode, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
+  buildInsertionContextView,
+  type InsertionContextView
+} from "./insertionContextModel";
+import {
   groupQuestionsByTopic,
   groupVariableSetsByTopic,
   questionMetadataChips,
@@ -59,10 +63,20 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
     selectedChartTypes,
     addTileFromSourceWithVisualization,
     isLoading,
-    activePage
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId
   } = props;
   const variableSetGroups = groupVariableSetsByTopic(filteredVariableSets);
   const questionGroups = groupQuestionsByTopic(filteredQuestions);
+  const insertionContext = buildInsertionContextView({
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    objectKind: "analytical"
+  });
 
   return (
                   <>
@@ -189,7 +203,7 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                       selectedChartTypes={selectedChartTypes}
                       addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
                       isLoading={isLoading}
-                      activePageTitle={activePage.title}
+                      insertionContext={insertionContext}
                     />
                   </>
   );
@@ -218,8 +232,19 @@ export function QueryEditorSection(props: AnalysisAuthoringPanelProps) {
     selectedFilterDimension,
     selectedChartTypes,
     addTileFromSourceWithVisualization,
-    isLoading
+    isLoading,
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId
   } = props;
+  const insertionContext: InsertionContextView = buildInsertionContextView({
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    objectKind: "analytical"
+  });
 
   return (
                   <>
@@ -380,7 +405,7 @@ export function QueryEditorSection(props: AnalysisAuthoringPanelProps) {
                       <div className="explorer-output-card">
                         <div className="explorer-section-header">
                           <strong>Create output</strong>
-                          <small>Start with a table or place a chart directly</small>
+                          <small>{insertionContext.targetPageLabel} · {insertionContext.placementLabel}</small>
                         </div>
                         <div className="explorer-output-actions">
                           <button
@@ -400,8 +425,9 @@ export function QueryEditorSection(props: AnalysisAuthoringPanelProps) {
                           </button>
                         </div>
                         <small className="explorer-helper-copy">
-                          Tables are the analytical starting point. You can convert them into charts after placement.
+                          {insertionContext.helperText} Tables are the analytical starting point.
                         </small>
+                        {insertionContext.dropHelperText && <small className="explorer-helper-copy">{insertionContext.dropHelperText}</small>}
                       </div>
                     </div>
                   </>

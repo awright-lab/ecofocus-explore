@@ -3,6 +3,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
+import type { InsertionContextView } from "./insertionContextModel";
 
 export interface SourceExplorerGroup<T> {
   id: string;
@@ -258,7 +259,7 @@ export function buildVariableSetDraftStatus(savedVariableSet: SavedVariableSet |
   };
 }
 
-export function buildSourceInsertionView(chartType: ChartType, selectedChartTypes: ChartType[], pageTitle: string): SourceInsertionView {
+export function buildSourceInsertionView(chartType: ChartType, selectedChartTypes: ChartType[], insertionContext: InsertionContextView): SourceInsertionView {
   const chartVisualization = chartType === "table"
     ? (selectedChartTypes.find((item) => item !== "table") ?? "vertical_bar")
     : chartType;
@@ -268,7 +269,7 @@ export function buildSourceInsertionView(chartType: ChartType, selectedChartType
     canCreateTable: selectedChartTypes.includes("table"),
     tableActionLabel: "Create table",
     chartActionLabel: `Create ${getChartTypeLabel(chartVisualization)}`,
-    helperText: `Objects are inserted on "${pageTitle}". Tables keep the source configuration table-first; charts use the same source query with a chart view.`
+    helperText: `Creates on "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()}. Tables keep the source configuration table-first; charts use the same source query with a chart view.`
   };
 }
 

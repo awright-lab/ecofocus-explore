@@ -8,7 +8,7 @@ import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
-import type { DashboardDraft, DashboardPage, DashboardTile, SavedVariableSet } from "../../../../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedVariableSet } from "../../../../shared/types/dashboard";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
 
@@ -19,6 +19,8 @@ type UseBuilderTileCommandsArgs = {
   selectedQuestion: typeof defaultDataset.questions[number];
   selectedVariableSet: SavedVariableSet | null;
   savedVariableSets: SavedVariableSet[];
+  selectedTile: DashboardTile | null;
+  selectedElement: DashboardCanvasElement | null;
   setDashboard: SetDashboard;
   selectTile: (tileId: string) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
@@ -59,6 +61,39 @@ function resolveVariableSetResult(
     : response;
 }
 
+const tileWidth = 760;
+const tileHeight = 460;
+
+function tileInsertionLayout(activePage: DashboardPage, position?: { x: number; y: number }, selectedLayout?: CanvasLayout): CanvasLayout {
+  if (position) {
+    return {
+      x: position.x,
+      y: position.y,
+      width: tileWidth,
+      height: tileHeight,
+      zIndex: nextZIndex(activePage)
+    };
+  }
+
+  if (selectedLayout) {
+    return {
+      x: Math.max(24, Math.min(canvasWidth - tileWidth - 24, selectedLayout.x)),
+      y: Math.max(24, Math.min(canvasHeight - tileHeight - 24, selectedLayout.y + selectedLayout.height + 24)),
+      width: tileWidth,
+      height: tileHeight,
+      zIndex: nextZIndex(activePage)
+    };
+  }
+
+  return {
+    x: 48,
+    y: 72 + activePage.tiles.length * 28,
+    width: tileWidth,
+    height: tileHeight,
+    zIndex: nextZIndex(activePage)
+  };
+}
+
 export function tileWithVisualization(tile: DashboardTile, nextVisualization: ChartType): Partial<DashboardTile> {
   return {
     visualization: nextVisualization,
@@ -74,6 +109,8 @@ export function useBuilderTileCommands({
   selectedQuestion,
   selectedVariableSet,
   savedVariableSets,
+  selectedTile,
+  selectedElement,
   setDashboard,
   selectTile,
   updateTile,
@@ -95,6 +132,7 @@ export function useBuilderTileCommands({
       const response = await runAnalyticsQuery(tileQuery);
       const resolvedResponse = resolveVariableSetResult(response, tileQuery, source, savedVariableSets);
       const tileId = makeTileId();
+      const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
       const tile: DashboardTile = {
         id: tileId,
         name: sourceLabel,
@@ -107,13 +145,7 @@ export function useBuilderTileCommands({
         },
         locked: false,
         hidden: false,
-        layout: {
-          x: position?.x ?? 48,
-          y: position?.y ?? 72 + activePage.tiles.length * 28,
-          width: 760,
-          height: 460,
-          zIndex: nextZIndex(activePage)
-        },
+        layout: tileInsertionLayout(activePage, position, selectedLayout),
         query: tileQuery,
         visualization: tileQuery.chartType,
         appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },

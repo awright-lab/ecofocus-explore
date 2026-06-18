@@ -1283,6 +1283,13 @@ h2 {
   line-height: 1.4;
 }
 
+.source-insertion-drop-note {
+  color: #586f65;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .source-insertion-card__actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

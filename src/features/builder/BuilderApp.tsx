@@ -512,6 +512,8 @@ export default function BuilderApp() {
     selectedQuestion,
     selectedVariableSet,
     savedVariableSets,
+    selectedTile,
+    selectedElement,
     setDashboard,
     selectTile,
     updateTile,
