@@ -10,6 +10,7 @@ import {
 } from "./InspectorTileAnalysisSections";
 import type { DashboardCanvasElement } from "../../../../shared/types/dashboard";
 import type { BuilderInspectorProps } from "./BuilderInspector";
+import { buildReportTreeSelectionCueView, type ReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
 
 export function ElementInspector(props: BuilderInspectorProps) {
   const {
@@ -18,15 +19,18 @@ export function ElementInspector(props: BuilderInspectorProps) {
     setDesignModal,
     updateSelectedElement,
     applyTextStylePresetToSelection,
-    deleteSelectedItem
+    deleteSelectedItem,
+    reportTreeSelectionCue
   } = props;
 
   if (!selectedElement) {
     return null;
   }
+  const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedElement, "element");
 
   return (
             <>
+              {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
               <label>
                 Layer name
                 <input value={selectedElement.name} onChange={(event) => updateSelectedElement({ name: event.target.value })} />
@@ -261,6 +265,16 @@ export function ElementInspector(props: BuilderInspectorProps) {
                 Remove element
               </button>
             </>
+  );
+}
+
+function ReportTreeSelectionCueCard({ view }: { view: ReportTreeSelectionCueView }) {
+  return (
+    <div className="report-tree-selection-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
   );
 }
 

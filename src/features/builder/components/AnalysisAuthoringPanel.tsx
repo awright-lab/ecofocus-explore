@@ -13,7 +13,7 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, SavedLibraryHandoff, SourceLibraryView } from "../builderTypes";
+import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, ReportTreeSelectionCue, SavedLibraryHandoff, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
   leftPanelView: LeftPanelView;
@@ -24,6 +24,7 @@ export type AnalysisAuthoringPanelProps = {
   chooseLayer: (item: LayerItem) => void;
   selectTile: (tileId: string) => void;
   selectElement: (elementId: string) => void;
+  recordReportTreeSelectionCue: (cue: Omit<NonNullable<ReportTreeSelectionCue>, "createdAt">) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   updateElement: (elementId: string, updates: Partial<DashboardCanvasElement>) => void;
   sortedPages: DashboardPage[];
@@ -143,6 +144,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   chooseLayer,
   selectTile,
   selectElement,
+  recordReportTreeSelectionCue,
   updateTile,
   updateElement,
   sortedPages,
@@ -302,6 +304,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   selectPage={selectPage}
                   selectTile={selectTile}
                   selectElement={selectElement}
+                  recordReportTreeSelectionCue={recordReportTreeSelectionCue}
                   renamePage={renamePage}
                   addPage={addPage}
                   duplicateActivePage={duplicateActivePage}

@@ -37,6 +37,7 @@ import {
   TileQueryActions,
   TileQuestionConfigSection
 } from "./InspectorTileQuerySections";
+import { buildReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -45,7 +46,8 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     updateSelectedTile,
     selectTile,
     relatedObjectNavigationCue,
-    recordRelatedObjectNavigationCue
+    recordRelatedObjectNavigationCue,
+    reportTreeSelectionCue
   } = props;
 
   if (!selectedTile) {
@@ -54,6 +56,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const summary = buildInspectorTileSummary(selectedTile);
   const relatedObjects = buildRelatedAnalyticalObjectsView(selectedTile, activePage.tiles);
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
+  const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
 
@@ -93,6 +96,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
+                {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="explorer-chip-row">
                   {summary.lifecycleChips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
@@ -116,6 +120,18 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
+  );
+}
+
+function ReportTreeSelectionCueCard({ view }: { view: ReturnType<typeof buildReportTreeSelectionCueView> }) {
+  if (!view) return null;
+
+  return (
+    <div className="report-tree-selection-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
   );
 }
 

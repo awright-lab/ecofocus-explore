@@ -37,6 +37,15 @@ export type RelatedObjectNavigationCue = {
   relationship: "canonical" | "derived" | "sibling";
   createdAt: number;
 } | null;
+export type ReportTreeSelectionCue = {
+  objectId: string;
+  objectKind: "tile" | "element";
+  objectLabel: string;
+  objectType: string;
+  pageId: string;
+  pageTitle: string;
+  createdAt: number;
+} | null;
 
 export type LayerItem =
   | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
@@ -58,6 +67,7 @@ export type EditorUiState = {
   savedLibraryHandoff: SavedLibraryHandoff;
   savedSettingOriginCue: SavedSettingOriginCue;
   relatedObjectNavigationCue: RelatedObjectNavigationCue;
+  reportTreeSelectionCue: ReportTreeSelectionCue;
   sourceSearch: string;
   settingsView: SettingsView;
   designModal: DesignModal;

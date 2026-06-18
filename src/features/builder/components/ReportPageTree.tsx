@@ -3,6 +3,7 @@ import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
+import type { ReportTreeSelectionCue } from "../builderTypes";
 
 type ReportPageTreeProps = {
   sortedPages: DashboardPage[];
@@ -15,6 +16,7 @@ type ReportPageTreeProps = {
   selectPage: () => void;
   selectTile: (tileId: string) => void;
   selectElement: (elementId: string) => void;
+  recordReportTreeSelectionCue: (cue: Omit<NonNullable<ReportTreeSelectionCue>, "createdAt">) => void;
   renamePage: (pageId: string, title: string) => void;
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
@@ -53,6 +55,7 @@ export function ReportPageTree({
   selectPage,
   selectTile,
   selectElement,
+  recordReportTreeSelectionCue,
   renamePage,
   addPage,
   duplicateActivePage,
@@ -110,14 +113,30 @@ export function ReportPageTree({
     setExpandedPageIds((current) => (current.includes(pageId) ? current.filter((id) => id !== pageId) : [...current, pageId]));
   }
 
-  function selectPageTile(page: DashboardPage, tileId: string) {
+  function selectPageTile(page: DashboardPage, tile: DashboardTile) {
     setActivePageId(page.id);
-    selectTile(tileId);
+    recordReportTreeSelectionCue({
+      objectId: tile.id,
+      objectKind: "tile",
+      objectLabel: tile.title || tile.name,
+      objectType: getChartTypeLabel(tile.visualization),
+      pageId: page.id,
+      pageTitle: page.title
+    });
+    selectTile(tile.id);
   }
 
-  function selectPageElement(page: DashboardPage, elementId: string) {
+  function selectPageElement(page: DashboardPage, element: DashboardCanvasElement) {
     setActivePageId(page.id);
-    selectElement(elementId);
+    recordReportTreeSelectionCue({
+      objectId: element.id,
+      objectKind: "element",
+      objectLabel: element.name,
+      objectType: elementTypeLabel(element),
+      pageId: page.id,
+      pageTitle: page.title
+    });
+    selectElement(element.id);
   }
 
   return (
@@ -226,7 +245,7 @@ export function ReportPageTree({
                             type="button"
                             className={selectedTileId === item.id ? "report-page-object-row active" : "report-page-object-row"}
                             key={item.id}
-                            onClick={() => selectPageTile(page, item.id)}
+                            onClick={() => selectPageTile(page, item)}
                           >
                             <span>{item.title || item.name}</span>
                             <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
@@ -239,7 +258,7 @@ export function ReportPageTree({
                           type="button"
                           className={selectedElementId === item.id ? "report-page-object-row active" : "report-page-object-row"}
                           key={item.id}
-                          onClick={() => selectPageElement(page, item.id)}
+                          onClick={() => selectPageElement(page, item)}
                         >
                           <span>{item.name}</span>
                           <small>{elementTypeLabel(item)} · {objectStatus(item)}</small>

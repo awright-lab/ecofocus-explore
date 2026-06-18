@@ -1913,6 +1913,29 @@ button:disabled {
   line-height: 1.4;
 }
 
+.report-tree-selection-cue {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #b8d7c5;
+  border-radius: 10px;
+  background: #f2fbf5;
+}
+
+.report-tree-selection-cue strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.report-tree-selection-cue span,
+.report-tree-selection-cue small {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .independent-derived-contract-cue {
   display: grid;
   gap: 3px;

@@ -133,6 +133,8 @@ export default function BuilderApp() {
     setSavedSettingOriginCue,
     relatedObjectNavigationCue,
     setRelatedObjectNavigationCue,
+    reportTreeSelectionCue,
+    setReportTreeSelectionCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -724,6 +726,7 @@ export default function BuilderApp() {
           chooseLayer={chooseLayer}
           selectTile={selectTile}
           selectElement={selectElement}
+          recordReportTreeSelectionCue={(cue) => setReportTreeSelectionCue({ ...cue, createdAt: Date.now() })}
           updateTile={updateTile}
           updateElement={updateElement}
           sortedPages={sortedPages}
@@ -919,6 +922,7 @@ export default function BuilderApp() {
           }}
           relatedObjectNavigationCue={relatedObjectNavigationCue}
           recordRelatedObjectNavigationCue={(cue) => setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() })}
+          reportTreeSelectionCue={reportTreeSelectionCue}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

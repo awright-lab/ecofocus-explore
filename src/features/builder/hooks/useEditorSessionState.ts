@@ -7,6 +7,7 @@ import type {
   ExploreView,
   LeftPanelView,
   RelatedObjectNavigationCue,
+  ReportTreeSelectionCue,
   SavedLibraryHandoff,
   SavedSettingOriginCue,
   SettingsView,
@@ -29,6 +30,7 @@ export function useEditorSessionState() {
   const [savedLibraryHandoff, setSavedLibraryHandoff] = useState<SavedLibraryHandoff>(null);
   const [savedSettingOriginCue, setSavedSettingOriginCue] = useState<SavedSettingOriginCue>(null);
   const [relatedObjectNavigationCue, setRelatedObjectNavigationCue] = useState<RelatedObjectNavigationCue>(null);
+  const [reportTreeSelectionCue, setReportTreeSelectionCue] = useState<ReportTreeSelectionCue>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [settingsView, setSettingsView] = useState<SettingsView>("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
@@ -70,6 +72,8 @@ export function useEditorSessionState() {
     setSavedSettingOriginCue,
     relatedObjectNavigationCue,
     setRelatedObjectNavigationCue,
+    reportTreeSelectionCue,
+    setReportTreeSelectionCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
