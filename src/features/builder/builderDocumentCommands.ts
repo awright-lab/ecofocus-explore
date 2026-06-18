@@ -7,6 +7,7 @@ import type {
   DashboardCanvasElementType,
   DashboardPage,
   DashboardTile,
+  PageMasterPreset,
   PageTemplatePreset,
   PageThemePreset,
   TextBlockPreset
@@ -20,9 +21,11 @@ export function buildPageFromTemplate(args: {
   template?: PageTemplatePreset;
   pageCount: number;
   pageThemes: PageThemePreset[];
+  pageMasters: PageMasterPreset[];
 }): DashboardPage {
-  const { template, pageCount, pageThemes } = args;
+  const { template, pageCount, pageThemes, pageMasters } = args;
   const pageTheme = pageThemes.find((item) => item.id === template?.pageThemeId) ?? pageThemes[0];
+  const pageMaster = pageMasters.find((item) => item.id === template?.pageMasterId);
 
   return {
     id: makePageId(),
@@ -33,6 +36,9 @@ export function buildPageFromTemplate(args: {
       templateLabel: template?.label,
       themeId: pageTheme?.id,
       themeLabel: pageTheme?.label,
+      masterId: pageMaster?.id,
+      masterLabel: pageMaster?.label,
+      masterStatus: pageMaster ? "master-based" : "none",
       status: template ? "template-derived" : "custom"
     },
     ...defaultPageDesign(),
@@ -78,6 +84,7 @@ export function duplicatePage(page: DashboardPage, pageCount: number): Dashboard
     order: pageCount + 1,
     provenance: {
       ...page.provenance,
+      masterStatus: page.provenance?.masterStatus ?? (page.provenance?.masterId ? "master-based" : "none"),
       status: "custom"
     },
     elements: page.elements.map((element) => ({

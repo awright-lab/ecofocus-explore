@@ -173,6 +173,9 @@ export interface DashboardPage {
     templateLabel?: string;
     themeId?: string;
     themeLabel?: string;
+    masterId?: string;
+    masterLabel?: string;
+    masterStatus: "none" | "master-based";
     status: "template-derived" | "custom";
   };
   showCanvasGrid: boolean;
@@ -309,12 +312,19 @@ export interface PageTemplatePreset {
   label: string;
   description: string;
   pageThemeId: string;
+  pageMasterId?: string;
   elements: Array<{
     name: string;
     content: string;
     layout: Omit<CanvasLayout, "zIndex">;
     style: TextBlockPreset["style"];
   }>;
+}
+
+export interface PageMasterPreset {
+  id: string;
+  label: string;
+  description: string;
 }
 
 export interface PageThemePreset {
@@ -339,6 +349,7 @@ export interface DesignLibrary {
   textBlocks: TextBlockPreset[];
   pageThemes: PageThemePreset[];
   pageTemplates: PageTemplatePreset[];
+  pageMasters: PageMasterPreset[];
 }
 
 export interface DashboardDraft {

@@ -20,6 +20,7 @@ import type {
   DashboardDraft,
   DashboardPage,
   DashboardTile,
+  PageMasterPreset,
   PageTemplatePreset,
   PageThemePreset,
   TextBlockPreset
@@ -39,6 +40,7 @@ type UseBuilderDocumentSessionCommandsArgs = {
   setSaveState: (value: string) => void;
   activePage: DashboardPage;
   sortedPages: DashboardPage[];
+  pageMasters: PageMasterPreset[];
   pageThemes: PageThemePreset[];
   selectedTile: DashboardTile | null;
   selectedElement: DashboardCanvasElement | null;
@@ -64,6 +66,7 @@ export function useBuilderDocumentSessionCommands({
   setSaveState,
   activePage,
   sortedPages,
+  pageMasters,
   pageThemes,
   selectedTile,
   selectedElement,
@@ -310,7 +313,7 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function addPage(template?: PageTemplatePreset) {
-    const page = buildPageFromTemplate({ template, pageCount: dashboard.pages.length, pageThemes });
+    const page = buildPageFromTemplate({ template, pageCount: dashboard.pages.length, pageThemes, pageMasters });
 
     setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
     setActivePageId(page.id);

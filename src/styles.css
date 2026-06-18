@@ -634,6 +634,12 @@ h2 {
   font-weight: 800;
 }
 
+.report-page-node__body .report-page-master {
+  color: #6c6f7d;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
 .page-provenance-cue {
   display: grid;
   gap: 3px;
@@ -641,6 +647,11 @@ h2 {
   border: 1px solid #dce4ea;
   border-radius: 10px;
   background: #f8fbfc;
+}
+
+.page-provenance-cue.master {
+  border-color: #d8dee9;
+  background: #ffffff;
 }
 
 .page-provenance-cue strong {

@@ -12,6 +12,7 @@ import type {
   DashboardCanvasElementType,
   DashboardDraft,
   DesignColorPalette,
+  PageMasterPreset,
   PageTemplatePreset,
   PageThemePreset,
   SavedBanner,
@@ -257,6 +258,7 @@ export function seedPageTemplates(): PageTemplatePreset[] {
       label: "Story intro",
       description: "Headline plus supporting text for a clean section opener.",
       pageThemeId: "mist",
+      pageMasterId: "standard_report_master",
       elements: [
         {
           name: "Headline",
@@ -277,6 +279,7 @@ export function seedPageTemplates(): PageTemplatePreset[] {
       label: "Insight page",
       description: "Starter structure for a chart plus narrative and methodology note.",
       pageThemeId: "paper",
+      pageMasterId: "standard_report_master",
       elements: [
         {
           name: "Section title",
@@ -300,6 +303,16 @@ export function seedPageTemplates(): PageTemplatePreset[] {
           style: noteStyle
         }
       ]
+    }
+  ];
+}
+
+export function seedPageMasters(): PageMasterPreset[] {
+  return [
+    {
+      id: "standard_report_master",
+      label: "Standard report master",
+      description: "Metadata-only master placeholder for future shared header, footer, and source-note regions."
     }
   ];
 }
@@ -471,7 +484,8 @@ export function seedDesignLibrary() {
     textStyles: seedTextStyles(),
     textBlocks: seedTextBlocks(),
     pageThemes: seedPageThemes(),
-    pageTemplates: seedPageTemplates()
+    pageTemplates: seedPageTemplates(),
+    pageMasters: seedPageMasters()
   };
 }
 
@@ -491,6 +505,10 @@ export const initialDashboard: DashboardDraft = {
       id: "page_overview",
       title: "Overview",
       order: 1,
+      provenance: {
+        masterStatus: "none",
+        status: "custom"
+      },
       ...defaultPageDesign(),
       elements: [],
       tiles: []

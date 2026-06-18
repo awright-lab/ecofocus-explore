@@ -159,6 +159,7 @@ export default function BuilderApp() {
   const textBlockPresets = dashboard.designLibrary.textBlocks;
   const pageThemes = dashboard.designLibrary.pageThemes;
   const pageTemplates = dashboard.designLibrary.pageTemplates;
+  const pageMasters = dashboard.designLibrary.pageMasters;
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
@@ -375,6 +376,7 @@ export default function BuilderApp() {
     setSaveState,
     activePage,
     sortedPages,
+    pageMasters,
     pageThemes,
     selectedTile,
     selectedElement,

@@ -56,6 +56,13 @@ function pageProvenanceLabel(page: DashboardPage) {
   return "Custom page";
 }
 
+function pageMasterLabel(page: DashboardPage) {
+  if (page.provenance?.masterStatus === "master-based" && page.provenance.masterLabel) {
+    return `From master: ${page.provenance.masterLabel}`;
+  }
+  return "No master";
+}
+
 export function ReportPageTree({
   sortedPages,
   activePage,
@@ -231,6 +238,7 @@ export function ReportPageTree({
                         {page.tiles.length} analyses · {page.elements.length} objects
                       </small>
                       <small className="report-page-provenance">{pageProvenanceLabel(page)}</small>
+                      <small className="report-page-master">{pageMasterLabel(page)}</small>
                     </div>
                   </button>
                 )}

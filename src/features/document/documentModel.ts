@@ -59,12 +59,16 @@ function normalizePageProvenance(page: DashboardPage, pageThemes: PageThemePrese
   const matchedTheme = page.provenance?.themeId
     ? pageThemes.find((theme) => theme.id === page.provenance?.themeId)
     : matchingPageTheme(page, pageThemes);
+  const masterStatus = page.provenance?.masterStatus ?? (page.provenance?.masterId ? "master-based" : "none");
 
   return {
     templateId: page.provenance?.templateId,
     templateLabel: page.provenance?.templateLabel,
     themeId: page.provenance?.themeId ?? matchedTheme?.id,
     themeLabel: page.provenance?.themeLabel ?? matchedTheme?.label,
+    masterId: page.provenance?.masterId,
+    masterLabel: page.provenance?.masterLabel,
+    masterStatus,
     status: page.provenance?.status ?? "custom"
   };
 }
@@ -179,6 +183,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           label: pageTemplate.label ?? `Page template ${index + 1}`,
           description: pageTemplate.description ?? "",
           pageThemeId: pageTemplate.pageThemeId ?? seededDesignLibrary.pageThemes[0].id,
+          pageMasterId: pageTemplate.pageMasterId,
           elements: (pageTemplate.elements ?? []).map((element) => ({
             ...element,
             name: element.name ?? "Text block",
@@ -197,6 +202,13 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             }
           }))
         })) ?? seededDesignLibrary.pageTemplates,
+      pageMasters:
+        dashboard.designLibrary?.pageMasters?.map((pageMaster, index) => ({
+          ...pageMaster,
+          id: pageMaster.id ?? `page_master_${index + 1}`,
+          label: pageMaster.label ?? `Page master ${index + 1}`,
+          description: pageMaster.description ?? ""
+        })) ?? seededDesignLibrary.pageMasters,
       pageThemes:
         dashboard.designLibrary?.pageThemes?.map((pageTheme, index) => ({
           ...pageTheme,

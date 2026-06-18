@@ -35,6 +35,22 @@ function pageProvenanceView(page: BuilderInspectorProps["activePage"]) {
   };
 }
 
+function pageMasterProvenanceView(page: BuilderInspectorProps["activePage"]) {
+  if (page.provenance?.masterStatus === "master-based" && page.provenance.masterLabel) {
+    return {
+      label: "From master",
+      message: page.provenance.masterLabel,
+      helper: "Master provenance only. This page is not live-linked and inherited regions are not active yet."
+    };
+  }
+
+  return {
+    label: "No master",
+    message: "This page is not based on a page master.",
+    helper: "Future master-page inheritance can attach to this provenance without changing current page content."
+  };
+}
+
 export function PageInspector(props: BuilderInspectorProps) {
   const {
     settingsView,
@@ -48,6 +64,7 @@ export function PageInspector(props: BuilderInspectorProps) {
     setDesignModal
   } = props;
   const provenance = pageProvenanceView(activePage);
+  const masterProvenance = pageMasterProvenanceView(activePage);
 
   return (
     <>
@@ -61,6 +78,11 @@ export function PageInspector(props: BuilderInspectorProps) {
             <strong>{provenance.label}</strong>
             <span>{provenance.message}</span>
             <small>{provenance.helper}</small>
+          </div>
+          <div className="page-provenance-cue master">
+            <strong>{masterProvenance.label}</strong>
+            <span>{masterProvenance.message}</span>
+            <small>{masterProvenance.helper}</small>
           </div>
           <div className="page-theme-rebase-card">
             <div className="explorer-section-header">

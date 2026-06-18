@@ -111,6 +111,7 @@ export function useBuilderDesignCommands({
         ...activePage.provenance,
         themeId: theme.id,
         themeLabel: theme.label,
+        masterStatus: activePage.provenance?.masterStatus ?? (activePage.provenance?.masterId ? "master-based" : "none"),
         status: "custom"
       }
     });
