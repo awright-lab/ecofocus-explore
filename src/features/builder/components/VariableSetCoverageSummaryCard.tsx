@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { VariableSetRecodeCoverageView } from "./variableSetValidationModel";
 
 interface VariableSetCoverageSummaryCardProps {
@@ -11,6 +12,9 @@ function labelsSummary(labels: string[]) {
 }
 
 export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverageSummaryCardProps) {
+  const [showUncoveredOptions, setShowUncoveredOptions] = useState(false);
+  const hasUncoveredOptions = coverage.uncoveredOptionLabels.length > 0;
+
   return (
     <div className={`variable-set-coverage-card ${coverage.status}`}>
       <div className="explorer-section-header">
@@ -32,10 +36,31 @@ export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverage
         </div>
       </div>
       <small>{coverage.helper}</small>
+      {hasUncoveredOptions && (
+        <button
+          type="button"
+          className={showUncoveredOptions ? "secondary variable-set-coverage-action active" : "secondary variable-set-coverage-action"}
+          onClick={() => setShowUncoveredOptions((current) => !current)}
+        >
+          {showUncoveredOptions ? "Hide uncovered options" : "Show uncovered options"}
+        </button>
+      )}
       <div className="variable-set-coverage-lists">
         <span>Uncovered: {labelsSummary(coverage.uncoveredOptionLabels)}</span>
         <span>Multiply used: {labelsSummary(coverage.multiplyUsedOptionLabels)}</span>
       </div>
+      {showUncoveredOptions && (
+        <div className="variable-set-coverage-focus">
+          <span>Uncovered question options</span>
+          <div className="explorer-chip-row">
+            {coverage.uncoveredOptionLabels.map((label) => (
+              <span className="explorer-chip warning-chip" key={label}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

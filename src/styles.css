@@ -1847,6 +1847,35 @@ h2 {
   font-weight: 850;
 }
 
+.variable-set-coverage-action {
+  justify-self: start;
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 0.7rem;
+}
+
+.variable-set-coverage-action.active {
+  border-color: rgba(47, 127, 95, 0.36);
+  background: #eefaf5;
+  color: #0f5b4b;
+}
+
+.variable-set-coverage-focus {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed #dfc98f;
+  border-radius: 8px;
+  background: rgba(255, 249, 237, 0.72);
+}
+
+.variable-set-coverage-focus > span {
+  color: #675534;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .variable-set-audit-card button.active {
   border-color: rgba(47, 127, 95, 0.36);
   background: #eefaf5;
