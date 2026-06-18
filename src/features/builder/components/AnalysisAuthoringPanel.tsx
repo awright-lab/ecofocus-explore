@@ -108,6 +108,7 @@ export type AnalysisAuthoringPanelProps = {
   addCanvasElement: (type: DashboardCanvasElement["type"]) => void;
   addTileFromQuery: () => void;
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
+  addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   isLoading: boolean;
   applySavedBanner: (banner: SavedBanner) => void;
   bannerDraftName: string;
@@ -217,6 +218,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   addCanvasElement,
   addTileFromQuery,
   addTileFromSourceWithVisualization,
+  addTileFromVariableSet,
   isLoading,
   applySavedBanner,
   bannerDraftName,

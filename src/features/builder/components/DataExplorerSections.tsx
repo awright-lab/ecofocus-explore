@@ -15,10 +15,14 @@ import {
 } from "./sourceExplorerModel";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
-
-function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
-  return ["explorer-item", active ? "active" : "", recentlySaved ? "recently-saved" : ""].filter(Boolean).join(" ");
-}
+import {
+  bannerReuseState,
+  filterReuseState,
+  savedLibraryItemClass,
+  variableSetChartAction,
+  weightReuseState
+} from "./libraryReuseModel";
+import { updateTileBanner, updateTileFilterField, updateTileFilterValue, updateTileWeight } from "./inspectorTileQueryModel";
 
 export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
   const {
@@ -435,6 +439,8 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
     savedLibraryHandoff,
     savedVariableSets,
     applyVariableSetSelection,
+    addTileFromVariableSet,
+    isLoading,
     saveCurrentVariableSet,
     deleteVariableSet
   } = props;
@@ -452,18 +458,26 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
           <small>{savedVariableSets.length} saved</small>
         </div>
         <div className="explorer-item-list compact">
-          {savedVariableSets.map((item, index) => (
-            <button
-              type="button"
+          {savedVariableSets.map((item, index) => {
+            const chartAction = variableSetChartAction(item);
+            return (
+            <div
               key={item.id}
               className={savedLibraryItemClass(selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id, highlightNewestSet && index === 0)}
-              onClick={() => applyVariableSetSelection(item)}
             >
               <strong>{item.label}</strong>
               <span>{item.description}</span>
               {highlightNewestSet && index === 0 && <small className="recently-saved-label">Recently saved</small>}
-            </button>
-          ))}
+              <div className="library-reuse-actions">
+                <button type="button" className="secondary" onClick={() => applyVariableSetSelection(item)}>Load source</button>
+                <button type="button" className="secondary" onClick={() => void addTileFromVariableSet(item, "table")} disabled={isLoading}>Create table</button>
+                <button type="button" className="secondary" onClick={() => void addTileFromVariableSet(item, chartAction.chartType)} disabled={isLoading}>
+                  Create {chartAction.label}
+                </button>
+              </div>
+            </div>
+          );
+          })}
         </div>
       </div>
       <VariableSetMetadataSection {...props} />
@@ -482,8 +496,9 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff } = props;
+  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff, selectedTile, updateTile } = props;
   const highlightNewestBanner = savedLibraryHandoff?.view === "banners";
+  const selectedTileQuestion = selectedTile ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? null : null;
 
   return (
                     <div className="explorer-section-card">
@@ -492,13 +507,28 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
                         <small>{savedBanners.length} saved</small>
                       </div>
                       <div className="explorer-item-list compact">
-                        {savedBanners.map((item, index) => (
-                          <button type="button" key={item.id} className={savedLibraryItemClass(item.breakBy === breakBy, highlightNewestBanner && index === 0)} onClick={() => applySavedBanner(item)}>
+                        {savedBanners.map((item, index) => {
+                          const reuse = bannerReuseState(selectedTile, selectedTileQuestion, item);
+                          return (
+                          <div key={item.id} className={savedLibraryItemClass(item.breakBy === breakBy, highlightNewestBanner && index === 0)}>
                             <strong>{item.label}</strong>
                             <span>{item.description}</span>
                             {highlightNewestBanner && index === 0 && <small className="recently-saved-label">Recently saved</small>}
-                          </button>
-                        ))}
+                            <small className="library-reuse-helper">{reuse.helper}</small>
+                            <div className="library-reuse-actions">
+                              <button type="button" className="secondary" onClick={() => applySavedBanner(item)}>Load in authoring</button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={!reuse.enabled}
+                                onClick={() => selectedTile && updateTile(selectedTile.id, updateTileBanner(selectedTile, item.breakBy))}
+                              >
+                                Apply to selected tile
+                              </button>
+                            </div>
+                          </div>
+                        );
+                        })}
                       </div>
                       <div className="compact-grid">
                         <input value={bannerDraftName} onChange={(event) => setBannerDraftName(event.target.value)} placeholder="Save current banner" />
@@ -509,7 +539,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff } = props;
+  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff, selectedTile, updateTile } = props;
   const highlightNewestFilter = savedLibraryHandoff?.view === "filters";
 
   return (
@@ -519,13 +549,38 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
                         <small>{savedFilters.length} saved</small>
                       </div>
                       <div className="explorer-item-list compact">
-                        {savedFilters.map((item, index) => (
-                          <button type="button" key={item.id} className={savedLibraryItemClass(item.filterField === filterField && item.filterValue === filterValue, highlightNewestFilter && index === 0)} onClick={() => applySavedFilter(item)}>
+                        {savedFilters.map((item, index) => {
+                          const reuse = filterReuseState(selectedTile, item);
+                          return (
+                          <div key={item.id} className={savedLibraryItemClass(item.filterField === filterField && item.filterValue === filterValue, highlightNewestFilter && index === 0)}>
                             <strong>{item.label}</strong>
                             <span>{item.description}</span>
                             {highlightNewestFilter && index === 0 && <small className="recently-saved-label">Recently saved</small>}
-                          </button>
-                        ))}
+                            <small className="library-reuse-helper">{reuse.helper}</small>
+                            <div className="library-reuse-actions">
+                              <button type="button" className="secondary" onClick={() => applySavedFilter(item)}>Load in authoring</button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={!reuse.enabled}
+                                onClick={() => {
+                                  if (!selectedTile) return;
+                                  const fieldUpdate = updateTileFilterField(selectedTile, item.filterField);
+                                  const nextTile = { ...selectedTile, ...fieldUpdate };
+                                  updateTile(
+                                    selectedTile.id,
+                                    item.filterField && item.filterValue !== "all"
+                                      ? updateTileFilterValue(nextTile, item.filterField, item.filterValue)
+                                      : fieldUpdate
+                                  );
+                                }}
+                              >
+                                Apply to selected tile
+                              </button>
+                            </div>
+                          </div>
+                        );
+                        })}
                       </div>
                       <div className="compact-grid">
                         <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Save current filter" />
@@ -536,7 +591,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
-  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff } = props;
+  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff, selectedTile, updateTile } = props;
   const highlightNewestWeight = savedLibraryHandoff?.view === "weights";
 
   return (
@@ -546,13 +601,28 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                         <small>{savedWeights.length} saved</small>
                       </div>
                       <div className="explorer-item-list compact">
-                        {savedWeights.map((item, index) => (
-                          <button type="button" key={item.id} className={savedLibraryItemClass(item.weight === weight, highlightNewestWeight && index === 0)} onClick={() => applySavedWeight(item)}>
+                        {savedWeights.map((item, index) => {
+                          const reuse = weightReuseState(selectedTile, item);
+                          return (
+                          <div key={item.id} className={savedLibraryItemClass(item.weight === weight, highlightNewestWeight && index === 0)}>
                             <strong>{item.label}</strong>
                             <span>{item.description}</span>
                             {highlightNewestWeight && index === 0 && <small className="recently-saved-label">Recently saved</small>}
-                          </button>
-                        ))}
+                            <small className="library-reuse-helper">{reuse.helper}</small>
+                            <div className="library-reuse-actions">
+                              <button type="button" className="secondary" onClick={() => applySavedWeight(item)}>Load in authoring</button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={!reuse.enabled}
+                                onClick={() => selectedTile && updateTile(selectedTile.id, updateTileWeight(selectedTile, item.weight))}
+                              >
+                                Apply to selected tile
+                              </button>
+                            </div>
+                          </div>
+                        );
+                        })}
                       </div>
                       <div className="compact-grid">
                         <input value={weightDraftName} onChange={(event) => setWeightDraftName(event.target.value)} placeholder="Save current weight" />

@@ -195,6 +195,16 @@ export function useBuilderTileCommands({
     );
   }
 
+  async function addTileFromVariableSet(variableSet: SavedVariableSet, nextVisualization: ChartType) {
+    const variableSetQuery = queryForVariableSet(variableSet);
+    return createTileFromSource(
+      { ...variableSetQuery, chartType: nextVisualization },
+      variableSet.label,
+      undefined,
+      { kind: "variableSet", id: variableSet.id, label: variableSet.label }
+    );
+  }
+
   async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
     setIsLoading(true);
     setError(null);
@@ -258,6 +268,7 @@ export function useBuilderTileCommands({
     handleCanvasDrop,
     addTileFromQuery,
     addTileFromSourceWithVisualization,
+    addTileFromVariableSet,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization

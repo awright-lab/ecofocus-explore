@@ -892,6 +892,25 @@ h2 {
   font-weight: 800;
 }
 
+.library-reuse-helper {
+  color: #60756b !important;
+  font-size: 0.7rem !important;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.library-reuse-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.library-reuse-actions button:first-child:nth-last-child(3),
+.library-reuse-actions button:first-child:nth-last-child(3) ~ button {
+  font-size: 0.68rem;
+}
+
 .source-metadata-row {
   display: flex;
   flex-wrap: wrap;

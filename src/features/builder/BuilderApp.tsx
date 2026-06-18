@@ -491,6 +491,7 @@ export default function BuilderApp() {
     handleCanvasDrop,
     addTileFromQuery,
     addTileFromSourceWithVisualization,
+    addTileFromVariableSet,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization
@@ -799,6 +800,7 @@ export default function BuilderApp() {
           addCanvasElement={addCanvasElement}
           addTileFromQuery={addTileFromQuery}
           addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
+          addTileFromVariableSet={addTileFromVariableSet}
           isLoading={isLoading}
           applySavedBanner={applySavedBanner}
           bannerDraftName={bannerDraftName}
