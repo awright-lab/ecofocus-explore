@@ -29,7 +29,7 @@ import type {
   TextStylePreset,
   TileAppearance
 } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, DesignModal, SavedSettingOriginCue, SettingsView } from "../builderTypes";
+import type { AnalysisLibraryView, DesignModal, RelatedObjectNavigationCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 
 export type BuilderInspectorProps = {
   settingsView: SettingsView;
@@ -81,6 +81,8 @@ export type BuilderInspectorProps = {
   savedSettingOriginCue: SavedSettingOriginCue;
   recordSavedSettingOriginCue: (kind: "banner" | "filter" | "weight", label: string, tileId: string) => void;
   completeSavedSettingOriginCue: (tileId: string) => void;
+  relatedObjectNavigationCue: RelatedObjectNavigationCue;
+  recordRelatedObjectNavigationCue: (cue: Omit<NonNullable<RelatedObjectNavigationCue>, "createdAt">) => void;
   deleteSelectedItem: () => void;
   isLoading: boolean;
   comparisonDatasets: DatasetId[];

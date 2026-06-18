@@ -6,6 +6,7 @@ import type {
   DesignModal,
   ExploreView,
   LeftPanelView,
+  RelatedObjectNavigationCue,
   SavedLibraryHandoff,
   SavedSettingOriginCue,
   SettingsView,
@@ -27,6 +28,7 @@ export function useEditorSessionState() {
   const [analysisLibraryView, setAnalysisLibraryView] = useState<AnalysisLibraryView>("variableSets");
   const [savedLibraryHandoff, setSavedLibraryHandoff] = useState<SavedLibraryHandoff>(null);
   const [savedSettingOriginCue, setSavedSettingOriginCue] = useState<SavedSettingOriginCue>(null);
+  const [relatedObjectNavigationCue, setRelatedObjectNavigationCue] = useState<RelatedObjectNavigationCue>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [settingsView, setSettingsView] = useState<SettingsView>("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
@@ -66,6 +68,8 @@ export function useEditorSessionState() {
     setSavedLibraryHandoff,
     savedSettingOriginCue,
     setSavedSettingOriginCue,
+    relatedObjectNavigationCue,
+    setRelatedObjectNavigationCue,
     sourceSearch,
     setSourceSearch,
     settingsView,

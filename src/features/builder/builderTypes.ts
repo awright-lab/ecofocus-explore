@@ -29,6 +29,14 @@ export type SavedSettingOriginCue = {
   status: "applied" | "refreshed";
   createdAt: number;
 } | null;
+export type RelatedObjectNavigationCue = {
+  tileId: string;
+  fromTileId: string;
+  fromTitle: string;
+  targetTitle: string;
+  relationship: "canonical" | "derived" | "sibling";
+  createdAt: number;
+} | null;
 
 export type LayerItem =
   | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
@@ -49,6 +57,7 @@ export type EditorUiState = {
   analysisLibraryView: AnalysisLibraryView;
   savedLibraryHandoff: SavedLibraryHandoff;
   savedSettingOriginCue: SavedSettingOriginCue;
+  relatedObjectNavigationCue: RelatedObjectNavigationCue;
   sourceSearch: string;
   settingsView: SettingsView;
   designModal: DesignModal;

@@ -131,6 +131,8 @@ export default function BuilderApp() {
     setSavedLibraryHandoff,
     savedSettingOriginCue,
     setSavedSettingOriginCue,
+    relatedObjectNavigationCue,
+    setRelatedObjectNavigationCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -905,6 +907,8 @@ export default function BuilderApp() {
           completeSavedSettingOriginCue={(tileId) => {
             setSavedSettingOriginCue((current) => current?.tileId === tileId ? { ...current, status: "refreshed", createdAt: Date.now() } : current);
           }}
+          relatedObjectNavigationCue={relatedObjectNavigationCue}
+          recordRelatedObjectNavigationCue={(cue) => setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() })}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

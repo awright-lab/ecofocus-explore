@@ -14,7 +14,9 @@ import {
   type SettingProvenanceRow
 } from "./inspectorSettingProvenanceModel";
 import {
+  buildRelatedObjectNavigationCueView,
   buildRelatedAnalyticalObjectsView,
+  type RelatedAnalyticalObjectRow,
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
@@ -33,13 +35,33 @@ import {
 } from "./InspectorTileQuerySections";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
-  const { activePage, selectedTile, updateSelectedTile, selectTile } = props;
+  const {
+    activePage,
+    selectedTile,
+    updateSelectedTile,
+    selectTile,
+    relatedObjectNavigationCue,
+    recordRelatedObjectNavigationCue
+  } = props;
 
   if (!selectedTile) {
     return null;
   }
   const summary = buildInspectorTileSummary(selectedTile);
   const relatedObjects = buildRelatedAnalyticalObjectsView(selectedTile, activePage.tiles);
+  const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
+
+  function selectRelatedObject(item: RelatedAnalyticalObjectRow) {
+    if (!selectedTile) return;
+    recordRelatedObjectNavigationCue({
+      tileId: item.id,
+      fromTileId: selectedTile.id,
+      fromTitle: selectedTile.title || selectedTile.name,
+      targetTitle: item.title,
+      relationship: item.relationship
+    });
+    selectTile(item.id);
+  }
 
   return (
     <>
@@ -70,12 +92,19 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <span className="explorer-chip" key={chip}>{chip}</span>
                   ))}
                 </div>
+                {navigationCue && (
+                  <div className="related-navigation-cue" role="status">
+                    <strong>{navigationCue.label}</strong>
+                    <span>{navigationCue.message}</span>
+                    <small>{navigationCue.helper}</small>
+                  </div>
+                )}
                 <div className="explorer-chip-row">
                   {summary.chips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
                   ))}
                 </div>
-                <RelatedAnalyticalObjectsCard view={relatedObjects} onSelectTile={selectTile} />
+                <RelatedAnalyticalObjectsCard view={relatedObjects} onSelectRelatedObject={selectRelatedObject} />
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
@@ -84,10 +113,10 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
 
 function RelatedAnalyticalObjectsCard({
   view,
-  onSelectTile
+  onSelectRelatedObject
 }: {
   view: RelatedAnalyticalObjectsView;
-  onSelectTile: (tileId: string) => void;
+  onSelectRelatedObject: (item: RelatedAnalyticalObjectRow) => void;
 }) {
   return (
     <div className="related-objects-card" aria-label="Related analytical objects">
@@ -98,7 +127,7 @@ function RelatedAnalyticalObjectsCard({
       {view.rows.length > 0 ? (
         <div className="related-objects-list">
           {view.rows.map((item) => (
-            <button type="button" className="related-object-row" key={item.id} onClick={() => onSelectTile(item.id)}>
+            <button type="button" className="related-object-row" key={item.id} onClick={() => onSelectRelatedObject(item)}>
               <span>{item.title}</span>
               <small>{item.description}</small>
               <div className="explorer-chip-row">
