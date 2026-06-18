@@ -94,11 +94,17 @@ export function useBuilderTileCommands({
     try {
       const response = await runAnalyticsQuery(tileQuery);
       const resolvedResponse = resolveVariableSetResult(response, tileQuery, source, savedVariableSets);
+      const tileId = makeTileId();
       const tile: DashboardTile = {
-        id: makeTileId(),
+        id: tileId,
         name: sourceLabel,
         title: sourceLabel,
         source,
+        analysisLifecycle: {
+          role: "canonical",
+          canonicalTileId: tileId,
+          canonicalLabel: sourceLabel
+        },
         locked: false,
         hidden: false,
         layout: {
@@ -235,12 +241,23 @@ export function useBuilderTileCommands({
   }
 
   function duplicateTileAsVisualization(tile: DashboardTile, nextVisualization: ChartType) {
+    const duplicateId = makeTileId();
     const duplicate: DashboardTile = {
       ...tile,
       ...tileWithVisualization(tile, nextVisualization),
-      id: makeTileId(),
+      id: duplicateId,
       name: `${tile.name} ${getChartTypeLabel(nextVisualization).toLowerCase()}`,
       title: tile.title,
+      analysisLifecycle: {
+        role: "derived",
+        canonicalTileId: tile.analysisLifecycle?.canonicalTileId ?? tile.id,
+        canonicalLabel: tile.analysisLifecycle?.canonicalLabel ?? tile.title,
+        derivedFrom: {
+          tileId: tile.id,
+          title: tile.title,
+          visualization: tile.visualization
+        }
+      },
       layout: {
         ...tile.layout,
         x: tile.layout.x + 28,

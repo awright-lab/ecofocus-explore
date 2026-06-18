@@ -220,6 +220,11 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           name: tile.name ?? tile.title,
           locked: tile.locked ?? false,
           hidden: tile.hidden ?? false,
+          analysisLifecycle: tile.analysisLifecycle ?? {
+            role: "canonical",
+            canonicalTileId: tile.id,
+            canonicalLabel: tile.title ?? tile.name ?? "Analysis object"
+          },
           query: { ...tile.query, chartType: visualization, confidenceLevel: tile.query.confidenceLevel ?? tile.result.query.confidenceLevel ?? 0.95 },
           result: {
             ...tile.result,

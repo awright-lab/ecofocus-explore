@@ -100,6 +100,16 @@ export interface DashboardTile {
     id: string;
     label: string;
   };
+  analysisLifecycle?: {
+    role: "canonical" | "derived";
+    canonicalTileId: string;
+    canonicalLabel: string;
+    derivedFrom?: {
+      tileId: string;
+      title: string;
+      visualization: ChartType;
+    };
+  };
   locked: boolean;
   hidden: boolean;
   layout: CanvasLayout;

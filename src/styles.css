@@ -1771,6 +1771,11 @@ button:disabled {
   background: #ffffff;
 }
 
+.tile-handoff-source.lifecycle {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
 .tile-handoff-source span {
   color: #20342a;
   font-size: 0.78rem;

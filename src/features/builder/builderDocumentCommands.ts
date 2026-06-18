@@ -57,6 +57,8 @@ export function buildPageFromTemplate(args: {
 }
 
 export function duplicatePage(page: DashboardPage, pageCount: number): DashboardPage {
+  const tileIdMap = new Map(page.tiles.map((tile) => [tile.id, makeTileId()]));
+
   return {
     ...page,
     id: makePageId(),
@@ -67,26 +69,53 @@ export function duplicatePage(page: DashboardPage, pageCount: number): Dashboard
       id: makeElementId(),
       layout: { ...element.layout, zIndex: element.layout.zIndex }
     })),
-    tiles: page.tiles.map((tile) => ({
-      ...tile,
-      id: makeTileId(),
-      layout: { ...tile.layout, zIndex: tile.layout.zIndex },
-      appearance: {
-        ...tile.appearance,
-        palette: [...tile.appearance.palette],
-        gradientStops: [...tile.appearance.gradientStops],
-        barGradientStops: [...tile.appearance.barGradientStops],
-        barStyles: Object.fromEntries(
-          Object.entries(tile.appearance.barStyles).map(([id, style]) => [
-            id,
-            {
-              ...style,
-              gradientStops: style.gradientStops ? [...style.gradientStops] : style.gradientStops
-            }
-          ])
-        )
-      }
-    }))
+    tiles: page.tiles.map((tile) => {
+      const nextTileId = tileIdMap.get(tile.id) ?? makeTileId();
+      const mappedCanonicalId = tile.analysisLifecycle?.canonicalTileId
+        ? tileIdMap.get(tile.analysisLifecycle.canonicalTileId)
+        : undefined;
+      const mappedDerivedFromId = tile.analysisLifecycle?.derivedFrom?.tileId
+        ? tileIdMap.get(tile.analysisLifecycle.derivedFrom.tileId)
+        : undefined;
+
+      return {
+        ...tile,
+        id: nextTileId,
+        analysisLifecycle:
+          tile.analysisLifecycle?.role === "derived"
+            ? {
+                ...tile.analysisLifecycle,
+                canonicalTileId: mappedCanonicalId ?? tile.analysisLifecycle.canonicalTileId,
+                derivedFrom: tile.analysisLifecycle.derivedFrom
+                  ? {
+                      ...tile.analysisLifecycle.derivedFrom,
+                      tileId: mappedDerivedFromId ?? tile.analysisLifecycle.derivedFrom.tileId
+                    }
+                  : tile.analysisLifecycle.derivedFrom
+              }
+            : {
+                role: "canonical",
+                canonicalTileId: nextTileId,
+                canonicalLabel: `${tile.title} copy`
+              },
+        layout: { ...tile.layout, zIndex: tile.layout.zIndex },
+        appearance: {
+          ...tile.appearance,
+          palette: [...tile.appearance.palette],
+          gradientStops: [...tile.appearance.gradientStops],
+          barGradientStops: [...tile.appearance.barGradientStops],
+          barStyles: Object.fromEntries(
+            Object.entries(tile.appearance.barStyles).map(([id, style]) => [
+              id,
+              {
+                ...style,
+                gradientStops: style.gradientStops ? [...style.gradientStops] : style.gradientStops
+              }
+            ])
+          )
+        }
+      };
+    })
   };
 }
 
@@ -130,11 +159,20 @@ export function createTextBlockElement(block: TextBlockPreset, activePage: Dashb
 }
 
 export function duplicateTile(tile: DashboardTile, activePage: DashboardPage): DashboardTile {
+  const nextTileId = makeTileId();
   return {
     ...tile,
-    id: makeTileId(),
+    id: nextTileId,
     name: `${tile.name} copy`,
     title: `${tile.title} copy`,
+    analysisLifecycle:
+      tile.analysisLifecycle?.role === "derived"
+        ? tile.analysisLifecycle
+        : {
+            role: "canonical",
+            canonicalTileId: nextTileId,
+            canonicalLabel: `${tile.title} copy`
+          },
     layout: {
       ...tile.layout,
       x: tile.layout.x + 24,

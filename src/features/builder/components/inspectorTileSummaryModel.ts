@@ -11,6 +11,9 @@ export interface InspectorTileSummaryView {
   sourceKind: string;
   sourceLabel: string;
   sourceDescription: string;
+  lifecycleLabel: string;
+  lifecycleDescription: string;
+  lifecycleChips: string[];
   title: string;
   subtitle: string;
   chips: string[];
@@ -37,6 +40,30 @@ function sourceDescription(tile: DashboardTile) {
   return "Based on an ad hoc query. Query settings can be edited below for this report object.";
 }
 
+function lifecycleSummary(tile: DashboardTile) {
+  const lifecycle = tile.analysisLifecycle;
+
+  if (lifecycle?.role === "derived") {
+    return {
+      label: "Derived visualization",
+      description: lifecycle.derivedFrom
+        ? `Derived from ${lifecycle.derivedFrom.title}. Refresh and source settings still follow the analytical query on this object.`
+        : `Derived from ${lifecycle.canonicalLabel}. Refresh and source settings still follow the analytical query on this object.`,
+      chips: [
+        `Canonical: ${lifecycle.canonicalLabel}`,
+        lifecycle.derivedFrom ? `From: ${lifecycle.derivedFrom.title}` : "From: canonical source",
+        lifecycle.derivedFrom ? `Original view: ${getChartTypeLabel(lifecycle.derivedFrom.visualization)}` : "Original view: Source table"
+      ]
+    };
+  }
+
+  return {
+    label: "Canonical source object",
+    description: "This tile is the source analytical object for its current query and visualization.",
+    chips: [`Canonical: ${lifecycle?.canonicalLabel ?? (tile.title || tile.name)}`, "Role: Source object"]
+  };
+}
+
 export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSummaryView {
   const bannerLabel = bannerDimensions.find((item) => item.id === tile.query.breakBy)?.label ?? tile.query.breakBy;
   const metricLabel = tile.result.metric.label;
@@ -44,11 +71,15 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
   const weightLabel = tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted";
   const visualizationLabel = getChartTypeLabel(tile.visualization);
   const datasetWave = datasets.find((dataset) => dataset.id === tile.query.dataset)?.wave ?? tile.query.dataset;
+  const lifecycle = lifecycleSummary(tile);
 
   return {
     sourceKind: tileSourceKindLabel(tile.source),
     sourceLabel: tile.source?.label ?? questionLabel,
     sourceDescription: sourceDescription(tile),
+    lifecycleLabel: lifecycle.label,
+    lifecycleDescription: lifecycle.description,
+    lifecycleChips: lifecycle.chips,
     title: tile.title || tile.name,
     subtitle: `${visualizationLabel} from ${tileSourceKindLabel(tile.source).toLowerCase()}`,
     chips: [

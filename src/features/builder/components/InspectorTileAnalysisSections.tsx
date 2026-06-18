@@ -56,6 +56,15 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.sourceLabel}</span>
                   <small>{summary.sourceDescription}</small>
                 </div>
+                <div className="tile-handoff-source lifecycle">
+                  <span>{summary.lifecycleLabel}</span>
+                  <small>{summary.lifecycleDescription}</small>
+                </div>
+                <div className="explorer-chip-row">
+                  {summary.lifecycleChips.map((chip) => (
+                    <span className="explorer-chip" key={chip}>{chip}</span>
+                  ))}
+                </div>
                 <div className="explorer-chip-row">
                   {summary.chips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
