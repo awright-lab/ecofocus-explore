@@ -34,6 +34,9 @@ export interface VariableSetRowRecodePreview {
   needsReview: boolean;
   sourceSummary: string;
   compositionLabel: string;
+  miniSummaryLabel: string;
+  includedOptionCount: number;
+  totalOptionCount: number;
 }
 
 export interface VariableSetOverlapWarning {
@@ -147,6 +150,12 @@ function sourceSummary(knownCount: number, unknownCount: number) {
   return [knownLabel, unknownLabel].filter(Boolean).join(" + ");
 }
 
+function rowMiniSummaryLabel(includedCount: number, totalCount: number, unknownCount: number) {
+  const optionLabel = `${includedCount} of ${totalCount} option${totalCount === 1 ? "" : "s"}`;
+  if (unknownCount > 0) return `Includes ${optionLabel} plus ${unknownCount} unknown`;
+  return `Includes ${optionLabel}`;
+}
+
 export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], question: QuestionMetadata): VariableSetRecodePreviewView {
   const optionLabels = new Map(question.options.map((option) => [option.id, option.label]));
   const visibleRows = rows.filter((row) => row.visible);
@@ -202,6 +211,8 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
           };
         });
       const compositionLabels = sourceOptionLabels.concat(unknownSourceOptionIds.map((optionId) => `Unknown: ${optionId}`));
+      const includedOptionCount = sourceOptionLabels.length;
+      const totalOptionCount = question.options.length;
       const issueLabels = [
         isAuthoredVariableSetRow(row) && row.sourceOptionIds.length === 0 ? "No source options" : "",
         unknownSourceOptionIds.length > 0 ? "Unknown options" : "",
@@ -223,7 +234,10 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
         issueLabels,
         needsReview: issueLabels.length > 0,
         sourceSummary: sourceSummary(sourceOptionLabels.length, unknownSourceOptionIds.length),
-        compositionLabel: compositionLabels.length ? compositionLabels.join(", ") : "No source options"
+        compositionLabel: compositionLabels.length ? compositionLabels.join(", ") : "No source options",
+        miniSummaryLabel: rowMiniSummaryLabel(includedOptionCount, totalOptionCount, unknownSourceOptionIds.length),
+        includedOptionCount,
+        totalOptionCount
       };
     });
 

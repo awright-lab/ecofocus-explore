@@ -1899,6 +1899,21 @@ h2 {
   color: #20342a;
 }
 
+.row-recode-mini-summary {
+  display: grid;
+  padding: 6px 7px;
+  border: 1px solid rgba(143, 163, 153, 0.22);
+  border-radius: 7px;
+  background: #f8fbfc;
+}
+
+.row-recode-mini-summary span {
+  color: #486055;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .row-composition-intent {
   display: grid;
   gap: 2px;

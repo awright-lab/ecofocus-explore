@@ -37,6 +37,11 @@ export function VariableSetRowCompositionEditor({
         <strong>{recodeRow?.sourceSummary ?? "No source options"}</strong>
       </div>
       {recodeRow && (
+        <div className="row-recode-mini-summary">
+          <span>{recodeRow.miniSummaryLabel}</span>
+        </div>
+      )}
+      {recodeRow && (
         <div className="row-composition-intent">
           <strong>{recodeRow.intentLabel}</strong>
           <span>{recodeRow.intentHelper}</span>
