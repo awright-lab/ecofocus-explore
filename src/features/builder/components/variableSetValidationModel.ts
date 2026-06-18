@@ -44,6 +44,7 @@ export interface VariableSetOverlapWarning {
 }
 
 export interface VariableSetRowOverlapDetail {
+  optionId: string;
   optionLabel: string;
   rowLabels: string[];
   helper: string;
@@ -194,6 +195,7 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
           const otherRows = (overlapByOption.get(optionId) ?? []).filter((item) => item.rowId !== row.id);
           const rowLabels = otherRows.map((item) => item.label);
           return {
+            optionId,
             optionLabel,
             rowLabels,
             helper: `${optionLabel} is also included in ${rowLabels.join(", ")}.`

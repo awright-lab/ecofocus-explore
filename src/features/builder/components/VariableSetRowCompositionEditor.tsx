@@ -53,7 +53,16 @@ export function VariableSetRowCompositionEditor({
         <div className="row-overlap-details">
           <strong>Overlap details</strong>
           {recodeRow.overlapDetails.map((detail) => (
-            <span key={`${detail.optionLabel}-${detail.rowLabels.join("-")}`}>{detail.helper}</span>
+            <div className="row-overlap-detail" key={`${detail.optionId}-${detail.rowLabels.join("-")}`}>
+              <span>{detail.helper}</span>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => updateVariableSetRow(row.id, { sourceOptionIds: row.sourceOptionIds.filter((optionId) => optionId !== detail.optionId) })}
+              >
+                Remove from this row
+              </button>
+            </div>
           ))}
         </div>
       ) : null}

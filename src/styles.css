@@ -1960,6 +1960,20 @@ h2 {
   font-weight: 650;
 }
 
+.row-overlap-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.row-overlap-detail button {
+  min-height: 26px;
+  padding: 4px 6px;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
 .row-fix-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
