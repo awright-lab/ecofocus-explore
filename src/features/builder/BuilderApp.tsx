@@ -722,6 +722,8 @@ export default function BuilderApp() {
           selectedTileId={selectedTileId}
           selectedElementId={selectedElementId}
           chooseLayer={chooseLayer}
+          selectTile={selectTile}
+          selectElement={selectElement}
           updateTile={updateTile}
           updateElement={updateElement}
           sortedPages={sortedPages}

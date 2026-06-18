@@ -1,15 +1,20 @@
 import { useMemo, useState } from "react";
 import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
-import type { DashboardPage, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
+import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import type { DashboardCanvasElement, DashboardPage, DashboardTile, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
 
 type ReportPageTreeProps = {
   sortedPages: DashboardPage[];
   activePage: DashboardPage;
+  selectedTileId: string | null;
+  selectedElementId: string | null;
   pageTemplates: PageTemplatePreset[];
   pageThemes: PageThemePreset[];
   setActivePageId: (pageId: string) => void;
   selectPage: () => void;
+  selectTile: (tileId: string) => void;
+  selectElement: (elementId: string) => void;
   renamePage: (pageId: string, title: string) => void;
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
@@ -27,13 +32,27 @@ function pageTemplateTheme(template: PageTemplatePreset, pageThemes: PageThemePr
   return pageThemes.find((theme) => theme.id === template.pageThemeId);
 }
 
+function elementTypeLabel(element: DashboardCanvasElement) {
+  if (element.type === "rectangle" || element.type === "circle") return "Shape";
+  return element.type.charAt(0).toUpperCase() + element.type.slice(1);
+}
+
+function objectStatus(item: DashboardTile | DashboardCanvasElement) {
+  const states = [item.hidden ? "Hidden" : null, item.locked ? "Locked" : null].filter(Boolean);
+  return states.length ? states.join(" · ") : "Visible";
+}
+
 export function ReportPageTree({
   sortedPages,
   activePage,
+  selectedTileId,
+  selectedElementId,
   pageTemplates,
   pageThemes,
   setActivePageId,
   selectPage,
+  selectTile,
+  selectElement,
   renamePage,
   addPage,
   duplicateActivePage,
@@ -45,6 +64,7 @@ export function ReportPageTree({
   const [pageSearch, setPageSearch] = useState("");
   const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [expandedPageIds, setExpandedPageIds] = useState<string[]>([]);
   const normalizedSearch = pageSearch.trim().toLowerCase();
   const visiblePages = useMemo(
     () =>
@@ -86,6 +106,20 @@ export function ReportPageTree({
     }
   }
 
+  function toggleExpandedPage(pageId: string) {
+    setExpandedPageIds((current) => (current.includes(pageId) ? current.filter((id) => id !== pageId) : [...current, pageId]));
+  }
+
+  function selectPageTile(page: DashboardPage, tileId: string) {
+    setActivePageId(page.id);
+    selectTile(tileId);
+  }
+
+  function selectPageElement(page: DashboardPage, elementId: string) {
+    setActivePageId(page.id);
+    selectElement(elementId);
+  }
+
   return (
     <>
       <div className="panel-title">
@@ -108,71 +142,113 @@ export function ReportPageTree({
           const isFirstPage = pageIndex <= 0;
           const isLastPage = pageIndex === sortedPages.length - 1;
           const isRenaming = renamingPageId === page.id;
+          const isExpanded = expandedPageIds.includes(page.id);
+          const pageObjects = [...page.tiles, ...page.elements].sort((first, second) => first.layout.zIndex - second.layout.zIndex);
 
           return (
-            <div className={page.id === activePage.id ? "report-page-node-row active" : "report-page-node-row"} key={page.id}>
-              {isRenaming ? (
-                <div className="page-tab report-page-node report-page-rename active">
-                  <span>{page.order}</span>
-                  <div className="report-page-node__body">
-                    <input
-                      aria-label={`Rename ${page.title}`}
-                      value={renameDraft}
-                      onChange={(event) => setRenameDraft(event.target.value)}
-                      onKeyDown={(event) => handleRenameKeyDown(event, page)}
-                      autoFocus
-                    />
-                    <small>Press Enter to save, Escape to cancel</small>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
-                  onClick={() => {
-                    setActivePageId(page.id);
-                    selectPage();
-                  }}
-                >
-                  <span>{page.order}</span>
-                  <div className="report-page-node__body">
-                    <strong>{page.title}</strong>
-                    <small>
-                      {page.tiles.length} analyses · {page.elements.length} objects
-                    </small>
-                  </div>
-                </button>
-              )}
-              <div className="report-page-node-actions" aria-label={`Page actions for ${page.title}`}>
+            <div className={page.id === activePage.id ? "report-page-group active" : "report-page-group"} key={page.id}>
+              <div className="report-page-node-row">
                 {isRenaming ? (
-                  <>
-                    <button type="button" className="mini-button" onClick={() => saveRename(page)}>
-                      Save
-                    </button>
-                    <button type="button" className="mini-button" onClick={cancelRename}>
-                      Cancel
-                    </button>
-                  </>
+                  <div className="page-tab report-page-node report-page-rename active">
+                    <span>{page.order}</span>
+                    <div className="report-page-node__body">
+                      <input
+                        aria-label={`Rename ${page.title}`}
+                        value={renameDraft}
+                        onChange={(event) => setRenameDraft(event.target.value)}
+                        onKeyDown={(event) => handleRenameKeyDown(event, page)}
+                        autoFocus
+                      />
+                      <small>Press Enter to save, Escape to cancel</small>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <button type="button" className="mini-button" onClick={() => startRename(page)}>
-                      Rename
-                    </button>
-                    <button type="button" className="mini-button" onClick={() => duplicatePageById(page.id)}>
-                      Copy
-                    </button>
-                    <button type="button" className="mini-button" disabled={sortedPages.length <= 1} onClick={() => deletePageById(page.id)}>
-                      Delete
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
+                    onClick={() => {
+                      setActivePageId(page.id);
+                      selectPage();
+                    }}
+                  >
+                    <span>{page.order}</span>
+                    <div className="report-page-node__body">
+                      <strong>{page.title}</strong>
+                      <small>
+                        {page.tiles.length} analyses · {page.elements.length} objects
+                      </small>
+                    </div>
+                  </button>
                 )}
-                <button type="button" className="mini-button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
-                  Up
-                </button>
-                <button type="button" className="mini-button" disabled={isLastPage} onClick={() => movePage(page.id, "down")}>
-                  Down
-                </button>
+                <div className="report-page-node-actions" aria-label={`Page actions for ${page.title}`}>
+                  {isRenaming ? (
+                    <>
+                      <button type="button" className="mini-button" onClick={() => saveRename(page)}>
+                        Save
+                      </button>
+                      <button type="button" className="mini-button" onClick={cancelRename}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="mini-button" onClick={() => toggleExpandedPage(page.id)}>
+                        {isExpanded ? "Hide" : "Objects"}
+                      </button>
+                      <button type="button" className="mini-button" onClick={() => startRename(page)}>
+                        Rename
+                      </button>
+                      <button type="button" className="mini-button" onClick={() => duplicatePageById(page.id)}>
+                        Copy
+                      </button>
+                      <button type="button" className="mini-button" disabled={sortedPages.length <= 1} onClick={() => deletePageById(page.id)}>
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  <button type="button" className="mini-button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
+                    Up
+                  </button>
+                  <button type="button" className="mini-button" disabled={isLastPage} onClick={() => movePage(page.id, "down")}>
+                    Down
+                  </button>
+                </div>
               </div>
+              {isExpanded && (
+                <div className="report-page-object-list">
+                  {pageObjects.length === 0 ? (
+                    <small className="report-page-object-empty">No objects on this page yet.</small>
+                  ) : (
+                    pageObjects.map((item) => {
+                      if ("visualization" in item) {
+                        return (
+                          <button
+                            type="button"
+                            className={selectedTileId === item.id ? "report-page-object-row active" : "report-page-object-row"}
+                            key={item.id}
+                            onClick={() => selectPageTile(page, item.id)}
+                          >
+                            <span>{item.title || item.name}</span>
+                            <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          className={selectedElementId === item.id ? "report-page-object-row active" : "report-page-object-row"}
+                          key={item.id}
+                          onClick={() => selectPageElement(page, item.id)}
+                        >
+                          <span>{item.name}</span>
+                          <small>{elementTypeLabel(item)} · {objectStatus(item)}</small>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

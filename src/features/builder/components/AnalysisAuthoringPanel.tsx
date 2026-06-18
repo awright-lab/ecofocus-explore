@@ -22,6 +22,8 @@ export type AnalysisAuthoringPanelProps = {
   selectedTileId: string | null;
   selectedElementId: string | null;
   chooseLayer: (item: LayerItem) => void;
+  selectTile: (tileId: string) => void;
+  selectElement: (elementId: string) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   updateElement: (elementId: string, updates: Partial<DashboardCanvasElement>) => void;
   sortedPages: DashboardPage[];
@@ -139,6 +141,8 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   selectedTileId,
   selectedElementId,
   chooseLayer,
+  selectTile,
+  selectElement,
   updateTile,
   updateElement,
   sortedPages,
@@ -290,10 +294,14 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                 <ReportPageTree
                   sortedPages={sortedPages}
                   activePage={activePage}
+                  selectedTileId={selectedTileId}
+                  selectedElementId={selectedElementId}
                   pageTemplates={pageTemplates}
                   pageThemes={pageThemes}
                   setActivePageId={setActivePageId}
                   selectPage={selectPage}
+                  selectTile={selectTile}
+                  selectElement={selectElement}
                   renamePage={renamePage}
                   addPage={addPage}
                   duplicateActivePage={duplicateActivePage}
