@@ -24,6 +24,14 @@ export interface PublishShareContextView {
   exportLabel: string;
 }
 
+export interface ExportPackageContextView {
+  status: "ready" | "needs-review";
+  label: string;
+  helper: string;
+  packageLabel: string;
+  readinessLabel: string;
+}
+
 export function publishMetadataLabel(dashboard: DashboardDraft) {
   const { publishedAt, publishCount, versionLabel } = dashboard.publishMetadata;
   if (!publishCount) return "No published version yet";
@@ -109,5 +117,21 @@ export function buildPublishShareContextView(dashboard: DashboardDraft): Publish
     helper: "Publishing will create v1 in the report viewer.",
     viewerLabel: "No viewer version exists yet.",
     exportLabel: "Export package is available before publishing."
+  };
+}
+
+export function buildExportPackageContextView(dashboard: DashboardDraft, readiness = buildPublishReadinessView(dashboard)): ExportPackageContextView {
+  const packageLabel =
+    dashboard.status === "published"
+      ? `Packages the current ${dashboard.publishMetadata.versionLabel} report state.`
+      : "Packages the current draft state.";
+  const ready = readiness.status === "ready";
+
+  return {
+    status: ready ? "ready" : "needs-review",
+    label: ready ? "Package ready" : "Package review",
+    helper: "Exports a JSON presentation package with visible pages, objects, analytics, and metadata.",
+    packageLabel,
+    readinessLabel: `${readiness.passedCount}/${readiness.totalCount} readiness checks pass.`
   };
 }

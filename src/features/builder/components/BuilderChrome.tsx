@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import type { DashboardDraft } from "../../../../shared/types/dashboard";
-import { buildPublishReadinessView, buildPublishShareContextView, publishMetadataLabel } from "../builderPublishModel";
+import {
+  buildExportPackageContextView,
+  buildPublishReadinessView,
+  buildPublishShareContextView,
+  publishMetadataLabel
+} from "../builderPublishModel";
 
 export function BuilderHeader({
   dashboard,
@@ -35,6 +40,7 @@ export function BuilderHeader({
 }) {
   const readiness = buildPublishReadinessView(dashboard);
   const shareContext = buildPublishShareContextView(dashboard);
+  const exportContext = buildExportPackageContextView(dashboard, readiness);
 
   return (
     <header className="builder-header">
@@ -65,6 +71,12 @@ export function BuilderHeader({
         <button type="button" className="secondary" onClick={onExport}>
           Export package
         </button>
+        <div className={`export-package-context ${exportContext.status}`} aria-label="Export package context">
+          <strong>{exportContext.label}</strong>
+          <span>{exportContext.packageLabel}</span>
+          <small>{exportContext.readinessLabel}</small>
+          <small>{exportContext.helper}</small>
+        </div>
         <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
         <span className="publish-version-cue">{publishMetadataLabel(dashboard)}</span>
         <div className={`publish-readiness-cue ${readiness.status}`} aria-label="Publish readiness">
