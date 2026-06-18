@@ -13,6 +13,10 @@ import {
   type SettingProvenanceOption,
   type SettingProvenanceRow
 } from "./inspectorSettingProvenanceModel";
+import {
+  buildRelatedAnalyticalObjectsView,
+  type RelatedAnalyticalObjectsView
+} from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import {
   buildSavedTileSettingConfirmation,
@@ -29,12 +33,13 @@ import {
 } from "./InspectorTileQuerySections";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
-  const { selectedTile, updateSelectedTile } = props;
+  const { activePage, selectedTile, updateSelectedTile } = props;
 
   if (!selectedTile) {
     return null;
   }
   const summary = buildInspectorTileSummary(selectedTile);
+  const relatedObjects = buildRelatedAnalyticalObjectsView(selectedTile, activePage.tiles);
 
   return (
     <>
@@ -70,9 +75,38 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <span className="explorer-chip" key={chip}>{chip}</span>
                   ))}
                 </div>
+                <RelatedAnalyticalObjectsCard view={relatedObjects} />
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
+  );
+}
+
+function RelatedAnalyticalObjectsCard({ view }: { view: RelatedAnalyticalObjectsView }) {
+  return (
+    <div className="related-objects-card" aria-label="Related analytical objects">
+      <div className="explorer-section-header">
+        <strong>{view.label}</strong>
+        <small>{view.description}</small>
+      </div>
+      {view.rows.length > 0 ? (
+        <div className="related-objects-list">
+          {view.rows.map((item) => (
+            <div className="related-object-row" key={item.id}>
+              <span>{item.title}</span>
+              <small>{item.description}</small>
+              <div className="explorer-chip-row">
+                {item.badges.map((badge) => (
+                  <span className="explorer-chip" key={badge}>{badge}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <small className="tile-handoff-cue">{view.emptyLabel}</small>
+      )}
+    </div>
   );
 }
 
