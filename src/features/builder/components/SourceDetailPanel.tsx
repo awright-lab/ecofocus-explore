@@ -12,6 +12,7 @@ import {
   type VariableSetDraftState,
   type SourceDetailView
 } from "./sourceExplorerModel";
+import { buildVariableSetReadinessView, type VariableSetReadinessView } from "./variableSetValidationModel";
 
 interface SourceDetailPanelProps {
   selectedDataSource: AnalysisAuthoringPanelProps["selectedDataSource"];
@@ -158,6 +159,28 @@ function VariableSetLifecycle({
   );
 }
 
+function VariableSetReadinessCard({ readiness }: { readiness: VariableSetReadinessView }) {
+  return (
+    <div className={`variable-set-readiness-card ${readiness.status}`}>
+      <div className="explorer-section-header">
+        <strong>{readiness.label}</strong>
+        <small>{readiness.visibleRowCount}/{readiness.totalRowCount} visible rows · {readiness.issueCount} issue{readiness.issueCount === 1 ? "" : "s"}</small>
+      </div>
+      <small>{readiness.helper}</small>
+      {readiness.issues.length > 0 && (
+        <div className="variable-set-readiness-list">
+          {readiness.issues.map((issue) => (
+            <div className="variable-set-readiness-issue" key={issue.id}>
+              <strong>{issue.label}</strong>
+              <span>{issue.helper}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VariableSetRowRefinement({
   selectedQuestion,
   variableSetRows,
@@ -264,6 +287,7 @@ export function SourceDetailPanel({
     filterField,
     filterValue
   };
+  const variableSetReadiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
 
   return (
     <div className="explorer-section-card source-detail-panel">
@@ -293,6 +317,7 @@ export function SourceDetailPanel({
       />
       {showVariableSetRefinement && (
         <>
+          <VariableSetReadinessCard readiness={variableSetReadiness} />
           <VariableSetLifecycle selectedVariableSet={selectedVariableSet} draft={variableSetDraft} saveCurrentVariableSet={saveCurrentVariableSet} />
           <VariableSetRowRefinement
             selectedQuestion={selectedQuestion}

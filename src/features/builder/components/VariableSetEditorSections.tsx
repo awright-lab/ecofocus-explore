@@ -5,6 +5,7 @@ import {
 import { defaultVisualizationForQuestion } from "../../analytics/analyticsDisplay";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
+import { buildVariableSetReadinessView } from "./variableSetValidationModel";
 
 export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
   const {
@@ -92,9 +93,27 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
     toggleVariableSetOptionSelection,
     addVariableSetNet
   } = props;
+  const readiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
 
   return (
     <>
+                      <div className={`variable-set-readiness-card ${readiness.status}`}>
+                        <div className="explorer-section-header">
+                          <strong>{readiness.label}</strong>
+                          <small>{readiness.visibleRowCount}/{readiness.totalRowCount} visible rows · {readiness.issueCount} issue{readiness.issueCount === 1 ? "" : "s"}</small>
+                        </div>
+                        <small>{readiness.helper}</small>
+                        {readiness.issues.length > 0 && (
+                          <div className="variable-set-readiness-list">
+                            {readiness.issues.map((issue) => (
+                              <div className="variable-set-readiness-issue" key={issue.id}>
+                                <strong>{issue.label}</strong>
+                                <span>{issue.helper}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <div className="explorer-section-card compact nested">
                         <div className="explorer-section-header">
                           <strong>Variable logic</strong>
