@@ -13,7 +13,9 @@ function labelsSummary(labels: string[]) {
 
 export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverageSummaryCardProps) {
   const [showUncoveredOptions, setShowUncoveredOptions] = useState(false);
+  const [showMultiplyUsedOptions, setShowMultiplyUsedOptions] = useState(false);
   const hasUncoveredOptions = coverage.uncoveredOptionLabels.length > 0;
+  const hasMultiplyUsedOptions = coverage.multiplyUsedOptionLabels.length > 0;
 
   return (
     <div className={`variable-set-coverage-card ${coverage.status}`}>
@@ -36,14 +38,27 @@ export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverage
         </div>
       </div>
       <small>{coverage.helper}</small>
-      {hasUncoveredOptions && (
-        <button
-          type="button"
-          className={showUncoveredOptions ? "secondary variable-set-coverage-action active" : "secondary variable-set-coverage-action"}
-          onClick={() => setShowUncoveredOptions((current) => !current)}
-        >
-          {showUncoveredOptions ? "Hide uncovered options" : "Show uncovered options"}
-        </button>
+      {(hasUncoveredOptions || hasMultiplyUsedOptions) && (
+        <div className="variable-set-coverage-actions">
+          {hasUncoveredOptions && (
+            <button
+              type="button"
+              className={showUncoveredOptions ? "secondary variable-set-coverage-action active" : "secondary variable-set-coverage-action"}
+              onClick={() => setShowUncoveredOptions((current) => !current)}
+            >
+              {showUncoveredOptions ? "Hide uncovered options" : "Show uncovered options"}
+            </button>
+          )}
+          {hasMultiplyUsedOptions && (
+            <button
+              type="button"
+              className={showMultiplyUsedOptions ? "secondary variable-set-coverage-action active" : "secondary variable-set-coverage-action"}
+              onClick={() => setShowMultiplyUsedOptions((current) => !current)}
+            >
+              {showMultiplyUsedOptions ? "Hide multiply used options" : "Show multiply used options"}
+            </button>
+          )}
+        </div>
       )}
       <div className="variable-set-coverage-lists">
         <span>Uncovered: {labelsSummary(coverage.uncoveredOptionLabels)}</span>
@@ -54,6 +69,18 @@ export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverage
           <span>Uncovered question options</span>
           <div className="explorer-chip-row">
             {coverage.uncoveredOptionLabels.map((label) => (
+              <span className="explorer-chip warning-chip" key={label}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {showMultiplyUsedOptions && (
+        <div className="variable-set-coverage-focus">
+          <span>Multiply used question options</span>
+          <div className="explorer-chip-row">
+            {coverage.multiplyUsedOptionLabels.map((label) => (
               <span className="explorer-chip warning-chip" key={label}>
                 {label}
               </span>
