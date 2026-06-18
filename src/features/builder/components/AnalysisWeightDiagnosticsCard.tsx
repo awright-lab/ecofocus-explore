@@ -1,11 +1,13 @@
-import type { AnalysisWeightDiagnosticsView, AnalysisWeightMismatchView } from "./analysisWeightDiagnosticsModel";
+import type { AnalysisContextMismatchView, AnalysisWeightDiagnosticsView } from "./analysisWeightDiagnosticsModel";
 
 interface AnalysisWeightDiagnosticsCardProps {
   view: AnalysisWeightDiagnosticsView;
-  mismatch?: AnalysisWeightMismatchView | null;
+  mismatches?: Array<AnalysisContextMismatchView | null | undefined>;
 }
 
-export function AnalysisWeightDiagnosticsCard({ view, mismatch }: AnalysisWeightDiagnosticsCardProps) {
+export function AnalysisWeightDiagnosticsCard({ view, mismatches = [] }: AnalysisWeightDiagnosticsCardProps) {
+  const visibleMismatches = mismatches.filter((mismatch): mismatch is AnalysisContextMismatchView => Boolean(mismatch));
+
   return (
     <div className={`analysis-weight-diagnostics-card ${view.status}`}>
       <div>
@@ -20,11 +22,13 @@ export function AnalysisWeightDiagnosticsCard({ view, mismatch }: AnalysisWeight
           </span>
         ))}
       </div>
-      {mismatch && (
-        <div className="analysis-weight-mismatch-cue">
-          <strong>{mismatch.label}</strong>
-          <span>{mismatch.message}</span>
-          <small>{mismatch.helper}</small>
+      {visibleMismatches.map((mismatch) => (
+        <div className="analysis-weight-mismatch-cue" key={mismatch.label}>
+          <div>
+            <strong>{mismatch.label}</strong>
+            <span>{mismatch.message}</span>
+            <small>{mismatch.helper}</small>
+          </div>
           <div className="explorer-chip-row">
             {mismatch.chips.map((chip) => (
               <span className="explorer-chip warning-chip" key={chip}>
@@ -33,7 +37,7 @@ export function AnalysisWeightDiagnosticsCard({ view, mismatch }: AnalysisWeight
             ))}
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }

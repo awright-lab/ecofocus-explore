@@ -40,7 +40,7 @@ import {
 } from "./InspectorTileQuerySections";
 import { buildReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
 import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
-import { buildAnalysisWeightDiagnostics, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
+import { buildAnalysisWeightDiagnostics, buildSavedVariableSetFilterMismatch, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -70,6 +70,17 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     ? buildSavedVariableSetWeightMismatch({
       savedWeight: sourceVariableSet.weight,
       currentWeight: selectedTile.query.weight,
+      sourceLabel: sourceVariableSet.label,
+      currentContextLabel: "selected tile"
+    })
+    : null;
+  const activeFilter = selectedTile.query.filters[0];
+  const filterMismatch = sourceVariableSet
+    ? buildSavedVariableSetFilterMismatch({
+      savedFilterField: sourceVariableSet.filterField,
+      savedFilterValue: sourceVariableSet.filterValue,
+      currentFilterField: activeFilter?.field ?? null,
+      currentFilterValue: activeFilter?.values[0] ?? "all",
       sourceLabel: sourceVariableSet.label,
       currentContextLabel: "selected tile"
     })
@@ -111,7 +122,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
-                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatch={weightMismatch} />
+                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={[weightMismatch, filterMismatch]} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="explorer-chip-row">
@@ -256,6 +267,17 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     ? buildSavedVariableSetWeightMismatch({
       savedWeight: sourceVariableSet.weight,
       currentWeight: tile.query.weight,
+      sourceLabel: sourceVariableSet.label,
+      currentContextLabel: "selected tile"
+    })
+    : null;
+  const activeFilter = tile.query.filters[0];
+  const filterMismatch = sourceVariableSet
+    ? buildSavedVariableSetFilterMismatch({
+      savedFilterField: sourceVariableSet.filterField,
+      savedFilterValue: sourceVariableSet.filterValue,
+      currentFilterField: activeFilter?.field ?? null,
+      currentFilterValue: activeFilter?.values[0] ?? "all",
       sourceLabel: sourceVariableSet.label,
       currentContextLabel: "selected tile"
     })
@@ -417,7 +439,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <strong>Filters and weights</strong>
           <small>Analysis base</small>
         </div>
-        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatch={weightMismatch} />
+        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={[weightMismatch, filterMismatch]} />
         <TileFilterWeightControls {...props} />
       </div>
       <div className="tile-query-group">
