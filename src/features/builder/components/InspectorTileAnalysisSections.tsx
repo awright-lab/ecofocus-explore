@@ -2,6 +2,7 @@ import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import type { ChartType } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
+import { buildSettingProvenanceRows } from "./inspectorSettingProvenanceModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 import {
@@ -51,12 +52,13 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
 }
 
 export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
-  const { selectedTile, selectedTileQuestion } = props;
+  const { selectedTile, selectedTileQuestion, savedBanners, savedFilters, savedWeights } = props;
 
   if (!selectedTile || !selectedTileQuestion) {
     return null;
   }
   const queryStatus = buildTileQueryStatus(selectedTile);
+  const provenanceRows = buildSettingProvenanceRows(selectedTile, savedBanners, savedFilters, savedWeights);
 
   return (
     <div className="inspector-summary-card">
@@ -67,6 +69,15 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <span>{queryStatus.description}</span>
         </div>
         <small>{queryStatus.visualizationLabel}</small>
+      </div>
+      <div className="settings-provenance-row" aria-label="Current analytical setting provenance">
+        {provenanceRows.map((row) => (
+          <div className={row.saved ? "settings-provenance-item saved" : "settings-provenance-item"} key={row.id}>
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+            <small>{row.source}</small>
+          </div>
+        ))}
       </div>
       <div className="tile-query-group">
         <div className="explorer-section-header">

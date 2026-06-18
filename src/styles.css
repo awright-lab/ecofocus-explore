@@ -1827,6 +1827,45 @@ button:disabled {
   background: #ffffff;
 }
 
+.settings-provenance-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.settings-provenance-item {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #dce4ea;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.settings-provenance-item.saved {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.settings-provenance-item span,
+.settings-provenance-item small {
+  color: #60756b;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.settings-provenance-item strong {
+  overflow: hidden;
+  color: #20342a;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tile-query-group {
   display: grid;
   gap: 8px;

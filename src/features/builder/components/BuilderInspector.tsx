@@ -17,7 +17,18 @@ import { effectShadow, gradientCss } from "../builderHelpers";
 import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, tileSourceKindLabel } from "./CanvasRenderers";
 import { getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../../analytics/analyticsDisplay";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, TextStylePreset, TileAppearance } from "../../../../shared/types/dashboard";
+import type {
+  CanvasLayout,
+  DashboardCanvasElement,
+  DashboardPage,
+  DashboardTile,
+  DesignColorPalette,
+  SavedBanner,
+  SavedFilterSet,
+  SavedWeightProfile,
+  TextStylePreset,
+  TileAppearance
+} from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DesignModal, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 
 export type BuilderInspectorProps = {
@@ -30,6 +41,9 @@ export type BuilderInspectorProps = {
   deleteActivePage: () => void;
   selectedTile: DashboardTile | null;
   selectedElement: DashboardCanvasElement | null;
+  savedBanners: SavedBanner[];
+  savedFilters: SavedFilterSet[];
+  savedWeights: SavedWeightProfile[];
   selectedTileQuestion: typeof defaultDataset.questions[number] | null;
   selectedTileFilterDimension?: typeof filterDimensions[number];
   selectedChartPart: { id: string; label: string } | null;

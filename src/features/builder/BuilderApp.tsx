@@ -863,6 +863,9 @@ export default function BuilderApp() {
           deleteActivePage={deleteActivePage}
           selectedTile={selectedTile}
           selectedElement={selectedElement}
+          savedBanners={savedBanners}
+          savedFilters={savedFilters}
+          savedWeights={savedWeights}
           selectedTileQuestion={selectedTileQuestion}
           selectedTileFilterDimension={selectedTileFilterDimension}
           selectedChartPart={selectedChartPart}
