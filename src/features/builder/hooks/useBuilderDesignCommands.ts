@@ -106,7 +106,13 @@ export function useBuilderDesignCommands({
       gradientType: theme.gradientType,
       gradientAngle: theme.gradientAngle,
       gradientStops: theme.gradientStops,
-      showCanvasGrid: theme.showCanvasGrid
+      showCanvasGrid: theme.showCanvasGrid,
+      provenance: {
+        ...activePage.provenance,
+        themeId: theme.id,
+        themeLabel: theme.label,
+        status: "custom"
+      }
     });
   }
 

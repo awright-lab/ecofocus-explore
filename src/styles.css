@@ -657,6 +657,53 @@ h2 {
   line-height: 1.4;
 }
 
+.page-theme-rebase-card {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.page-theme-rebase-list {
+  display: grid;
+  gap: 6px;
+}
+
+.page-theme-rebase-option {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid #e1e5ec;
+  border-radius: 8px;
+  background: #f8fbfc;
+  color: #20342a;
+  text-align: left;
+}
+
+.page-theme-rebase-option:hover,
+.page-theme-rebase-option:focus-visible {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.page-theme-rebase-option span:not(.brand-theme-preview) {
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-theme-rebase-option small {
+  color: #60756b;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
 .insert-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

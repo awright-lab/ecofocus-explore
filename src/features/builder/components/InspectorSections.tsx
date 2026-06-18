@@ -9,6 +9,7 @@ import { effectShadow, gradientCss } from "../builderHelpers";
 import { getBarStyle, getPaletteId } from "./CanvasRenderers";
 import { ElementInspector, TileAnalysisInspector, TileContainerInspector } from "./InspectorObjectSections";
 import type { BuilderInspectorProps } from "./BuilderInspector";
+import type { PageThemePreset } from "../../../../shared/types/dashboard";
 
 function pageProvenanceView(page: BuilderInspectorProps["activePage"]) {
   if (page.provenance?.status === "template-derived" && page.provenance.templateLabel) {
@@ -42,6 +43,8 @@ export function PageInspector(props: BuilderInspectorProps) {
     updateActivePage,
     duplicateActivePage,
     deleteActivePage,
+    pageThemes,
+    applyPageTheme,
     setDesignModal
   } = props;
   const provenance = pageProvenanceView(activePage);
@@ -58,6 +61,21 @@ export function PageInspector(props: BuilderInspectorProps) {
             <strong>{provenance.label}</strong>
             <span>{provenance.message}</span>
             <small>{provenance.helper}</small>
+          </div>
+          <div className="page-theme-rebase-card">
+            <div className="explorer-section-header">
+              <strong>Rebase page theme</strong>
+              <small>Applies theme values now. No live inheritance.</small>
+            </div>
+            <div className="page-theme-rebase-list">
+              {pageThemes.map((theme) => (
+                <button type="button" key={theme.id} className="page-theme-rebase-option" onClick={() => applyPageTheme(theme)}>
+                  <span className="brand-theme-preview" style={{ background: pageThemePreview(theme) }} />
+                  <span>{theme.label}</span>
+                  <small>{activePage.provenance?.themeId === theme.id ? "Current provenance" : "Apply theme"}</small>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="panel-title subtle">
             <h2>Canvas</h2>
@@ -109,6 +127,14 @@ export function PageInspector(props: BuilderInspectorProps) {
 
     </>
   );
+}
+
+function pageThemePreview(theme: PageThemePreset) {
+  return theme.backgroundMode === "gradient"
+    ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
+    : theme.backgroundMode === "image" && theme.backgroundImage
+      ? `center / cover no-repeat url("${theme.backgroundImage.replace(/"/g, '\\"')}")`
+      : theme.background;
 }
 
 export function LayoutInspector(props: BuilderInspectorProps) {

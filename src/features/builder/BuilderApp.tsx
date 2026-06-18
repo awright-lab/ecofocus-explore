@@ -889,6 +889,7 @@ export default function BuilderApp() {
           chartStyleTargets={chartStyleTargets}
           textStylePresets={textStylePresets}
           designPalettes={designPalettes}
+          pageThemes={pageThemes}
           setDesignModal={setDesignModal}
           changeSelectedLayer={changeSelectedLayer}
           alignSelected={alignSelected}
@@ -901,6 +902,7 @@ export default function BuilderApp() {
           updateSelectedBarStyle={updateSelectedBarStyle}
           updateSelectedAxisLabel={updateSelectedAxisLabel}
           applyTextStylePresetToSelection={applyTextStylePresetToSelection}
+          applyPageTheme={applyPageTheme}
           applyPalettePresetToBars={applyPalettePresetToBars}
           applyPaletteColorToSelectedBar={applyPaletteColorToSelectedBar}
           applySolidColorToBars={applySolidColorToBars}

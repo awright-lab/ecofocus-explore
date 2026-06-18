@@ -23,6 +23,7 @@ import type {
   DashboardPage,
   DashboardTile,
   DesignColorPalette,
+  PageThemePreset,
   SavedBanner,
   SavedFilterSet,
   SavedWeightProfile,
@@ -52,6 +53,7 @@ export type BuilderInspectorProps = {
   chartStyleTargets: Array<{ id: string; label: string }>;
   textStylePresets: TextStylePreset[];
   designPalettes: DesignColorPalette[];
+  pageThemes: PageThemePreset[];
   setDesignModal: (modal: DesignModal) => void;
   changeSelectedLayer: (direction: "front" | "back" | "forward" | "backward") => void;
   alignSelected: (direction: "left" | "center" | "right" | "top" | "middle" | "bottom") => void;
@@ -64,6 +66,7 @@ export type BuilderInspectorProps = {
   updateSelectedBarStyle: (updates: Partial<TileAppearance["barStyles"][string]>) => void;
   updateSelectedAxisLabel: (value: string) => void;
   applyTextStylePresetToSelection: (preset: TextStylePreset) => void;
+  applyPageTheme: (theme: PageThemePreset) => void;
   applyPalettePresetToBars: (colors: string[]) => void;
   applyPaletteColorToSelectedBar: (color: string) => void;
   applySolidColorToBars: (color: string) => void;
@@ -108,6 +111,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   chartStyleTargets,
   textStylePresets,
   designPalettes,
+  pageThemes,
   setDesignModal,
   changeSelectedLayer,
   alignSelected,
@@ -119,6 +123,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   updateSelectedBarStyle,
   updateSelectedAxisLabel,
   applyTextStylePresetToSelection,
+  applyPageTheme,
   applyPalettePresetToBars,
   applyPaletteColorToSelectedBar,
   applySolidColorToBars,
