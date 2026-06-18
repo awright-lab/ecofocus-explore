@@ -1866,6 +1866,31 @@ button:disabled {
   min-height: 28px;
 }
 
+.tile-query-origin-cue {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #20342a;
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.tile-query-origin-cue.pending {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.tile-query-origin-cue span,
+.tile-query-origin-cue small {
+  color: #4d6a5e;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .analysis-library-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

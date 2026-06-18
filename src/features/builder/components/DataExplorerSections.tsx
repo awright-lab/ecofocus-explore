@@ -499,7 +499,7 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, updateTile } = props;
+  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, recordSavedSettingOriginCue, updateTile } = props;
   const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestBanner = savedLibraryHandoff?.view === "banners";
   const selectedTileQuestion = selectedTile ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? null : null;
@@ -530,6 +530,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
                                   if (!selectedTile) return;
                                   const updates = updateTileBanner(selectedTile, item.breakBy);
                                   updateTile(selectedTile.id, updates);
+                                  recordSavedSettingOriginCue("banner", item.label, selectedTile.id);
                                   setApplyFeedback(buildSavedSettingApplyFeedback("banner", item.id, item.label, { ...selectedTile, ...updates }));
                                 }}
                               >
@@ -550,7 +551,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, updateTile } = props;
+  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, recordSavedSettingOriginCue, updateTile } = props;
   const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestFilter = savedLibraryHandoff?.view === "filters";
 
@@ -585,6 +586,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
                                       ? updateTileFilterValue(nextTile, item.filterField, item.filterValue)
                                       : fieldUpdate;
                                   updateTile(selectedTile.id, updates);
+                                  recordSavedSettingOriginCue("filter", item.label, selectedTile.id);
                                   setApplyFeedback(buildSavedSettingApplyFeedback("filter", item.id, item.label, { ...selectedTile, ...updates }));
                                 }}
                               >
@@ -605,7 +607,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
-  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, updateTile } = props;
+  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff, selectedTile, focusSelectedTileInspector, recordSavedSettingOriginCue, updateTile } = props;
   const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestWeight = savedLibraryHandoff?.view === "weights";
 
@@ -635,6 +637,7 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                                   if (!selectedTile) return;
                                   const updates = updateTileWeight(selectedTile, item.weight);
                                   updateTile(selectedTile.id, updates);
+                                  recordSavedSettingOriginCue("weight", item.label, selectedTile.id);
                                   setApplyFeedback(buildSavedSettingApplyFeedback("weight", item.id, item.label, { ...selectedTile, ...updates }));
                                 }}
                               >

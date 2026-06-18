@@ -1,9 +1,10 @@
 import type { ChartType } from "../../../../shared/types/analytics";
 import type { DashboardTile, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
+import type { SavedSettingOriginKind } from "../builderTypes";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
-export type SavedSettingReuseKind = "banner" | "filter" | "weight";
+export type SavedSettingReuseKind = SavedSettingOriginKind;
 
 export interface SavedSettingApplyFeedback {
   itemId: string;

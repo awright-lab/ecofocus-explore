@@ -36,6 +36,7 @@ export type AnalysisAuthoringPanelProps = {
   selectedTextElement: DashboardCanvasElement | null;
   selectedTile: DashboardTile | null;
   focusSelectedTileInspector: () => void;
+  recordSavedSettingOriginCue: (kind: "banner" | "filter" | "weight", label: string, tileId: string) => void;
   designPalettes: DesignColorPalette[];
   applyPaletteToTile: (palette: DesignColorPalette, scope?: "selected" | "all") => void;
   textStylePresets: TextStylePreset[];

@@ -129,6 +129,8 @@ export default function BuilderApp() {
     setAnalysisLibraryView,
     savedLibraryHandoff,
     setSavedLibraryHandoff,
+    savedSettingOriginCue,
+    setSavedSettingOriginCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -728,6 +730,7 @@ export default function BuilderApp() {
           selectedTextElement={selectedTextElement}
           selectedTile={selectedTile}
           focusSelectedTileInspector={() => setSettingsView("chart")}
+          recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, createdAt: Date.now() })}
           designPalettes={designPalettes}
           applyPaletteToTile={applyPaletteToTile}
           textStylePresets={textStylePresets}
@@ -893,6 +896,8 @@ export default function BuilderApp() {
           saveSelectedTileFilter={saveSelectedTileFilter}
           saveSelectedTileWeight={saveSelectedTileWeight}
           onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
+          savedSettingOriginCue={savedSettingOriginCue}
+          clearSavedSettingOriginCue={() => setSavedSettingOriginCue(null)}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

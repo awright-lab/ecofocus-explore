@@ -3,7 +3,7 @@ import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDi
 import { comparisonSummaryLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import type { AnalyticsQueryRequest, BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView } from "../builderTypes";
+import type { AnalysisLibraryView, SavedSettingOriginCue } from "../builderTypes";
 
 export interface TileQueryStatusView {
   hasPendingChanges: boolean;
@@ -29,6 +29,12 @@ export interface SavedTileSettingConfirmation {
   label: string;
   message: string;
   libraryView: AnalysisLibraryView;
+}
+
+export interface SavedSettingOriginCueView {
+  label: string;
+  message: string;
+  helper: string;
 }
 
 export function updateTileBanner(tile: DashboardTile, breakBy: BreakById): Partial<DashboardTile> {
@@ -181,5 +187,20 @@ export function buildSavedTileSettingConfirmation(kind: SavedTileSettingKind): S
     label: "Weight saved",
     message: "Saved a new reusable weight from this selected object.",
     libraryView: "weights"
+  };
+}
+
+export function buildSavedSettingOriginCueView(cue: SavedSettingOriginCue, tile: DashboardTile): SavedSettingOriginCueView | null {
+  if (!cue || cue.tileId !== tile.id) return null;
+
+  const queryStatus = buildTileQueryStatus(tile);
+  const kindLabel = cue.kind.charAt(0).toUpperCase() + cue.kind.slice(1);
+
+  return {
+    label: `Saved ${cue.kind} applied`,
+    message: `${cue.label} updated this tile's ${kindLabel.toLowerCase()} setting from the saved library.`,
+    helper: queryStatus.hasPendingChanges
+      ? "Refresh analysis to apply this saved setting to the result."
+      : "The selected tile already reflects this saved setting."
   };
 }

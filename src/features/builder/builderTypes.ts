@@ -21,6 +21,13 @@ export type SourceLibraryView = "variableSets" | "questions";
 export type AnalysisLibraryView = "variableSets" | "banners" | "filters" | "weights";
 export type SettingsView = "home" | "page" | "layout" | "element" | "chart" | "container";
 export type SavedLibraryHandoff = { view: AnalysisLibraryView; createdAt: number } | null;
+export type SavedSettingOriginKind = "banner" | "filter" | "weight";
+export type SavedSettingOriginCue = {
+  tileId: string;
+  kind: SavedSettingOriginKind;
+  label: string;
+  createdAt: number;
+} | null;
 
 export type LayerItem =
   | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
@@ -40,6 +47,7 @@ export type EditorUiState = {
   sourceLibraryView: SourceLibraryView;
   analysisLibraryView: AnalysisLibraryView;
   savedLibraryHandoff: SavedLibraryHandoff;
+  savedSettingOriginCue: SavedSettingOriginCue;
   sourceSearch: string;
   settingsView: SettingsView;
   designModal: DesignModal;

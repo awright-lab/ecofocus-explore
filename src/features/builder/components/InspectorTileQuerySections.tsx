@@ -9,6 +9,7 @@ import type { BreakById, ComparisonMode, DatasetId, FilterFieldId, Metric, Weigh
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
   buildSavedTileSettingConfirmation,
+  buildSavedSettingOriginCueView,
   buildTileQueryActionState,
   buildTileQueryStatus,
   type SavedTileSettingConfirmation,
@@ -193,6 +194,8 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     saveSelectedTileFilter,
     saveSelectedTileWeight,
     onViewSavedSettingInLibrary,
+    savedSettingOriginCue,
+    clearSavedSettingOriginCue,
     isLoading
   } = props;
   const [confirmation, setConfirmation] = useState<{ tileId: string; message: string } | null>(null);
@@ -204,12 +207,14 @@ export function TileQueryActions(props: BuilderInspectorProps) {
   const tile = selectedTile;
   const queryStatus = buildTileQueryStatus(tile);
   const actionState = buildTileQueryActionState(queryStatus, isLoading);
+  const originCue = buildSavedSettingOriginCueView(savedSettingOriginCue, tile);
 
   async function refreshSelectedTile() {
     const refreshed = await rerunTileAnalysis(tile, tileRefreshQuery(tile));
     if (!refreshed) return;
     setConfirmation({ tileId: tile.id, message: "Results refreshed for the selected object." });
     setSaveConfirmation(null);
+    clearSavedSettingOriginCue();
   }
   function saveReusableSetting(kind: SavedTileSettingKind, saveAction: () => void) {
     saveAction();
@@ -224,6 +229,13 @@ export function TileQueryActions(props: BuilderInspectorProps) {
       <div className="tile-query-action-copy">
         <span>{actionState.refreshHelperText}</span>
       </div>
+      {originCue && (
+        <div className={queryStatus.hasPendingChanges ? "tile-query-origin-cue pending" : "tile-query-origin-cue"} role="status">
+          <strong>{originCue.label}</strong>
+          <span>{originCue.message}</span>
+          <small>{originCue.helper}</small>
+        </div>
+      )}
       <button
         type="button"
         onClick={() => void refreshSelectedTile()}
