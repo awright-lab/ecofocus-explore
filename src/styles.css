@@ -550,24 +550,36 @@ h2 {
 
 .report-page-object-row {
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
   width: 100%;
   padding: 6px 8px;
   border: 1px solid #e1e5ec;
   border-radius: 7px;
   background: #ffffff;
   color: #405045;
+}
+
+.report-page-object-select {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   text-align: left;
 }
 
 .report-page-object-row:hover,
-.report-page-object-row:focus-visible,
+.report-page-object-row:focus-within,
 .report-page-object-row.active {
   border-color: #b8d7c5;
   background: #f2fbf5;
 }
 
-.report-page-object-row span {
+.report-page-object-select span {
   overflow: hidden;
   color: #20342a;
   font-size: 0.73rem;
@@ -576,12 +588,24 @@ h2 {
   white-space: nowrap;
 }
 
-.report-page-object-row small,
+.report-page-object-select small,
 .report-page-object-empty {
   color: #68776e;
   font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.report-page-object-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.report-page-object-actions .mini-button {
+  min-width: 44px;
+  min-height: 23px;
+  padding: 0 6px;
 }
 
 .report-page-node__body {

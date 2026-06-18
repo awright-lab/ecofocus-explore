@@ -17,6 +17,8 @@ type ReportPageTreeProps = {
   selectTile: (tileId: string) => void;
   selectElement: (elementId: string) => void;
   recordReportTreeSelectionCue: (cue: Omit<NonNullable<ReportTreeSelectionCue>, "createdAt">) => void;
+  updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
+  updateElement: (elementId: string, updates: Partial<DashboardCanvasElement>) => void;
   renamePage: (pageId: string, title: string) => void;
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
@@ -56,6 +58,8 @@ export function ReportPageTree({
   selectTile,
   selectElement,
   recordReportTreeSelectionCue,
+  updateTile,
+  updateElement,
   renamePage,
   addPage,
   duplicateActivePage,
@@ -137,6 +141,26 @@ export function ReportPageTree({
       pageTitle: page.title
     });
     selectElement(element.id);
+  }
+
+  function toggleTileHidden(event: React.MouseEvent<HTMLButtonElement>, tile: DashboardTile) {
+    event.stopPropagation();
+    updateTile(tile.id, { hidden: !tile.hidden });
+  }
+
+  function toggleTileLocked(event: React.MouseEvent<HTMLButtonElement>, tile: DashboardTile) {
+    event.stopPropagation();
+    updateTile(tile.id, { locked: !tile.locked });
+  }
+
+  function toggleElementHidden(event: React.MouseEvent<HTMLButtonElement>, element: DashboardCanvasElement) {
+    event.stopPropagation();
+    updateElement(element.id, { hidden: !element.hidden });
+  }
+
+  function toggleElementLocked(event: React.MouseEvent<HTMLButtonElement>, element: DashboardCanvasElement) {
+    event.stopPropagation();
+    updateElement(element.id, { locked: !element.locked });
   }
 
   return (
@@ -241,28 +265,38 @@ export function ReportPageTree({
                     pageObjects.map((item) => {
                       if ("visualization" in item) {
                         return (
-                          <button
-                            type="button"
-                            className={selectedTileId === item.id ? "report-page-object-row active" : "report-page-object-row"}
-                            key={item.id}
-                            onClick={() => selectPageTile(page, item)}
-                          >
-                            <span>{item.title || item.name}</span>
-                            <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
-                          </button>
+                          <div className={selectedTileId === item.id ? "report-page-object-row active" : "report-page-object-row"} key={item.id}>
+                            <button type="button" className="report-page-object-select" onClick={() => selectPageTile(page, item)}>
+                              <span>{item.title || item.name}</span>
+                              <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
+                            </button>
+                            <div className="report-page-object-actions" aria-label={`Object actions for ${item.title || item.name}`}>
+                              <button type="button" className="mini-button" onClick={(event) => toggleTileHidden(event, item)}>
+                                {item.hidden ? "Show" : "Hide"}
+                              </button>
+                              <button type="button" className="mini-button" onClick={(event) => toggleTileLocked(event, item)}>
+                                {item.locked ? "Unlock" : "Lock"}
+                              </button>
+                            </div>
+                          </div>
                         );
                       }
 
                       return (
-                        <button
-                          type="button"
-                          className={selectedElementId === item.id ? "report-page-object-row active" : "report-page-object-row"}
-                          key={item.id}
-                          onClick={() => selectPageElement(page, item)}
-                        >
-                          <span>{item.name}</span>
-                          <small>{elementTypeLabel(item)} · {objectStatus(item)}</small>
-                        </button>
+                        <div className={selectedElementId === item.id ? "report-page-object-row active" : "report-page-object-row"} key={item.id}>
+                          <button type="button" className="report-page-object-select" onClick={() => selectPageElement(page, item)}>
+                            <span>{item.name}</span>
+                            <small>{elementTypeLabel(item)} · {objectStatus(item)}</small>
+                          </button>
+                          <div className="report-page-object-actions" aria-label={`Object actions for ${item.name}`}>
+                            <button type="button" className="mini-button" onClick={(event) => toggleElementHidden(event, item)}>
+                              {item.hidden ? "Show" : "Hide"}
+                            </button>
+                            <button type="button" className="mini-button" onClick={(event) => toggleElementLocked(event, item)}>
+                              {item.locked ? "Unlock" : "Lock"}
+                            </button>
+                          </div>
+                        </div>
                       );
                     })
                   )}

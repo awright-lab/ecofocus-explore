@@ -305,6 +305,8 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   selectTile={selectTile}
                   selectElement={selectElement}
                   recordReportTreeSelectionCue={recordReportTreeSelectionCue}
+                  updateTile={updateTile}
+                  updateElement={updateElement}
                   renamePage={renamePage}
                   addPage={addPage}
                   duplicateActivePage={duplicateActivePage}
