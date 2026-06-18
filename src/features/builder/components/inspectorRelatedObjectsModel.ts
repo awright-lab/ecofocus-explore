@@ -31,6 +31,12 @@ export interface DerivedObjectFreshnessView {
   helper: string;
 }
 
+export interface IndependentDerivedContractView {
+  label: string;
+  message: string;
+  helper: string;
+}
+
 function tileTitle(tile: DashboardTile) {
   return tile.title || tile.name || "Untitled object";
 }
@@ -182,5 +188,15 @@ export function buildDerivedObjectFreshnessView(
     label: "May have diverged from canonical query",
     message: `This derived view no longer uses the same analytical inputs as ${tileTitle(canonicalTile)}.`,
     helper: "Review source, banner, filters, weight, metric, or comparison settings before treating the views as aligned."
+  };
+}
+
+export function buildIndependentDerivedContractView(selectedTile: DashboardTile): IndependentDerivedContractView | null {
+  if (selectedTile.analysisLifecycle?.role !== "derived") return null;
+
+  return {
+    label: "Independent derived view",
+    message: "This visualization keeps provenance to its canonical source, but it does not auto-sync with that source.",
+    helper: "Freshness compares query context only. Edit and refresh this object independently when its settings should change."
   };
 }

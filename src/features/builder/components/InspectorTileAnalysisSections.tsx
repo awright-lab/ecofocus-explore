@@ -15,9 +15,11 @@ import {
 } from "./inspectorSettingProvenanceModel";
 import {
   buildDerivedObjectFreshnessView,
+  buildIndependentDerivedContractView,
   buildRelatedObjectNavigationCueView,
   buildRelatedAnalyticalObjectsView,
   type DerivedObjectFreshnessView,
+  type IndependentDerivedContractView,
   type RelatedAnalyticalObjectRow,
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
@@ -52,6 +54,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const summary = buildInspectorTileSummary(selectedTile);
   const relatedObjects = buildRelatedAnalyticalObjectsView(selectedTile, activePage.tiles);
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
+  const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
 
   function selectRelatedObject(item: RelatedAnalyticalObjectRow) {
@@ -95,6 +98,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <span className="explorer-chip" key={chip}>{chip}</span>
                   ))}
                 </div>
+                {independentContractCue && <IndependentDerivedContractCue view={independentContractCue} />}
                 {navigationCue && (
                   <div className="related-navigation-cue" role="status">
                     <strong>{navigationCue.label}</strong>
@@ -112,6 +116,16 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
+  );
+}
+
+function IndependentDerivedContractCue({ view }: { view: IndependentDerivedContractView }) {
+  return (
+    <div className="independent-derived-contract-cue" aria-label="Independent derived view contract">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
   );
 }
 
