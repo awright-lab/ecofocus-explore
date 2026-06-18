@@ -5,7 +5,8 @@ import {
 import { defaultVisualizationForQuestion } from "../../analytics/analyticsDisplay";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
-import { buildVariableSetReadinessView, buildVariableSetRecodePreview } from "./variableSetValidationModel";
+import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
+import { buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow } from "./variableSetValidationModel";
 
 export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
   const {
@@ -243,6 +244,14 @@ export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps) {
                                     Also used in another authored row: {recodeRows.get(row.id)?.overlapLabels.join(", ")}
                                   </small>
                                 ) : null}
+                                {isAuthoredVariableSetRow(row) && (
+                                  <VariableSetRowCompositionEditor
+                                    row={row}
+                                    selectedQuestion={selectedQuestion}
+                                    recodeRow={recodeRows.get(row.id)}
+                                    updateVariableSetRow={updateVariableSetRow}
+                                  />
+                                )}
                                 <input value={row.label} onChange={(event) => updateVariableSetRow(row.id, { label: event.target.value })} />
                                 <div className="compact-grid">
                                   <label>

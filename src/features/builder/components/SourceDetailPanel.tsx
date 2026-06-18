@@ -12,6 +12,7 @@ import {
   type VariableSetDraftState,
   type SourceDetailView
 } from "./sourceExplorerModel";
+import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
 import { buildVariableSetReadinessView, buildVariableSetRecodePreview, type VariableSetReadinessView } from "./variableSetValidationModel";
 
 interface SourceDetailPanelProps {
@@ -190,6 +191,7 @@ function VariableSetRowRefinement({
   const rowDetails = buildVariableSetRowDetails(variableSetRows, selectedQuestion);
   const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
   const recodeRows = new Map(recodePreview.rows.map((row) => [row.rowId, row]));
+  const rowsById = new Map(variableSetRows.map((row) => [row.id, row]));
 
   return (
     <div className="source-row-refinement">
@@ -224,6 +226,7 @@ function VariableSetRowRefinement({
         <div className="source-row-refinement__list">
           {rowDetails.map((row, index) => {
             const recodeRow = recodeRows.get(row.id);
+            const sourceRow = rowsById.get(row.id);
             return (
             <div className={row.visible ? "source-row-card" : "source-row-card muted"} key={row.id}>
               <div className="source-row-card__header">
@@ -245,6 +248,15 @@ function VariableSetRowRefinement({
               {recodeRow?.overlapLabels.length ? (
                 <p className="source-row-card__warning">Also used in another authored row: {recodeRow.overlapLabels.join(", ")}</p>
               ) : null}
+              {sourceRow && (
+                <VariableSetRowCompositionEditor
+                  row={sourceRow}
+                  selectedQuestion={selectedQuestion}
+                  recodeRow={recodeRow}
+                  updateVariableSetRow={updateVariableSetRow}
+                  compact
+                />
+              )}
               <div className="source-row-card__controls">
                 <select
                   aria-label={`Row emphasis for ${row.label}`}

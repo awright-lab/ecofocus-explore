@@ -46,6 +46,17 @@ export interface VariableSetRecodePreviewView {
   overlapWarnings: VariableSetOverlapWarning[];
 }
 
+export function isAuthoredVariableSetRow(row: SavedVariableSet["rows"][number]) {
+  return row.kind !== "option";
+}
+
+export function toggleVariableSetRowSourceOption(row: SavedVariableSet["rows"][number], optionId: string) {
+  const nextSourceOptionIds = row.sourceOptionIds.includes(optionId)
+    ? row.sourceOptionIds.filter((item) => item !== optionId)
+    : [...row.sourceOptionIds, optionId];
+  return nextSourceOptionIds;
+}
+
 function normalizedLabel(label: string) {
   return label.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -83,7 +94,7 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
       if (optionLabels.has(optionId)) {
         includedOptionIds.add(optionId);
       }
-      if (row.kind !== "option" && optionLabels.has(optionId)) {
+      if (isAuthoredVariableSetRow(row) && optionLabels.has(optionId)) {
         const labels = authoredUsage.get(optionId) ?? [];
         labels.push(row.label);
         authoredUsage.set(optionId, labels);
@@ -189,7 +200,7 @@ export function buildVariableSetReadinessView(rows: SavedVariableSet["rows"], qu
     });
   }
 
-  const emptyAuthoredRows = rows.filter((row) => row.kind !== "option" && row.sourceOptionIds.length === 0);
+  const emptyAuthoredRows = rows.filter((row) => isAuthoredVariableSetRow(row) && row.sourceOptionIds.length === 0);
   if (emptyAuthoredRows.length > 0) {
     issues.push({
       id: "empty-authored-rows",
