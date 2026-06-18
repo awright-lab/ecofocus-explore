@@ -13,7 +13,7 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, SourceLibraryView } from "../builderTypes";
+import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, SavedLibraryHandoff, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
   leftPanelView: LeftPanelView;
@@ -48,6 +48,7 @@ export type AnalysisAuthoringPanelProps = {
   setSourceLibraryView: (view: SourceLibraryView) => void;
   analysisLibraryView: AnalysisLibraryView;
   setAnalysisLibraryView: (view: AnalysisLibraryView) => void;
+  savedLibraryHandoff: SavedLibraryHandoff;
   sourceSearch: string;
   setSourceSearch: (value: string) => void;
   filteredVariableSets: SavedVariableSet[];
@@ -157,6 +158,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   setSourceLibraryView,
   analysisLibraryView,
   setAnalysisLibraryView,
+  savedLibraryHandoff,
   sourceSearch,
   setSourceSearch,
   filteredVariableSets,

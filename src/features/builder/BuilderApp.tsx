@@ -127,6 +127,8 @@ export default function BuilderApp() {
     setSourceLibraryView,
     analysisLibraryView,
     setAnalysisLibraryView,
+    savedLibraryHandoff,
+    setSavedLibraryHandoff,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -296,6 +298,13 @@ export default function BuilderApp() {
       }
     }));
     setError(null);
+  }
+
+  function viewSavedSettingInLibrary(view: AnalysisLibraryView) {
+    setLeftPanelView("data");
+    setExploreView("library");
+    setAnalysisLibraryView(view);
+    setSavedLibraryHandoff({ view, createdAt: Date.now() });
   }
 
   useEffect(() => {
@@ -730,6 +739,7 @@ export default function BuilderApp() {
           setSourceLibraryView={setSourceLibraryView}
           analysisLibraryView={analysisLibraryView}
           setAnalysisLibraryView={setAnalysisLibraryView}
+          savedLibraryHandoff={savedLibraryHandoff}
           sourceSearch={sourceSearch}
           setSourceSearch={setSourceSearch}
           filteredVariableSets={filteredVariableSets}
@@ -879,6 +889,7 @@ export default function BuilderApp() {
           saveSelectedTileBanner={saveSelectedTileBanner}
           saveSelectedTileFilter={saveSelectedTileFilter}
           saveSelectedTileWeight={saveSelectedTileWeight}
+          onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

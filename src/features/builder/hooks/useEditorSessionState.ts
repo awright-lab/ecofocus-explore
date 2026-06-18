@@ -6,6 +6,7 @@ import type {
   DesignModal,
   ExploreView,
   LeftPanelView,
+  SavedLibraryHandoff,
   SettingsView,
   SourceLibraryView
 } from "../builderTypes";
@@ -23,6 +24,7 @@ export function useEditorSessionState() {
   const [exploreView, setExploreView] = useState<ExploreView>("source");
   const [sourceLibraryView, setSourceLibraryView] = useState<SourceLibraryView>("variableSets");
   const [analysisLibraryView, setAnalysisLibraryView] = useState<AnalysisLibraryView>("variableSets");
+  const [savedLibraryHandoff, setSavedLibraryHandoff] = useState<SavedLibraryHandoff>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [settingsView, setSettingsView] = useState<SettingsView>("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
@@ -58,6 +60,8 @@ export function useEditorSessionState() {
     setSourceLibraryView,
     analysisLibraryView,
     setAnalysisLibraryView,
+    savedLibraryHandoff,
+    setSavedLibraryHandoff,
     sourceSearch,
     setSourceSearch,
     settingsView,

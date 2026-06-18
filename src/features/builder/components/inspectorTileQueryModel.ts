@@ -3,6 +3,7 @@ import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDi
 import { comparisonSummaryLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import type { AnalyticsQueryRequest, BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
+import type { AnalysisLibraryView } from "../builderTypes";
 
 export interface TileQueryStatusView {
   hasPendingChanges: boolean;
@@ -27,6 +28,7 @@ export type SavedTileSettingKind = "set" | "banner" | "filter" | "weight";
 export interface SavedTileSettingConfirmation {
   label: string;
   message: string;
+  libraryView: AnalysisLibraryView;
 }
 
 export function updateTileBanner(tile: DashboardTile, breakBy: BreakById): Partial<DashboardTile> {
@@ -157,23 +159,27 @@ export function buildSavedTileSettingConfirmation(kind: SavedTileSettingKind): S
   if (kind === "set") {
     return {
       label: "Variable set saved",
-      message: "Saved a new reusable variable set from this selected object."
+      message: "Saved a new reusable variable set from this selected object.",
+      libraryView: "variableSets"
     };
   }
   if (kind === "banner") {
     return {
       label: "Banner saved",
-      message: "Saved a new reusable banner from this selected object."
+      message: "Saved a new reusable banner from this selected object.",
+      libraryView: "banners"
     };
   }
   if (kind === "filter") {
     return {
       label: "Filter saved",
-      message: "Saved a new reusable filter from this selected object."
+      message: "Saved a new reusable filter from this selected object.",
+      libraryView: "filters"
     };
   }
   return {
     label: "Weight saved",
-    message: "Saved a new reusable weight from this selected object."
+    message: "Saved a new reusable weight from this selected object.",
+    libraryView: "weights"
   };
 }

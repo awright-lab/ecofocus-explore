@@ -20,6 +20,7 @@ export type ExploreView = "source" | "analyze" | "library";
 export type SourceLibraryView = "variableSets" | "questions";
 export type AnalysisLibraryView = "variableSets" | "banners" | "filters" | "weights";
 export type SettingsView = "home" | "page" | "layout" | "element" | "chart" | "container";
+export type SavedLibraryHandoff = { view: AnalysisLibraryView; createdAt: number } | null;
 
 export type LayerItem =
   | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
@@ -38,6 +39,7 @@ export type EditorUiState = {
   exploreView: ExploreView;
   sourceLibraryView: SourceLibraryView;
   analysisLibraryView: AnalysisLibraryView;
+  savedLibraryHandoff: SavedLibraryHandoff;
   sourceSearch: string;
   settingsView: SettingsView;
   designModal: DesignModal;

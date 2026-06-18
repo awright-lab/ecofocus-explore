@@ -11,6 +11,7 @@ import {
   buildSavedTileSettingConfirmation,
   buildTileQueryActionState,
   buildTileQueryStatus,
+  type SavedTileSettingConfirmation,
   type SavedTileSettingKind,
   tileRefreshQuery,
   toggleTileComparisonDataset,
@@ -191,10 +192,11 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     saveSelectedTileBanner,
     saveSelectedTileFilter,
     saveSelectedTileWeight,
+    onViewSavedSettingInLibrary,
     isLoading
   } = props;
   const [confirmation, setConfirmation] = useState<{ tileId: string; message: string } | null>(null);
-  const [saveConfirmation, setSaveConfirmation] = useState<{ tileId: string; label: string; message: string } | null>(null);
+  const [saveConfirmation, setSaveConfirmation] = useState<(SavedTileSettingConfirmation & { tileId: string }) | null>(null);
 
   if (!selectedTile) {
     return null;
@@ -247,6 +249,9 @@ export function TileQueryActions(props: BuilderInspectorProps) {
         <div className="tile-query-action-confirmation" role="status">
           <strong>{saveConfirmation.label}</strong>
           <span>{saveConfirmation.message}</span>
+          <button type="button" className="secondary inline-action" onClick={() => onViewSavedSettingInLibrary(saveConfirmation.libraryView)}>
+            View in library
+          </button>
         </div>
       )}
     </>

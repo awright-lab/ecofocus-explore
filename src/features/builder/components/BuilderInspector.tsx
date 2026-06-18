@@ -18,7 +18,7 @@ import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, tileSo
 import { getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../../analytics/analyticsDisplay";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, TextStylePreset, TileAppearance } from "../../../../shared/types/dashboard";
-import type { DesignModal, SettingsView } from "../builderTypes";
+import type { AnalysisLibraryView, DesignModal, SettingsView } from "../builderTypes";
 
 export type BuilderInspectorProps = {
   settingsView: SettingsView;
@@ -62,6 +62,7 @@ export type BuilderInspectorProps = {
   saveSelectedTileBanner: () => void;
   saveSelectedTileFilter: () => void;
   saveSelectedTileWeight: () => void;
+  onViewSavedSettingInLibrary: (view: AnalysisLibraryView) => void;
   deleteSelectedItem: () => void;
   isLoading: boolean;
   comparisonDatasets: DatasetId[];
@@ -110,6 +111,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   saveSelectedTileBanner,
   saveSelectedTileFilter,
   saveSelectedTileWeight,
+  onViewSavedSettingInLibrary,
   deleteSelectedItem,
   isLoading
   } = props;

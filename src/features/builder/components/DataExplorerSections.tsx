@@ -16,6 +16,10 @@ import {
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 
+function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
+  return ["explorer-item", active ? "active" : "", recentlySaved ? "recently-saved" : ""].filter(Boolean).join(" ");
+}
+
 export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
   const {
     sourceLibraryView,
@@ -425,13 +429,42 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
-  const { selectedVariableSet, saveCurrentVariableSet, deleteVariableSet } = props;
+  const {
+    selectedDataSource,
+    selectedVariableSet,
+    savedLibraryHandoff,
+    savedVariableSets,
+    applyVariableSetSelection,
+    saveCurrentVariableSet,
+    deleteVariableSet
+  } = props;
+  const highlightNewestSet = savedLibraryHandoff?.view === "variableSets";
 
   return (
     <div className="explorer-section-card">
       <div className="explorer-section-header">
         <strong>Variable set editor</strong>
         <small>Save and update reusable sources</small>
+      </div>
+      <div className="explorer-section-card compact nested">
+        <div className="explorer-section-header">
+          <strong>Saved variable sets</strong>
+          <small>{savedVariableSets.length} saved</small>
+        </div>
+        <div className="explorer-item-list compact">
+          {savedVariableSets.map((item, index) => (
+            <button
+              type="button"
+              key={item.id}
+              className={savedLibraryItemClass(selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id, highlightNewestSet && index === 0)}
+              onClick={() => applyVariableSetSelection(item)}
+            >
+              <strong>{item.label}</strong>
+              <span>{item.description}</span>
+              {highlightNewestSet && index === 0 && <small className="recently-saved-label">Recently saved</small>}
+            </button>
+          ))}
+        </div>
       </div>
       <VariableSetMetadataSection {...props} />
       <VariableSetRowLogicSection {...props} />
@@ -449,7 +482,8 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner } = props;
+  const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff } = props;
+  const highlightNewestBanner = savedLibraryHandoff?.view === "banners";
 
   return (
                     <div className="explorer-section-card">
@@ -458,10 +492,11 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
                         <small>{savedBanners.length} saved</small>
                       </div>
                       <div className="explorer-item-list compact">
-                        {savedBanners.map((item) => (
-                          <button type="button" key={item.id} className={item.breakBy === breakBy ? "explorer-item active" : "explorer-item"} onClick={() => applySavedBanner(item)}>
+                        {savedBanners.map((item, index) => (
+                          <button type="button" key={item.id} className={savedLibraryItemClass(item.breakBy === breakBy, highlightNewestBanner && index === 0)} onClick={() => applySavedBanner(item)}>
                             <strong>{item.label}</strong>
                             <span>{item.description}</span>
+                            {highlightNewestBanner && index === 0 && <small className="recently-saved-label">Recently saved</small>}
                           </button>
                         ))}
                       </div>
@@ -474,7 +509,8 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
-  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter } = props;
+  const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff } = props;
+  const highlightNewestFilter = savedLibraryHandoff?.view === "filters";
 
   return (
                     <div className="explorer-section-card">
@@ -483,10 +519,11 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
                         <small>{savedFilters.length} saved</small>
                       </div>
                       <div className="explorer-item-list compact">
-                        {savedFilters.map((item) => (
-                          <button type="button" key={item.id} className={item.filterField === filterField && item.filterValue === filterValue ? "explorer-item active" : "explorer-item"} onClick={() => applySavedFilter(item)}>
+                        {savedFilters.map((item, index) => (
+                          <button type="button" key={item.id} className={savedLibraryItemClass(item.filterField === filterField && item.filterValue === filterValue, highlightNewestFilter && index === 0)} onClick={() => applySavedFilter(item)}>
                             <strong>{item.label}</strong>
                             <span>{item.description}</span>
+                            {highlightNewestFilter && index === 0 && <small className="recently-saved-label">Recently saved</small>}
                           </button>
                         ))}
                       </div>
@@ -499,7 +536,8 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
 }
 
 export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
-  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight } = props;
+  const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff } = props;
+  const highlightNewestWeight = savedLibraryHandoff?.view === "weights";
 
   return (
                     <div className="explorer-section-card">
@@ -508,10 +546,11 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                         <small>{savedWeights.length} saved</small>
                       </div>
                       <div className="explorer-item-list compact">
-                        {savedWeights.map((item) => (
-                          <button type="button" key={item.id} className={item.weight === weight ? "explorer-item active" : "explorer-item"} onClick={() => applySavedWeight(item)}>
+                        {savedWeights.map((item, index) => (
+                          <button type="button" key={item.id} className={savedLibraryItemClass(item.weight === weight, highlightNewestWeight && index === 0)} onClick={() => applySavedWeight(item)}>
                             <strong>{item.label}</strong>
                             <span>{item.description}</span>
+                            {highlightNewestWeight && index === 0 && <small className="recently-saved-label">Recently saved</small>}
                           </button>
                         ))}
                       </div>
