@@ -12,7 +12,7 @@ import {
   type VariableSetDraftState,
   type SourceDetailView
 } from "./sourceExplorerModel";
-import { buildVariableSetReadinessView, type VariableSetReadinessView } from "./variableSetValidationModel";
+import { buildVariableSetReadinessView, buildVariableSetRecodePreview, type VariableSetReadinessView } from "./variableSetValidationModel";
 
 interface SourceDetailPanelProps {
   selectedDataSource: AnalysisAuthoringPanelProps["selectedDataSource"];
@@ -188,13 +188,43 @@ function VariableSetRowRefinement({
   reorderVariableSetRow
 }: Pick<SourceDetailPanelProps, "selectedQuestion" | "variableSetRows" | "updateVariableSetRow" | "reorderVariableSetRow">) {
   const rowDetails = buildVariableSetRowDetails(variableSetRows, selectedQuestion);
+  const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
+  const recodeRows = new Map(recodePreview.rows.map((row) => [row.rowId, row]));
 
   return (
     <div className="source-row-refinement">
+      <div className="variable-set-recode-card">
+        <div className="explorer-section-header">
+          <strong>Recode and net preview</strong>
+          <small>{recodePreview.includedOptionLabels.length} included · {recodePreview.excludedOptionLabels.length} excluded</small>
+        </div>
+        <div className="variable-set-recode-grid">
+          <div>
+            <span>Included</span>
+            <strong>{recodePreview.includedOptionLabels.length ? recodePreview.includedOptionLabels.join(", ") : "None"}</strong>
+          </div>
+          <div>
+            <span>Excluded</span>
+            <strong>{recodePreview.excludedOptionLabels.length ? recodePreview.excludedOptionLabels.join(", ") : "None"}</strong>
+          </div>
+        </div>
+        {recodePreview.overlapWarnings.length > 0 && (
+          <div className="variable-set-readiness-list">
+            {recodePreview.overlapWarnings.map((warning) => (
+              <div className="variable-set-readiness-issue" key={warning.id}>
+                <strong>Overlap: {warning.optionLabel}</strong>
+                <span>{warning.helper}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="source-detail-list">
         <span>Draft row refinement</span>
         <div className="source-row-refinement__list">
-          {rowDetails.map((row, index) => (
+          {rowDetails.map((row, index) => {
+            const recodeRow = recodeRows.get(row.id);
+            return (
             <div className={row.visible ? "source-row-card" : "source-row-card muted"} key={row.id}>
               <div className="source-row-card__header">
                 <div>
@@ -207,10 +237,14 @@ function VariableSetRowRefinement({
                 <span className="explorer-chip">{row.sourceSummary}</span>
                 <span className="explorer-chip">{row.emphasis === "summary" ? "Summary row" : "Detail row"}</span>
                 <span className="explorer-chip">{row.visible ? "Visible" : "Hidden"}</span>
+                {recodeRow?.overlapLabels.length ? <span className="explorer-chip warning-chip">Overlap</span> : null}
               </div>
               {row.composition.length > 0 && (
                 <p>{row.composition.join(", ")}</p>
               )}
+              {recodeRow?.overlapLabels.length ? (
+                <p className="source-row-card__warning">Also used in another authored row: {recodeRow.overlapLabels.join(", ")}</p>
+              ) : null}
               <div className="source-row-card__controls">
                 <select
                   aria-label={`Row emphasis for ${row.label}`}
@@ -236,7 +270,8 @@ function VariableSetRowRefinement({
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

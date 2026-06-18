@@ -5,7 +5,7 @@ import {
 import { defaultVisualizationForQuestion } from "../../analytics/analyticsDisplay";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
-import { buildVariableSetReadinessView } from "./variableSetValidationModel";
+import { buildVariableSetReadinessView, buildVariableSetRecodePreview } from "./variableSetValidationModel";
 
 export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
   const {
@@ -94,6 +94,7 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
     addVariableSetNet
   } = props;
   const readiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
+  const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
 
   return (
     <>
@@ -109,6 +110,32 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
                               <div className="variable-set-readiness-issue" key={issue.id}>
                                 <strong>{issue.label}</strong>
                                 <span>{issue.helper}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="variable-set-recode-card">
+                        <div className="explorer-section-header">
+                          <strong>Recode preview</strong>
+                          <small>{recodePreview.includedOptionLabels.length} included · {recodePreview.excludedOptionLabels.length} excluded</small>
+                        </div>
+                        <div className="variable-set-recode-grid">
+                          <div>
+                            <span>Included source options</span>
+                            <strong>{recodePreview.includedOptionLabels.length ? recodePreview.includedOptionLabels.join(", ") : "None"}</strong>
+                          </div>
+                          <div>
+                            <span>Excluded source options</span>
+                            <strong>{recodePreview.excludedOptionLabels.length ? recodePreview.excludedOptionLabels.join(", ") : "None"}</strong>
+                          </div>
+                        </div>
+                        {recodePreview.overlapWarnings.length > 0 && (
+                          <div className="variable-set-readiness-list">
+                            {recodePreview.overlapWarnings.map((warning) => (
+                              <div className="variable-set-readiness-issue" key={warning.id}>
+                                <strong>Overlap: {warning.optionLabel}</strong>
+                                <span>{warning.helper}</span>
                               </div>
                             ))}
                           </div>
@@ -181,11 +208,13 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
 
 export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps) {
   const {
+    selectedQuestion,
     variableSetRows,
     updateVariableSetRow,
     reorderVariableSetRow,
     removeVariableSetRow
   } = props;
+  const recodeRows = new Map(buildVariableSetRecodePreview(variableSetRows, selectedQuestion).rows.map((row) => [row.rowId, row]));
 
 	  return (
 	    <>
@@ -197,12 +226,23 @@ export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps) {
                               <div key={row.id} className="explorer-item active variable-set-row">
                                 <div className="variable-set-row__top">
                                   <strong>{rowKindLabel(row.kind)}</strong>
-                                  <span>{row.sourceOptionIds.join(", ")}</span>
+                                  <span>{recodeRows.get(row.id)?.sourceSummary ?? "No source options"}</span>
                                 </div>
                                 <div className="explorer-chip-row variable-set-row__chips">
                                   <span className="explorer-chip">{row.emphasis === "summary" ? "Summary row" : "Detail row"}</span>
                                   <span className="explorer-chip">{row.visible ? "Visible" : "Hidden"}</span>
+                                  {recodeRows.get(row.id)?.overlapLabels.length ? (
+                                    <span className="explorer-chip warning-chip">Overlap</span>
+                                  ) : null}
                                 </div>
+                                <small className="variable-set-row__composition">
+                                  {recodeRows.get(row.id)?.compositionLabel ?? "No source options"}
+                                </small>
+                                {recodeRows.get(row.id)?.overlapLabels.length ? (
+                                  <small className="variable-set-row__warning">
+                                    Also used in another authored row: {recodeRows.get(row.id)?.overlapLabels.join(", ")}
+                                  </small>
+                                ) : null}
                                 <input value={row.label} onChange={(event) => updateVariableSetRow(row.id, { label: event.target.value })} />
                                 <div className="compact-grid">
                                   <label>
