@@ -1,5 +1,6 @@
 import { BuilderPanel } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
+import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import { BarColorField, ColorField, PageBackgroundField, rangeFill } from "../../design-system/DesignControls";
 import {
   axisRotationPresets,
@@ -155,23 +156,34 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   deleteSelectedItem,
   isLoading
   } = props;
-  const multiSelectedTiles = activePage.tiles.filter((tile) => multiSelectedObjects.some((item) => item.type === "tile" && item.id === tile.id));
-  const multiSelectedElements = activePage.elements.filter((element) => multiSelectedObjects.some((item) => item.type === "element" && item.id === element.id));
-  const multiSelectedCount = multiSelectedTiles.length + multiSelectedElements.length;
+  const multiSelectionSummary = buildMultiSelectionSummary(activePage, multiSelectedObjects);
 
   return (
 <BuilderPanel className="panel settings" label="Tile settings">
           <div className="panel-title">
             <h2>Settings</h2>
           </div>
-          {multiSelectedCount > 0 && (
+          {multiSelectionSummary.count > 0 && (
             <div className="multi-selection-card">
               <div className="explorer-section-header">
-                <strong>{multiSelectedCount} selected</strong>
-                <small>{multiSelectedTiles.length} tiles · {multiSelectedElements.length} elements</small>
+                <strong>{multiSelectionSummary.count} selected</strong>
+                <small>{multiSelectionSummary.tiles.length} tiles · {multiSelectionSummary.elements.length} elements</small>
               </div>
+              {multiSelectionSummary.bounds && (
+                <div className="multi-selection-bounds" aria-label="Selection bounds">
+                  <div>
+                    <span>X/Y</span>
+                    <strong>{multiSelectionSummary.bounds.x}, {multiSelectionSummary.bounds.y}</strong>
+                  </div>
+                  <div>
+                    <span>Size</span>
+                    <strong>{multiSelectionSummary.bounds.width}x{multiSelectionSummary.bounds.height}</strong>
+                  </div>
+                  <small>{multiSelectionSummary.spreadLabel}</small>
+                </div>
+              )}
               <div className="multi-selection-list">
-                {[...multiSelectedTiles.map((tile) => ({ id: tile.id, label: tile.title || tile.name, kind: "Tile", hidden: tile.hidden, locked: tile.locked })), ...multiSelectedElements.map((element) => ({ id: element.id, label: element.name, kind: "Element", hidden: element.hidden, locked: element.locked }))].map((item) => (
+                {[...multiSelectionSummary.tiles.map((tile) => ({ id: tile.id, label: tile.title || tile.name, kind: "Tile", hidden: tile.hidden, locked: tile.locked })), ...multiSelectionSummary.elements.map((element) => ({ id: element.id, label: element.name, kind: "Element", hidden: element.hidden, locked: element.locked }))].map((item) => (
                   <div className="multi-selection-row" key={`${item.kind}-${item.id}`}>
                     <span>{item.label}</span>
                     <small>{item.kind} · {item.hidden ? "Hidden" : "Visible"} · {item.locked ? "Locked" : "Unlocked"}</small>
@@ -185,8 +197,8 @@ export function BuilderInspector(props: BuilderInspectorProps) {
                 <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(false)}>Unlock</button>
               </div>
               <div className="brand-card-actions">
-                <button type="button" className="secondary" onClick={() => alignMultiSelected("left")} disabled={multiSelectedCount < 2}>Align left</button>
-                <button type="button" className="secondary" onClick={() => alignMultiSelected("top")} disabled={multiSelectedCount < 2}>Align top</button>
+                <button type="button" className="secondary" onClick={() => alignMultiSelected("left")} disabled={multiSelectionSummary.count < 2}>Align left</button>
+                <button type="button" className="secondary" onClick={() => alignMultiSelected("top")} disabled={multiSelectionSummary.count < 2}>Align top</button>
               </div>
               <button type="button" className="secondary" onClick={clearMultiSelection}>Clear selection</button>
             </div>

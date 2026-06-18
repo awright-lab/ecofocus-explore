@@ -785,6 +785,44 @@ h2 {
   gap: 5px;
 }
 
+.multi-selection-bounds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #d8e8dd;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.multi-selection-bounds div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.multi-selection-bounds span,
+.multi-selection-bounds strong,
+.multi-selection-bounds small {
+  overflow: hidden;
+  color: #60756b;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multi-selection-bounds strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.multi-selection-bounds small {
+  grid-column: 1 / -1;
+  color: #517062;
+}
+
 .multi-selection-row {
   display: grid;
   min-width: 0;
