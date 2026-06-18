@@ -11,18 +11,8 @@ import {
   defaultQuestion,
   datasets,
   filterDimensions,
-  historyLimit,
   storageKey
 } from "./builderConstants";
-import {
-  buildPageFromTemplate,
-  createCanvasElement,
-  createTextBlockElement,
-  duplicateElement,
-  duplicatePage,
-  duplicateTile,
-  remainingPagesAfterDelete
-} from "./builderDocumentCommands";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
 import { BuilderHeader, BuilderPanel, ToolRail } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
@@ -40,6 +30,7 @@ import {
 import { CanvasWorkspace } from "./components/CanvasWorkspace";
 import { defaultVisualizationForQuestion, getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
 import { useAnalysisAuthoring } from "../analytics/useAnalysisAuthoring";
+import { useBuilderDocumentSessionCommands } from "./hooks/useBuilderDocumentSessionCommands";
 import { useEditorSessionState } from "./hooks/useEditorSessionState";
 import { useBuilderDesignCommands } from "./hooks/useBuilderDesignCommands";
 import { useBuilderTileCommands } from "./hooks/useBuilderTileCommands";
@@ -71,7 +62,7 @@ import {
   normalizeVariableSetRows,
   rowKindLabel,
 } from "../document/documentSeeds";
-import { clampZIndex, nextZIndex, normalizeDashboard } from "../document/documentModel";
+import { normalizeDashboard } from "../document/documentModel";
 import type {
   AnalysisLibraryView,
   DesignModal,
@@ -94,22 +85,13 @@ import type {
   WeightId
 } from "../../../shared/types/analytics";
 import type {
-  CanvasLayout,
-  DashboardCanvasElement,
-  DashboardCanvasElementType,
   DashboardDraft,
-  DashboardPage,
-  DashboardTile,
-  DesignColorPalette,
   GradientStop,
   GradientType,
-  PageTemplatePreset,
-  PageThemePreset,
   SavedBanner,
   SavedFilterSet,
   SavedVariableSet,
   SavedWeightProfile,
-  TextBlockPreset,
 } from "../../../shared/types/dashboard";
 
 export default function BuilderApp() {
@@ -167,82 +149,6 @@ export default function BuilderApp() {
   const textBlockPresets = dashboard.designLibrary.textBlocks;
   const pageThemes = dashboard.designLibrary.pageThemes;
   const pageTemplates = dashboard.designLibrary.pageTemplates;
-  const {
-    question,
-    setQuestion,
-    breakBy,
-    setBreakBy,
-    metric,
-    setMetric,
-    chartType,
-    setChartType,
-    weight,
-    setWeight,
-    filterField,
-    setFilterField,
-    filterValue,
-    setFilterValue,
-    comparisonMode,
-    setComparisonMode,
-    comparisonDatasets,
-    setComparisonDatasets,
-    weightDraftName,
-    setWeightDraftName,
-    variableSetDraftName,
-    setVariableSetDraftName,
-    variableSetDescription,
-    setVariableSetDescription,
-    variableSetQuestionIds,
-    setVariableSetQuestionIds,
-    variableSetRows,
-    setVariableSetRows,
-    variableSetOptionSelection,
-    setVariableSetOptionSelection,
-    bannerDraftName,
-    setBannerDraftName,
-    filterDraftName,
-    setFilterDraftName,
-    savedVariableSets,
-    savedBanners,
-    savedFilters,
-    savedWeights,
-    selectedQuestion,
-    selectedVariableSet,
-    filteredVariableSets,
-    filteredQuestions,
-    selectedFilterDimension,
-    selectedChartTypes,
-    query,
-    toggleComparisonDataset,
-    applyQuestionSelection,
-    applyVariableSetSelection,
-    saveCurrentVariableSet,
-    deleteVariableSet,
-    toggleVariableSetQuestion,
-    reorderVariableSetRow,
-    updateVariableSetRow,
-    removeVariableSetRow,
-    toggleVariableSetOptionRow,
-    toggleVariableSetOptionSelection,
-    addVariableSetNet,
-    resetVariableSetRows,
-    markVariableSetRowsAsDetails,
-    revealAllVariableSetRows,
-    applySavedBanner,
-    saveCurrentBanner,
-    applySavedFilter,
-    saveCurrentFilter,
-    applySavedWeight,
-    saveCurrentWeight
-  } = useAnalysisAuthoring({
-    dashboard,
-    setDashboard,
-    sourceSearch,
-    selectedDataSource,
-    setSelectedDataSource,
-    setError
-  });
-
   const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
@@ -404,6 +310,142 @@ export default function BuilderApp() {
   }, [dashboard.status]);
 
   useEffect(() => {
+    if (!designModal) return;
+    designModalRef.current?.scrollTo({ top: 0 });
+  }, [designModal]);
+
+  const {
+    setDashboard,
+    undo,
+    redo,
+    updateSelectedTile,
+    updateTile,
+    updateTileLayout,
+    updateSelectedElement,
+    updateElement,
+    updateElementLayout,
+    selectLayer,
+    selectTile,
+    selectElement,
+    selectPage,
+    changeSelectedLayer,
+    addCanvasElement,
+    addTextBlockPreset,
+    updateActivePage,
+    addPage,
+    duplicateActivePage,
+    deleteActivePage,
+    deleteSelectedItem,
+    duplicateSelectedItem,
+    resetDashboard,
+    chooseLayer,
+    updateCanvasZoom,
+    publishDashboard,
+    unpublishDashboard,
+    openPublishedReport,
+    closePublishedReport
+  } = useBuilderDocumentSessionCommands({
+    dashboard,
+    setDashboardState,
+    history,
+    setHistory,
+    future,
+    setFuture,
+    setSaveState,
+    activePage,
+    sortedPages,
+    pageThemes,
+    selectedTile,
+    selectedElement,
+    selectedTileId,
+    selectedElementId,
+    setActivePageId,
+    setSelectedTileId,
+    setSelectedElementId,
+    setSelectedChartPartId,
+    setSettingsView,
+    setLeftPanelView,
+    setCanvasZoom,
+    setViewerMode
+  });
+
+  const {
+    question,
+    setQuestion,
+    breakBy,
+    setBreakBy,
+    metric,
+    setMetric,
+    chartType,
+    setChartType,
+    weight,
+    setWeight,
+    filterField,
+    setFilterField,
+    filterValue,
+    setFilterValue,
+    comparisonMode,
+    setComparisonMode,
+    comparisonDatasets,
+    setComparisonDatasets,
+    weightDraftName,
+    setWeightDraftName,
+    variableSetDraftName,
+    setVariableSetDraftName,
+    variableSetDescription,
+    setVariableSetDescription,
+    variableSetQuestionIds,
+    setVariableSetQuestionIds,
+    variableSetRows,
+    setVariableSetRows,
+    variableSetOptionSelection,
+    setVariableSetOptionSelection,
+    bannerDraftName,
+    setBannerDraftName,
+    filterDraftName,
+    setFilterDraftName,
+    savedVariableSets,
+    savedBanners,
+    savedFilters,
+    savedWeights,
+    selectedQuestion,
+    selectedVariableSet,
+    filteredVariableSets,
+    filteredQuestions,
+    selectedFilterDimension,
+    selectedChartTypes,
+    query,
+    toggleComparisonDataset,
+    applyQuestionSelection,
+    applyVariableSetSelection,
+    saveCurrentVariableSet,
+    deleteVariableSet,
+    toggleVariableSetQuestion,
+    reorderVariableSetRow,
+    updateVariableSetRow,
+    removeVariableSetRow,
+    toggleVariableSetOptionRow,
+    toggleVariableSetOptionSelection,
+    addVariableSetNet,
+    resetVariableSetRows,
+    markVariableSetRowsAsDetails,
+    revealAllVariableSetRows,
+    applySavedBanner,
+    saveCurrentBanner,
+    applySavedFilter,
+    saveCurrentFilter,
+    applySavedWeight,
+    saveCurrentWeight
+  } = useAnalysisAuthoring({
+    dashboard,
+    setDashboard,
+    sourceSearch,
+    selectedDataSource,
+    setSelectedDataSource,
+    setError
+  });
+
+  useEffect(() => {
     if (selectedVariableSet) {
       setVariableSetDraftName(selectedVariableSet.label);
       setVariableSetDescription(selectedVariableSet.description);
@@ -435,75 +477,6 @@ export default function BuilderApp() {
     setWeightDraftName(weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? "Saved weight" : "Unweighted sample");
   }, [weight]);
 
-  useEffect(() => {
-    if (!designModal) return;
-    designModalRef.current?.scrollTo({ top: 0 });
-  }, [designModal]);
-
-  function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
-    setDashboardState((current) => {
-      const nextDashboard = typeof updater === "function" ? updater(current) : updater;
-
-      if (trackHistory) {
-        setHistory((items) => [...items.slice(-historyLimit + 1), current]);
-        setFuture([]);
-        setSaveState("Saving...");
-      }
-
-      return nextDashboard;
-    });
-  }
-
-  function undo() {
-    const previous = history.at(-1);
-    if (!previous) return;
-
-    setFuture((items) => [dashboard, ...items]);
-    setHistory((items) => items.slice(0, -1));
-    setDashboard(previous, false);
-  }
-
-  function redo() {
-    const nextDashboard = future[0];
-    if (!nextDashboard) return;
-
-    setHistory((items) => [...items, dashboard]);
-    setFuture((items) => items.slice(1));
-    setDashboard(nextDashboard, false);
-  }
-
-  function updateSelectedTile(updates: Partial<DashboardTile>) {
-    if (!selectedTileId) return;
-
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              tiles: page.tiles.map((tile) => (tile.id === selectedTileId ? { ...tile, ...updates } : tile))
-            }
-          : page
-      )
-    }));
-  }
-
-  function updateTile(tileId: string, updates: Partial<DashboardTile>) {
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              tiles: page.tiles.map((tile) => (tile.id === tileId ? { ...tile, ...updates } : tile))
-            }
-          : page
-      )
-    }));
-  }
-
   const {
     startDataSourceDrag,
     handleCanvasDrop,
@@ -528,154 +501,8 @@ export default function BuilderApp() {
     setError
   });
 
-  function updateTileLayout(tileId: string, layout: Partial<CanvasLayout>) {
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              tiles: page.tiles.map((tile) => (tile.id === tileId ? { ...tile, layout: { ...tile.layout, ...layout } } : tile))
-            }
-          : page
-      )
-    }));
-  }
-
-  function updateSelectedElement(updates: Partial<DashboardCanvasElement>) {
-    if (!selectedElementId) return;
-
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              elements: page.elements.map((element) => (element.id === selectedElementId ? { ...element, ...updates } : element))
-            }
-          : page
-      )
-    }));
-  }
-
-  function updateElement(elementId: string, updates: Partial<DashboardCanvasElement>) {
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              elements: page.elements.map((element) => (element.id === elementId ? { ...element, ...updates } : element))
-            }
-          : page
-      )
-    }));
-  }
-
-  function selectLayer(item: LayerItem) {
-    if (item.type === "tile") {
-      selectTile(item.id);
-    } else {
-      selectElement(item.id);
-    }
-
-    setSelectedChartPartId("all");
-  }
-
-  function selectTile(tileId: string) {
-    setSelectedTileId(tileId);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
-    setSettingsView("chart");
-  }
-
-  function selectElement(elementId: string) {
-    setSelectedElementId(elementId);
-    setSelectedTileId(null);
-    setSelectedChartPartId("all");
-    setSettingsView("element");
-  }
-
-  function selectPage() {
-    setSelectedTileId(null);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
-    setSettingsView("page");
-  }
-
-  function updateElementLayout(elementId: string, layout: Partial<CanvasLayout>) {
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              elements: page.elements.map((element) => (element.id === elementId ? { ...element, layout: { ...element.layout, ...layout } } : element))
-            }
-          : page
-      )
-    }));
-  }
-
-  function changeSelectedLayer(direction: "front" | "back" | "forward" | "backward") {
-    const currentZ = selectedTile?.layout.zIndex ?? selectedElement?.layout.zIndex;
-    if (!currentZ) return;
-
-    const nextZ =
-      direction === "front"
-        ? nextZIndex(activePage)
-        : direction === "back"
-          ? 1
-          : direction === "forward"
-            ? currentZ + 1
-            : clampZIndex(currentZ - 1);
-
-    if (selectedTile) {
-      updateTileLayout(selectedTile.id, { zIndex: nextZ });
-    }
-
-    if (selectedElement) {
-      updateElementLayout(selectedElement.id, { zIndex: nextZ });
-    }
-  }
-
-  function addCanvasElement(type: DashboardCanvasElementType) {
-    const element = createCanvasElement(type, activePage);
-
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, element] } : page))
-    }));
-    selectElement(element.id);
-  }
-
-  function addTextBlockPreset(block: TextBlockPreset) {
-    const element = createTextBlockElement(block, activePage);
-
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, element] } : page))
-    }));
-    selectElement(element.id);
-    setSettingsView("element");
-  }
-
   function exportDashboardSpec() {
     downloadDashboardExportSpec(dashboard, sortedPages);
-  }
-
-  function updateActivePage(updates: Partial<DashboardPage>) {
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, ...updates } : page))
-    }));
   }
 
   const {
@@ -708,120 +535,6 @@ export default function BuilderApp() {
     updateTileLayout,
     updateElementLayout
   });
-
-  function addPage(template?: PageTemplatePreset) {
-    const page = buildPageFromTemplate({ template, pageCount: dashboard.pages.length, pageThemes });
-
-    setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
-    setActivePageId(page.id);
-    selectPage();
-  }
-
-  function duplicateActivePage() {
-    const duplicate = duplicatePage(activePage, dashboard.pages.length);
-
-    setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, duplicate] }));
-    setActivePageId(duplicate.id);
-    selectPage();
-  }
-
-  function deleteActivePage() {
-    if (dashboard.pages.length <= 1) return;
-
-    const remainingPages = remainingPagesAfterDelete(sortedPages, activePage);
-    setDashboard((current) => ({ ...current, status: "draft", pages: remainingPages }));
-    setActivePageId(remainingPages[0].id);
-    setSelectedTileId(null);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
-  }
-
-  function deleteSelectedItem() {
-    if (!selectedTile && !selectedElement) return;
-
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) =>
-        page.id === activePage.id
-          ? {
-              ...page,
-              tiles: selectedTile ? page.tiles.filter((tile) => tile.id !== selectedTile.id) : page.tiles,
-              elements: selectedElement ? page.elements.filter((element) => element.id !== selectedElement.id) : page.elements
-            }
-          : page
-      )
-    }));
-    setSelectedTileId(null);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
-  }
-
-  function duplicateSelectedItem() {
-    if (selectedTile) {
-      const duplicate = duplicateTile(selectedTile, activePage);
-
-      setDashboard((current) => ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, duplicate] } : page))
-      }));
-      selectTile(duplicate.id);
-      return;
-    }
-
-    if (selectedElement) {
-      const duplicate = duplicateElement(selectedElement, activePage);
-
-      setDashboard((current) => ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, duplicate] } : page))
-      }));
-      selectElement(duplicate.id);
-    }
-  }
-
-  function resetDashboard() {
-    setDashboard(initialDashboard);
-    setActivePageId("page_overview");
-    setSelectedTileId(null);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
-    setSettingsView("page");
-    setLeftPanelView("pages");
-  }
-
-  function chooseLayer(item: LayerItem) {
-    selectLayer(item);
-    setLeftPanelView("pages");
-    setSettingsView(item.type === "tile" ? "chart" : "element");
-  }
-
-  function updateCanvasZoom(value: number) {
-    setCanvasZoom(Math.min(160, Math.max(35, value)));
-  }
-
-  function publishDashboard() {
-    setDashboard((current) => ({ ...current, status: "published" }));
-    setViewerMode(true);
-  }
-
-  function unpublishDashboard() {
-    setDashboard((current) => ({ ...current, status: "draft" }));
-    setViewerMode(false);
-  }
-
-  function openPublishedReport() {
-    setSelectedTileId(null);
-    setSelectedElementId(null);
-    setSelectedChartPartId("all");
-    setViewerMode(true);
-  }
-
-  function closePublishedReport() {
-    setViewerMode(false);
-  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
