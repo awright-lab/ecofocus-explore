@@ -292,6 +292,40 @@ export function useBuilderDocumentSessionCommands({
     }));
   }
 
+  function alignMultiSelected(edge: "left" | "top") {
+    if (multiSelectedObjects.length < 2) return;
+    const selectedTileIds = new Set(multiSelectedObjects.filter((item) => item.type === "tile").map((item) => item.id));
+    const selectedElementIds = new Set(multiSelectedObjects.filter((item) => item.type === "element").map((item) => item.id));
+    const selectedLayouts = [
+      ...activePage.tiles.filter((tile) => selectedTileIds.has(tile.id)).map((tile) => tile.layout),
+      ...activePage.elements.filter((element) => selectedElementIds.has(element.id)).map((element) => element.layout)
+    ];
+    if (selectedLayouts.length < 2) return;
+    const targetValue = Math.min(...selectedLayouts.map((layout) => (edge === "left" ? layout.x : layout.y)));
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) =>
+                selectedTileIds.has(tile.id)
+                  ? { ...tile, layout: { ...tile.layout, [edge === "left" ? "x" : "y"]: targetValue } }
+                  : tile
+              ),
+              elements: page.elements.map((element) =>
+                selectedElementIds.has(element.id)
+                  ? { ...element, layout: { ...element.layout, [edge === "left" ? "x" : "y"]: targetValue } }
+                  : element
+              )
+            }
+          : page
+      )
+    }));
+  }
+
   function selectLayer(item: LayerItem) {
     if (item.type === "tile") {
       selectTile(item.id);
@@ -592,6 +626,7 @@ export function useBuilderDocumentSessionCommands({
     clearMultiSelection,
     setMultiSelectedHidden,
     setMultiSelectedLocked,
+    alignMultiSelected,
     changeSelectedLayer,
     addCanvasElement,
     addTextBlockPreset,

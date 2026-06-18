@@ -46,6 +46,7 @@ export type BuilderInspectorProps = {
   multiSelectedObjects: MultiSelectedObject[];
   setMultiSelectedHidden: (hidden: boolean) => void;
   setMultiSelectedLocked: (locked: boolean) => void;
+  alignMultiSelected: (edge: "left" | "top") => void;
   clearMultiSelection: () => void;
   savedBanners: SavedBanner[];
   savedFilters: SavedFilterSet[];
@@ -114,6 +115,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   multiSelectedObjects,
   setMultiSelectedHidden,
   setMultiSelectedLocked,
+  alignMultiSelected,
   clearMultiSelection,
   selectedTileQuestion,
   selectedTileFilterDimension,
@@ -181,6 +183,10 @@ export function BuilderInspector(props: BuilderInspectorProps) {
                 <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(false)}>Show</button>
                 <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(true)}>Lock</button>
                 <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(false)}>Unlock</button>
+              </div>
+              <div className="brand-card-actions">
+                <button type="button" className="secondary" onClick={() => alignMultiSelected("left")} disabled={multiSelectedCount < 2}>Align left</button>
+                <button type="button" className="secondary" onClick={() => alignMultiSelected("top")} disabled={multiSelectedCount < 2}>Align top</button>
               </div>
               <button type="button" className="secondary" onClick={clearMultiSelection}>Clear selection</button>
             </div>

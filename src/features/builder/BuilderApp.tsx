@@ -358,6 +358,7 @@ export default function BuilderApp() {
     clearMultiSelection,
     setMultiSelectedHidden,
     setMultiSelectedLocked,
+    alignMultiSelected,
     changeSelectedLayer,
     addCanvasElement,
     addTextBlockPreset,
@@ -907,6 +908,7 @@ export default function BuilderApp() {
           multiSelectedObjects={activeMultiSelectedObjects}
           setMultiSelectedHidden={setMultiSelectedHidden}
           setMultiSelectedLocked={setMultiSelectedLocked}
+          alignMultiSelected={alignMultiSelected}
           clearMultiSelection={clearMultiSelection}
           savedBanners={savedBanners}
           savedFilters={savedFilters}
