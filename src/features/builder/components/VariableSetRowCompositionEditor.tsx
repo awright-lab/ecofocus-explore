@@ -1,7 +1,10 @@
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import {
+  clearAllVariableSetRowSourceOptions,
+  clearUnknownVariableSetRowSourceOptions,
   isAuthoredVariableSetRow,
+  selectAllVariableSetRowSourceOptions,
   toggleVariableSetRowSourceOption,
   type VariableSetRowRecodePreview
 } from "./variableSetValidationModel";
@@ -22,6 +25,10 @@ export function VariableSetRowCompositionEditor({
   compact = false
 }: VariableSetRowCompositionEditorProps) {
   if (!isAuthoredVariableSetRow(row)) return null;
+  const selectedKnownOptionCount = row.sourceOptionIds.filter((optionId) => selectedQuestion.options.some((option) => option.id === optionId)).length;
+  const hasUnknownSources = Boolean(recodeRow?.unknownSourceOptionIds.length);
+  const hasAnySources = row.sourceOptionIds.length > 0;
+  const hasAllSources = selectedKnownOptionCount === selectedQuestion.options.length && !hasUnknownSources;
 
   return (
     <div className={compact ? "row-composition-editor compact" : "row-composition-editor"}>
@@ -42,6 +49,32 @@ export function VariableSetRowCompositionEditor({
           ))}
         </div>
       ) : null}
+      <div className="row-fix-actions" aria-label="Row composition fixes">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => updateVariableSetRow(row.id, { sourceOptionIds: clearUnknownVariableSetRowSourceOptions(row, selectedQuestion) })}
+          disabled={!hasUnknownSources}
+        >
+          Clear unknown
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => updateVariableSetRow(row.id, { sourceOptionIds: selectAllVariableSetRowSourceOptions(selectedQuestion) })}
+          disabled={hasAllSources}
+        >
+          Select all
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => updateVariableSetRow(row.id, { sourceOptionIds: clearAllVariableSetRowSourceOptions() })}
+          disabled={!hasAnySources}
+        >
+          Clear all
+        </button>
+      </div>
       <div className="row-composition-editor__options">
         {selectedQuestion.options.map((option) => {
           const checked = row.sourceOptionIds.includes(option.id);

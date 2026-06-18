@@ -75,6 +75,19 @@ export function toggleVariableSetRowSourceOption(row: SavedVariableSet["rows"][n
   return nextSourceOptionIds;
 }
 
+export function clearUnknownVariableSetRowSourceOptions(row: SavedVariableSet["rows"][number], question: QuestionMetadata) {
+  const knownOptionIds = new Set(question.options.map((option) => option.id));
+  return row.sourceOptionIds.filter((optionId) => knownOptionIds.has(optionId));
+}
+
+export function selectAllVariableSetRowSourceOptions(question: QuestionMetadata) {
+  return question.options.map((option) => option.id);
+}
+
+export function clearAllVariableSetRowSourceOptions() {
+  return [];
+}
+
 export function variableSetRowIntent(kind: SavedVariableSet["rows"][number]["kind"]) {
   if (kind === "net") {
     return {
