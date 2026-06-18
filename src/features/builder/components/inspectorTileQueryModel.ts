@@ -1,6 +1,18 @@
 import { waveComparisonChartTypes } from "../builderConstants";
+import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
+import { comparisonSummaryLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import type { AnalyticsQueryRequest, BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
+
+export interface TileQueryStatusView {
+  hasPendingChanges: boolean;
+  label: string;
+  description: string;
+  sourceLabel: string;
+  questionLabel: string;
+  visualizationLabel: string;
+  comparisonLabel: string;
+}
 
 export function updateTileBanner(tile: DashboardTile, breakBy: BreakById): Partial<DashboardTile> {
   return {
@@ -81,5 +93,33 @@ export function tileRefreshQuery(tile: DashboardTile): AnalyticsQueryRequest {
       tile.query.filters[0]?.field && tile.query.filters[0]?.values[0] !== "all"
         ? tile.query.filters
         : []
+  };
+}
+
+function normalizedQuery(query: AnalyticsQueryRequest) {
+  return {
+    ...query,
+    comparisonMode: query.comparisonMode ?? "none",
+    comparisonDatasets: (query.comparisonDatasets ?? []).slice().sort(),
+    filters: query.filters
+      .filter((filter) => filter.values.length > 0 && filter.values[0] !== "all")
+      .map((filter) => ({ ...filter, values: filter.values.slice().sort() }))
+  };
+}
+
+export function buildTileQueryStatus(tile: DashboardTile): TileQueryStatusView {
+  const refreshQuery = tileRefreshQuery(tile);
+  const hasPendingChanges = JSON.stringify(normalizedQuery(refreshQuery)) !== JSON.stringify(normalizedQuery(tile.result.query));
+
+  return {
+    hasPendingChanges,
+    label: hasPendingChanges ? "Refresh needed" : "Results current",
+    description: hasPendingChanges
+      ? "Source settings have changed. Refresh analysis to update the selected object."
+      : "The selected object reflects the current source settings.",
+    sourceLabel: `${tileSourceKindLabel(tile.source)}: ${tile.source?.label ?? "Ad hoc query"}`,
+    questionLabel: getQuestionLabel(tile.query.question),
+    visualizationLabel: getChartTypeLabel(tile.visualization),
+    comparisonLabel: comparisonSummaryLabel(tile.query)
   };
 }

@@ -3,6 +3,7 @@ import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/anal
 import type { ChartType } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
+import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 import {
   TileComparisonControls,
   TileFilterWeightControls,
@@ -55,14 +56,50 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   if (!selectedTile || !selectedTileQuestion) {
     return null;
   }
+  const queryStatus = buildTileQueryStatus(selectedTile);
 
   return (
     <div className="inspector-summary-card">
       <span className="inspector-summary-kicker">Edit analysis</span>
-      <TileQuestionConfigSection {...props} />
-      <TileComparisonControls {...props} />
-      <TileFilterWeightControls {...props} />
-      <TileQueryActions {...props} />
+      <div className={queryStatus.hasPendingChanges ? "tile-query-status pending" : "tile-query-status"}>
+        <div>
+          <strong>{queryStatus.label}</strong>
+          <span>{queryStatus.description}</span>
+        </div>
+        <small>{queryStatus.visualizationLabel}</small>
+      </div>
+      <div className="tile-query-group">
+        <div className="explorer-section-header">
+          <strong>Source settings</strong>
+          <small>{queryStatus.sourceLabel}</small>
+        </div>
+        <div className="explorer-chip-row">
+          <span className="explorer-chip">Question: {queryStatus.questionLabel}</span>
+          <span className="explorer-chip">Compare: {queryStatus.comparisonLabel}</span>
+        </div>
+        <TileQuestionConfigSection {...props} />
+      </div>
+      <div className="tile-query-group">
+        <div className="explorer-section-header">
+          <strong>Comparison settings</strong>
+          <small>Trend or compare waves</small>
+        </div>
+        <TileComparisonControls {...props} />
+      </div>
+      <div className="tile-query-group">
+        <div className="explorer-section-header">
+          <strong>Filters and weights</strong>
+          <small>Analysis base</small>
+        </div>
+        <TileFilterWeightControls {...props} />
+      </div>
+      <div className="tile-query-group">
+        <div className="explorer-section-header">
+          <strong>Apply and save</strong>
+          <small>{queryStatus.hasPendingChanges ? "Refresh to update result" : "Reusable settings"}</small>
+        </div>
+        <TileQueryActions {...props} />
+      </div>
     </div>
   );
 }
