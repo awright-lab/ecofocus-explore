@@ -8,6 +8,7 @@ import {
   updatesForSavedBanner,
   updatesForSavedFilter,
   updatesForSavedWeight,
+  type SettingProvenanceEmptyState,
   type SettingProvenanceOption
 } from "./inspectorSettingProvenanceModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
@@ -109,13 +110,20 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
                   recordSavedSettingOriginCue("banner", nextBanner.label, selectedTile.id);
                 }}
               >
-                <option value="">{bannerDisabled ? "Wave comparison" : "Apply saved banner"}</option>
+                <option value="">
+                  {bannerDisabled ? "Wave comparison" : pickerView.bannerOptions.length === 0 ? "No saved banners" : "Apply saved banner"}
+                </option>
                 {pickerView.bannerOptions.map((item) => (
                   <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
                 ))}
               </select>
             )}
-            {row.id === "banner" && <SettingProvenanceOptionDetail option={activeBannerOption} fallback="Saved banner descriptions appear here after selection." />}
+            {row.id === "banner" && (
+              <SettingProvenanceOptionDetail
+                option={activeBannerOption}
+                emptyState={bannerDisabled ? { label: "Wave comparison uses Summary", helper: "Turn off wave comparison before applying a saved banner." } : pickerView.bannerEmptyState}
+              />
+            )}
             {row.id === "filter" && (
               <select
                 aria-label="Apply saved filter"
@@ -128,13 +136,13 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
                   recordSavedSettingOriginCue("filter", nextFilter.label, selectedTile.id);
                 }}
               >
-                <option value="">Apply saved filter</option>
+                <option value="">{pickerView.filterOptions.length === 0 ? "No saved filters" : "Apply saved filter"}</option>
                 {pickerView.filterOptions.map((item) => (
                   <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
                 ))}
               </select>
             )}
-            {row.id === "filter" && <SettingProvenanceOptionDetail option={activeFilterOption} fallback="Saved filter descriptions appear here after selection." />}
+            {row.id === "filter" && <SettingProvenanceOptionDetail option={activeFilterOption} emptyState={pickerView.filterEmptyState} />}
             {row.id === "weight" && (
               <select
                 aria-label="Apply saved weight"
@@ -147,13 +155,13 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
                   recordSavedSettingOriginCue("weight", nextWeight.label, selectedTile.id);
                 }}
               >
-                <option value="">Apply saved weight</option>
+                <option value="">{pickerView.weightOptions.length === 0 ? "No saved weights" : "Apply saved weight"}</option>
                 {pickerView.weightOptions.map((item) => (
                   <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
                 ))}
               </select>
             )}
-            {row.id === "weight" && <SettingProvenanceOptionDetail option={activeWeightOption} fallback="Saved weight descriptions appear here after selection." />}
+            {row.id === "weight" && <SettingProvenanceOptionDetail option={activeWeightOption} emptyState={pickerView.weightEmptyState} />}
           </div>
         ))}
       </div>
@@ -193,11 +201,11 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   );
 }
 
-function SettingProvenanceOptionDetail({ option, fallback }: { option?: SettingProvenanceOption; fallback: string }) {
+function SettingProvenanceOptionDetail({ option, emptyState }: { option?: SettingProvenanceOption; emptyState: SettingProvenanceEmptyState }) {
   return (
     <div className={option ? "settings-provenance-detail active" : "settings-provenance-detail"}>
-      <span>{option?.summary ?? "No saved setting selected"}</span>
-      <small>{option?.description ?? fallback}</small>
+      <span>{option?.summary ?? emptyState.label}</span>
+      <small>{option?.description ?? emptyState.helper}</small>
     </div>
   );
 }

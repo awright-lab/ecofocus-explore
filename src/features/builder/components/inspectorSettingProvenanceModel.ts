@@ -26,6 +26,11 @@ export interface SettingProvenanceOption {
   summary: string;
 }
 
+export interface SettingProvenanceEmptyState {
+  label: string;
+  helper: string;
+}
+
 export interface SettingProvenancePickerView {
   bannerOptions: SettingProvenanceOption[];
   filterOptions: SettingProvenanceOption[];
@@ -33,6 +38,9 @@ export interface SettingProvenancePickerView {
   activeBannerId: string;
   activeFilterId: string;
   activeWeightId: string;
+  bannerEmptyState: SettingProvenanceEmptyState;
+  filterEmptyState: SettingProvenanceEmptyState;
+  weightEmptyState: SettingProvenanceEmptyState;
 }
 
 function bannerLabel(tile: DashboardTile) {
@@ -140,7 +148,19 @@ export function buildSettingProvenancePickerView(
     activeBannerId: savedBanners.find((item) => item.datasetId === tile.query.dataset && item.breakBy === tile.query.breakBy)?.id ?? "",
     activeFilterId:
       savedFilters.find((item) => item.datasetId === tile.query.dataset && item.filterField === activeFilterField && item.filterValue === activeFilterValue)?.id ?? "",
-    activeWeightId: savedWeights.find((item) => item.datasetId === tile.query.dataset && item.weight === (tile.query.weight ?? null))?.id ?? ""
+    activeWeightId: savedWeights.find((item) => item.datasetId === tile.query.dataset && item.weight === (tile.query.weight ?? null))?.id ?? "",
+    bannerEmptyState: {
+      label: "No compatible saved banners",
+      helper: "Save a reusable banner from this tile or choose a question with compatible banners."
+    },
+    filterEmptyState: {
+      label: "No saved filters",
+      helper: "Save a reusable filter from this tile to apply it here later."
+    },
+    weightEmptyState: {
+      label: "No saved weights",
+      helper: "Save a reusable weight from this tile to apply it here later."
+    }
   };
 }
 

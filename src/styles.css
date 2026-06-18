@@ -1884,6 +1884,10 @@ button:disabled {
   color: #174f3d;
 }
 
+.settings-provenance-detail:not(.active) {
+  padding: 5px 0 0;
+}
+
 .settings-provenance-detail span {
   color: #20342a;
   font-size: 0.68rem;
