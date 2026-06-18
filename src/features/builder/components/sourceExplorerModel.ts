@@ -30,6 +30,17 @@ export interface SourceDetailView {
   lists: SourceDetailList[];
 }
 
+export interface VariableSetRowDetail {
+  id: string;
+  label: string;
+  kindLabel: string;
+  order: number;
+  visible: boolean;
+  emphasis: "detail" | "summary";
+  sourceSummary: string;
+  composition: string[];
+}
+
 function groupLabel(topic: string | undefined) {
   return topic?.trim() || "Uncategorized";
 }
@@ -70,6 +81,13 @@ function questionTypeLabel(type: QuestionMetadata["type"]) {
   if (type === "multi_binary_set") return "Multi-response";
   if (type === "single_select") return "Single select";
   return type;
+}
+
+function rowKindLabel(kind: SavedVariableSet["rows"][number]["kind"]) {
+  if (kind === "topbox") return "Top box";
+  if (kind === "bottombox") return "Bottom box";
+  if (kind === "net") return "Net";
+  return "Option";
 }
 
 export function questionMetadataChips(question: QuestionMetadata) {
@@ -184,4 +202,24 @@ export function buildVariableSetSourceDetail(variableSet: SavedVariableSet, prim
       { label: "Rows", items: variableSet.rows.map((row) => `${row.label}${row.visible ? "" : " (hidden)"}`) }
     ]
   };
+}
+
+export function buildVariableSetRowDetails(rows: SavedVariableSet["rows"], question: QuestionMetadata): VariableSetRowDetail[] {
+  const optionLabels = new Map(question.options.map((option) => [option.id, option.label]));
+  return rows
+    .slice()
+    .sort((a, b) => a.rowOrder - b.rowOrder)
+    .map((row, index) => {
+      const composition = row.sourceOptionIds.map((optionId) => optionLabels.get(optionId) ?? optionId);
+      return {
+        id: row.id,
+        label: row.label,
+        kindLabel: rowKindLabel(row.kind),
+        order: index + 1,
+        visible: row.visible,
+        emphasis: row.emphasis,
+        sourceSummary: composition.length ? `${pluralize(composition.length, "source option")}` : "No source options",
+        composition
+      };
+    });
 }

@@ -951,6 +951,85 @@ h2 {
   overflow: auto;
 }
 
+.source-row-refinement {
+  display: grid;
+  gap: 8px;
+}
+
+.source-row-refinement__list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.source-row-card {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #dce5ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.source-row-card.muted {
+  border-style: dashed;
+  background: #f7faf9;
+}
+
+.source-row-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.source-row-card__header div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.source-row-card__header span {
+  color: #698077;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.source-row-card__header strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.source-row-kind {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid #dce5ea;
+  border-radius: 999px;
+  background: #f8fbfc;
+  color: #486055 !important;
+}
+
+.source-row-card p {
+  margin: 0;
+  color: #586f65;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.source-row-card__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px 56px;
+  gap: 6px;
+}
+
+.source-row-card__controls select,
+.source-row-card__controls button {
+  min-height: 30px;
+  font-size: 0.7rem;
+}
+
 .explorer-meta-block {
   display: grid;
   align-content: center;

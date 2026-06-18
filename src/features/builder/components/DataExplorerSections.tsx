@@ -29,7 +29,10 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
     applyQuestionSelection,
     startDataSourceDrag,
     selectedVariableSet,
-    selectedQuestion
+    selectedQuestion,
+    variableSetRows,
+    updateVariableSetRow,
+    reorderVariableSetRow
   } = props;
   const variableSetGroups = groupVariableSetsByTopic(filteredVariableSets);
   const questionGroups = groupQuestionsByTopic(filteredQuestions);
@@ -137,7 +140,14 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                       </div>
                     </div>
                     )}
-                    <SourceDetailPanel selectedDataSource={selectedDataSource} selectedQuestion={selectedQuestion} selectedVariableSet={selectedVariableSet} />
+                    <SourceDetailPanel
+                      selectedDataSource={selectedDataSource}
+                      selectedQuestion={selectedQuestion}
+                      selectedVariableSet={selectedVariableSet}
+                      variableSetRows={variableSetRows}
+                      updateVariableSetRow={updateVariableSetRow}
+                      reorderVariableSetRow={reorderVariableSetRow}
+                    />
                   </>
   );
 }
