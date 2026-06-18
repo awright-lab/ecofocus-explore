@@ -1882,6 +1882,28 @@ h2 {
   line-height: 1.35;
 }
 
+.variable-set-coverage-focus-summary {
+  display: grid;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid rgba(155, 112, 36, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.variable-set-coverage-focus-summary strong,
+.variable-set-coverage-focus-summary span {
+  color: #675534;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.variable-set-coverage-focus-summary span {
+  color: #7d6a46;
+  font-weight: 650;
+}
+
 .variable-set-coverage-option {
   border-color: rgba(155, 112, 36, 0.34);
   cursor: pointer;

@@ -18,6 +18,7 @@ export function VariableSetCoverageSummaryCard({ coverage, focusedSourceOptionId
   const [showMultiplyUsedOptions, setShowMultiplyUsedOptions] = useState(false);
   const hasUncoveredOptions = coverage.uncoveredOptionLabels.length > 0;
   const hasMultiplyUsedOptions = coverage.multiplyUsedOptionLabels.length > 0;
+  const focusedMultiplyUsedOption = coverage.multiplyUsedOptions.find((option) => option.id === focusedSourceOptionId);
 
   return (
     <div className={`variable-set-coverage-card ${coverage.status}`}>
@@ -103,6 +104,12 @@ export function VariableSetCoverageSummaryCard({ coverage, focusedSourceOptionId
               );
             })}
           </div>
+          {focusedMultiplyUsedOption && (
+            <div className="variable-set-coverage-focus-summary">
+              <strong>{focusedMultiplyUsedOption.summaryLabel}</strong>
+              <span>{focusedMultiplyUsedOption.rowLabels.join(", ")}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

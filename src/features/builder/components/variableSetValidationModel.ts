@@ -78,6 +78,9 @@ export interface VariableSetRecodeCoverageView {
 export interface VariableSetCoverageOption {
   id: string;
   label: string;
+  rowCount: number;
+  rowLabels: string[];
+  summaryLabel: string;
 }
 
 export interface VariableSetAuthoredRowAuditView {
@@ -177,7 +180,13 @@ function rowMiniSummaryLabel(includedCount: number, totalCount: number, unknownC
 
 function buildCoverageView(question: QuestionMetadata, includedOptionIds: Set<string>, overlapWarnings: VariableSetOverlapWarning[]): VariableSetRecodeCoverageView {
   const uncoveredOptionLabels = question.options.filter((option) => !includedOptionIds.has(option.id)).map((option) => option.label);
-  const multiplyUsedOptions = overlapWarnings.map((warning) => ({ id: warning.id, label: warning.optionLabel }));
+  const multiplyUsedOptions = overlapWarnings.map((warning) => ({
+    id: warning.id,
+    label: warning.optionLabel,
+    rowCount: warning.rowLabels.length,
+    rowLabels: warning.rowLabels,
+    summaryLabel: `${warning.rowLabels.length} authored row${warning.rowLabels.length === 1 ? "" : "s"} use this option`
+  }));
   const multiplyUsedOptionLabels = multiplyUsedOptions.map((option) => option.label);
   const coveredOptionCount = question.options.length - uncoveredOptionLabels.length;
   const status = uncoveredOptionLabels.length > 0 || multiplyUsedOptionLabels.length > 0 ? "review" : "ready";

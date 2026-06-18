@@ -260,7 +260,7 @@ export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps & P
                           {focusedSourceOption && (
                             <div className="variable-set-focus-empty active">
                               <strong>Rows using {focusedSourceOption.label}</strong>
-                              <span>Showing authored rows that include this multiply used source option.</span>
+                              <span>{focusedSourceOption.summaryLabel}: {focusedSourceOption.rowLabels.join(", ")}</span>
                               <button type="button" className="secondary" onClick={onClearFocusedSourceOption}>
                                 Clear option focus
                               </button>
