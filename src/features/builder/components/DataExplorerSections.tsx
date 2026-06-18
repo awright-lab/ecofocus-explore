@@ -7,6 +7,12 @@ import {
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { BreakById, ChartType, ComparisonMode, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
+import {
+  groupQuestionsByTopic,
+  groupVariableSetsByTopic,
+  questionMetadataChips,
+  variableSetMetadataChips
+} from "./sourceExplorerModel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 
 export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
@@ -24,6 +30,8 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
     selectedVariableSet,
     selectedQuestion
   } = props;
+  const variableSetGroups = groupVariableSetsByTopic(filteredVariableSets);
+  const questionGroups = groupQuestionsByTopic(filteredQuestions);
 
   return (
                   <>
@@ -32,7 +40,11 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                         <span>Current source</span>
                         <strong>{selectedVariableSet ? selectedVariableSet.label : selectedQuestion.shortLabel}</strong>
                       </div>
-                      <small>{selectedVariableSet ? selectedVariableSet.description : selectedQuestion.topic}</small>
+                      <small>
+                        {selectedVariableSet
+                          ? `${selectedVariableSet.description} · ${selectedVariableSet.rows.length} rows`
+                          : `${selectedQuestion.label} · ${selectedQuestion.options.length} options · ${defaultDataset.wave}`}
+                      </small>
                     </div>
                     <label>
                       Search sources
@@ -52,19 +64,34 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                         <strong>Variable sets</strong>
                         <small>{filteredVariableSets.length} shown</small>
                       </div>
-                      <div className="explorer-item-list">
-                        {filteredVariableSets.map((item) => (
-                          <button
-                            type="button"
-                            key={item.id}
-                            draggable
-                            className={selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
-                            onClick={() => applyVariableSetSelection(item)}
-                            onDragStart={(event) => startDataSourceDrag({ kind: "variableSet", id: item.id }, event)}
-                          >
-                            <strong>{item.label}</strong>
-                            <span>{item.topic} · Drag to canvas</span>
-                          </button>
+                      <div className="explorer-item-list source-group-list">
+                        {variableSetGroups.map((group) => (
+                          <div className="source-group" key={group.id}>
+                            <div className="source-group-header">
+                              <strong>{group.label}</strong>
+                              <span>{group.items.length} sets</span>
+                            </div>
+                            {group.items.map((item) => (
+                              <button
+                                type="button"
+                                key={item.id}
+                                draggable
+                                className={selectedDataSource.kind === "variableSet" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
+                                onClick={() => applyVariableSetSelection(item)}
+                                onDragStart={(event) => startDataSourceDrag({ kind: "variableSet", id: item.id }, event)}
+                              >
+                                <strong>{item.label}</strong>
+                                <span>{item.description}</span>
+                                <div className="source-metadata-row">
+                                  {variableSetMetadataChips(item).map((chip) => (
+                                    <span className="explorer-chip" key={chip}>
+                                      {chip}
+                                    </span>
+                                  ))}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
                         ))}
                         {filteredVariableSets.length === 0 && <div className="empty-state compact">No variable sets match that search.</div>}
                       </div>
@@ -76,19 +103,34 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                         <strong>Questions</strong>
                         <small>{filteredQuestions.length} shown</small>
                       </div>
-                      <div className="explorer-item-list">
-                        {filteredQuestions.map((item) => (
-                          <button
-                            type="button"
-                            key={item.id}
-                            draggable
-                            className={selectedDataSource.kind === "question" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
-                            onClick={() => applyQuestionSelection(item)}
-                            onDragStart={(event) => startDataSourceDrag({ kind: "question", id: item.id }, event)}
-                          >
-                            <strong>{item.shortLabel}</strong>
-                            <span>{item.topic} · Drag to canvas</span>
-                          </button>
+                      <div className="explorer-item-list source-group-list">
+                        {questionGroups.map((group) => (
+                          <div className="source-group" key={group.id}>
+                            <div className="source-group-header">
+                              <strong>{group.label}</strong>
+                              <span>{group.items.length} questions</span>
+                            </div>
+                            {group.items.map((item) => (
+                              <button
+                                type="button"
+                                key={item.id}
+                                draggable
+                                className={selectedDataSource.kind === "question" && selectedDataSource.id === item.id ? "explorer-item active" : "explorer-item"}
+                                onClick={() => applyQuestionSelection(item)}
+                                onDragStart={(event) => startDataSourceDrag({ kind: "question", id: item.id }, event)}
+                              >
+                                <strong>{item.shortLabel}</strong>
+                                <span>{item.label}</span>
+                                <div className="source-metadata-row">
+                                  {questionMetadataChips(item).map((chip) => (
+                                    <span className="explorer-chip" key={chip}>
+                                      {chip}
+                                    </span>
+                                  ))}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
                         ))}
                         {filteredQuestions.length === 0 && <div className="empty-state compact">No questions match that search.</div>}
                       </div>

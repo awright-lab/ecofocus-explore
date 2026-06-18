@@ -821,6 +821,34 @@ h2 {
   max-height: 132px;
 }
 
+.source-group-list {
+  gap: 10px;
+}
+
+.source-group {
+  display: grid;
+  gap: 6px;
+}
+
+.source-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.source-group-header strong {
+  color: #31473c;
+  font-size: 0.74rem;
+}
+
+.source-group-header span {
+  color: #789086;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
 .explorer-item {
   display: grid;
   gap: 3px;
@@ -846,6 +874,19 @@ h2 {
   border-color: var(--accent-eco);
   background: #ebfaf4;
   box-shadow: 0 0 0 2px var(--accent-eco-soft);
+}
+
+.source-metadata-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-top: 3px;
+}
+
+.source-metadata-row .explorer-chip {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 0.66rem;
 }
 
 .explorer-meta-block {
