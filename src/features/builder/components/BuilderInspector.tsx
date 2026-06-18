@@ -31,7 +31,7 @@ import type {
   TextStylePreset,
   TileAppearance
 } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, DesignModal, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
+import type { AnalysisLibraryView, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 
 export type BuilderInspectorProps = {
   settingsView: SettingsView;
@@ -43,6 +43,10 @@ export type BuilderInspectorProps = {
   deleteActivePage: () => void;
   selectedTile: DashboardTile | null;
   selectedElement: DashboardCanvasElement | null;
+  multiSelectedObjects: MultiSelectedObject[];
+  setMultiSelectedHidden: (hidden: boolean) => void;
+  setMultiSelectedLocked: (locked: boolean) => void;
+  clearMultiSelection: () => void;
   savedBanners: SavedBanner[];
   savedFilters: SavedFilterSet[];
   savedWeights: SavedWeightProfile[];
@@ -107,6 +111,10 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   deleteActivePage,
   selectedTile,
   selectedElement,
+  multiSelectedObjects,
+  setMultiSelectedHidden,
+  setMultiSelectedLocked,
+  clearMultiSelection,
   selectedTileQuestion,
   selectedTileFilterDimension,
   selectedChartPart,
@@ -145,11 +153,38 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   deleteSelectedItem,
   isLoading
   } = props;
+  const multiSelectedTiles = activePage.tiles.filter((tile) => multiSelectedObjects.some((item) => item.type === "tile" && item.id === tile.id));
+  const multiSelectedElements = activePage.elements.filter((element) => multiSelectedObjects.some((item) => item.type === "element" && item.id === element.id));
+  const multiSelectedCount = multiSelectedTiles.length + multiSelectedElements.length;
+
   return (
 <BuilderPanel className="panel settings" label="Tile settings">
           <div className="panel-title">
             <h2>Settings</h2>
           </div>
+          {multiSelectedCount > 0 && (
+            <div className="multi-selection-card">
+              <div className="explorer-section-header">
+                <strong>{multiSelectedCount} selected</strong>
+                <small>{multiSelectedTiles.length} tiles · {multiSelectedElements.length} elements</small>
+              </div>
+              <div className="multi-selection-list">
+                {[...multiSelectedTiles.map((tile) => ({ id: tile.id, label: tile.title || tile.name, kind: "Tile", hidden: tile.hidden, locked: tile.locked })), ...multiSelectedElements.map((element) => ({ id: element.id, label: element.name, kind: "Element", hidden: element.hidden, locked: element.locked }))].map((item) => (
+                  <div className="multi-selection-row" key={`${item.kind}-${item.id}`}>
+                    <span>{item.label}</span>
+                    <small>{item.kind} · {item.hidden ? "Hidden" : "Visible"} · {item.locked ? "Locked" : "Unlocked"}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="brand-card-actions">
+                <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(true)}>Hide</button>
+                <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(false)}>Show</button>
+                <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(true)}>Lock</button>
+                <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(false)}>Unlock</button>
+              </div>
+              <button type="button" className="secondary" onClick={clearMultiSelection}>Clear selection</button>
+            </div>
+          )}
           {settingsView === "home" ? (
             <div className="settings-menu">
               <button type="button" className="menu-card" onClick={() => setSettingsView("page")}>

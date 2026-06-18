@@ -3,13 +3,16 @@ import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
-import type { ReportTreeSelectionCue } from "../builderTypes";
+import type { MultiSelectedObject, ReportTreeSelectionCue } from "../builderTypes";
 
 type ReportPageTreeProps = {
   sortedPages: DashboardPage[];
   activePage: DashboardPage;
   selectedTileId: string | null;
   selectedElementId: string | null;
+  multiSelectedObjects: MultiSelectedObject[];
+  toggleMultiSelectedObject: (item: MultiSelectedObject) => void;
+  clearMultiSelection: () => void;
   pageTemplates: PageTemplatePreset[];
   pageThemes: PageThemePreset[];
   setActivePageId: (pageId: string) => void;
@@ -68,6 +71,9 @@ export function ReportPageTree({
   activePage,
   selectedTileId,
   selectedElementId,
+  multiSelectedObjects,
+  toggleMultiSelectedObject,
+  clearMultiSelection,
   pageTemplates,
   pageThemes,
   setActivePageId,
@@ -134,6 +140,16 @@ export function ReportPageTree({
     setExpandedPageIds((current) => (current.includes(pageId) ? current.filter((id) => id !== pageId) : [...current, pageId]));
   }
 
+  function isMultiSelected(item: MultiSelectedObject) {
+    return multiSelectedObjects.some((selected) => selected.id === item.id && selected.type === item.type);
+  }
+
+  function toggleTreeMultiSelect(event: React.ChangeEvent<HTMLInputElement>, page: DashboardPage, item: MultiSelectedObject) {
+    event.stopPropagation();
+    if (page.id !== activePage.id) return;
+    toggleMultiSelectedObject(item);
+  }
+
   function selectPageTile(page: DashboardPage, tile: DashboardTile) {
     setActivePageId(page.id);
     recordReportTreeSelectionCue({
@@ -191,6 +207,11 @@ export function ReportPageTree({
           <strong>{sortedPages.length} pages</strong>
         </div>
         <small>{sortedPages.reduce((total, page) => total + pageObjectCount(page), 0)} objects</small>
+        {multiSelectedObjects.length > 0 && (
+          <button type="button" className="mini-button" onClick={clearMultiSelection}>
+            Clear {multiSelectedObjects.length}
+          </button>
+        )}
       </div>
       <label>
         Search pages
@@ -283,8 +304,18 @@ export function ReportPageTree({
                   ) : (
                     pageObjects.map((item) => {
                       if ("visualization" in item) {
+                        const multiSelected = isMultiSelected({ id: item.id, type: "tile" });
+                        const canMultiSelect = page.id === activePage.id;
                         return (
-                          <div className={selectedTileId === item.id ? "report-page-object-row active" : "report-page-object-row"} key={item.id}>
+                          <div className={selectedTileId === item.id ? "report-page-object-row active" : multiSelected ? "report-page-object-row multi-selected" : "report-page-object-row"} key={item.id}>
+                            <label className="report-page-object-check" title={canMultiSelect ? "Add to multi-selection" : "Switch to this page before multi-selecting"}>
+                              <input
+                                type="checkbox"
+                                checked={multiSelected}
+                                disabled={!canMultiSelect}
+                                onChange={(event) => toggleTreeMultiSelect(event, page, { id: item.id, type: "tile" })}
+                              />
+                            </label>
                             <button type="button" className="report-page-object-select" onClick={() => selectPageTile(page, item)}>
                               <span>{item.title || item.name}</span>
                               <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
@@ -301,8 +332,18 @@ export function ReportPageTree({
                         );
                       }
 
+                      const multiSelected = isMultiSelected({ id: item.id, type: "element" });
+                      const canMultiSelect = page.id === activePage.id;
                       return (
-                        <div className={selectedElementId === item.id ? "report-page-object-row active" : "report-page-object-row"} key={item.id}>
+                        <div className={selectedElementId === item.id ? "report-page-object-row active" : multiSelected ? "report-page-object-row multi-selected" : "report-page-object-row"} key={item.id}>
+                          <label className="report-page-object-check" title={canMultiSelect ? "Add to multi-selection" : "Switch to this page before multi-selecting"}>
+                            <input
+                              type="checkbox"
+                              checked={multiSelected}
+                              disabled={!canMultiSelect}
+                              onChange={(event) => toggleTreeMultiSelect(event, page, { id: item.id, type: "element" })}
+                            />
+                          </label>
                           <button type="button" className="report-page-object-select" onClick={() => selectPageElement(page, item)}>
                             <span>{item.name}</span>
                             <small>{elementTypeLabel(item)} · {objectStatus(item)}</small>

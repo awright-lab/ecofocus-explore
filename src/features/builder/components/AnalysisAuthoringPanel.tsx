@@ -14,7 +14,7 @@ import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
+import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
   leftPanelView: LeftPanelView;
@@ -22,6 +22,9 @@ export type AnalysisAuthoringPanelProps = {
   layerItems: LayerItem[];
   selectedTileId: string | null;
   selectedElementId: string | null;
+  multiSelectedObjects: MultiSelectedObject[];
+  toggleMultiSelectedObject: (item: MultiSelectedObject) => void;
+  clearMultiSelection: () => void;
   chooseLayer: (item: LayerItem) => void;
   selectTile: (tileId: string) => void;
   selectElement: (elementId: string) => void;
@@ -143,6 +146,9 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   layerItems,
   selectedTileId,
   selectedElementId,
+  multiSelectedObjects,
+  toggleMultiSelectedObject,
+  clearMultiSelection,
   chooseLayer,
   selectTile,
   selectElement,
@@ -303,6 +309,9 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   activePage={activePage}
                   selectedTileId={selectedTileId}
                   selectedElementId={selectedElementId}
+                  multiSelectedObjects={multiSelectedObjects}
+                  toggleMultiSelectedObject={toggleMultiSelectedObject}
+                  clearMultiSelection={clearMultiSelection}
                   pageTemplates={pageTemplates}
                   pageThemes={pageThemes}
                   setActivePageId={setActivePageId}

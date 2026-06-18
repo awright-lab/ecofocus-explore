@@ -118,6 +118,8 @@ export default function BuilderApp() {
     setSelectedTileId,
     selectedElementId,
     setSelectedElementId,
+    multiSelectedObjects,
+    setMultiSelectedObjects,
     selectedChartPartId,
     setSelectedChartPartId,
     leftPanelView,
@@ -165,6 +167,11 @@ export default function BuilderApp() {
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
+  const activeMultiSelectedObjects = multiSelectedObjects.filter((item) =>
+    item.type === "tile"
+      ? activePage.tiles.some((tile) => tile.id === item.id)
+      : activePage.elements.some((element) => element.id === item.id)
+  );
   const selectedTextElement = selectedElement?.type === "text" ? selectedElement : null;
   const selectedTileQuestion = selectedTile
     ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion
@@ -347,6 +354,10 @@ export default function BuilderApp() {
     selectTile,
     selectElement,
     selectPage,
+    toggleMultiSelectedObject,
+    clearMultiSelection,
+    setMultiSelectedHidden,
+    setMultiSelectedLocked,
     changeSelectedLayer,
     addCanvasElement,
     addTextBlockPreset,
@@ -384,9 +395,11 @@ export default function BuilderApp() {
     selectedElement,
     selectedTileId,
     selectedElementId,
+    multiSelectedObjects: activeMultiSelectedObjects,
     setActivePageId,
     setSelectedTileId,
     setSelectedElementId,
+    setMultiSelectedObjects,
     setSelectedChartPartId,
     setSettingsView,
     setLeftPanelView,
@@ -732,6 +745,9 @@ export default function BuilderApp() {
           layerItems={layerItems}
           selectedTileId={selectedTileId}
           selectedElementId={selectedElementId}
+          multiSelectedObjects={activeMultiSelectedObjects}
+          toggleMultiSelectedObject={toggleMultiSelectedObject}
+          clearMultiSelection={clearMultiSelection}
           chooseLayer={chooseLayer}
           selectTile={selectTile}
           selectElement={selectElement}
@@ -888,6 +904,10 @@ export default function BuilderApp() {
           deleteActivePage={deleteActivePage}
           selectedTile={selectedTile}
           selectedElement={selectedElement}
+          multiSelectedObjects={activeMultiSelectedObjects}
+          setMultiSelectedHidden={setMultiSelectedHidden}
+          setMultiSelectedLocked={setMultiSelectedLocked}
+          clearMultiSelection={clearMultiSelection}
           savedBanners={savedBanners}
           savedFilters={savedFilters}
           savedWeights={savedWeights}

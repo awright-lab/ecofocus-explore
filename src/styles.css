@@ -693,7 +693,7 @@ h2 {
 
 .report-page-object-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 6px;
   align-items: center;
   width: 100%;
@@ -720,6 +720,24 @@ h2 {
 .report-page-object-row.active {
   border-color: #b8d7c5;
   background: #f2fbf5;
+}
+
+.report-page-object-row.multi-selected {
+  border-color: #7cbf95;
+  background: #eef9f1;
+}
+
+.report-page-object-check {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+}
+
+.report-page-object-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #167a4a;
 }
 
 .report-page-object-select span {
@@ -749,6 +767,47 @@ h2 {
   min-width: 44px;
   min-height: 23px;
   padding: 0 6px;
+}
+
+.multi-selection-card {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #c9decf;
+  border-radius: 10px;
+  background: #f3fbf5;
+}
+
+.multi-selection-list {
+  display: grid;
+  max-height: 150px;
+  overflow: auto;
+  gap: 5px;
+}
+
+.multi-selection-row {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 6px 7px;
+  border: 1px solid #d8e8dd;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.multi-selection-row span,
+.multi-selection-row small {
+  overflow: hidden;
+  color: #20342a;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multi-selection-row small {
+  color: #60756b;
+  font-weight: 650;
 }
 
 .report-page-node__body {

@@ -14,6 +14,7 @@ import {
 import { initialDashboard } from "../../document/documentSeeds";
 import { clampZIndex, nextZIndex } from "../../document/documentModel";
 import type { LayerItem, LeftPanelView, SettingsView } from "../builderTypes";
+import type { MultiSelectedObject } from "../builderTypes";
 import type {
   CanvasLayout,
   DashboardCanvasElement,
@@ -47,9 +48,11 @@ type UseBuilderDocumentSessionCommandsArgs = {
   selectedElement: DashboardCanvasElement | null;
   selectedTileId: string | null;
   selectedElementId: string | null;
+  multiSelectedObjects: MultiSelectedObject[];
   setActivePageId: (id: string) => void;
   setSelectedTileId: SetNullableId;
   setSelectedElementId: SetNullableId;
+  setMultiSelectedObjects: React.Dispatch<React.SetStateAction<MultiSelectedObject[]>>;
   setSelectedChartPartId: (id: string) => void;
   setSettingsView: (view: SettingsView) => void;
   setLeftPanelView: (view: LeftPanelView) => void;
@@ -73,9 +76,11 @@ export function useBuilderDocumentSessionCommands({
   selectedElement,
   selectedTileId,
   selectedElementId,
+  multiSelectedObjects,
   setActivePageId,
   setSelectedTileId,
   setSelectedElementId,
+  setMultiSelectedObjects,
   setSelectedChartPartId,
   setSettingsView,
   setLeftPanelView,
@@ -211,6 +216,7 @@ export function useBuilderDocumentSessionCommands({
   function selectTile(tileId: string) {
     setSelectedTileId(tileId);
     setSelectedElementId(null);
+    setMultiSelectedObjects([]);
     setSelectedChartPartId("all");
     setSettingsView("chart");
   }
@@ -218,6 +224,7 @@ export function useBuilderDocumentSessionCommands({
   function selectElement(elementId: string) {
     setSelectedElementId(elementId);
     setSelectedTileId(null);
+    setMultiSelectedObjects([]);
     setSelectedChartPartId("all");
     setSettingsView("element");
   }
@@ -225,8 +232,64 @@ export function useBuilderDocumentSessionCommands({
   function selectPage() {
     setSelectedTileId(null);
     setSelectedElementId(null);
+    setMultiSelectedObjects([]);
     setSelectedChartPartId("all");
     setSettingsView("page");
+  }
+
+  function toggleMultiSelectedObject(item: MultiSelectedObject) {
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+    setSettingsView("layout");
+    setMultiSelectedObjects((current) => {
+      const exists = current.some((selected) => selected.id === item.id && selected.type === item.type);
+      return exists ? current.filter((selected) => selected.id !== item.id || selected.type !== item.type) : [...current, item];
+    });
+  }
+
+  function clearMultiSelection() {
+    setMultiSelectedObjects([]);
+  }
+
+  function setMultiSelectedHidden(hidden: boolean) {
+    if (multiSelectedObjects.length === 0) return;
+    const selectedTileIds = new Set(multiSelectedObjects.filter((item) => item.type === "tile").map((item) => item.id));
+    const selectedElementIds = new Set(multiSelectedObjects.filter((item) => item.type === "element").map((item) => item.id));
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) => (selectedTileIds.has(tile.id) ? { ...tile, hidden } : tile)),
+              elements: page.elements.map((element) => (selectedElementIds.has(element.id) ? { ...element, hidden } : element))
+            }
+          : page
+      )
+    }));
+  }
+
+  function setMultiSelectedLocked(locked: boolean) {
+    if (multiSelectedObjects.length === 0) return;
+    const selectedTileIds = new Set(multiSelectedObjects.filter((item) => item.type === "tile").map((item) => item.id));
+    const selectedElementIds = new Set(multiSelectedObjects.filter((item) => item.type === "element").map((item) => item.id));
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: page.tiles.map((tile) => (selectedTileIds.has(tile.id) ? { ...tile, locked } : tile)),
+              elements: page.elements.map((element) => (selectedElementIds.has(element.id) ? { ...element, locked } : element))
+            }
+          : page
+      )
+    }));
   }
 
   function selectLayer(item: LayerItem) {
@@ -525,6 +588,10 @@ export function useBuilderDocumentSessionCommands({
     selectTile,
     selectElement,
     selectPage,
+    toggleMultiSelectedObject,
+    clearMultiSelection,
+    setMultiSelectedHidden,
+    setMultiSelectedLocked,
     changeSelectedLayer,
     addCanvasElement,
     addTextBlockPreset,

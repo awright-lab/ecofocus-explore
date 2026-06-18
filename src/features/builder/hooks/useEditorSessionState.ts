@@ -23,6 +23,7 @@ export function useEditorSessionState() {
   const [activePageId, setActivePageId] = useState("page_overview");
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [multiSelectedObjects, setMultiSelectedObjects] = useState<Array<{ id: string; type: "tile" | "element" }>>([]);
   const [selectedChartPartId, setSelectedChartPartId] = useState("all");
   const [leftPanelView, setLeftPanelView] = useState<LeftPanelView>("pages");
   const [exploreView, setExploreView] = useState<ExploreView>("source");
@@ -58,6 +59,8 @@ export function useEditorSessionState() {
     setSelectedTileId,
     selectedElementId,
     setSelectedElementId,
+    multiSelectedObjects,
+    setMultiSelectedObjects,
     selectedChartPartId,
     setSelectedChartPartId,
     leftPanelView,
