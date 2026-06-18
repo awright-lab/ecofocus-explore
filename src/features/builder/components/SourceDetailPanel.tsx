@@ -15,7 +15,7 @@ import {
 import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCard";
 import { VariableSetCoverageSummaryCard } from "./VariableSetCoverageSummaryCard";
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
-import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, type VariableSetReadinessView } from "./variableSetValidationModel";
+import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow, type VariableSetCoverageOption, type VariableSetReadinessView } from "./variableSetValidationModel";
 
 interface SourceDetailPanelProps {
   selectedDataSource: AnalysisAuthoringPanelProps["selectedDataSource"];
@@ -196,7 +196,14 @@ function VariableSetRowRefinement({
   const recodeRows = new Map(recodePreview.rows.map((row) => [row.rowId, row]));
   const rowsById = new Map(variableSetRows.map((row) => [row.id, row]));
   const [showRowsNeedingReview, setShowRowsNeedingReview] = useState(false);
-  const visibleRowDetails = rowDetails.filter((row) => !showRowsNeedingReview || Boolean(recodeRows.get(row.id)?.needsReview));
+  const [focusedSourceOption, setFocusedSourceOption] = useState<VariableSetCoverageOption | null>(null);
+  const visibleRowDetails = rowDetails.filter((row) => {
+    if (focusedSourceOption) {
+      const sourceRow = rowsById.get(row.id);
+      return Boolean(sourceRow && isAuthoredVariableSetRow(sourceRow) && sourceRow.sourceOptionIds.includes(focusedSourceOption.id));
+    }
+    return !showRowsNeedingReview || Boolean(recodeRows.get(row.id)?.needsReview);
+  });
 
   return (
     <div className="source-row-refinement">
@@ -205,7 +212,14 @@ function VariableSetRowRefinement({
         showReviewRows={showRowsNeedingReview}
         onToggleReviewRows={() => setShowRowsNeedingReview((current) => !current)}
       />
-      <VariableSetCoverageSummaryCard coverage={recodePreview.coverage} />
+      <VariableSetCoverageSummaryCard
+        coverage={recodePreview.coverage}
+        focusedSourceOptionId={focusedSourceOption?.id}
+        onFocusSourceOption={(option) => {
+          setFocusedSourceOption(option);
+          setShowRowsNeedingReview(false);
+        }}
+      />
       <div className="variable-set-recode-card">
         <div className="explorer-section-header">
           <strong>Recode and net preview</strong>
@@ -235,7 +249,22 @@ function VariableSetRowRefinement({
       <div className="source-detail-list">
         <span>Draft row refinement</span>
         <div className="source-row-refinement__list">
-          {visibleRowDetails.length === 0 && showRowsNeedingReview && (
+          {focusedSourceOption && (
+            <div className="variable-set-focus-empty active">
+              <strong>Rows using {focusedSourceOption.label}</strong>
+              <span>Showing authored rows that include this multiply used source option.</span>
+              <button type="button" className="secondary" onClick={() => setFocusedSourceOption(null)}>
+                Clear option focus
+              </button>
+            </div>
+          )}
+          {visibleRowDetails.length === 0 && focusedSourceOption && (
+            <div className="variable-set-focus-empty">
+              <strong>No authored rows use {focusedSourceOption.label}</strong>
+              <span>The current rows no longer include this source option.</span>
+            </div>
+          )}
+          {visibleRowDetails.length === 0 && showRowsNeedingReview && !focusedSourceOption && (
             <div className="variable-set-focus-empty">
               <strong>No authored rows need review</strong>
               <span>The current audit has no empty, unknown, or overlapping authored rows.</span>

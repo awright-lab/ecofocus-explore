@@ -32,6 +32,7 @@ import {
   weightReuseState
 } from "./libraryReuseModel";
 import { updateTileBanner, updateTileFilterField, updateTileFilterValue, updateTileWeight } from "./inspectorTileQueryModel";
+import type { VariableSetCoverageOption } from "./variableSetValidationModel";
 
 export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
   const {
@@ -483,6 +484,7 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
   const highlightNewestSet = savedLibraryHandoff?.view === "variableSets";
   const [insertionFeedback, setInsertionFeedback] = useState<SavedVariableSetInsertionFeedback | null>(null);
   const [showRowsNeedingReview, setShowRowsNeedingReview] = useState(false);
+  const [focusedSourceOption, setFocusedSourceOption] = useState<VariableSetCoverageOption | null>(null);
   const insertionContext = buildInsertionContextView({
     activePage,
     layerItems,
@@ -560,8 +562,18 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
         {...props}
         showRowsNeedingReview={showRowsNeedingReview}
         onToggleRowsNeedingReview={() => setShowRowsNeedingReview((current) => !current)}
+        focusedSourceOption={focusedSourceOption}
+        onFocusSourceOption={(option) => {
+          setFocusedSourceOption(option);
+          setShowRowsNeedingReview(false);
+        }}
       />
-      <VariableSetRowListSection {...props} showRowsNeedingReview={showRowsNeedingReview} />
+      <VariableSetRowListSection
+        {...props}
+        showRowsNeedingReview={showRowsNeedingReview}
+        focusedSourceOption={focusedSourceOption}
+        onClearFocusedSourceOption={() => setFocusedSourceOption(null)}
+      />
       <div className="compact-grid">
         <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(!selectedVariableSet)}>
           {selectedVariableSet ? "Update set" : "Save set"}

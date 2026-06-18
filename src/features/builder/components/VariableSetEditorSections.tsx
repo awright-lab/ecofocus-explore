@@ -8,11 +8,14 @@ import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCard";
 import { VariableSetCoverageSummaryCard } from "./VariableSetCoverageSummaryCard";
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
-import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow } from "./variableSetValidationModel";
+import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow, type VariableSetCoverageOption } from "./variableSetValidationModel";
 
 interface VariableSetIssueFocusProps {
   showRowsNeedingReview?: boolean;
   onToggleRowsNeedingReview?: () => void;
+  focusedSourceOption?: VariableSetCoverageOption | null;
+  onFocusSourceOption?: (option: VariableSetCoverageOption) => void;
+  onClearFocusedSourceOption?: () => void;
 }
 
 export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
@@ -101,7 +104,9 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & 
     toggleVariableSetOptionSelection,
     addVariableSetNet,
     showRowsNeedingReview = false,
-    onToggleRowsNeedingReview
+    onToggleRowsNeedingReview,
+    focusedSourceOption,
+    onFocusSourceOption
   } = props;
   const readiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
   const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
@@ -131,7 +136,11 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & 
                         showReviewRows={showRowsNeedingReview}
                         onToggleReviewRows={onToggleRowsNeedingReview}
                       />
-                      <VariableSetCoverageSummaryCard coverage={recodePreview.coverage} />
+                      <VariableSetCoverageSummaryCard
+                        coverage={recodePreview.coverage}
+                        focusedSourceOptionId={focusedSourceOption?.id}
+                        onFocusSourceOption={onFocusSourceOption}
+                      />
                       <div className="variable-set-recode-card">
                         <div className="explorer-section-header">
                           <strong>Recode preview</strong>
@@ -223,25 +232,47 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & 
   );
 }
 
-export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps & Pick<VariableSetIssueFocusProps, "showRowsNeedingReview">) {
+export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps & Pick<VariableSetIssueFocusProps, "showRowsNeedingReview" | "focusedSourceOption" | "onClearFocusedSourceOption">) {
   const {
     selectedQuestion,
     variableSetRows,
     updateVariableSetRow,
     reorderVariableSetRow,
     removeVariableSetRow,
-    showRowsNeedingReview = false
+    showRowsNeedingReview = false,
+    focusedSourceOption,
+    onClearFocusedSourceOption
   } = props;
   const recodeRows = new Map(buildVariableSetRecodePreview(variableSetRows, selectedQuestion).rows.map((row) => [row.rowId, row]));
   const orderedRows = variableSetRows
     .slice()
     .sort((a, b) => a.rowOrder - b.rowOrder);
-  const visibleRows = orderedRows.filter((row) => !showRowsNeedingReview || (isAuthoredVariableSetRow(row) && Boolean(recodeRows.get(row.id)?.needsReview)));
+  const visibleRows = orderedRows.filter((row) => {
+    if (focusedSourceOption) {
+      return isAuthoredVariableSetRow(row) && row.sourceOptionIds.includes(focusedSourceOption.id);
+    }
+    return !showRowsNeedingReview || (isAuthoredVariableSetRow(row) && Boolean(recodeRows.get(row.id)?.needsReview));
+  });
 
 	  return (
 	    <>
 	                        <div className="explorer-item-list compact">
-                          {visibleRows.length === 0 && showRowsNeedingReview && (
+                          {focusedSourceOption && (
+                            <div className="variable-set-focus-empty active">
+                              <strong>Rows using {focusedSourceOption.label}</strong>
+                              <span>Showing authored rows that include this multiply used source option.</span>
+                              <button type="button" className="secondary" onClick={onClearFocusedSourceOption}>
+                                Clear option focus
+                              </button>
+                            </div>
+                          )}
+                          {visibleRows.length === 0 && focusedSourceOption && (
+                            <div className="variable-set-focus-empty">
+                              <strong>No authored rows use {focusedSourceOption.label}</strong>
+                              <span>The current rows no longer include this source option.</span>
+                            </div>
+                          )}
+                          {visibleRows.length === 0 && showRowsNeedingReview && !focusedSourceOption && (
                             <div className="variable-set-focus-empty">
                               <strong>No authored rows need review</strong>
                               <span>The current audit has no empty, unknown, or overlapping authored rows.</span>

@@ -1882,6 +1882,17 @@ h2 {
   line-height: 1.35;
 }
 
+.variable-set-coverage-option {
+  border-color: rgba(155, 112, 36, 0.34);
+  cursor: pointer;
+}
+
+.variable-set-coverage-option.active {
+  border-color: rgba(47, 127, 95, 0.36);
+  background: #eefaf5;
+  color: #0f5b4b;
+}
+
 .variable-set-audit-card button.active {
   border-color: rgba(47, 127, 95, 0.36);
   background: #eefaf5;
@@ -1908,6 +1919,19 @@ h2 {
 .variable-set-focus-empty span {
   color: #698077;
   font-weight: 650;
+}
+
+.variable-set-focus-empty.active {
+  border-style: solid;
+  border-color: rgba(47, 127, 95, 0.24);
+  background: #eefaf5;
+}
+
+.variable-set-focus-empty button {
+  justify-self: start;
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 0.7rem;
 }
 
 .variable-set-recode-card {

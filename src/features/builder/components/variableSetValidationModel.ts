@@ -71,7 +71,13 @@ export interface VariableSetRecodeCoverageView {
   helper: string;
   uncoveredOptionLabels: string[];
   multiplyUsedOptionLabels: string[];
+  multiplyUsedOptions: VariableSetCoverageOption[];
   status: "ready" | "review";
+}
+
+export interface VariableSetCoverageOption {
+  id: string;
+  label: string;
 }
 
 export interface VariableSetAuthoredRowAuditView {
@@ -171,7 +177,8 @@ function rowMiniSummaryLabel(includedCount: number, totalCount: number, unknownC
 
 function buildCoverageView(question: QuestionMetadata, includedOptionIds: Set<string>, overlapWarnings: VariableSetOverlapWarning[]): VariableSetRecodeCoverageView {
   const uncoveredOptionLabels = question.options.filter((option) => !includedOptionIds.has(option.id)).map((option) => option.label);
-  const multiplyUsedOptionLabels = overlapWarnings.map((warning) => warning.optionLabel);
+  const multiplyUsedOptions = overlapWarnings.map((warning) => ({ id: warning.id, label: warning.optionLabel }));
+  const multiplyUsedOptionLabels = multiplyUsedOptions.map((option) => option.label);
   const coveredOptionCount = question.options.length - uncoveredOptionLabels.length;
   const status = uncoveredOptionLabels.length > 0 || multiplyUsedOptionLabels.length > 0 ? "review" : "ready";
 
@@ -187,6 +194,7 @@ function buildCoverageView(question: QuestionMetadata, includedOptionIds: Set<st
         : "Review uncovered or multiply used options before saving or creating from this set.",
     uncoveredOptionLabels,
     multiplyUsedOptionLabels,
+    multiplyUsedOptions,
     status
   };
 }

@@ -1,8 +1,10 @@
 import { useState } from "react";
-import type { VariableSetRecodeCoverageView } from "./variableSetValidationModel";
+import type { VariableSetCoverageOption, VariableSetRecodeCoverageView } from "./variableSetValidationModel";
 
 interface VariableSetCoverageSummaryCardProps {
   coverage: VariableSetRecodeCoverageView;
+  focusedSourceOptionId?: string | null;
+  onFocusSourceOption?: (option: VariableSetCoverageOption) => void;
 }
 
 function labelsSummary(labels: string[]) {
@@ -11,7 +13,7 @@ function labelsSummary(labels: string[]) {
   return `${labels.slice(0, 3).join(", ")} +${labels.length - 3}`;
 }
 
-export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverageSummaryCardProps) {
+export function VariableSetCoverageSummaryCard({ coverage, focusedSourceOptionId, onFocusSourceOption }: VariableSetCoverageSummaryCardProps) {
   const [showUncoveredOptions, setShowUncoveredOptions] = useState(false);
   const [showMultiplyUsedOptions, setShowMultiplyUsedOptions] = useState(false);
   const hasUncoveredOptions = coverage.uncoveredOptionLabels.length > 0;
@@ -80,11 +82,26 @@ export function VariableSetCoverageSummaryCard({ coverage }: VariableSetCoverage
         <div className="variable-set-coverage-focus">
           <span>Multiply used question options</span>
           <div className="explorer-chip-row">
-            {coverage.multiplyUsedOptionLabels.map((label) => (
-              <span className="explorer-chip warning-chip" key={label}>
-                {label}
-              </span>
-            ))}
+            {coverage.multiplyUsedOptions.map((option) => {
+              const isFocused = focusedSourceOptionId === option.id;
+              if (!onFocusSourceOption) {
+                return (
+                  <span className="explorer-chip warning-chip" key={option.id}>
+                    {option.label}
+                  </span>
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  className={isFocused ? "explorer-chip warning-chip variable-set-coverage-option active" : "explorer-chip warning-chip variable-set-coverage-option"}
+                  onClick={() => onFocusSourceOption(option)}
+                  key={option.id}
+                >
+                  {isFocused ? `Focused: ${option.label}` : `Focus rows using ${option.label}`}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
