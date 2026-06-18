@@ -1807,10 +1807,19 @@ button:disabled {
 .related-object-row {
   display: grid;
   gap: 4px;
+  width: 100%;
   padding: 7px;
   border: 1px solid #e6edf0;
   border-radius: 8px;
   background: #f8fbfc;
+  cursor: pointer;
+  text-align: left;
+}
+
+.related-object-row:hover,
+.related-object-row:focus-visible {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
 }
 
 .related-object-row span {

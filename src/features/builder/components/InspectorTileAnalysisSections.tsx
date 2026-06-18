@@ -33,7 +33,7 @@ import {
 } from "./InspectorTileQuerySections";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
-  const { activePage, selectedTile, updateSelectedTile } = props;
+  const { activePage, selectedTile, updateSelectedTile, selectTile } = props;
 
   if (!selectedTile) {
     return null;
@@ -75,14 +75,20 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <span className="explorer-chip" key={chip}>{chip}</span>
                   ))}
                 </div>
-                <RelatedAnalyticalObjectsCard view={relatedObjects} />
+                <RelatedAnalyticalObjectsCard view={relatedObjects} onSelectTile={selectTile} />
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
   );
 }
 
-function RelatedAnalyticalObjectsCard({ view }: { view: RelatedAnalyticalObjectsView }) {
+function RelatedAnalyticalObjectsCard({
+  view,
+  onSelectTile
+}: {
+  view: RelatedAnalyticalObjectsView;
+  onSelectTile: (tileId: string) => void;
+}) {
   return (
     <div className="related-objects-card" aria-label="Related analytical objects">
       <div className="explorer-section-header">
@@ -92,7 +98,7 @@ function RelatedAnalyticalObjectsCard({ view }: { view: RelatedAnalyticalObjects
       {view.rows.length > 0 ? (
         <div className="related-objects-list">
           {view.rows.map((item) => (
-            <div className="related-object-row" key={item.id}>
+            <button type="button" className="related-object-row" key={item.id} onClick={() => onSelectTile(item.id)}>
               <span>{item.title}</span>
               <small>{item.description}</small>
               <div className="explorer-chip-row">
@@ -100,7 +106,7 @@ function RelatedAnalyticalObjectsCard({ view }: { view: RelatedAnalyticalObjects
                   <span className="explorer-chip" key={badge}>{badge}</span>
                 ))}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       ) : (

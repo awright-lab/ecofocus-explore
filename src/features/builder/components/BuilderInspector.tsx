@@ -59,6 +59,7 @@ export type BuilderInspectorProps = {
   updateSelectedLayout: (layout: Partial<CanvasLayout>) => void;
   updateSelectedElement: (updates: Partial<DashboardCanvasElement>) => void;
   updateSelectedTile: (updates: Partial<DashboardTile>) => void;
+  selectTile: (tileId: string) => void;
   updateSelectedAppearance: (updates: Partial<TileAppearance>) => void;
   updateSelectedBarStyle: (updates: Partial<TileAppearance["barStyles"][string]>) => void;
   updateSelectedAxisLabel: (value: string) => void;

@@ -881,6 +881,7 @@ export default function BuilderApp() {
           updateSelectedLayout={updateSelectedLayout}
           updateSelectedElement={updateSelectedElement}
           updateSelectedTile={updateSelectedTile}
+          selectTile={selectTile}
           updateSelectedAppearance={updateSelectedAppearance}
           updateSelectedBarStyle={updateSelectedBarStyle}
           updateSelectedAxisLabel={updateSelectedAxisLabel}
