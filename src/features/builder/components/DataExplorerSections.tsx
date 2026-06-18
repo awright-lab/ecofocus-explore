@@ -482,6 +482,7 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
   } = props;
   const highlightNewestSet = savedLibraryHandoff?.view === "variableSets";
   const [insertionFeedback, setInsertionFeedback] = useState<SavedVariableSetInsertionFeedback | null>(null);
+  const [showRowsNeedingReview, setShowRowsNeedingReview] = useState(false);
   const insertionContext = buildInsertionContextView({
     activePage,
     layerItems,
@@ -555,8 +556,12 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
         </div>
       </div>
       <VariableSetMetadataSection {...props} />
-      <VariableSetRowLogicSection {...props} />
-      <VariableSetRowListSection {...props} />
+      <VariableSetRowLogicSection
+        {...props}
+        showRowsNeedingReview={showRowsNeedingReview}
+        onToggleRowsNeedingReview={() => setShowRowsNeedingReview((current) => !current)}
+      />
+      <VariableSetRowListSection {...props} showRowsNeedingReview={showRowsNeedingReview} />
       <div className="compact-grid">
         <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(!selectedVariableSet)}>
           {selectedVariableSet ? "Update set" : "Save set"}

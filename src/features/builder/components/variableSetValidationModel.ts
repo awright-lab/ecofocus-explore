@@ -29,6 +29,8 @@ export interface VariableSetRowRecodePreview {
   sourceOptionLabels: string[];
   unknownSourceOptionIds: string[];
   overlapLabels: string[];
+  issueLabels: string[];
+  needsReview: boolean;
   sourceSummary: string;
   compositionLabel: string;
 }
@@ -166,6 +168,11 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
         .filter((optionId) => overlapByOption.has(optionId))
         .map((optionId) => optionLabels.get(optionId) ?? optionId);
       const compositionLabels = sourceOptionLabels.concat(unknownSourceOptionIds.map((optionId) => `Unknown: ${optionId}`));
+      const issueLabels = [
+        isAuthoredVariableSetRow(row) && row.sourceOptionIds.length === 0 ? "No source options" : "",
+        unknownSourceOptionIds.length > 0 ? "Unknown options" : "",
+        overlapLabels.length > 0 ? "Overlaps another authored row" : ""
+      ].filter(Boolean);
 
       return {
         rowId: row.id,
@@ -178,6 +185,8 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
         sourceOptionLabels,
         unknownSourceOptionIds,
         overlapLabels,
+        issueLabels,
+        needsReview: issueLabels.length > 0,
         sourceSummary: sourceSummary(sourceOptionLabels.length, unknownSourceOptionIds.length),
         compositionLabel: compositionLabels.length ? compositionLabels.join(", ") : "No source options"
       };
@@ -199,12 +208,7 @@ export function buildVariableSetAuthoredRowAudit(rows: SavedVariableSet["rows"],
   const emptyAuthoredRowCount = authoredRows.filter((row) => row.sourceOptionIds.length === 0).length;
   const unknownSourceRowCount = recodePreview.authoredRows.filter((row) => row.unknownSourceOptionIds.length > 0).length;
   const overlappingRowCount = recodePreview.authoredRows.filter((row) => row.overlapLabels.length > 0).length;
-  const problemRowCount = new Set(
-    recodePreview.authoredRows
-      .filter((row) => row.unknownSourceOptionIds.length > 0 || row.overlapLabels.length > 0)
-      .map((row) => row.rowId)
-      .concat(authoredRows.filter((row) => row.sourceOptionIds.length === 0).map((row) => row.id))
-  ).size;
+  const problemRowCount = recodePreview.authoredRows.filter((row) => row.needsReview).length;
   const status = problemRowCount > 0 ? "review" : "ready";
 
   return {

@@ -9,6 +9,11 @@ import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCa
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
 import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow } from "./variableSetValidationModel";
 
+interface VariableSetIssueFocusProps {
+  showRowsNeedingReview?: boolean;
+  onToggleRowsNeedingReview?: () => void;
+}
+
 export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
   const {
     question,
@@ -83,7 +88,7 @@ export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
 	  );
 }
 
-export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
+export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & VariableSetIssueFocusProps) {
   const {
     selectedQuestion,
     resetVariableSetRows,
@@ -93,7 +98,9 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
     variableSetOptionSelection,
     toggleVariableSetOptionRow,
     toggleVariableSetOptionSelection,
-    addVariableSetNet
+    addVariableSetNet,
+    showRowsNeedingReview = false,
+    onToggleRowsNeedingReview
   } = props;
   const readiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
   const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
@@ -118,7 +125,11 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
                           </div>
                         )}
                       </div>
-                      <VariableSetAuthoredRowAuditCard audit={authoredRowAudit} />
+                      <VariableSetAuthoredRowAuditCard
+                        audit={authoredRowAudit}
+                        showReviewRows={showRowsNeedingReview}
+                        onToggleReviewRows={onToggleRowsNeedingReview}
+                      />
                       <div className="variable-set-recode-card">
                         <div className="explorer-section-header">
                           <strong>Recode preview</strong>
@@ -210,23 +221,34 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
   );
 }
 
-export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps) {
+export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps & Pick<VariableSetIssueFocusProps, "showRowsNeedingReview">) {
   const {
     selectedQuestion,
     variableSetRows,
     updateVariableSetRow,
     reorderVariableSetRow,
-    removeVariableSetRow
+    removeVariableSetRow,
+    showRowsNeedingReview = false
   } = props;
   const recodeRows = new Map(buildVariableSetRecodePreview(variableSetRows, selectedQuestion).rows.map((row) => [row.rowId, row]));
+  const orderedRows = variableSetRows
+    .slice()
+    .sort((a, b) => a.rowOrder - b.rowOrder);
+  const visibleRows = orderedRows.filter((row) => !showRowsNeedingReview || (isAuthoredVariableSetRow(row) && Boolean(recodeRows.get(row.id)?.needsReview)));
 
 	  return (
 	    <>
 	                        <div className="explorer-item-list compact">
-                          {variableSetRows
-                            .slice()
-                            .sort((a, b) => a.rowOrder - b.rowOrder)
-                            .map((row, index) => (
+                          {visibleRows.length === 0 && showRowsNeedingReview && (
+                            <div className="variable-set-focus-empty">
+                              <strong>No authored rows need review</strong>
+                              <span>The current audit has no empty, unknown, or overlapping authored rows.</span>
+                            </div>
+                          )}
+                          {visibleRows
+                            .map((row) => {
+                              const rowIndex = orderedRows.findIndex((item) => item.id === row.id);
+                              return (
                               <div key={row.id} className="explorer-item active variable-set-row">
                                 <div className="variable-set-row__top">
                                   <strong>{rowKindLabel(row.kind)}</strong>
@@ -279,14 +301,14 @@ export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps) {
                                   </label>
                                 </div>
                                 <div className="variable-set-row__actions">
-                                  <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "up")} disabled={index === 0}>
+                                  <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "up")} disabled={rowIndex === 0}>
                                     Up
                                   </button>
                                   <button
                                     type="button"
                                     className="secondary"
                                     onClick={() => reorderVariableSetRow(row.id, "down")}
-                                    disabled={index === variableSetRows.length - 1}
+                                    disabled={rowIndex === orderedRows.length - 1}
                                   >
                                     Down
                                   </button>
@@ -295,7 +317,8 @@ export function VariableSetRowListSection(props: AnalysisAuthoringPanelProps) {
                                   </button>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
 	                        </div>
 	    </>
 	  );

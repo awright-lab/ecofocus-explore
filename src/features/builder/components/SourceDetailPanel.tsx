@@ -194,10 +194,16 @@ function VariableSetRowRefinement({
   const authoredRowAudit = buildVariableSetAuthoredRowAudit(variableSetRows, selectedQuestion);
   const recodeRows = new Map(recodePreview.rows.map((row) => [row.rowId, row]));
   const rowsById = new Map(variableSetRows.map((row) => [row.id, row]));
+  const [showRowsNeedingReview, setShowRowsNeedingReview] = useState(false);
+  const visibleRowDetails = rowDetails.filter((row) => !showRowsNeedingReview || Boolean(recodeRows.get(row.id)?.needsReview));
 
   return (
     <div className="source-row-refinement">
-      <VariableSetAuthoredRowAuditCard audit={authoredRowAudit} />
+      <VariableSetAuthoredRowAuditCard
+        audit={authoredRowAudit}
+        showReviewRows={showRowsNeedingReview}
+        onToggleReviewRows={() => setShowRowsNeedingReview((current) => !current)}
+      />
       <div className="variable-set-recode-card">
         <div className="explorer-section-header">
           <strong>Recode and net preview</strong>
@@ -227,9 +233,16 @@ function VariableSetRowRefinement({
       <div className="source-detail-list">
         <span>Draft row refinement</span>
         <div className="source-row-refinement__list">
-          {rowDetails.map((row, index) => {
+          {visibleRowDetails.length === 0 && showRowsNeedingReview && (
+            <div className="variable-set-focus-empty">
+              <strong>No authored rows need review</strong>
+              <span>The current audit has no empty, unknown, or overlapping authored rows.</span>
+            </div>
+          )}
+          {visibleRowDetails.map((row) => {
             const recodeRow = recodeRows.get(row.id);
             const sourceRow = rowsById.get(row.id);
+            const rowIndex = rowDetails.findIndex((item) => item.id === row.id);
             return (
             <div className={row.visible ? "source-row-card" : "source-row-card muted"} key={row.id}>
               <div className="source-row-card__header">
@@ -277,10 +290,10 @@ function VariableSetRowRefinement({
                   <option value="visible">Visible</option>
                   <option value="hidden">Hidden</option>
                 </select>
-                <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "up")} disabled={index === 0}>
+                <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "up")} disabled={rowIndex === 0}>
                   Up
                 </button>
-                <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "down")} disabled={index === rowDetails.length - 1}>
+                <button type="button" className="secondary" onClick={() => reorderVariableSetRow(row.id, "down")} disabled={rowIndex === rowDetails.length - 1}>
                   Down
                 </button>
               </div>

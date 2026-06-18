@@ -2,9 +2,11 @@ import type { VariableSetAuthoredRowAuditView } from "./variableSetValidationMod
 
 interface VariableSetAuthoredRowAuditCardProps {
   audit: VariableSetAuthoredRowAuditView;
+  showReviewRows?: boolean;
+  onToggleReviewRows?: () => void;
 }
 
-export function VariableSetAuthoredRowAuditCard({ audit }: VariableSetAuthoredRowAuditCardProps) {
+export function VariableSetAuthoredRowAuditCard({ audit, showReviewRows = false, onToggleReviewRows }: VariableSetAuthoredRowAuditCardProps) {
   return (
     <div className={`variable-set-audit-card ${audit.status}`}>
       <div className="explorer-section-header">
@@ -40,6 +42,11 @@ export function VariableSetAuthoredRowAuditCard({ audit }: VariableSetAuthoredRo
       <small>{audit.helper}</small>
       {audit.overlappingSourceOptionCount > 0 && (
         <small>{audit.overlappingSourceOptionCount} source option{audit.overlappingSourceOptionCount === 1 ? "" : "s"} appear in more than one visible authored row.</small>
+      )}
+      {onToggleReviewRows && (
+        <button type="button" className={showReviewRows ? "secondary active" : "secondary"} onClick={onToggleReviewRows} disabled={audit.problemRowCount === 0}>
+          {showReviewRows ? "Show all rows" : "Show rows needing review"}
+        </button>
       )}
     </div>
   );
