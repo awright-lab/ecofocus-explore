@@ -89,6 +89,7 @@ export type AnalysisAuthoringPanelProps = {
   toggleVariableSetOptionRow: (optionId: string, label: string) => void;
   toggleVariableSetOptionSelection: (optionId: string) => void;
   addVariableSetNet: (kind: "net" | "top" | "bottom") => void;
+  addRowsForUncoveredOptions: () => void;
   updateVariableSetRow: (rowId: string, updates: Partial<SavedVariableSet["rows"][number]>) => void;
   reorderVariableSetRow: (rowId: string, direction: "up" | "down") => void;
   removeVariableSetRow: (rowId: string) => void;
@@ -211,6 +212,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   toggleVariableSetOptionRow,
   toggleVariableSetOptionSelection,
   addVariableSetNet,
+  addRowsForUncoveredOptions,
   updateVariableSetRow,
   reorderVariableSetRow,
   removeVariableSetRow,

@@ -5,6 +5,7 @@ interface VariableSetCoverageSummaryCardProps {
   coverage: VariableSetRecodeCoverageView;
   focusedSourceOptionId?: string | null;
   onFocusSourceOption?: (option: VariableSetCoverageOption) => void;
+  onAddRowsForUncoveredOptions?: () => void;
 }
 
 function labelsSummary(labels: string[]) {
@@ -13,7 +14,7 @@ function labelsSummary(labels: string[]) {
   return `${labels.slice(0, 3).join(", ")} +${labels.length - 3}`;
 }
 
-export function VariableSetCoverageSummaryCard({ coverage, focusedSourceOptionId, onFocusSourceOption }: VariableSetCoverageSummaryCardProps) {
+export function VariableSetCoverageSummaryCard({ coverage, focusedSourceOptionId, onFocusSourceOption, onAddRowsForUncoveredOptions }: VariableSetCoverageSummaryCardProps) {
   const [showUncoveredOptions, setShowUncoveredOptions] = useState(false);
   const [showMultiplyUsedOptions, setShowMultiplyUsedOptions] = useState(false);
   const hasUncoveredOptions = coverage.uncoveredOptionLabels.length > 0;
@@ -44,13 +45,20 @@ export function VariableSetCoverageSummaryCard({ coverage, focusedSourceOptionId
       {(hasUncoveredOptions || hasMultiplyUsedOptions) && (
         <div className="variable-set-coverage-actions">
           {hasUncoveredOptions && (
-            <button
-              type="button"
-              className={showUncoveredOptions ? "secondary variable-set-coverage-action active" : "secondary variable-set-coverage-action"}
-              onClick={() => setShowUncoveredOptions((current) => !current)}
-            >
-              {showUncoveredOptions ? "Hide uncovered options" : "Show uncovered options"}
-            </button>
+            <>
+              <button
+                type="button"
+                className={showUncoveredOptions ? "secondary variable-set-coverage-action active" : "secondary variable-set-coverage-action"}
+                onClick={() => setShowUncoveredOptions((current) => !current)}
+              >
+                {showUncoveredOptions ? "Hide uncovered options" : "Show uncovered options"}
+              </button>
+              {onAddRowsForUncoveredOptions && (
+                <button type="button" className="secondary variable-set-coverage-action" onClick={onAddRowsForUncoveredOptions}>
+                  Add rows for uncovered options
+                </button>
+              )}
+            </>
           )}
           {hasMultiplyUsedOptions && (
             <button

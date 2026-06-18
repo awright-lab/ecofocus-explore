@@ -103,6 +103,7 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & 
     toggleVariableSetOptionRow,
     toggleVariableSetOptionSelection,
     addVariableSetNet,
+    addRowsForUncoveredOptions,
     showRowsNeedingReview = false,
     onToggleRowsNeedingReview,
     focusedSourceOption,
@@ -140,6 +141,7 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & 
                         coverage={recodePreview.coverage}
                         focusedSourceOptionId={focusedSourceOption?.id}
                         onFocusSourceOption={onFocusSourceOption}
+                        onAddRowsForUncoveredOptions={addRowsForUncoveredOptions}
                       />
                       <div className="variable-set-recode-card">
                         <div className="explorer-section-header">

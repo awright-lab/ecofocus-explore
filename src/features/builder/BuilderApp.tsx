@@ -466,6 +466,7 @@ export default function BuilderApp() {
     toggleVariableSetOptionRow,
     toggleVariableSetOptionSelection,
     addVariableSetNet,
+    addRowsForUncoveredOptions,
     resetVariableSetRows,
     markVariableSetRowsAsDetails,
     revealAllVariableSetRows,
@@ -813,6 +814,7 @@ export default function BuilderApp() {
           toggleVariableSetOptionRow={toggleVariableSetOptionRow}
           toggleVariableSetOptionSelection={toggleVariableSetOptionSelection}
           addVariableSetNet={addVariableSetNet}
+          addRowsForUncoveredOptions={addRowsForUncoveredOptions}
           updateVariableSetRow={updateVariableSetRow}
           reorderVariableSetRow={reorderVariableSetRow}
           removeVariableSetRow={removeVariableSetRow}

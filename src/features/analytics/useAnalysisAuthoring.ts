@@ -377,6 +377,36 @@ export function useAnalysisAuthoring({
     setError(null);
   }
 
+  function addRowsForUncoveredOptions() {
+    const primaryQuestion = defaultDataset.questions.find((item) => item.id === question) ?? defaultQuestion;
+    setVariableSetRows((current) => {
+      const visibleSourceOptionIds = new Set(current.filter((row) => row.visible).flatMap((row) => row.sourceOptionIds));
+      const uncoveredOptions = primaryQuestion.options.filter((option) => !visibleSourceOptionIds.has(option.id));
+      if (uncoveredOptions.length === 0) return current;
+
+      let nextRows = current.slice();
+      uncoveredOptions.forEach((option) => {
+        const existingRow = nextRows.find((row) => row.kind === "option" && row.sourceOptionIds.includes(option.id));
+        if (existingRow) {
+          nextRows = nextRows.map((row) => (row.id === existingRow.id ? { ...row, visible: true } : row));
+          return;
+        }
+        nextRows.push({
+          id: `option_${option.id}_${Date.now()}_${nextRows.length + 1}`,
+          label: option.label,
+          kind: "option",
+          sourceOptionIds: [option.id],
+          rowOrder: nextRows.length + 1,
+          visible: true,
+          emphasis: "detail"
+        });
+      });
+
+      return normalizeVariableSetRows(nextRows, question);
+    });
+    setError(null);
+  }
+
   function resetVariableSetRows() {
     setVariableSetRows(defaultVariableSetRows(question));
     setVariableSetOptionSelection([]);
@@ -546,6 +576,7 @@ export function useAnalysisAuthoring({
     toggleVariableSetOptionRow,
     toggleVariableSetOptionSelection,
     addVariableSetNet,
+    addRowsForUncoveredOptions,
     resetVariableSetRows,
     markVariableSetRowsAsDetails,
     revealAllVariableSetRows,

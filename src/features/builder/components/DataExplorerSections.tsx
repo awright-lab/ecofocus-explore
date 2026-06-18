@@ -191,6 +191,7 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                       variableSetRows={variableSetRows}
                       updateVariableSetRow={updateVariableSetRow}
                       reorderVariableSetRow={reorderVariableSetRow}
+                      addRowsForUncoveredOptions={props.addRowsForUncoveredOptions}
                       saveCurrentVariableSet={saveCurrentVariableSet}
                       variableSetDraftName={variableSetDraftName}
                       variableSetDescription={variableSetDescription}

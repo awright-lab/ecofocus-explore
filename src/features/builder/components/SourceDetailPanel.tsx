@@ -24,6 +24,7 @@ interface SourceDetailPanelProps {
   variableSetRows: SavedVariableSet["rows"];
   updateVariableSetRow: AnalysisAuthoringPanelProps["updateVariableSetRow"];
   reorderVariableSetRow: AnalysisAuthoringPanelProps["reorderVariableSetRow"];
+  addRowsForUncoveredOptions: AnalysisAuthoringPanelProps["addRowsForUncoveredOptions"];
   saveCurrentVariableSet: AnalysisAuthoringPanelProps["saveCurrentVariableSet"];
   variableSetDraftName: AnalysisAuthoringPanelProps["variableSetDraftName"];
   variableSetDescription: AnalysisAuthoringPanelProps["variableSetDescription"];
@@ -188,8 +189,9 @@ function VariableSetRowRefinement({
   selectedQuestion,
   variableSetRows,
   updateVariableSetRow,
-  reorderVariableSetRow
-}: Pick<SourceDetailPanelProps, "selectedQuestion" | "variableSetRows" | "updateVariableSetRow" | "reorderVariableSetRow">) {
+  reorderVariableSetRow,
+  addRowsForUncoveredOptions
+}: Pick<SourceDetailPanelProps, "selectedQuestion" | "variableSetRows" | "updateVariableSetRow" | "reorderVariableSetRow" | "addRowsForUncoveredOptions">) {
   const rowDetails = buildVariableSetRowDetails(variableSetRows, selectedQuestion);
   const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
   const authoredRowAudit = buildVariableSetAuthoredRowAudit(variableSetRows, selectedQuestion);
@@ -219,6 +221,7 @@ function VariableSetRowRefinement({
           setFocusedSourceOption(option);
           setShowRowsNeedingReview(false);
         }}
+        onAddRowsForUncoveredOptions={addRowsForUncoveredOptions}
       />
       <div className="variable-set-recode-card">
         <div className="explorer-section-header">
@@ -344,6 +347,7 @@ export function SourceDetailPanel({
   variableSetRows,
   updateVariableSetRow,
   reorderVariableSetRow,
+  addRowsForUncoveredOptions,
   saveCurrentVariableSet,
   variableSetDraftName,
   variableSetDescription,
@@ -418,6 +422,7 @@ export function SourceDetailPanel({
             variableSetRows={variableSetRows}
             updateVariableSetRow={updateVariableSetRow}
             reorderVariableSetRow={reorderVariableSetRow}
+            addRowsForUncoveredOptions={addRowsForUncoveredOptions}
           />
         </>
       )}
