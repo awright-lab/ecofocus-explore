@@ -35,6 +35,13 @@ export function VariableSetRowCompositionEditor({
           <span>{recodeRow.intentHelper}</span>
         </div>
       )}
+      {recodeRow?.issueLabels.length ? (
+        <div className="row-issue-chip-row" aria-label="Row issues">
+          {recodeRow.issueLabels.map((issue) => (
+            <span className="row-issue-chip" key={issue}>{issue}</span>
+          ))}
+        </div>
+      ) : null}
       <div className="row-composition-editor__options">
         {selectedQuestion.options.map((option) => {
           const checked = row.sourceOptionIds.includes(option.id);
