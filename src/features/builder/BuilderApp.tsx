@@ -900,6 +900,7 @@ export default function BuilderApp() {
           saveSelectedTileWeight={saveSelectedTileWeight}
           onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
           savedSettingOriginCue={savedSettingOriginCue}
+          recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() })}
           completeSavedSettingOriginCue={(tileId) => {
             setSavedSettingOriginCue((current) => current?.tileId === tileId ? { ...current, status: "refreshed", createdAt: Date.now() } : current);
           }}

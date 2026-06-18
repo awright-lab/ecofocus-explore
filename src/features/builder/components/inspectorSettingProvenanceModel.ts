@@ -4,6 +4,12 @@ import {
   filterDimensions
 } from "../builderConstants";
 import type { DashboardTile, SavedBanner, SavedFilterSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
+import {
+  updateTileBanner,
+  updateTileFilterField,
+  updateTileFilterValue,
+  updateTileWeight
+} from "./inspectorTileQueryModel";
 
 export interface SettingProvenanceRow {
   id: "banner" | "filter" | "weight";
@@ -11,6 +17,21 @@ export interface SettingProvenanceRow {
   value: string;
   source: string;
   saved: boolean;
+}
+
+export interface SettingProvenanceOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface SettingProvenancePickerView {
+  bannerOptions: SettingProvenanceOption[];
+  filterOptions: SettingProvenanceOption[];
+  weightOptions: SettingProvenanceOption[];
+  activeBannerId: string;
+  activeFilterId: string;
+  activeWeightId: string;
 }
 
 function bannerLabel(tile: DashboardTile) {
@@ -74,4 +95,48 @@ export function buildSettingProvenanceRows(
       saved: Boolean(savedWeight)
     }
   ];
+}
+
+export function buildSettingProvenancePickerView(
+  tile: DashboardTile,
+  savedBanners: SavedBanner[],
+  savedFilters: SavedFilterSet[],
+  savedWeights: SavedWeightProfile[]
+): SettingProvenancePickerView {
+  const activeFilter = tile.query.filters[0];
+  const activeFilterField = activeFilter?.field ?? null;
+  const activeFilterValue = activeFilter?.values[0] ?? "all";
+  const bannerOptions = savedBanners
+    .filter((item) => item.datasetId === tile.query.dataset)
+    .map((item) => ({ id: item.id, label: item.label, description: item.description }));
+  const filterOptions = savedFilters
+    .filter((item) => item.datasetId === tile.query.dataset)
+    .map((item) => ({ id: item.id, label: item.label, description: item.description }));
+  const weightOptions = savedWeights
+    .filter((item) => item.datasetId === tile.query.dataset)
+    .map((item) => ({ id: item.id, label: item.label, description: item.description }));
+
+  return {
+    bannerOptions,
+    filterOptions,
+    weightOptions,
+    activeBannerId: savedBanners.find((item) => item.datasetId === tile.query.dataset && item.breakBy === tile.query.breakBy)?.id ?? "",
+    activeFilterId:
+      savedFilters.find((item) => item.datasetId === tile.query.dataset && item.filterField === activeFilterField && item.filterValue === activeFilterValue)?.id ?? "",
+    activeWeightId: savedWeights.find((item) => item.datasetId === tile.query.dataset && item.weight === (tile.query.weight ?? null))?.id ?? ""
+  };
+}
+
+export function updatesForSavedBanner(tile: DashboardTile, banner: SavedBanner) {
+  return updateTileBanner(tile, banner.breakBy);
+}
+
+export function updatesForSavedFilter(tile: DashboardTile, filter: SavedFilterSet) {
+  const fieldUpdate = updateTileFilterField(tile, filter.filterField);
+  if (!filter.filterField || filter.filterValue === "all") return fieldUpdate;
+  return updateTileFilterValue({ ...tile, ...fieldUpdate }, filter.filterField, filter.filterValue);
+}
+
+export function updatesForSavedWeight(tile: DashboardTile, weight: SavedWeightProfile) {
+  return updateTileWeight(tile, weight.weight);
 }

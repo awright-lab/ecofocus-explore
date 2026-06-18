@@ -2,7 +2,13 @@ import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import type { ChartType } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
-import { buildSettingProvenanceRows } from "./inspectorSettingProvenanceModel";
+import {
+  buildSettingProvenancePickerView,
+  buildSettingProvenanceRows,
+  updatesForSavedBanner,
+  updatesForSavedFilter,
+  updatesForSavedWeight
+} from "./inspectorSettingProvenanceModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 import {
@@ -52,13 +58,24 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
 }
 
 export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
-  const { selectedTile, selectedTileQuestion, savedBanners, savedFilters, savedWeights } = props;
+  const {
+    selectedTile,
+    selectedTileQuestion,
+    savedBanners,
+    savedFilters,
+    savedWeights,
+    updateSelectedTile,
+    recordSavedSettingOriginCue
+  } = props;
 
   if (!selectedTile || !selectedTileQuestion) {
     return null;
   }
   const queryStatus = buildTileQueryStatus(selectedTile);
   const provenanceRows = buildSettingProvenanceRows(selectedTile, savedBanners, savedFilters, savedWeights);
+  const compatibleSavedBanners = savedBanners.filter((item) => selectedTileQuestion.allowedBreakBys.includes(item.breakBy));
+  const pickerView = buildSettingProvenancePickerView(selectedTile, compatibleSavedBanners, savedFilters, savedWeights);
+  const bannerDisabled = (selectedTile.query.comparisonMode ?? "none") === "wave";
 
   return (
     <div className="inspector-summary-card">
@@ -76,6 +93,60 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
             <span>{row.label}</span>
             <strong>{row.value}</strong>
             <small>{row.source}</small>
+            {row.id === "banner" && (
+              <select
+                aria-label="Apply saved banner"
+                value={pickerView.activeBannerId}
+                disabled={bannerDisabled || pickerView.bannerOptions.length === 0}
+                onChange={(event) => {
+                  const nextBanner = compatibleSavedBanners.find((item) => item.id === event.target.value);
+                  if (!nextBanner) return;
+                  updateSelectedTile(updatesForSavedBanner(selectedTile, nextBanner));
+                  recordSavedSettingOriginCue("banner", nextBanner.label, selectedTile.id);
+                }}
+              >
+                <option value="">{bannerDisabled ? "Wave comparison" : "Apply saved banner"}</option>
+                {pickerView.bannerOptions.map((item) => (
+                  <option value={item.id} key={item.id}>{item.label}</option>
+                ))}
+              </select>
+            )}
+            {row.id === "filter" && (
+              <select
+                aria-label="Apply saved filter"
+                value={pickerView.activeFilterId}
+                disabled={pickerView.filterOptions.length === 0}
+                onChange={(event) => {
+                  const nextFilter = savedFilters.find((item) => item.id === event.target.value);
+                  if (!nextFilter) return;
+                  updateSelectedTile(updatesForSavedFilter(selectedTile, nextFilter));
+                  recordSavedSettingOriginCue("filter", nextFilter.label, selectedTile.id);
+                }}
+              >
+                <option value="">Apply saved filter</option>
+                {pickerView.filterOptions.map((item) => (
+                  <option value={item.id} key={item.id}>{item.label}</option>
+                ))}
+              </select>
+            )}
+            {row.id === "weight" && (
+              <select
+                aria-label="Apply saved weight"
+                value={pickerView.activeWeightId}
+                disabled={pickerView.weightOptions.length === 0}
+                onChange={(event) => {
+                  const nextWeight = savedWeights.find((item) => item.id === event.target.value);
+                  if (!nextWeight) return;
+                  updateSelectedTile(updatesForSavedWeight(selectedTile, nextWeight));
+                  recordSavedSettingOriginCue("weight", nextWeight.label, selectedTile.id);
+                }}
+              >
+                <option value="">Apply saved weight</option>
+                {pickerView.weightOptions.map((item) => (
+                  <option value={item.id} key={item.id}>{item.label}</option>
+                ))}
+              </select>
+            )}
           </div>
         ))}
       </div>

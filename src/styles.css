@@ -1866,6 +1866,13 @@ button:disabled {
   white-space: nowrap;
 }
 
+.settings-provenance-item select {
+  min-height: 30px;
+  margin-top: 2px;
+  padding: 5px 7px;
+  font-size: 0.7rem;
+}
+
 .tile-query-group {
   display: grid;
   gap: 8px;
