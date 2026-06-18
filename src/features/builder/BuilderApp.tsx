@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { runAnalyticsQuery } from "../../lib/api";
-import { applyVariableSetRows } from "../../../shared/analytics/variableSets";
 import {
   axisFontSizePresets,
   axisRotationPresets,
@@ -22,9 +20,18 @@ import {
   historyLimit,
   palettes,
   storageKey,
-  waveComparisonChartTypes,
   type EffectPreset
 } from "./builderConstants";
+import {
+  buildPageFromTemplate,
+  createCanvasElement,
+  createTextBlockElement,
+  duplicateElement,
+  duplicatePage,
+  duplicateTile,
+  remainingPagesAfterDelete
+} from "./builderDocumentCommands";
+import { downloadDashboardExportSpec } from "./builderExportPackage";
 import { BuilderHeader, BuilderPanel, ToolRail } from "./components/BuilderChrome";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
@@ -38,19 +45,14 @@ import {
   getDocumentColors,
   getPaletteId,
   gradientStylePresets,
-  pageSummary,
-  resultConfidenceLevel,
-  sampleSizeLabel,
-  slugifyFileName,
-  tilePresentationNotes,
   tileSourceKindLabel,
-  trendSpanLabel
 } from "./components/CanvasRenderers";
 import { CanvasWorkspace } from "./components/CanvasWorkspace";
 import { BarColorField, ColorField, GradientEditor, PageBackgroundField, rangeFill } from "../design-system/DesignControls";
 import { defaultVisualizationForQuestion, getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
-import { queryForQuestion, queryForVariableSet, useAnalysisAuthoring } from "../analytics/useAnalysisAuthoring";
+import { useAnalysisAuthoring } from "../analytics/useAnalysisAuthoring";
 import { useEditorSessionState } from "./hooks/useEditorSessionState";
+import { useBuilderTileCommands } from "./hooks/useBuilderTileCommands";
 import {
   applyGradientStylePreset,
   backgroundStyle,
@@ -76,14 +78,12 @@ import {
   hsvToRgb
 } from "./builderHelpers";
 import {
-  defaultElementStyle,
-  defaultPageDesign,
   defaultVariableSetRows,
   initialDashboard,
   normalizeVariableSetRows,
   rowKindLabel,
 } from "../document/documentSeeds";
-import { clampZIndex, makeElementId, makePageId, makeTileId, nextZIndex, normalizeDashboard } from "../document/documentModel";
+import { clampZIndex, nextZIndex, normalizeDashboard } from "../document/documentModel";
 import type {
   AnalysisLibraryView,
   DesignModal,
@@ -94,7 +94,6 @@ import type {
   SourceLibraryView
 } from "./builderTypes";
 import type {
-  AnalyticsAnnotation,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   BreakById,
@@ -407,114 +406,6 @@ export default function BuilderApp() {
     setError(null);
   }
 
-  async function createTileFromSource(
-    tileQuery: AnalyticsQueryRequest,
-    sourceLabel: string,
-    position?: { x: number; y: number },
-    source?: DashboardTile["source"]
-  ) {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await runAnalyticsQuery(tileQuery);
-      const resolvedResponse =
-        source?.kind === "variableSet"
-          ? applyVariableSetRows(response, savedVariableSets.find((item) => item.id === source.id) ?? {
-              id: source.id,
-              datasetId: defaultDataset.id,
-              label: source.label,
-              description: "",
-              topic: source.label,
-              questionIds: [tileQuery.question],
-              primaryQuestionId: tileQuery.question,
-              rowMode: "authored",
-              rows: defaultVariableSetRows(tileQuery.question),
-              breakBy: tileQuery.breakBy,
-              metric: tileQuery.metric,
-              chartType: tileQuery.chartType,
-              weight: tileQuery.weight,
-              filterField: (tileQuery.filters[0]?.field as FilterFieldId | undefined) ?? null,
-              filterValue: tileQuery.filters[0]?.values[0] ?? "all"
-            })
-          : response;
-      const tile: DashboardTile = {
-        id: makeTileId(),
-        name: sourceLabel,
-        title: sourceLabel,
-        source,
-        locked: false,
-        hidden: false,
-        layout: {
-          x: position?.x ?? 48,
-          y: position?.y ?? 72 + activePage.tiles.length * 28,
-          width: 760,
-          height: 460,
-          zIndex: nextZIndex(activePage)
-        },
-        query: tileQuery,
-        visualization: tileQuery.chartType,
-        appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
-        result: resolvedResponse
-      };
-
-      setDashboard((current) => ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
-      }));
-      selectTile(tile.id);
-    } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function startDataSourceDrag(source: { kind: "question" | "variableSet"; id: string }, event: React.DragEvent<HTMLElement>) {
-    event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("application/ecofocus-source", JSON.stringify(source));
-  }
-
-  async function handleCanvasDrop(event: React.DragEvent<HTMLDivElement>) {
-    const raw = event.dataTransfer.getData("application/ecofocus-source");
-    if (!raw) return;
-
-    event.preventDefault();
-
-    try {
-      const parsed = JSON.parse(raw) as { kind: "question" | "variableSet"; id: string };
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const dropX = Math.max(24, Math.min(canvasWidth - 784, Math.round((event.clientX - bounds.left) / canvasScale) - 120));
-      const dropY = Math.max(24, Math.min(canvasHeight - 484, Math.round((event.clientY - bounds.top) / canvasScale) - 48));
-
-      if (parsed.kind === "variableSet") {
-        const variableSet = savedVariableSets.find((item) => item.id === parsed.id);
-        if (!variableSet) return;
-        applyVariableSetSelection(variableSet);
-        await createTileFromSource(
-          queryForVariableSet(variableSet),
-          variableSet.label,
-          { x: dropX, y: dropY },
-          { kind: "variableSet", id: variableSet.id, label: variableSet.label }
-        );
-        return;
-      }
-
-      const nextQuestion = defaultDataset.questions.find((item) => item.id === parsed.id);
-      if (!nextQuestion) return;
-      applyQuestionSelection(nextQuestion);
-      await createTileFromSource(
-        queryForQuestion(nextQuestion),
-        nextQuestion.shortLabel,
-        { x: dropX, y: dropY },
-        { kind: "question", id: nextQuestion.id, label: nextQuestion.shortLabel }
-      );
-    } catch {
-      setError("Could not drop that source onto the canvas.");
-    }
-  }
-
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
     setSaveState("Saved locally");
@@ -595,114 +486,6 @@ export default function BuilderApp() {
     setDashboard(nextDashboard, false);
   }
 
-  async function addTileFromQuery() {
-    await createTileFromSource(
-      query,
-      selectedVariableSet?.label ?? selectedQuestion.shortLabel,
-      undefined,
-      selectedVariableSet
-        ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
-        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
-    );
-  }
-
-  async function addTileFromSourceWithVisualization(nextVisualization: ChartType) {
-    const nextQuery = { ...query, chartType: nextVisualization };
-    await createTileFromSource(
-      nextQuery,
-      selectedVariableSet?.label ?? selectedQuestion.shortLabel,
-      undefined,
-      selectedVariableSet
-        ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
-        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
-    );
-  }
-
-  function tileWithVisualization(tile: DashboardTile, nextVisualization: ChartType): Partial<DashboardTile> {
-    return {
-      visualization: nextVisualization,
-      query: { ...tile.query, chartType: nextVisualization },
-      result: { ...tile.result, query: { ...tile.result.query, chartType: nextVisualization } }
-    };
-  }
-
-  async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await runAnalyticsQuery(nextQuery);
-      const resolvedResponse =
-        tile.source?.kind === "variableSet"
-          ? applyVariableSetRows(
-              response,
-              savedVariableSets.find((item) => item.id === tile.source?.id) ?? {
-                id: tile.source?.id ?? `variable_set_${Date.now()}`,
-                datasetId: defaultDataset.id,
-                label: tile.source?.label ?? tile.title,
-                description: "",
-                topic: tile.title,
-                questionIds: [nextQuery.question],
-                primaryQuestionId: nextQuery.question,
-                rowMode: "authored",
-                rows: defaultVariableSetRows(nextQuery.question),
-                breakBy: nextQuery.breakBy,
-                metric: nextQuery.metric,
-                chartType: nextQuery.chartType,
-                weight: nextQuery.weight,
-                filterField: (nextQuery.filters[0]?.field as FilterFieldId | undefined) ?? null,
-                filterValue: nextQuery.filters[0]?.values[0] ?? "all"
-              }
-            )
-          : response;
-      const compatibleVisualizations = getCompatibleChartTypes(resolvedResponse);
-      const nextVisualization = compatibleVisualizations.includes(tile.visualization)
-        ? tile.visualization
-        : compatibleVisualizations[0] ?? "table";
-
-      updateTile(tile.id, {
-        query: { ...nextQuery, chartType: nextVisualization, confidenceLevel: nextQuery.confidenceLevel ?? 0.95 },
-        visualization: nextVisualization,
-        result: {
-          ...resolvedResponse,
-          query: { ...resolvedResponse.query, chartType: nextVisualization, confidenceLevel: resolvedResponse.query.confidenceLevel ?? nextQuery.confidenceLevel ?? 0.95 }
-        }
-      });
-    } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong refreshing this analysis.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function duplicateTileAsVisualization(tile: DashboardTile, nextVisualization: ChartType) {
-    const duplicate: DashboardTile = {
-      ...tile,
-      ...tileWithVisualization(tile, nextVisualization),
-      id: makeTileId(),
-      name: `${tile.name} ${getChartTypeLabel(nextVisualization).toLowerCase()}`,
-      title: tile.title,
-      layout: {
-        ...tile.layout,
-        x: tile.layout.x + 28,
-        y: tile.layout.y + 28,
-        zIndex: nextZIndex(activePage)
-      },
-      appearance: {
-        ...tile.appearance,
-        palette: [...tile.appearance.palette],
-        barStyles: { ...tile.appearance.barStyles }
-      }
-    };
-
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, duplicate] } : page))
-    }));
-    selectTile(duplicate.id);
-  }
-
   function updateSelectedTile(updates: Partial<DashboardTile>) {
     if (!selectedTileId) return;
 
@@ -734,6 +517,30 @@ export default function BuilderApp() {
       )
     }));
   }
+
+  const {
+    startDataSourceDrag,
+    handleCanvasDrop,
+    addTileFromQuery,
+    addTileFromSourceWithVisualization,
+    rerunTileAnalysis,
+    tileWithVisualization,
+    duplicateTileAsVisualization
+  } = useBuilderTileCommands({
+    activePage,
+    canvasScale,
+    query,
+    selectedQuestion,
+    selectedVariableSet,
+    savedVariableSets,
+    setDashboard,
+    selectTile,
+    updateTile,
+    applyQuestionSelection,
+    applyVariableSetSelection,
+    setIsLoading,
+    setError
+  });
 
   function updateTileLayout(tileId: string, layout: Partial<CanvasLayout>) {
     setDashboard((current) => ({
@@ -939,16 +746,7 @@ export default function BuilderApp() {
   }
 
   function addCanvasElement(type: DashboardCanvasElementType) {
-    const element: DashboardCanvasElement = {
-      id: makeElementId(),
-      name: type === "text" ? "Text" : type === "image" ? "Image" : type === "circle" ? "Circle" : "Rectangle",
-      type,
-      locked: false,
-      hidden: false,
-      layout: { x: 64, y: 64, width: type === "text" ? 280 : 220, height: type === "text" ? 80 : 160, zIndex: nextZIndex(activePage) },
-      content: type === "text" ? "Text box" : "",
-      style: defaultElementStyle(type)
-    };
+    const element = createCanvasElement(type, activePage);
 
     setDashboard((current) => ({
       ...current,
@@ -959,25 +757,7 @@ export default function BuilderApp() {
   }
 
   function addTextBlockPreset(block: TextBlockPreset) {
-    const element: DashboardCanvasElement = {
-      id: makeElementId(),
-      name: block.label,
-      type: "text",
-      locked: false,
-      hidden: false,
-      layout: {
-        x: Math.round((canvasWidth - block.width) / 2),
-        y: Math.round((canvasHeight - block.height) / 2),
-        width: block.width,
-        height: block.height,
-        zIndex: nextZIndex(activePage)
-      },
-      content: block.content,
-      style: {
-        ...defaultElementStyle("text"),
-        ...block.style
-      }
-    };
+    const element = createTextBlockElement(block, activePage);
 
     setDashboard((current) => ({
       ...current,
@@ -1138,114 +918,7 @@ export default function BuilderApp() {
   }
 
   function exportDashboardSpec() {
-    const exportSpec = {
-      exportType: "ecofocus-presentation-package",
-      generatedAt: new Date().toISOString(),
-      canvas: {
-        width: canvasWidth,
-        height: canvasHeight
-      },
-      dashboard: {
-        id: dashboard.id,
-        title: dashboard.title,
-        status: dashboard.status
-      },
-      slides: sortedPages.map((page) => ({
-        id: page.id,
-        title: page.title,
-        order: page.order,
-        summary: pageSummary(page),
-        background: {
-          mode: page.backgroundMode,
-          solid: page.background,
-          image: page.backgroundImage,
-          imageFit: page.backgroundImageFit,
-          gradient: {
-            from: page.gradientFrom,
-            to: page.gradientTo,
-            type: page.gradientType,
-            angle: page.gradientAngle,
-            stops: page.gradientStops
-          }
-        },
-        canvas: {
-          width: canvasWidth,
-          height: canvasHeight
-        },
-        elements: page.elements
-          .filter((element) => !element.hidden)
-          .sort((a, b) => a.layout.zIndex - b.layout.zIndex)
-          .map((element) => ({
-            id: element.id,
-            type: element.type,
-            name: element.name,
-            frame: {
-              x: element.layout.x,
-              y: element.layout.y,
-              width: element.layout.width,
-              height: element.layout.height,
-              zIndex: element.layout.zIndex
-            },
-            content: element.content,
-            style: element.style
-          })),
-        tiles: page.tiles
-          .filter((tile) => !tile.hidden)
-          .sort((a, b) => a.layout.zIndex - b.layout.zIndex)
-          .map((tile) => ({
-            id: tile.id,
-            title: tile.title,
-            source: tile.source ?? null,
-            visualization: tile.visualization,
-            frame: {
-              x: tile.layout.x,
-              y: tile.layout.y,
-              width: tile.layout.width,
-              height: tile.layout.height,
-              zIndex: tile.layout.zIndex
-            },
-            query: tile.query,
-            appearance: tile.appearance,
-            exportHints: {
-              slideTitle: tile.title,
-              metricLabel: tile.result.metric.label,
-              questionLabel: getQuestionLabel(tile.result.metadataRefs.question),
-              comparison: comparisonSummaryLabel(tile.query),
-              trendSpan: trendSpanLabel(tile.query),
-              sampleSize: sampleSizeLabel(tile.result),
-              weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
-              confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result)),
-              narrativeNotes: tilePresentationNotes(tile)
-            },
-            result: {
-              columns: tile.result.columns,
-              table: tile.result.table,
-              notes: tile.result.notes,
-              warnings: tile.result.warnings,
-              annotations: tile.result.annotations
-            }
-          }))
-      })),
-      analysisLibrary: dashboard.analysisLibrary,
-      presentationManifest: {
-        title: dashboard.title,
-        pageCount: sortedPages.length,
-        exportedSlides: sortedPages.map((page) => ({
-          id: page.id,
-          title: page.title,
-          order: page.order,
-          summary: pageSummary(page)
-        }))
-      },
-      originalDraft: dashboard
-    };
-    const blob = new Blob([JSON.stringify(exportSpec, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slugifyFileName(dashboard.title)}-presentation-package.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadDashboardExportSpec(dashboard, sortedPages);
   }
 
   function updateActivePage(updates: Partial<DashboardPage>) {
@@ -1256,47 +929,8 @@ export default function BuilderApp() {
     }));
   }
 
-  function buildPageFromTemplate(template?: PageTemplatePreset) {
-    const pageTheme = pageThemes.find((item) => item.id === template?.pageThemeId) ?? pageThemes[0];
-    return {
-      id: makePageId(),
-      title: template ? template.label : `Page ${dashboard.pages.length + 1}`,
-      order: dashboard.pages.length + 1,
-      ...defaultPageDesign(),
-      ...(pageTheme
-        ? {
-            backgroundMode: pageTheme.backgroundMode,
-            background: pageTheme.background,
-            backgroundImage: pageTheme.backgroundImage,
-            backgroundImageFit: pageTheme.backgroundImageFit,
-            gradientFrom: pageTheme.gradientFrom,
-            gradientTo: pageTheme.gradientTo,
-            gradientType: pageTheme.gradientType,
-            gradientAngle: pageTheme.gradientAngle,
-            gradientStops: pageTheme.gradientStops,
-            showCanvasGrid: pageTheme.showCanvasGrid
-          }
-        : {}),
-      elements:
-        template?.elements.map((element, index) => ({
-          id: makeElementId(),
-          name: element.name,
-          type: "text" as const,
-          locked: false,
-          hidden: false,
-          layout: { ...element.layout, zIndex: index + 1 },
-          content: element.content,
-          style: {
-            ...defaultElementStyle("text"),
-            ...element.style
-          }
-        })) ?? [],
-      tiles: []
-    } satisfies DashboardPage;
-  }
-
   function addPage(template?: PageTemplatePreset) {
-    const page = buildPageFromTemplate(template);
+    const page = buildPageFromTemplate({ template, pageCount: dashboard.pages.length, pageThemes });
 
     setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, page] }));
     setActivePageId(page.id);
@@ -1304,37 +938,7 @@ export default function BuilderApp() {
   }
 
   function duplicateActivePage() {
-    const duplicate: DashboardPage = {
-      ...activePage,
-      id: makePageId(),
-      title: `${activePage.title} copy`,
-      order: dashboard.pages.length + 1,
-      elements: activePage.elements.map((element) => ({
-        ...element,
-        id: makeElementId(),
-        layout: { ...element.layout, zIndex: element.layout.zIndex }
-      })),
-      tiles: activePage.tiles.map((tile) => ({
-        ...tile,
-        id: makeTileId(),
-        layout: { ...tile.layout, zIndex: tile.layout.zIndex },
-        appearance: {
-          ...tile.appearance,
-          palette: [...tile.appearance.palette],
-          gradientStops: [...tile.appearance.gradientStops],
-          barGradientStops: [...tile.appearance.barGradientStops],
-          barStyles: Object.fromEntries(
-            Object.entries(tile.appearance.barStyles).map(([id, style]) => [
-              id,
-              {
-                ...style,
-                gradientStops: style.gradientStops ? [...style.gradientStops] : style.gradientStops
-              }
-            ])
-          )
-        }
-      }))
-    };
+    const duplicate = duplicatePage(activePage, dashboard.pages.length);
 
     setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, duplicate] }));
     setActivePageId(duplicate.id);
@@ -1344,7 +948,7 @@ export default function BuilderApp() {
   function deleteActivePage() {
     if (dashboard.pages.length <= 1) return;
 
-    const remainingPages = sortedPages.filter((page) => page.id !== activePage.id).map((page, index) => ({ ...page, order: index + 1 }));
+    const remainingPages = remainingPagesAfterDelete(sortedPages, activePage);
     setDashboard((current) => ({ ...current, status: "draft", pages: remainingPages }));
     setActivePageId(remainingPages[0].id);
     setSelectedTileId(null);
@@ -1375,23 +979,7 @@ export default function BuilderApp() {
 
   function duplicateSelectedItem() {
     if (selectedTile) {
-      const duplicate: DashboardTile = {
-        ...selectedTile,
-        id: makeTileId(),
-        name: `${selectedTile.name} copy`,
-        title: `${selectedTile.title} copy`,
-        layout: {
-          ...selectedTile.layout,
-          x: selectedTile.layout.x + 24,
-          y: selectedTile.layout.y + 24,
-          zIndex: nextZIndex(activePage)
-        },
-        appearance: {
-          ...selectedTile.appearance,
-          palette: [...selectedTile.appearance.palette],
-          barStyles: { ...selectedTile.appearance.barStyles }
-        }
-      };
+      const duplicate = duplicateTile(selectedTile, activePage);
 
       setDashboard((current) => ({
         ...current,
@@ -1403,18 +991,7 @@ export default function BuilderApp() {
     }
 
     if (selectedElement) {
-      const duplicate: DashboardCanvasElement = {
-        ...selectedElement,
-        id: makeElementId(),
-        name: `${selectedElement.name} copy`,
-        layout: {
-          ...selectedElement.layout,
-          x: selectedElement.layout.x + 24,
-          y: selectedElement.layout.y + 24,
-          zIndex: nextZIndex(activePage)
-        },
-        style: { ...selectedElement.style }
-      };
+      const duplicate = duplicateElement(selectedElement, activePage);
 
       setDashboard((current) => ({
         ...current,
