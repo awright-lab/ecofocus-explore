@@ -282,6 +282,37 @@ h2 {
   font-weight: 700;
 }
 
+.export-package-confirmation {
+  display: grid;
+  max-width: 230px;
+  gap: 1px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.export-package-confirmation.ready {
+  border-color: rgba(0, 209, 127, 0.46);
+  background: rgba(0, 209, 127, 0.14);
+}
+
+.export-package-confirmation strong,
+.export-package-confirmation small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-package-confirmation small {
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 700;
+}
+
 .status {
   border: 1px solid rgba(255, 255, 255, 0.26);
   border-radius: 999px;

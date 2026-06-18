@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { DashboardDraft } from "../../../../shared/types/dashboard";
 import {
+  buildExportPackageConfirmationView,
   buildExportPackageContextView,
   buildPublishReadinessView,
   buildPublishShareContextView,
+  type ExportPackageConfirmationView,
   publishMetadataLabel
 } from "../builderPublishModel";
 
@@ -41,6 +43,18 @@ export function BuilderHeader({
   const readiness = buildPublishReadinessView(dashboard);
   const shareContext = buildPublishShareContextView(dashboard);
   const exportContext = buildExportPackageContextView(dashboard, readiness);
+  const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
+
+  useEffect(() => {
+    if (!exportConfirmation) return undefined;
+    const timeout = window.setTimeout(() => setExportConfirmation(null), 6000);
+    return () => window.clearTimeout(timeout);
+  }, [exportConfirmation]);
+
+  function handleExport() {
+    onExport();
+    setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext));
+  }
 
   return (
     <header className="builder-header">
@@ -68,7 +82,7 @@ export function BuilderHeader({
         <button type="button" className="secondary" onClick={onReset}>
           Reset
         </button>
-        <button type="button" className="secondary" onClick={onExport}>
+        <button type="button" className="secondary" onClick={handleExport}>
           Export package
         </button>
         <div className={`export-package-context ${exportContext.status}`} aria-label="Export package context">
@@ -77,6 +91,12 @@ export function BuilderHeader({
           <small>{exportContext.readinessLabel}</small>
           <small>{exportContext.helper}</small>
         </div>
+        {exportConfirmation && (
+          <div className={`export-package-confirmation ${exportConfirmation.status}`} role="status">
+            <strong>{exportConfirmation.label}</strong>
+            <small>{exportConfirmation.helper}</small>
+          </div>
+        )}
         <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
         <span className="publish-version-cue">{publishMetadataLabel(dashboard)}</span>
         <div className={`publish-readiness-cue ${readiness.status}`} aria-label="Publish readiness">

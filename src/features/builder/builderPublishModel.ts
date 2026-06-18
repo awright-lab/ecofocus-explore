@@ -32,6 +32,12 @@ export interface ExportPackageContextView {
   readinessLabel: string;
 }
 
+export interface ExportPackageConfirmationView {
+  status: "ready" | "needs-review";
+  label: string;
+  helper: string;
+}
+
 export function publishMetadataLabel(dashboard: DashboardDraft) {
   const { publishedAt, publishCount, versionLabel } = dashboard.publishMetadata;
   if (!publishCount) return "No published version yet";
@@ -133,5 +139,21 @@ export function buildExportPackageContextView(dashboard: DashboardDraft, readine
     helper: "Exports a JSON presentation package with visible pages, objects, analytics, and metadata.",
     packageLabel,
     readinessLabel: `${readiness.passedCount}/${readiness.totalCount} readiness checks pass.`
+  };
+}
+
+export function buildExportPackageConfirmationView(
+  dashboard: DashboardDraft,
+  exportContext = buildExportPackageContextView(dashboard)
+): ExportPackageConfirmationView {
+  const contextLabel =
+    dashboard.status === "published"
+      ? `Published ${dashboard.publishMetadata.versionLabel} package downloaded`
+      : "Draft package downloaded";
+
+  return {
+    status: exportContext.status,
+    label: contextLabel,
+    helper: `${exportContext.packageLabel} ${exportContext.readinessLabel}`
   };
 }
