@@ -186,6 +186,38 @@ h2 {
   white-space: nowrap;
 }
 
+.publish-readiness-cue {
+  display: grid;
+  max-width: 210px;
+  gap: 1px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.publish-readiness-cue.ready {
+  border-color: rgba(0, 209, 127, 0.45);
+  background: rgba(0, 209, 127, 0.14);
+}
+
+.publish-readiness-cue strong,
+.publish-readiness-cue span,
+.publish-readiness-cue small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publish-readiness-cue small {
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 700;
+}
+
 .status {
   border: 1px solid rgba(255, 255, 255, 0.26);
   border-radius: 999px;

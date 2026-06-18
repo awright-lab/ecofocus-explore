@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { DashboardDraft } from "../../../../shared/types/dashboard";
-import { publishMetadataLabel } from "../builderPublishModel";
+import { buildPublishReadinessView, publishMetadataLabel } from "../builderPublishModel";
 
 export function BuilderHeader({
   dashboard,
@@ -33,6 +33,8 @@ export function BuilderHeader({
   onPublish: () => void;
   onUnpublish: () => void;
 }) {
+  const readiness = buildPublishReadinessView(dashboard);
+
   return (
     <header className="builder-header">
       <div className="top-nav">
@@ -64,6 +66,11 @@ export function BuilderHeader({
         </button>
         <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
         <span className="publish-version-cue">{publishMetadataLabel(dashboard)}</span>
+        <div className={`publish-readiness-cue ${readiness.status}`} aria-label="Publish readiness">
+          <strong>{readiness.label}</strong>
+          <span>{readiness.passedCount}/{readiness.totalCount} checks</span>
+          <small>{readiness.helper}</small>
+        </div>
         {dashboard.status === "published" ? (
           <>
             <button type="button" className="secondary" onClick={onOpenPublished}>
