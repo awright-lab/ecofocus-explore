@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   bannerDimensions,
   comparisonDatasetOptions,
@@ -17,8 +18,10 @@ import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 import {
   bannerReuseState,
+  buildSavedSettingApplyFeedback,
   filterReuseState,
   savedLibraryItemClass,
+  type SavedSettingApplyFeedback,
   variableSetChartAction,
   weightReuseState
 } from "./libraryReuseModel";
@@ -497,6 +500,7 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
 
 export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
   const { savedBanners, breakBy, applySavedBanner, bannerDraftName, setBannerDraftName, saveCurrentBanner, savedLibraryHandoff, selectedTile, updateTile } = props;
+  const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestBanner = savedLibraryHandoff?.view === "banners";
   const selectedTileQuestion = selectedTile ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? null : null;
 
@@ -509,6 +513,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
                       <div className="explorer-item-list compact">
                         {savedBanners.map((item, index) => {
                           const reuse = bannerReuseState(selectedTile, selectedTileQuestion, item);
+                          const feedback = applyFeedback?.itemId === item.id ? applyFeedback : null;
                           return (
                           <div key={item.id} className={savedLibraryItemClass(item.breakBy === breakBy, highlightNewestBanner && index === 0)}>
                             <strong>{item.label}</strong>
@@ -521,11 +526,17 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
                                 type="button"
                                 className="secondary"
                                 disabled={!reuse.enabled}
-                                onClick={() => selectedTile && updateTile(selectedTile.id, updateTileBanner(selectedTile, item.breakBy))}
+                                onClick={() => {
+                                  if (!selectedTile) return;
+                                  const updates = updateTileBanner(selectedTile, item.breakBy);
+                                  updateTile(selectedTile.id, updates);
+                                  setApplyFeedback(buildSavedSettingApplyFeedback("banner", item.id, item.label, { ...selectedTile, ...updates }));
+                                }}
                               >
                                 Apply to selected tile
                               </button>
                             </div>
+                            {feedback && <SavedSettingApplyStatus feedback={feedback} />}
                           </div>
                         );
                         })}
@@ -540,6 +551,7 @@ export function SavedBannersSection(props: AnalysisAuthoringPanelProps) {
 
 export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
   const { savedFilters, filterField, filterValue, applySavedFilter, filterDraftName, setFilterDraftName, saveCurrentFilter, savedLibraryHandoff, selectedTile, updateTile } = props;
+  const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestFilter = savedLibraryHandoff?.view === "filters";
 
   return (
@@ -551,6 +563,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
                       <div className="explorer-item-list compact">
                         {savedFilters.map((item, index) => {
                           const reuse = filterReuseState(selectedTile, item);
+                          const feedback = applyFeedback?.itemId === item.id ? applyFeedback : null;
                           return (
                           <div key={item.id} className={savedLibraryItemClass(item.filterField === filterField && item.filterValue === filterValue, highlightNewestFilter && index === 0)}>
                             <strong>{item.label}</strong>
@@ -567,17 +580,18 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
                                   if (!selectedTile) return;
                                   const fieldUpdate = updateTileFilterField(selectedTile, item.filterField);
                                   const nextTile = { ...selectedTile, ...fieldUpdate };
-                                  updateTile(
-                                    selectedTile.id,
+                                  const updates =
                                     item.filterField && item.filterValue !== "all"
                                       ? updateTileFilterValue(nextTile, item.filterField, item.filterValue)
-                                      : fieldUpdate
-                                  );
+                                      : fieldUpdate;
+                                  updateTile(selectedTile.id, updates);
+                                  setApplyFeedback(buildSavedSettingApplyFeedback("filter", item.id, item.label, { ...selectedTile, ...updates }));
                                 }}
                               >
                                 Apply to selected tile
                               </button>
                             </div>
+                            {feedback && <SavedSettingApplyStatus feedback={feedback} />}
                           </div>
                         );
                         })}
@@ -592,6 +606,7 @@ export function SavedFiltersSection(props: AnalysisAuthoringPanelProps) {
 
 export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
   const { savedWeights, weight, applySavedWeight, weightDraftName, setWeightDraftName, saveCurrentWeight, savedLibraryHandoff, selectedTile, updateTile } = props;
+  const [applyFeedback, setApplyFeedback] = useState<SavedSettingApplyFeedback | null>(null);
   const highlightNewestWeight = savedLibraryHandoff?.view === "weights";
 
   return (
@@ -603,6 +618,7 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                       <div className="explorer-item-list compact">
                         {savedWeights.map((item, index) => {
                           const reuse = weightReuseState(selectedTile, item);
+                          const feedback = applyFeedback?.itemId === item.id ? applyFeedback : null;
                           return (
                           <div key={item.id} className={savedLibraryItemClass(item.weight === weight, highlightNewestWeight && index === 0)}>
                             <strong>{item.label}</strong>
@@ -615,11 +631,17 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                                 type="button"
                                 className="secondary"
                                 disabled={!reuse.enabled}
-                                onClick={() => selectedTile && updateTile(selectedTile.id, updateTileWeight(selectedTile, item.weight))}
+                                onClick={() => {
+                                  if (!selectedTile) return;
+                                  const updates = updateTileWeight(selectedTile, item.weight);
+                                  updateTile(selectedTile.id, updates);
+                                  setApplyFeedback(buildSavedSettingApplyFeedback("weight", item.id, item.label, { ...selectedTile, ...updates }));
+                                }}
                               >
                                 Apply to selected tile
                               </button>
                             </div>
+                            {feedback && <SavedSettingApplyStatus feedback={feedback} />}
                           </div>
                         );
                         })}
@@ -629,5 +651,15 @@ export function SavedWeightsSection(props: AnalysisAuthoringPanelProps) {
                         <button type="button" className="secondary" onClick={saveCurrentWeight}>Save weight</button>
                       </div>
                     </div>
+  );
+}
+
+function SavedSettingApplyStatus({ feedback }: { feedback: SavedSettingApplyFeedback }) {
+  return (
+    <div className={feedback.needsRefresh ? "library-reuse-confirmation pending" : "library-reuse-confirmation"} role="status">
+      <strong>{feedback.label}</strong>
+      <span>{feedback.message}</span>
+      <small>{feedback.statusLabel}: {feedback.statusDescription}</small>
+    </div>
   );
 }

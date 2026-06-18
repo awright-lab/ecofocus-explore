@@ -911,6 +911,31 @@ h2 {
   font-size: 0.68rem;
 }
 
+.library-reuse-confirmation {
+  display: grid;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid #dce4ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #174f3d;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.library-reuse-confirmation.pending {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.library-reuse-confirmation span,
+.library-reuse-confirmation small {
+  color: #4d6a5e !important;
+  font-size: 0.7rem !important;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .source-metadata-row {
   display: flex;
   flex-wrap: wrap;

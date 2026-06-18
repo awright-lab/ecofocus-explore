@@ -1,6 +1,18 @@
 import type { ChartType } from "../../../../shared/types/analytics";
 import type { DashboardTile, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
+import { buildTileQueryStatus } from "./inspectorTileQueryModel";
+
+export type SavedSettingReuseKind = "banner" | "filter" | "weight";
+
+export interface SavedSettingApplyFeedback {
+  itemId: string;
+  label: string;
+  message: string;
+  statusLabel: string;
+  statusDescription: string;
+  needsRefresh: boolean;
+}
 
 export function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
   return ["explorer-item", active ? "active" : "", recentlySaved ? "recently-saved" : ""].filter(Boolean).join(" ");
@@ -34,5 +46,26 @@ export function weightReuseState(tile: DashboardTile | null, weight: SavedWeight
   return {
     enabled: true,
     helper: weight.weight ? "Apply this weight to the selected tile." : "Apply the saved unweighted state to the selected tile."
+  };
+}
+
+export function buildSavedSettingApplyFeedback(
+  kind: SavedSettingReuseKind,
+  itemId: string,
+  itemLabel: string,
+  updatedTile: DashboardTile
+): SavedSettingApplyFeedback {
+  const queryStatus = buildTileQueryStatus(updatedTile);
+  const kindLabel = kind.charAt(0).toUpperCase() + kind.slice(1);
+
+  return {
+    itemId,
+    label: `${kindLabel} applied`,
+    message: `${itemLabel} was applied to the selected tile.`,
+    statusLabel: queryStatus.label,
+    statusDescription: queryStatus.hasPendingChanges
+      ? "Refresh analysis to update the selected object."
+      : "The selected object already reflects this setting.",
+    needsRefresh: queryStatus.hasPendingChanges
   };
 }
