@@ -4,7 +4,7 @@ import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import type { InsertionContextView } from "./insertionContextModel";
 import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
-import { buildAnalysisWeightDiagnostics, buildSavedVariableSetFilterMismatch, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
+import { buildAnalysisWeightDiagnostics, buildSavedVariableSetBannerMismatch, buildSavedVariableSetFilterMismatch, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
 import {
   buildSourceInsertionView,
   buildVariableSetDraftStatus,
@@ -409,6 +409,16 @@ export function SourceDetailPanel({
         currentContextLabel: "current authoring query"
       })
       : null;
+  const effectiveBreakBy = comparisonMode === "wave" ? "SUMMARY" : breakBy;
+  const bannerMismatch =
+    selectedDataSource.kind === "variableSet" && selectedVariableSet
+      ? buildSavedVariableSetBannerMismatch({
+        savedBreakBy: selectedVariableSet.breakBy,
+        currentBreakBy: effectiveBreakBy,
+        sourceLabel: selectedVariableSet.label,
+        currentContextLabel: "current authoring query"
+      })
+      : null;
 
   return (
     <div className="explorer-section-card source-detail-panel">
@@ -429,7 +439,7 @@ export function SourceDetailPanel({
         ))}
       </div>
       <SourceDetailList detail={detail} />
-      <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={[weightMismatch, filterMismatch]} />
+      <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={[weightMismatch, filterMismatch, bannerMismatch]} />
       <SourceInsertionActions
         chartType={chartType}
         selectedChartTypes={selectedChartTypes}

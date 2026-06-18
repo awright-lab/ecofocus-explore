@@ -1,5 +1,5 @@
 import { defaultDataset } from "../builderConstants";
-import type { FilterFieldId, QuestionId, WeightId } from "../../../../shared/types/analytics";
+import type { BreakById, FilterFieldId, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
 export interface AnalysisWeightDiagnosticsView {
   status: "weighted" | "unweighted";
@@ -41,6 +41,16 @@ export function filterLabel(field: AnalysisFilterField | null, value: string) {
   const dimension = defaultDataset.dimensions.find((item) => item.id === filter.field);
   const valueLabel = dimension?.values.find((item) => item.id === filter.value)?.label ?? filter.value;
   return dimension ? `${dimension.label}: ${valueLabel}` : valueLabel;
+}
+
+function normalizeBanner(breakBy: BreakById | null | undefined) {
+  return breakBy ?? defaultDataset.defaultBreakBy;
+}
+
+export function bannerLabel(breakBy: BreakById | null | undefined) {
+  const normalizedBreakBy = normalizeBanner(breakBy);
+  const dimension = defaultDataset.dimensions.find((item) => item.id === normalizedBreakBy);
+  return dimension?.label ?? normalizedBreakBy;
 }
 
 export function buildAnalysisWeightDiagnostics(weight: WeightId | null): AnalysisWeightDiagnosticsView {
@@ -117,6 +127,32 @@ export function buildSavedVariableSetFilterMismatch({
     label: "Saved source filter differs",
     message: `${sourceLabel} defaults to ${savedLabel}; ${currentContextLabel} uses ${currentLabel}.`,
     helper: "Review this before saving, refreshing, or reusing the source so filtering stays intentional.",
+    chips: [`Saved source: ${savedLabel}`, `Current: ${currentLabel}`]
+  };
+}
+
+export function buildSavedVariableSetBannerMismatch({
+  savedBreakBy,
+  currentBreakBy,
+  sourceLabel,
+  currentContextLabel
+}: {
+  savedBreakBy: BreakById;
+  currentBreakBy: BreakById;
+  sourceLabel: string;
+  currentContextLabel: string;
+}): AnalysisContextMismatchView | null {
+  const savedBanner = normalizeBanner(savedBreakBy);
+  const currentBanner = normalizeBanner(currentBreakBy);
+  if (savedBanner === currentBanner) return null;
+
+  const savedLabel = bannerLabel(savedBanner);
+  const currentLabel = bannerLabel(currentBanner);
+
+  return {
+    label: "Saved source banner differs",
+    message: `${sourceLabel} defaults to ${savedLabel}; ${currentContextLabel} uses ${currentLabel}.`,
+    helper: "Review this before saving, refreshing, or reusing the source so banner breakouts stay intentional.",
     chips: [`Saved source: ${savedLabel}`, `Current: ${currentLabel}`]
   };
 }
