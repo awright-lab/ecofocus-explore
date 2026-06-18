@@ -16,6 +16,14 @@ export interface PublishReadinessView {
   checks: PublishReadinessCheck[];
 }
 
+export interface PublishShareContextView {
+  status: "draft" | "published";
+  label: string;
+  helper: string;
+  viewerLabel: string;
+  exportLabel: string;
+}
+
 export function publishMetadataLabel(dashboard: DashboardDraft) {
   const { publishedAt, publishCount, versionLabel } = dashboard.publishMetadata;
   if (!publishCount) return "No published version yet";
@@ -69,5 +77,37 @@ export function buildPublishReadinessView(dashboard: DashboardDraft): PublishRea
     passedCount,
     totalCount,
     checks
+  };
+}
+
+export function buildPublishShareContextView(dashboard: DashboardDraft): PublishShareContextView {
+  const { publishCount, versionLabel } = dashboard.publishMetadata;
+
+  if (dashboard.status === "published") {
+    return {
+      status: "published",
+      label: "Published viewer",
+      helper: `${versionLabel} is available in the report viewer.`,
+      viewerLabel: "Open report reviews the current published version.",
+      exportLabel: "Export package is separate from the published viewer."
+    };
+  }
+
+  if (publishCount > 0) {
+    return {
+      status: "draft",
+      label: "Draft update",
+      helper: `Publishing will create v${publishCount + 1} from this draft.`,
+      viewerLabel: `${versionLabel} is the last published context.`,
+      exportLabel: "Export package uses the current draft content."
+    };
+  }
+
+  return {
+    status: "draft",
+    label: "First publish",
+    helper: "Publishing will create v1 in the report viewer.",
+    viewerLabel: "No viewer version exists yet.",
+    exportLabel: "Export package is available before publishing."
   };
 }

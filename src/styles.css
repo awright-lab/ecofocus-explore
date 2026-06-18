@@ -218,6 +218,38 @@ h2 {
   font-weight: 700;
 }
 
+.publish-share-context {
+  display: grid;
+  max-width: 245px;
+  gap: 1px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(6, 18, 32, 0.28);
+}
+
+.publish-share-context.published {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.publish-share-context strong,
+.publish-share-context span,
+.publish-share-context small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publish-share-context small {
+  color: rgba(255, 255, 255, 0.66);
+  font-weight: 700;
+}
+
 .status {
   border: 1px solid rgba(255, 255, 255, 0.26);
   border-radius: 999px;

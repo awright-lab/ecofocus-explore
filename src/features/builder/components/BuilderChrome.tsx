@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { DashboardDraft } from "../../../../shared/types/dashboard";
-import { buildPublishReadinessView, publishMetadataLabel } from "../builderPublishModel";
+import { buildPublishReadinessView, buildPublishShareContextView, publishMetadataLabel } from "../builderPublishModel";
 
 export function BuilderHeader({
   dashboard,
@@ -34,6 +34,7 @@ export function BuilderHeader({
   onUnpublish: () => void;
 }) {
   const readiness = buildPublishReadinessView(dashboard);
+  const shareContext = buildPublishShareContextView(dashboard);
 
   return (
     <header className="builder-header">
@@ -70,6 +71,12 @@ export function BuilderHeader({
           <strong>{readiness.label}</strong>
           <span>{readiness.passedCount}/{readiness.totalCount} checks</span>
           <small>{readiness.helper}</small>
+        </div>
+        <div className={`publish-share-context ${shareContext.status}`} aria-label="Publish and share context">
+          <strong>{shareContext.label}</strong>
+          <span>{shareContext.helper}</span>
+          <small>{shareContext.viewerLabel}</small>
+          <small>{shareContext.exportLabel}</small>
         </div>
         {dashboard.status === "published" ? (
           <>
