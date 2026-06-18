@@ -168,6 +168,13 @@ export interface DashboardPage {
   id: string;
   title: string;
   order: number;
+  provenance?: {
+    templateId?: string;
+    templateLabel?: string;
+    themeId?: string;
+    themeLabel?: string;
+    status: "template-derived" | "custom";
+  };
   showCanvasGrid: boolean;
   snapToGrid: boolean;
   gridSize: number;

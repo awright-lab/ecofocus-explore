@@ -23,6 +23,13 @@ export function buildPageFromTemplate(args: {
     id: makePageId(),
     title: template ? template.label : `Page ${pageCount + 1}`,
     order: pageCount + 1,
+    provenance: {
+      templateId: template?.id,
+      templateLabel: template?.label,
+      themeId: pageTheme?.id,
+      themeLabel: pageTheme?.label,
+      status: template ? "template-derived" : "custom"
+    },
     ...defaultPageDesign(),
     ...(pageTheme
       ? {
@@ -64,6 +71,10 @@ export function duplicatePage(page: DashboardPage, pageCount: number): Dashboard
     id: makePageId(),
     title: `${page.title} copy`,
     order: pageCount + 1,
+    provenance: {
+      ...page.provenance,
+      status: "custom"
+    },
     elements: page.elements.map((element) => ({
       ...element,
       id: makeElementId(),

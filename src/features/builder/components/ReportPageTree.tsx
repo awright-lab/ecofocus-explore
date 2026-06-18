@@ -46,6 +46,16 @@ function objectStatus(item: DashboardTile | DashboardCanvasElement) {
   return states.length ? states.join(" · ") : "Visible";
 }
 
+function pageProvenanceLabel(page: DashboardPage) {
+  if (page.provenance?.status === "template-derived" && page.provenance.templateLabel) {
+    return `From template: ${page.provenance.templateLabel}`;
+  }
+  if (page.provenance?.themeLabel) {
+    return `From theme: ${page.provenance.themeLabel}`;
+  }
+  return "Custom page";
+}
+
 export function ReportPageTree({
   sortedPages,
   activePage,
@@ -220,6 +230,7 @@ export function ReportPageTree({
                       <small>
                         {page.tiles.length} analyses · {page.elements.length} objects
                       </small>
+                      <small className="report-page-provenance">{pageProvenanceLabel(page)}</small>
                     </div>
                   </button>
                 )}

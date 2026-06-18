@@ -10,6 +10,30 @@ import { getBarStyle, getPaletteId } from "./CanvasRenderers";
 import { ElementInspector, TileAnalysisInspector, TileContainerInspector } from "./InspectorObjectSections";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 
+function pageProvenanceView(page: BuilderInspectorProps["activePage"]) {
+  if (page.provenance?.status === "template-derived" && page.provenance.templateLabel) {
+    return {
+      label: "From template",
+      message: page.provenance.templateLabel,
+      helper: page.provenance.themeLabel ? `Theme: ${page.provenance.themeLabel}` : "Template-derived page"
+    };
+  }
+
+  if (page.provenance?.themeLabel) {
+    return {
+      label: "From theme",
+      message: page.provenance.themeLabel,
+      helper: "Custom page using a saved page theme"
+    };
+  }
+
+  return {
+    label: "Custom page",
+    message: "No source template is attached.",
+    helper: "Future page-master behavior can build from this provenance."
+  };
+}
+
 export function PageInspector(props: BuilderInspectorProps) {
   const {
     settingsView,
@@ -20,6 +44,7 @@ export function PageInspector(props: BuilderInspectorProps) {
     deleteActivePage,
     setDesignModal
   } = props;
+  const provenance = pageProvenanceView(activePage);
 
   return (
     <>
@@ -29,6 +54,11 @@ export function PageInspector(props: BuilderInspectorProps) {
             Page title
             <input value={activePage.title} onChange={(event) => updateActivePage({ title: event.target.value })} />
           </label>
+          <div className="page-provenance-cue">
+            <strong>{provenance.label}</strong>
+            <span>{provenance.message}</span>
+            <small>{provenance.helper}</small>
+          </div>
           <div className="panel-title subtle">
             <h2>Canvas</h2>
           </div>

@@ -19,7 +19,7 @@ import {
 } from "./documentSeeds";
 import { defaultVisualizationForQuestion, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
 import type { BreakById } from "../../../shared/types/analytics";
-import type { DashboardDraft, DashboardPage, TileAppearance } from "../../../shared/types/dashboard";
+import type { DashboardDraft, DashboardPage, PageThemePreset, TileAppearance } from "../../../shared/types/dashboard";
 
 export function makeTileId() {
   return `tile_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -41,6 +41,32 @@ export function nextZIndex(page: DashboardPage) {
 
 export function clampZIndex(value: number) {
   return Math.max(1, value);
+}
+
+function matchingPageTheme(page: DashboardPage, pageThemes: PageThemePreset[]) {
+  return pageThemes.find((theme) =>
+    theme.backgroundMode === (page.backgroundMode ?? "solid")
+    && theme.background === page.background
+    && theme.backgroundImage === (page.backgroundImage ?? "")
+    && theme.backgroundImageFit === (page.backgroundImageFit ?? "cover")
+    && theme.gradientFrom === page.gradientFrom
+    && theme.gradientTo === page.gradientTo
+    && theme.gradientType === (page.gradientType ?? "linear")
+  );
+}
+
+function normalizePageProvenance(page: DashboardPage, pageThemes: PageThemePreset[]) {
+  const matchedTheme = page.provenance?.themeId
+    ? pageThemes.find((theme) => theme.id === page.provenance?.themeId)
+    : matchingPageTheme(page, pageThemes);
+
+  return {
+    templateId: page.provenance?.templateId,
+    templateLabel: page.provenance?.templateLabel,
+    themeId: page.provenance?.themeId ?? matchedTheme?.id,
+    themeLabel: page.provenance?.themeLabel ?? matchedTheme?.label,
+    status: page.provenance?.status ?? "custom"
+  };
 }
 
 export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
@@ -193,6 +219,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           ...page,
           ...defaultPageDesign(),
           ...page,
+          provenance: normalizePageProvenance(page, seededDesignLibrary.pageThemes),
           backgroundMode: page.backgroundMode ?? "solid",
           backgroundImage: page.backgroundImage ?? "",
           backgroundImageFit: page.backgroundImageFit ?? "cover",
