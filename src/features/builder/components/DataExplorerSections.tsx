@@ -13,6 +13,7 @@ import {
   questionMetadataChips,
   variableSetMetadataChips
 } from "./sourceExplorerModel";
+import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 
 export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
@@ -136,6 +137,7 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                       </div>
                     </div>
                     )}
+                    <SourceDetailPanel selectedDataSource={selectedDataSource} selectedQuestion={selectedQuestion} selectedVariableSet={selectedVariableSet} />
                   </>
   );
 }
