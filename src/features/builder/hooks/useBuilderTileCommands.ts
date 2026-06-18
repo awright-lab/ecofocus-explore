@@ -215,8 +215,10 @@ export function useBuilderTileCommands({
           query: { ...resolvedResponse.query, chartType: nextVisualization, confidenceLevel: resolvedResponse.query.confidenceLevel ?? nextQuery.confidenceLevel ?? 0.95 }
         }
       });
+      return true;
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong refreshing this analysis.");
+      return false;
     } finally {
       setIsLoading(false);
     }

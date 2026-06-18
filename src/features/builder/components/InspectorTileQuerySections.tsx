@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   bannerDimensions,
   comparisonDatasetOptions,
@@ -7,6 +8,8 @@ import {
 import type { BreakById, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
+  buildTileQueryActionState,
+  buildTileQueryStatus,
   tileRefreshQuery,
   toggleTileComparisonDataset,
   updateTileBanner,
@@ -188,25 +191,47 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     saveSelectedTileWeight,
     isLoading
   } = props;
+  const [confirmation, setConfirmation] = useState<{ tileId: string; message: string } | null>(null);
 
   if (!selectedTile) {
     return null;
   }
+  const tile = selectedTile;
+  const queryStatus = buildTileQueryStatus(tile);
+  const actionState = buildTileQueryActionState(queryStatus, isLoading);
+
+  async function refreshSelectedTile() {
+    const refreshed = await rerunTileAnalysis(tile, tileRefreshQuery(tile));
+    if (!refreshed) return;
+    setConfirmation({ tileId: tile.id, message: "Results refreshed for the selected object." });
+  }
+  const showConfirmation = confirmation?.tileId === tile.id && !queryStatus.hasPendingChanges;
 
   return (
     <>
+      <div className="tile-query-action-copy">
+        <span>{actionState.refreshHelperText}</span>
+      </div>
       <button
         type="button"
-        onClick={() => rerunTileAnalysis(selectedTile, tileRefreshQuery(selectedTile))}
-        disabled={isLoading}
+        onClick={() => void refreshSelectedTile()}
+        disabled={!actionState.canRefresh}
       >
-        {isLoading ? "Refreshing..." : "Refresh analysis"}
+        {actionState.refreshLabel}
       </button>
+      {showConfirmation && (
+        <div className="tile-query-action-confirmation" role="status">
+          {confirmation.message}
+        </div>
+      )}
+      <div className="tile-query-action-copy">
+        <span>{actionState.saveHelperText}</span>
+      </div>
       <div className="analysis-library-actions">
-        <button type="button" className="secondary" onClick={saveSelectedTileVariableSet}>Save set</button>
-        <button type="button" className="secondary" onClick={saveSelectedTileBanner}>Save banner</button>
-        <button type="button" className="secondary" onClick={saveSelectedTileFilter}>Save filter</button>
-        <button type="button" className="secondary" onClick={saveSelectedTileWeight}>Save weight</button>
+        <button type="button" className="secondary" onClick={saveSelectedTileVariableSet} disabled={!actionState.canSaveSettings}>Save set</button>
+        <button type="button" className="secondary" onClick={saveSelectedTileBanner} disabled={!actionState.canSaveSettings}>Save banner</button>
+        <button type="button" className="secondary" onClick={saveSelectedTileFilter} disabled={!actionState.canSaveSettings}>Save filter</button>
+        <button type="button" className="secondary" onClick={saveSelectedTileWeight} disabled={!actionState.canSaveSettings}>Save weight</button>
       </div>
     </>
   );

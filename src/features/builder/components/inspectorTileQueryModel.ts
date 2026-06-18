@@ -14,6 +14,14 @@ export interface TileQueryStatusView {
   comparisonLabel: string;
 }
 
+export interface TileQueryActionState {
+  canRefresh: boolean;
+  canSaveSettings: boolean;
+  refreshLabel: string;
+  saveHelperText: string;
+  refreshHelperText: string;
+}
+
 export function updateTileBanner(tile: DashboardTile, breakBy: BreakById): Partial<DashboardTile> {
   return {
     query: { ...tile.query, breakBy }
@@ -121,5 +129,19 @@ export function buildTileQueryStatus(tile: DashboardTile): TileQueryStatusView {
     questionLabel: getQuestionLabel(tile.query.question),
     visualizationLabel: getChartTypeLabel(tile.visualization),
     comparisonLabel: comparisonSummaryLabel(tile.query)
+  };
+}
+
+export function buildTileQueryActionState(status: TileQueryStatusView, isLoading: boolean): TileQueryActionState {
+  return {
+    canRefresh: !isLoading,
+    canSaveSettings: !isLoading && !status.hasPendingChanges,
+    refreshLabel: isLoading ? "Refreshing..." : status.hasPendingChanges ? "Refresh analysis" : "Refresh again",
+    refreshHelperText: status.hasPendingChanges
+      ? "Apply the edited source settings to the selected object."
+      : "Results already match these settings; refresh again only if the underlying data changed.",
+    saveHelperText: status.hasPendingChanges
+      ? "Refresh before saving reusable settings so saved items match the updated result."
+      : "Reusable settings can be saved from the current result."
   };
 }
