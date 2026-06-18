@@ -345,9 +345,12 @@ export default function BuilderApp() {
     addCanvasElement,
     addTextBlockPreset,
     updateActivePage,
+    renamePage,
     addPage,
     duplicateActivePage,
+    duplicatePageById,
     deleteActivePage,
+    deletePageById,
     movePage,
     deleteSelectedItem,
     duplicateSelectedItem,
@@ -725,9 +728,12 @@ export default function BuilderApp() {
           activePage={activePage}
           setActivePageId={setActivePageId}
           selectPage={selectPage}
+          renamePage={renamePage}
           addPage={addPage}
           duplicateActivePage={duplicateActivePage}
+          duplicatePageById={duplicatePageById}
           deleteActivePage={deleteActivePage}
+          deletePageById={deletePageById}
           movePage={movePage}
           pageTemplates={pageTemplates}
           pageThemes={pageThemes}

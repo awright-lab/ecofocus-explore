@@ -288,6 +288,22 @@ export function useBuilderDocumentSessionCommands({
     }));
   }
 
+  function renamePage(pageId: string, title: string) {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === pageId ? { ...page, title: nextTitle } : page))
+    }));
+    setActivePageId(pageId);
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+    setSettingsView("page");
+  }
+
   function addPage(template?: PageTemplatePreset) {
     const page = buildPageFromTemplate({ template, pageCount: dashboard.pages.length, pageThemes });
 
@@ -304,6 +320,17 @@ export function useBuilderDocumentSessionCommands({
     selectPage();
   }
 
+  function duplicatePageById(pageId: string) {
+    const sourcePage = sortedPages.find((page) => page.id === pageId);
+    if (!sourcePage) return;
+
+    const duplicate = duplicatePage(sourcePage, dashboard.pages.length);
+
+    setDashboard((current) => ({ ...current, status: "draft", pages: [...current.pages, duplicate] }));
+    setActivePageId(duplicate.id);
+    selectPage();
+  }
+
   function deleteActivePage() {
     if (dashboard.pages.length <= 1) return;
 
@@ -313,6 +340,26 @@ export function useBuilderDocumentSessionCommands({
     setSelectedTileId(null);
     setSelectedElementId(null);
     setSelectedChartPartId("all");
+  }
+
+  function deletePageById(pageId: string) {
+    if (dashboard.pages.length <= 1) return;
+
+    const pageToDelete = sortedPages.find((page) => page.id === pageId);
+    if (!pageToDelete) return;
+
+    const remainingPages = remainingPagesAfterDelete(sortedPages, pageToDelete);
+    const deletedPageIndex = sortedPages.findIndex((page) => page.id === pageId);
+    const fallbackPage = remainingPages[Math.max(0, Math.min(deletedPageIndex, remainingPages.length - 1))];
+
+    setDashboard((current) => ({ ...current, status: "draft", pages: remainingPages }));
+    if (activePage.id === pageId) {
+      setActivePageId(fallbackPage.id);
+      setSelectedTileId(null);
+      setSelectedElementId(null);
+      setSelectedChartPartId("all");
+      setSettingsView("page");
+    }
   }
 
   function movePage(pageId: string, direction: "up" | "down") {
@@ -440,9 +487,12 @@ export function useBuilderDocumentSessionCommands({
     addCanvasElement,
     addTextBlockPreset,
     updateActivePage,
+    renamePage,
     addPage,
     duplicateActivePage,
+    duplicatePageById,
     deleteActivePage,
+    deletePageById,
     movePage,
     deleteSelectedItem,
     duplicateSelectedItem,

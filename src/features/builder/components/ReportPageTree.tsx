@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import type { DashboardPage, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
 
@@ -9,9 +10,12 @@ type ReportPageTreeProps = {
   pageThemes: PageThemePreset[];
   setActivePageId: (pageId: string) => void;
   selectPage: () => void;
+  renamePage: (pageId: string, title: string) => void;
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
+  duplicatePageById: (pageId: string) => void;
   deleteActivePage: () => void;
+  deletePageById: (pageId: string) => void;
   movePage: (pageId: string, direction: "up" | "down") => void;
 };
 
@@ -30,12 +34,17 @@ export function ReportPageTree({
   pageThemes,
   setActivePageId,
   selectPage,
+  renamePage,
   addPage,
   duplicateActivePage,
+  duplicatePageById,
   deleteActivePage,
+  deletePageById,
   movePage
 }: ReportPageTreeProps) {
   const [pageSearch, setPageSearch] = useState("");
+  const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const normalizedSearch = pageSearch.trim().toLowerCase();
   const visiblePages = useMemo(
     () =>
@@ -47,6 +56,35 @@ export function ReportPageTree({
         : sortedPages,
     [normalizedSearch, sortedPages]
   );
+
+  function startRename(page: DashboardPage) {
+    setActivePageId(page.id);
+    selectPage();
+    setRenamingPageId(page.id);
+    setRenameDraft(page.title);
+  }
+
+  function saveRename(page: DashboardPage) {
+    renamePage(page.id, renameDraft || page.title);
+    setRenamingPageId(null);
+    setRenameDraft("");
+  }
+
+  function cancelRename() {
+    setRenamingPageId(null);
+    setRenameDraft("");
+  }
+
+  function handleRenameKeyDown(event: React.KeyboardEvent<HTMLInputElement>, page: DashboardPage) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveRename(page);
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelRename();
+    }
+  }
 
   return (
     <>
@@ -69,26 +107,65 @@ export function ReportPageTree({
           const pageIndex = sortedPages.findIndex((item) => item.id === page.id);
           const isFirstPage = pageIndex <= 0;
           const isLastPage = pageIndex === sortedPages.length - 1;
+          const isRenaming = renamingPageId === page.id;
 
           return (
             <div className={page.id === activePage.id ? "report-page-node-row active" : "report-page-node-row"} key={page.id}>
-              <button
-                type="button"
-                className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
-                onClick={() => {
-                  setActivePageId(page.id);
-                  selectPage();
-                }}
-              >
-                <span>{page.order}</span>
-                <div className="report-page-node__body">
-                  <strong>{page.title}</strong>
-                  <small>
-                    {page.tiles.length} analyses · {page.elements.length} objects
-                  </small>
+              {isRenaming ? (
+                <div className="page-tab report-page-node report-page-rename active">
+                  <span>{page.order}</span>
+                  <div className="report-page-node__body">
+                    <input
+                      aria-label={`Rename ${page.title}`}
+                      value={renameDraft}
+                      onChange={(event) => setRenameDraft(event.target.value)}
+                      onKeyDown={(event) => handleRenameKeyDown(event, page)}
+                      autoFocus
+                    />
+                    <small>Press Enter to save, Escape to cancel</small>
+                  </div>
                 </div>
-              </button>
-              <div className="report-page-node-actions" aria-label={`Move ${page.title}`}>
+              ) : (
+                <button
+                  type="button"
+                  className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
+                  onClick={() => {
+                    setActivePageId(page.id);
+                    selectPage();
+                  }}
+                >
+                  <span>{page.order}</span>
+                  <div className="report-page-node__body">
+                    <strong>{page.title}</strong>
+                    <small>
+                      {page.tiles.length} analyses · {page.elements.length} objects
+                    </small>
+                  </div>
+                </button>
+              )}
+              <div className="report-page-node-actions" aria-label={`Page actions for ${page.title}`}>
+                {isRenaming ? (
+                  <>
+                    <button type="button" className="mini-button" onClick={() => saveRename(page)}>
+                      Save
+                    </button>
+                    <button type="button" className="mini-button" onClick={cancelRename}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" className="mini-button" onClick={() => startRename(page)}>
+                      Rename
+                    </button>
+                    <button type="button" className="mini-button" onClick={() => duplicatePageById(page.id)}>
+                      Copy
+                    </button>
+                    <button type="button" className="mini-button" disabled={sortedPages.length <= 1} onClick={() => deletePageById(page.id)}>
+                      Delete
+                    </button>
+                  </>
+                )}
                 <button type="button" className="mini-button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
                   Up
                 </button>

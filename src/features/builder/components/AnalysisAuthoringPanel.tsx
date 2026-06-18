@@ -28,9 +28,12 @@ export type AnalysisAuthoringPanelProps = {
   activePage: DashboardPage;
   setActivePageId: (pageId: string) => void;
   selectPage: () => void;
+  renamePage: (pageId: string, title: string) => void;
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
+  duplicatePageById: (pageId: string) => void;
   deleteActivePage: () => void;
+  deletePageById: (pageId: string) => void;
   movePage: (pageId: string, direction: "up" | "down") => void;
   pageTemplates: PageTemplatePreset[];
   pageThemes: PageThemePreset[];
@@ -142,9 +145,12 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   activePage,
   setActivePageId,
   selectPage,
+  renamePage,
   addPage,
   duplicateActivePage,
+  duplicatePageById,
   deleteActivePage,
+  deletePageById,
   movePage,
   pageTemplates,
   pageThemes,
@@ -288,9 +294,12 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   pageThemes={pageThemes}
                   setActivePageId={setActivePageId}
                   selectPage={selectPage}
+                  renamePage={renamePage}
                   addPage={addPage}
                   duplicateActivePage={duplicateActivePage}
+                  duplicatePageById={duplicatePageById}
                   deleteActivePage={deleteActivePage}
+                  deletePageById={deletePageById}
                   movePage={movePage}
                 />
               )}

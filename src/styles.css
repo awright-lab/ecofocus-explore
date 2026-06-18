@@ -508,6 +508,7 @@ h2 {
 
 .report-page-node-actions {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, auto));
   gap: 4px;
   align-content: center;
   padding: 4px;
@@ -518,6 +519,20 @@ h2 {
 
 .report-page-node-actions .mini-button {
   min-width: 46px;
+  min-height: 24px;
+  padding: 0 6px;
+}
+
+.report-page-rename input {
+  width: 100%;
+  min-height: 27px;
+  padding: 0 7px;
+  border: 1px solid #b8d7c5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .report-page-node__body {
