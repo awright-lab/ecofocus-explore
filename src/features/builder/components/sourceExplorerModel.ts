@@ -65,6 +65,15 @@ export interface VariableSetDraftStatus {
   primaryActionLabel: string;
 }
 
+export interface SourceInsertionView {
+  chartType: ChartType;
+  chartLabel: string;
+  canCreateTable: boolean;
+  tableActionLabel: string;
+  chartActionLabel: string;
+  helperText: string;
+}
+
 function groupLabel(topic: string | undefined) {
   return topic?.trim() || "Uncategorized";
 }
@@ -246,6 +255,20 @@ export function buildVariableSetDraftStatus(savedVariableSet: SavedVariableSet |
       ? "Detail-panel edits are draft-only until you update the saved set."
       : "The selected saved set matches the current draft.",
     primaryActionLabel: "Update saved set"
+  };
+}
+
+export function buildSourceInsertionView(chartType: ChartType, selectedChartTypes: ChartType[], pageTitle: string): SourceInsertionView {
+  const chartVisualization = chartType === "table"
+    ? (selectedChartTypes.find((item) => item !== "table") ?? "vertical_bar")
+    : chartType;
+  return {
+    chartType: chartVisualization,
+    chartLabel: getChartTypeLabel(chartVisualization),
+    canCreateTable: selectedChartTypes.includes("table"),
+    tableActionLabel: "Create table",
+    chartActionLabel: `Create ${getChartTypeLabel(chartVisualization)}`,
+    helperText: `Objects are inserted on "${pageTitle}". Tables keep the source configuration table-first; charts use the same source query with a chart view.`
   };
 }
 

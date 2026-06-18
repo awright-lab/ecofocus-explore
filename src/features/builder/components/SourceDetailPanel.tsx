@@ -2,6 +2,7 @@ import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025"
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
+  buildSourceInsertionView,
   buildVariableSetDraftStatus,
   buildQuestionSourceDetail,
   buildVariableSetRowDetails,
@@ -29,6 +30,10 @@ interface SourceDetailPanelProps {
   weight: AnalysisAuthoringPanelProps["weight"];
   filterField: AnalysisAuthoringPanelProps["filterField"];
   filterValue: AnalysisAuthoringPanelProps["filterValue"];
+  selectedChartTypes: AnalysisAuthoringPanelProps["selectedChartTypes"];
+  addTileFromSourceWithVisualization: AnalysisAuthoringPanelProps["addTileFromSourceWithVisualization"];
+  isLoading: AnalysisAuthoringPanelProps["isLoading"];
+  activePageTitle: string;
 }
 
 function SourceDetailList({ detail }: { detail: SourceDetailView }) {
@@ -55,6 +60,43 @@ function SourceDetailList({ detail }: { detail: SourceDetailView }) {
         </div>
       ))}
     </>
+  );
+}
+
+function SourceInsertionActions({
+  chartType,
+  selectedChartTypes,
+  activePageTitle,
+  isLoading,
+  addTileFromSourceWithVisualization
+}: Pick<SourceDetailPanelProps, "chartType" | "selectedChartTypes" | "activePageTitle" | "isLoading" | "addTileFromSourceWithVisualization">) {
+  const insertion = buildSourceInsertionView(chartType, selectedChartTypes, activePageTitle);
+
+  return (
+    <div className="source-insertion-card">
+      <div>
+        <span>Use this source</span>
+        <strong>Create a report object</strong>
+        <p>{insertion.helperText}</p>
+      </div>
+      <div className="source-insertion-card__actions">
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => addTileFromSourceWithVisualization("table")}
+          disabled={isLoading || !insertion.canCreateTable}
+        >
+          {isLoading && chartType === "table" ? "Creating..." : insertion.tableActionLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => addTileFromSourceWithVisualization(insertion.chartType)}
+          disabled={isLoading}
+        >
+          {isLoading && chartType !== "table" ? "Creating..." : insertion.chartActionLabel}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -170,7 +212,11 @@ export function SourceDetailPanel({
   comparisonDatasets,
   weight,
   filterField,
-  filterValue
+  filterValue,
+  selectedChartTypes,
+  addTileFromSourceWithVisualization,
+  isLoading,
+  activePageTitle
 }: SourceDetailPanelProps) {
   const detail =
     selectedDataSource.kind === "variableSet" && selectedVariableSet
@@ -212,6 +258,13 @@ export function SourceDetailPanel({
         ))}
       </div>
       <SourceDetailList detail={detail} />
+      <SourceInsertionActions
+        chartType={chartType}
+        selectedChartTypes={selectedChartTypes}
+        activePageTitle={activePageTitle}
+        isLoading={isLoading}
+        addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
+      />
       {showVariableSetRefinement && (
         <>
           <VariableSetLifecycle selectedVariableSet={selectedVariableSet} draft={variableSetDraft} saveCurrentVariableSet={saveCurrentVariableSet} />

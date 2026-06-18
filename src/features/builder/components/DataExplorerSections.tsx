@@ -44,7 +44,11 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
     comparisonDatasets,
     weight,
     filterField,
-    filterValue
+    filterValue,
+    selectedChartTypes,
+    addTileFromSourceWithVisualization,
+    isLoading,
+    activePage
   } = props;
   const variableSetGroups = groupVariableSetsByTopic(filteredVariableSets);
   const questionGroups = groupQuestionsByTopic(filteredQuestions);
@@ -171,6 +175,10 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                       weight={weight}
                       filterField={filterField}
                       filterValue={filterValue}
+                      selectedChartTypes={selectedChartTypes}
+                      addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
+                      isLoading={isLoading}
+                      activePageTitle={activePage.title}
                     />
                   </>
   );
