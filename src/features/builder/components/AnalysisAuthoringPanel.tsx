@@ -14,7 +14,7 @@ import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, ReportTreeSelectionCue, SavedLibraryHandoff, SourceLibraryView } from "../builderTypes";
+import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
   leftPanelView: LeftPanelView;
@@ -26,6 +26,7 @@ export type AnalysisAuthoringPanelProps = {
   selectTile: (tileId: string) => void;
   selectElement: (elementId: string) => void;
   recordReportTreeSelectionCue: (cue: Omit<NonNullable<ReportTreeSelectionCue>, "createdAt">) => void;
+  recordSavedLibraryInsertionCue: (cue: Omit<NonNullable<SavedLibraryInsertionCue>, "createdAt">) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   updateElement: (elementId: string, updates: Partial<DashboardCanvasElement>) => void;
   sortedPages: DashboardPage[];
@@ -146,6 +147,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   selectTile,
   selectElement,
   recordReportTreeSelectionCue,
+  recordSavedLibraryInsertionCue,
   updateTile,
   updateElement,
   sortedPages,

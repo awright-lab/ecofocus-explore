@@ -46,6 +46,12 @@ export type ReportTreeSelectionCue = {
   pageTitle: string;
   createdAt: number;
 } | null;
+export type SavedLibraryInsertionCue = {
+  tileId: string;
+  sourceLabel: string;
+  objectLabel: string;
+  createdAt: number;
+} | null;
 
 export type LayerItem =
   | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
@@ -68,6 +74,7 @@ export type EditorUiState = {
   savedSettingOriginCue: SavedSettingOriginCue;
   relatedObjectNavigationCue: RelatedObjectNavigationCue;
   reportTreeSelectionCue: ReportTreeSelectionCue;
+  savedLibraryInsertionCue: SavedLibraryInsertionCue;
   sourceSearch: string;
   settingsView: SettingsView;
   designModal: DesignModal;

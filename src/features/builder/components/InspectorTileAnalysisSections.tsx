@@ -24,6 +24,7 @@ import {
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
+import { buildSavedLibraryInsertionCueView, type SavedLibraryInsertionCueView } from "./inspectorCreationCueModel";
 import {
   buildSavedTileSettingConfirmation,
   buildTileQueryActionState,
@@ -45,6 +46,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     selectedTile,
     updateSelectedTile,
     selectTile,
+    savedLibraryInsertionCue,
     relatedObjectNavigationCue,
     recordRelatedObjectNavigationCue,
     reportTreeSelectionCue
@@ -57,6 +59,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const relatedObjects = buildRelatedAnalyticalObjectsView(selectedTile, activePage.tiles);
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
+  const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
 
@@ -96,6 +99,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
+                {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="explorer-chip-row">
                   {summary.lifecycleChips.map((chip) => (
@@ -120,6 +124,16 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
+  );
+}
+
+function SavedLibraryInsertionCueCard({ view }: { view: SavedLibraryInsertionCueView }) {
+  return (
+    <div className="saved-library-insertion-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
   );
 }
 

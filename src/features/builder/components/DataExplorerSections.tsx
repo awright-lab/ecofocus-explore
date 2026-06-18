@@ -477,7 +477,8 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
     activePage,
     layerItems,
     selectedTileId,
-    selectedElementId
+    selectedElementId,
+    recordSavedLibraryInsertionCue
   } = props;
   const highlightNewestSet = savedLibraryHandoff?.view === "variableSets";
   const [insertionFeedback, setInsertionFeedback] = useState<SavedVariableSetInsertionFeedback | null>(null);
@@ -493,6 +494,11 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
     const createdTileId = await addTileFromVariableSet(variableSet, chartType);
     if (!createdTileId) return;
     setInsertionFeedback(buildSavedVariableSetInsertionFeedback(variableSet, objectLabel, insertionContext));
+    recordSavedLibraryInsertionCue({
+      tileId: createdTileId,
+      sourceLabel: variableSet.label,
+      objectLabel
+    });
   }
 
   return (
