@@ -8,8 +8,10 @@ import {
 import type { BreakById, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
+  buildSavedTileSettingConfirmation,
   buildTileQueryActionState,
   buildTileQueryStatus,
+  type SavedTileSettingKind,
   tileRefreshQuery,
   toggleTileComparisonDataset,
   updateTileBanner,
@@ -192,6 +194,7 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     isLoading
   } = props;
   const [confirmation, setConfirmation] = useState<{ tileId: string; message: string } | null>(null);
+  const [saveConfirmation, setSaveConfirmation] = useState<{ tileId: string; label: string; message: string } | null>(null);
 
   if (!selectedTile) {
     return null;
@@ -204,8 +207,15 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     const refreshed = await rerunTileAnalysis(tile, tileRefreshQuery(tile));
     if (!refreshed) return;
     setConfirmation({ tileId: tile.id, message: "Results refreshed for the selected object." });
+    setSaveConfirmation(null);
+  }
+  function saveReusableSetting(kind: SavedTileSettingKind, saveAction: () => void) {
+    saveAction();
+    const nextConfirmation = buildSavedTileSettingConfirmation(kind);
+    setSaveConfirmation({ tileId: tile.id, ...nextConfirmation });
   }
   const showConfirmation = confirmation?.tileId === tile.id && !queryStatus.hasPendingChanges;
+  const showSaveConfirmation = saveConfirmation?.tileId === tile.id && actionState.canSaveSettings;
 
   return (
     <>
@@ -228,11 +238,17 @@ export function TileQueryActions(props: BuilderInspectorProps) {
         <span>{actionState.saveHelperText}</span>
       </div>
       <div className="analysis-library-actions">
-        <button type="button" className="secondary" onClick={saveSelectedTileVariableSet} disabled={!actionState.canSaveSettings}>Save set</button>
-        <button type="button" className="secondary" onClick={saveSelectedTileBanner} disabled={!actionState.canSaveSettings}>Save banner</button>
-        <button type="button" className="secondary" onClick={saveSelectedTileFilter} disabled={!actionState.canSaveSettings}>Save filter</button>
-        <button type="button" className="secondary" onClick={saveSelectedTileWeight} disabled={!actionState.canSaveSettings}>Save weight</button>
+        <button type="button" className="secondary" onClick={() => saveReusableSetting("set", saveSelectedTileVariableSet)} disabled={!actionState.canSaveSettings}>Save set</button>
+        <button type="button" className="secondary" onClick={() => saveReusableSetting("banner", saveSelectedTileBanner)} disabled={!actionState.canSaveSettings}>Save banner</button>
+        <button type="button" className="secondary" onClick={() => saveReusableSetting("filter", saveSelectedTileFilter)} disabled={!actionState.canSaveSettings}>Save filter</button>
+        <button type="button" className="secondary" onClick={() => saveReusableSetting("weight", saveSelectedTileWeight)} disabled={!actionState.canSaveSettings}>Save weight</button>
       </div>
+      {showSaveConfirmation && (
+        <div className="tile-query-action-confirmation" role="status">
+          <strong>{saveConfirmation.label}</strong>
+          <span>{saveConfirmation.message}</span>
+        </div>
+      )}
     </>
   );
 }

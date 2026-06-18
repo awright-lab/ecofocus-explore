@@ -1779,6 +1779,8 @@ button:disabled {
 }
 
 .tile-query-action-confirmation {
+  display: grid;
+  gap: 2px;
   padding: 8px;
   border: 1px solid #b8d7c5;
   border-radius: 10px;
@@ -1786,6 +1788,12 @@ button:disabled {
   color: #174f3d;
   font-size: 0.74rem;
   font-weight: 750;
+}
+
+.tile-query-action-confirmation span {
+  color: #4d6a5e;
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
 .analysis-library-actions {

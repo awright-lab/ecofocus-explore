@@ -22,6 +22,13 @@ export interface TileQueryActionState {
   refreshHelperText: string;
 }
 
+export type SavedTileSettingKind = "set" | "banner" | "filter" | "weight";
+
+export interface SavedTileSettingConfirmation {
+  label: string;
+  message: string;
+}
+
 export function updateTileBanner(tile: DashboardTile, breakBy: BreakById): Partial<DashboardTile> {
   return {
     query: { ...tile.query, breakBy }
@@ -143,5 +150,30 @@ export function buildTileQueryActionState(status: TileQueryStatusView, isLoading
     saveHelperText: status.hasPendingChanges
       ? "Refresh before saving reusable settings so saved items match the updated result."
       : "Reusable settings can be saved from the current result."
+  };
+}
+
+export function buildSavedTileSettingConfirmation(kind: SavedTileSettingKind): SavedTileSettingConfirmation {
+  if (kind === "set") {
+    return {
+      label: "Variable set saved",
+      message: "Saved a new reusable variable set from this selected object."
+    };
+  }
+  if (kind === "banner") {
+    return {
+      label: "Banner saved",
+      message: "Saved a new reusable banner from this selected object."
+    };
+  }
+  if (kind === "filter") {
+    return {
+      label: "Filter saved",
+      message: "Saved a new reusable filter from this selected object."
+    };
+  }
+  return {
+    label: "Weight saved",
+    message: "Saved a new reusable weight from this selected object."
   };
 }
