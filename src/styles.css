@@ -1894,6 +1894,12 @@ button:disabled {
   font-weight: 800;
 }
 
+.settings-provenance-detail .mini-button {
+  justify-self: start;
+  min-height: 26px;
+  margin-top: 3px;
+}
+
 .tile-query-group {
   display: grid;
   gap: 8px;

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import type { ChartType } from "../../../../shared/types/analytics";
@@ -12,7 +13,13 @@ import {
   type SettingProvenanceOption
 } from "./inspectorSettingProvenanceModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
-import { buildTileQueryStatus } from "./inspectorTileQueryModel";
+import {
+  buildSavedTileSettingConfirmation,
+  buildTileQueryActionState,
+  buildTileQueryStatus,
+  type SavedTileSettingConfirmation,
+  type SavedTileSettingKind
+} from "./inspectorTileQueryModel";
 import {
   TileComparisonControls,
   TileFilterWeightControls,
@@ -67,20 +74,35 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     savedFilters,
     savedWeights,
     updateSelectedTile,
-    recordSavedSettingOriginCue
+    recordSavedSettingOriginCue,
+    saveSelectedTileBanner,
+    saveSelectedTileFilter,
+    saveSelectedTileWeight,
+    onViewSavedSettingInLibrary,
+    isLoading
   } = props;
+  const [saveConfirmation, setSaveConfirmation] = useState<(SavedTileSettingConfirmation & { tileId: string }) | null>(null);
 
   if (!selectedTile || !selectedTileQuestion) {
     return null;
   }
-  const queryStatus = buildTileQueryStatus(selectedTile);
-  const provenanceRows = buildSettingProvenanceRows(selectedTile, savedBanners, savedFilters, savedWeights);
+  const tile = selectedTile;
+  const queryStatus = buildTileQueryStatus(tile);
+  const actionState = buildTileQueryActionState(queryStatus, isLoading);
+  const provenanceRows = buildSettingProvenanceRows(tile, savedBanners, savedFilters, savedWeights);
   const compatibleSavedBanners = savedBanners.filter((item) => selectedTileQuestion.allowedBreakBys.includes(item.breakBy));
-  const pickerView = buildSettingProvenancePickerView(selectedTile, compatibleSavedBanners, savedFilters, savedWeights);
-  const bannerDisabled = (selectedTile.query.comparisonMode ?? "none") === "wave";
+  const pickerView = buildSettingProvenancePickerView(tile, compatibleSavedBanners, savedFilters, savedWeights);
+  const bannerDisabled = (tile.query.comparisonMode ?? "none") === "wave";
   const activeBannerOption = pickerView.bannerOptions.find((item) => item.id === pickerView.activeBannerId);
   const activeFilterOption = pickerView.filterOptions.find((item) => item.id === pickerView.activeFilterId);
   const activeWeightOption = pickerView.weightOptions.find((item) => item.id === pickerView.activeWeightId);
+  const showSaveConfirmation = saveConfirmation?.tileId === tile.id && actionState.canSaveSettings;
+
+  function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set">, saveAction: () => void) {
+    saveAction();
+    const nextConfirmation = buildSavedTileSettingConfirmation(kind);
+    setSaveConfirmation({ tileId: tile.id, ...nextConfirmation });
+  }
 
   return (
     <div className="inspector-summary-card">
@@ -122,6 +144,16 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
               <SettingProvenanceOptionDetail
                 option={activeBannerOption}
                 emptyState={bannerDisabled ? { label: "Wave comparison uses Summary", helper: "Turn off wave comparison before applying a saved banner." } : pickerView.bannerEmptyState}
+                action={
+                  !bannerDisabled && pickerView.bannerOptions.length === 0
+                    ? {
+                      label: "Save current banner",
+                      disabled: !actionState.canSaveSettings,
+                      disabledReason: actionState.saveHelperText,
+                      onClick: () => saveEmptyStateSetting("banner", saveSelectedTileBanner)
+                    }
+                    : undefined
+                }
               />
             )}
             {row.id === "filter" && (
@@ -142,7 +174,22 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
                 ))}
               </select>
             )}
-            {row.id === "filter" && <SettingProvenanceOptionDetail option={activeFilterOption} emptyState={pickerView.filterEmptyState} />}
+            {row.id === "filter" && (
+              <SettingProvenanceOptionDetail
+                option={activeFilterOption}
+                emptyState={pickerView.filterEmptyState}
+                action={
+                  pickerView.filterOptions.length === 0
+                    ? {
+                      label: "Save current filter",
+                      disabled: !actionState.canSaveSettings,
+                      disabledReason: actionState.saveHelperText,
+                      onClick: () => saveEmptyStateSetting("filter", saveSelectedTileFilter)
+                    }
+                    : undefined
+                }
+              />
+            )}
             {row.id === "weight" && (
               <select
                 aria-label="Apply saved weight"
@@ -161,10 +208,34 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
                 ))}
               </select>
             )}
-            {row.id === "weight" && <SettingProvenanceOptionDetail option={activeWeightOption} emptyState={pickerView.weightEmptyState} />}
+            {row.id === "weight" && (
+              <SettingProvenanceOptionDetail
+                option={activeWeightOption}
+                emptyState={pickerView.weightEmptyState}
+                action={
+                  pickerView.weightOptions.length === 0
+                    ? {
+                      label: "Save current weight",
+                      disabled: !actionState.canSaveSettings,
+                      disabledReason: actionState.saveHelperText,
+                      onClick: () => saveEmptyStateSetting("weight", saveSelectedTileWeight)
+                    }
+                    : undefined
+                }
+              />
+            )}
           </div>
         ))}
       </div>
+      {showSaveConfirmation && (
+        <div className="tile-query-action-confirmation" role="status">
+          <strong>{saveConfirmation.label}</strong>
+          <span>{saveConfirmation.message}</span>
+          <button type="button" className="secondary inline-action" onClick={() => onViewSavedSettingInLibrary(saveConfirmation.libraryView)}>
+            View in library
+          </button>
+        </div>
+      )}
       <div className="tile-query-group">
         <div className="explorer-section-header">
           <strong>Source settings</strong>
@@ -201,11 +272,24 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   );
 }
 
-function SettingProvenanceOptionDetail({ option, emptyState }: { option?: SettingProvenanceOption; emptyState: SettingProvenanceEmptyState }) {
+function SettingProvenanceOptionDetail({
+  option,
+  emptyState,
+  action
+}: {
+  option?: SettingProvenanceOption;
+  emptyState: SettingProvenanceEmptyState;
+  action?: { label: string; disabled: boolean; disabledReason: string; onClick: () => void };
+}) {
   return (
     <div className={option ? "settings-provenance-detail active" : "settings-provenance-detail"}>
       <span>{option?.summary ?? emptyState.label}</span>
       <small>{option?.description ?? emptyState.helper}</small>
+      {!option && action && (
+        <button type="button" className="mini-button" disabled={action.disabled} title={action.disabled ? action.disabledReason : undefined} onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }
