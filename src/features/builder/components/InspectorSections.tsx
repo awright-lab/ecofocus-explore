@@ -90,11 +90,13 @@ export function PageInspector(props: BuilderInspectorProps) {
     deleteActivePage,
     pageMasters,
     pageThemes,
+    applyPageMasterLayout,
     applyPageTheme,
     setDesignModal
   } = props;
   const provenance = pageProvenanceView(activePage);
   const masterProvenance = pageMasterProvenanceView(activePage);
+  const activePageMaster = pageMasters.find((master) => master.id === activePage.provenance?.masterId);
 
   return (
     <>
@@ -136,6 +138,33 @@ export function PageInspector(props: BuilderInspectorProps) {
             <small>
               Changes master provenance only. It does not copy master regions, create locked inherited objects, or sync updates.
             </small>
+          </div>
+          <div className="page-master-layout-card">
+            <div className="explorer-section-header">
+              <strong>Master layout preview</strong>
+              <small>{activePageMaster ? `${activePageMaster.elements.length} static region${activePageMaster.elements.length === 1 ? "" : "s"}` : "No master selected"}</small>
+            </div>
+            {activePageMaster ? (
+              <>
+                <div className="page-master-layout-list">
+                  {activePageMaster.elements.map((element) => (
+                    <div className="page-master-layout-row" key={`${activePageMaster.id}-${element.name}-${element.layout.x}-${element.layout.y}`}>
+                      <strong>{element.name}</strong>
+                      <span>{element.content}</span>
+                      <small>{Math.round(element.layout.width)}x{Math.round(element.layout.height)} at {Math.round(element.layout.x)}, {Math.round(element.layout.y)}</small>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" className="secondary" onClick={() => applyPageMasterLayout(activePageMaster)} disabled={activePageMaster.elements.length === 0}>
+                  Apply master layout once
+                </button>
+                <small>
+                  Copies these static elements into the page as editable page content. No live link, inherited locks, or future sync is created.
+                </small>
+              </>
+            ) : (
+              <small>Assign a master provenance above to preview and copy its static layout regions.</small>
+            )}
           </div>
           <div className="page-theme-rebase-card">
             <div className="explorer-section-header">

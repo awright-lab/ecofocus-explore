@@ -353,6 +353,7 @@ export default function BuilderApp() {
     updateActivePage,
     renamePage,
     addPage,
+    applyPageMasterLayout,
     duplicateActivePage,
     duplicatePageById,
     deleteActivePage,
@@ -900,6 +901,7 @@ export default function BuilderApp() {
           designPalettes={designPalettes}
           pageMasters={pageMasters}
           pageThemes={pageThemes}
+          applyPageMasterLayout={applyPageMasterLayout}
           setDesignModal={setDesignModal}
           changeSelectedLayer={changeSelectedLayer}
           alignSelected={alignSelected}

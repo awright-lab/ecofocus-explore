@@ -325,6 +325,12 @@ export interface PageMasterPreset {
   id: string;
   label: string;
   description: string;
+  elements: Array<{
+    name: string;
+    content: string;
+    layout: Omit<CanvasLayout, "zIndex">;
+    style: TextBlockPreset["style"];
+  }>;
 }
 
 export interface PageThemePreset {

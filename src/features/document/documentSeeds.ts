@@ -308,11 +308,47 @@ export function seedPageTemplates(): PageTemplatePreset[] {
 }
 
 export function seedPageMasters(): PageMasterPreset[] {
+  const sourceStyle = seedTextBlocks().find((block) => block.id === "source_note")?.style ?? defaultElementStyle("text");
+  const headerStyle = {
+    ...sourceStyle,
+    fontSize: 12,
+    fontWeight: "800",
+    textColor: "#315345"
+  };
+  const footerStyle = {
+    ...sourceStyle,
+    fontSize: 10,
+    textColor: "#6f8078"
+  };
+
   return [
     {
       id: "standard_report_master",
       label: "Standard report master",
-      description: "Metadata-only master placeholder for future shared header, footer, and source-note regions."
+      description: "Reusable header, source-note, and footer framing for report pages.",
+      elements: [
+        {
+          name: "Master header",
+          content: "EcoFocus Explore",
+          layout: { x: 72, y: 34, width: 280, height: 34 },
+          style: headerStyle
+        },
+        {
+          name: "Master source note",
+          content: "Source: EcoFocus survey data. Update notes for this page.",
+          layout: { x: 72, y: 650, width: 520, height: 44 },
+          style: footerStyle
+        },
+        {
+          name: "Master footer",
+          content: "Confidential reporting draft",
+          layout: { x: 690, y: 650, width: 250, height: 44 },
+          style: {
+            ...footerStyle,
+            textAlign: "right"
+          }
+        }
+      ]
     }
   ];
 }

@@ -3,6 +3,7 @@ import { canvasHeight, canvasWidth, historyLimit } from "../builderConstants";
 import {
   buildPageFromTemplate,
   createCanvasElement,
+  createElementsFromPageMaster,
   createTextBlockElement,
   duplicateElement,
   duplicatePage,
@@ -296,6 +297,21 @@ export function useBuilderDocumentSessionCommands({
     }));
   }
 
+  function applyPageMasterLayout(pageMaster: PageMasterPreset) {
+    const elements = createElementsFromPageMaster(pageMaster, activePage);
+    if (elements.length === 0) return;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, ...elements] } : page))
+    }));
+    setSelectedTileId(null);
+    setSelectedElementId(elements[0]?.id ?? null);
+    setSelectedChartPartId("all");
+    setSettingsView("element");
+  }
+
   function renamePage(pageId: string, title: string) {
     const nextTitle = title.trim();
     if (!nextTitle) return;
@@ -515,6 +531,7 @@ export function useBuilderDocumentSessionCommands({
     updateActivePage,
     renamePage,
     addPage,
+    applyPageMasterLayout,
     duplicateActivePage,
     duplicatePageById,
     deleteActivePage,

@@ -212,7 +212,24 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           ...pageMaster,
           id: pageMaster.id ?? `page_master_${index + 1}`,
           label: pageMaster.label ?? `Page master ${index + 1}`,
-          description: pageMaster.description ?? ""
+          description: pageMaster.description ?? "",
+          elements: (pageMaster.elements ?? []).map((element) => ({
+            ...element,
+            name: element.name ?? "Master element",
+            content: element.content ?? "",
+            layout: {
+              x: element.layout?.x ?? 72,
+              y: element.layout?.y ?? 72,
+              width: element.layout?.width ?? 360,
+              height: element.layout?.height ?? 80
+            },
+            style: {
+              ...defaultElementStyle("text"),
+              ...element.style,
+              gradientType: element.style?.gradientType ?? "linear",
+              gradientStops: element.style?.gradientStops ?? []
+            }
+          }))
         })) ?? seededDesignLibrary.pageMasters,
       pageThemes:
         dashboard.designLibrary?.pageThemes?.map((pageTheme, index) => ({

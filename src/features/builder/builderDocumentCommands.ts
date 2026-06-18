@@ -74,6 +74,25 @@ export function buildPageFromTemplate(args: {
   };
 }
 
+export function createElementsFromPageMaster(pageMaster: PageMasterPreset, activePage: DashboardPage): DashboardCanvasElement[] {
+  return pageMaster.elements.map((element, index) => ({
+    id: makeElementId(),
+    name: element.name,
+    type: "text" as const,
+    locked: false,
+    hidden: false,
+    layout: {
+      ...element.layout,
+      zIndex: nextZIndex(activePage) + index
+    },
+    content: element.content,
+    style: {
+      ...defaultElementStyle("text"),
+      ...element.style
+    }
+  }));
+}
+
 export function duplicatePage(page: DashboardPage, pageCount: number): DashboardPage {
   const tileIdMap = new Map(page.tiles.map((tile) => [tile.id, makeTileId()]));
 

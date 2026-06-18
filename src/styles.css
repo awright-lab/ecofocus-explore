@@ -827,6 +827,54 @@ h2 {
   line-height: 1.4;
 }
 
+.page-master-layout-card {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #f8fbfc;
+}
+
+.page-master-layout-card > small {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.page-master-layout-list {
+  display: grid;
+  gap: 6px;
+}
+
+.page-master-layout-row {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.page-master-layout-row strong,
+.page-master-layout-row span,
+.page-master-layout-row small {
+  overflow: hidden;
+  color: #20342a;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-master-layout-row span,
+.page-master-layout-row small {
+  color: #60756b;
+  font-weight: 650;
+}
+
 .page-theme-rebase-card {
   display: grid;
   gap: 8px;

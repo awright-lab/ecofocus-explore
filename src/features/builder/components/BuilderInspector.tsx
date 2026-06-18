@@ -56,6 +56,7 @@ export type BuilderInspectorProps = {
   designPalettes: DesignColorPalette[];
   pageMasters: PageMasterPreset[];
   pageThemes: PageThemePreset[];
+  applyPageMasterLayout: (pageMaster: PageMasterPreset) => void;
   setDesignModal: (modal: DesignModal) => void;
   changeSelectedLayer: (direction: "front" | "back" | "forward" | "backward") => void;
   alignSelected: (direction: "left" | "center" | "right" | "top" | "middle" | "bottom") => void;
