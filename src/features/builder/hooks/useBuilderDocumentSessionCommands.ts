@@ -258,7 +258,12 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function addCanvasElement(type: DashboardCanvasElementType) {
-    const element = createCanvasElement(type, activePage);
+    const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
+    const element = createCanvasElement(
+      type,
+      activePage,
+      selectedLayout ? { mode: "below-selection", referenceLayout: selectedLayout } : { mode: "default" }
+    );
 
     setDashboard((current) => ({
       ...current,

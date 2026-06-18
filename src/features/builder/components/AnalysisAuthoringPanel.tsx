@@ -11,6 +11,7 @@ import {
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { gradientCss } from "../builderHelpers";
+import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, ReportTreeSelectionCue, SavedLibraryHandoff, SourceLibraryView } from "../builderTypes";
@@ -250,6 +251,8 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   saveCurrentWeight,
   error
   } = props;
+  const insertionContext = buildInsertionContextView({ activePage, layerItems, selectedTileId, selectedElementId });
+
   return (
 <BuilderPanel className="panel controls" label="Data controls">
           {leftPanelView === "layers" ? (
@@ -321,6 +324,23 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                 <>
               <div className="panel-title">
                 <h2>Insert</h2>
+              </div>
+              <div className="insertion-context-card">
+                <div className="insertion-context-card__header">
+                  <span>Insertion target</span>
+                  <strong>{insertionContext.targetPageLabel}</strong>
+                </div>
+                <div className="insertion-context-grid">
+                  <div>
+                    <span>Selection</span>
+                    <strong>{insertionContext.selectedObjectLabel}</strong>
+                  </div>
+                  <div>
+                    <span>Placement</span>
+                    <strong>{insertionContext.placementLabel}</strong>
+                  </div>
+                </div>
+                <small>{insertionContext.helperText}</small>
               </div>
               <div className="insert-grid">
                 <button type="button" className="secondary" onClick={() => addCanvasElement("text")}>Text</button>

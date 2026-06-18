@@ -710,6 +710,50 @@ h2 {
   gap: 8px;
 }
 
+.insertion-context-card {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #dce5ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.insertion-context-card__header,
+.insertion-context-grid > div {
+  display: grid;
+  gap: 3px;
+}
+
+.insertion-context-card span,
+.insertion-context-grid span {
+  color: #698077;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.insertion-context-card strong {
+  overflow: hidden;
+  color: #20342a;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insertion-context-card small {
+  color: #586f65;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.insertion-context-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .compact-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

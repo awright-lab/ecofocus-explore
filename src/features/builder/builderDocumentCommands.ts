@@ -2,6 +2,7 @@ import { canvasHeight, canvasWidth } from "./builderConstants";
 import { defaultElementStyle, defaultPageDesign } from "../document/documentSeeds";
 import { makeElementId, makePageId, makeTileId, nextZIndex } from "../document/documentModel";
 import type {
+  CanvasLayout,
   DashboardCanvasElement,
   DashboardCanvasElementType,
   DashboardPage,
@@ -10,6 +11,10 @@ import type {
   PageThemePreset,
   TextBlockPreset
 } from "../../../shared/types/dashboard";
+
+type CanvasElementInsertionPlacement =
+  | { mode: "default" }
+  | { mode: "below-selection"; referenceLayout: CanvasLayout };
 
 export function buildPageFromTemplate(args: {
   template?: PageTemplatePreset;
@@ -152,14 +157,49 @@ export function remainingPagesAfterDelete(sortedPages: DashboardPage[], activePa
   return sortedPages.filter((page) => page.id !== activePage.id).map((page, index) => ({ ...page, order: index + 1 }));
 }
 
-export function createCanvasElement(type: DashboardCanvasElementType, activePage: DashboardPage): DashboardCanvasElement {
+function canvasElementDefaultSize(type: DashboardCanvasElementType) {
+  return {
+    width: type === "text" ? 280 : 220,
+    height: type === "text" ? 80 : 160
+  };
+}
+
+function canvasElementInsertionPosition(
+  type: DashboardCanvasElementType,
+  activePage: DashboardPage,
+  placement: CanvasElementInsertionPlacement = { mode: "default" }
+) {
+  const size = canvasElementDefaultSize(type);
+
+  if (placement.mode === "below-selection") {
+    return {
+      x: Math.max(24, Math.min(canvasWidth - size.width - 24, placement.referenceLayout.x)),
+      y: Math.max(24, Math.min(canvasHeight - size.height - 24, placement.referenceLayout.y + placement.referenceLayout.height + 24)),
+      ...size,
+      zIndex: nextZIndex(activePage)
+    };
+  }
+
+  return {
+    x: 64,
+    y: 64,
+    ...size,
+    zIndex: nextZIndex(activePage)
+  };
+}
+
+export function createCanvasElement(
+  type: DashboardCanvasElementType,
+  activePage: DashboardPage,
+  placement?: CanvasElementInsertionPlacement
+): DashboardCanvasElement {
   return {
     id: makeElementId(),
     name: type === "text" ? "Text" : type === "image" ? "Image" : type === "circle" ? "Circle" : "Rectangle",
     type,
     locked: false,
     hidden: false,
-    layout: { x: 64, y: 64, width: type === "text" ? 280 : 220, height: type === "text" ? 80 : 160, zIndex: nextZIndex(activePage) },
+    layout: canvasElementInsertionPosition(type, activePage, placement),
     content: type === "text" ? "Text box" : "",
     style: defaultElementStyle(type)
   };
