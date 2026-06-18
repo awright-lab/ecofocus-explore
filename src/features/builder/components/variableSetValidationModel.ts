@@ -48,6 +48,20 @@ export interface VariableSetRecodePreviewView {
   overlapWarnings: VariableSetOverlapWarning[];
 }
 
+export interface VariableSetAuthoredRowAuditView {
+  authoredRowCount: number;
+  manualNetCount: number;
+  topBoxCount: number;
+  bottomBoxCount: number;
+  hiddenRowCount: number;
+  emptyAuthoredRowCount: number;
+  problemRowCount: number;
+  overlappingAuthoredRowCount: number;
+  overlappingSourceOptionCount: number;
+  status: "ready" | "review";
+  helper: string;
+}
+
 export function isAuthoredVariableSetRow(row: SavedVariableSet["rows"][number]) {
   return row.kind !== "option";
 }
@@ -175,6 +189,39 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
     authoredRows: previewRows.filter((row) => row.kind !== "option"),
     rows: previewRows,
     overlapWarnings
+  };
+}
+
+export function buildVariableSetAuthoredRowAudit(rows: SavedVariableSet["rows"], question: QuestionMetadata): VariableSetAuthoredRowAuditView {
+  const recodePreview = buildVariableSetRecodePreview(rows, question);
+  const authoredRows = rows.filter(isAuthoredVariableSetRow);
+  const hiddenRowCount = rows.filter((row) => !row.visible).length;
+  const emptyAuthoredRowCount = authoredRows.filter((row) => row.sourceOptionIds.length === 0).length;
+  const unknownSourceRowCount = recodePreview.authoredRows.filter((row) => row.unknownSourceOptionIds.length > 0).length;
+  const overlappingRowCount = recodePreview.authoredRows.filter((row) => row.overlapLabels.length > 0).length;
+  const problemRowCount = new Set(
+    recodePreview.authoredRows
+      .filter((row) => row.unknownSourceOptionIds.length > 0 || row.overlapLabels.length > 0)
+      .map((row) => row.rowId)
+      .concat(authoredRows.filter((row) => row.sourceOptionIds.length === 0).map((row) => row.id))
+  ).size;
+  const status = problemRowCount > 0 ? "review" : "ready";
+
+  return {
+    authoredRowCount: authoredRows.length,
+    manualNetCount: authoredRows.filter((row) => row.kind === "net").length,
+    topBoxCount: authoredRows.filter((row) => row.kind === "topbox").length,
+    bottomBoxCount: authoredRows.filter((row) => row.kind === "bottombox").length,
+    hiddenRowCount,
+    emptyAuthoredRowCount,
+    problemRowCount,
+    overlappingAuthoredRowCount: overlappingRowCount,
+    overlappingSourceOptionCount: recodePreview.overlapWarnings.length,
+    status,
+    helper:
+      status === "ready"
+        ? "Authored rows have source options and no visible authored overlaps."
+        : `${problemRowCount} authored row${problemRowCount === 1 ? "" : "s"} need review for empty, unknown, or overlapping composition.${unknownSourceRowCount > 0 ? ` ${unknownSourceRowCount} row${unknownSourceRowCount === 1 ? "" : "s"} reference unknown options.` : ""}`
   };
 }
 

@@ -12,8 +12,9 @@ import {
   type VariableSetDraftState,
   type SourceDetailView
 } from "./sourceExplorerModel";
+import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCard";
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
-import { buildVariableSetReadinessView, buildVariableSetRecodePreview, type VariableSetReadinessView } from "./variableSetValidationModel";
+import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, type VariableSetReadinessView } from "./variableSetValidationModel";
 
 interface SourceDetailPanelProps {
   selectedDataSource: AnalysisAuthoringPanelProps["selectedDataSource"];
@@ -190,11 +191,13 @@ function VariableSetRowRefinement({
 }: Pick<SourceDetailPanelProps, "selectedQuestion" | "variableSetRows" | "updateVariableSetRow" | "reorderVariableSetRow">) {
   const rowDetails = buildVariableSetRowDetails(variableSetRows, selectedQuestion);
   const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
+  const authoredRowAudit = buildVariableSetAuthoredRowAudit(variableSetRows, selectedQuestion);
   const recodeRows = new Map(recodePreview.rows.map((row) => [row.rowId, row]));
   const rowsById = new Map(variableSetRows.map((row) => [row.id, row]));
 
   return (
     <div className="source-row-refinement">
+      <VariableSetAuthoredRowAuditCard audit={authoredRowAudit} />
       <div className="variable-set-recode-card">
         <div className="explorer-section-header">
           <strong>Recode and net preview</strong>

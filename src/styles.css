@@ -1747,6 +1747,55 @@ h2 {
   font-weight: 650;
 }
 
+.variable-set-audit-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce5ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.variable-set-audit-card.ready {
+  border-color: #b8d7c5;
+  background: #f6fbf8;
+}
+
+.variable-set-audit-card.review {
+  border-color: #ead8b8;
+  background: #fff9ed;
+}
+
+.variable-set-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.variable-set-audit-grid div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(143, 163, 153, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.variable-set-audit-grid span,
+.variable-set-audit-card > small {
+  color: #586f65;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.variable-set-audit-grid strong {
+  color: #20342a;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
 .variable-set-recode-card {
   display: grid;
   gap: 8px;

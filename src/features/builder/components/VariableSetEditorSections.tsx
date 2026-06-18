@@ -5,8 +5,9 @@ import {
 import { defaultVisualizationForQuestion } from "../../analytics/analyticsDisplay";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
+import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCard";
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
-import { buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow } from "./variableSetValidationModel";
+import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow } from "./variableSetValidationModel";
 
 export function VariableSetMetadataSection(props: AnalysisAuthoringPanelProps) {
   const {
@@ -96,6 +97,7 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
   } = props;
   const readiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
   const recodePreview = buildVariableSetRecodePreview(variableSetRows, selectedQuestion);
+  const authoredRowAudit = buildVariableSetAuthoredRowAudit(variableSetRows, selectedQuestion);
 
   return (
     <>
@@ -116,6 +118,7 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps) {
                           </div>
                         )}
                       </div>
+                      <VariableSetAuthoredRowAuditCard audit={authoredRowAudit} />
                       <div className="variable-set-recode-card">
                         <div className="explorer-section-header">
                           <strong>Recode preview</strong>
