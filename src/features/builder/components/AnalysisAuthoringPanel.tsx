@@ -1,5 +1,6 @@
 import { BuilderPanel } from "./BuilderChrome";
 import { DataExplorerPanel } from "./DataExplorerPanel";
+import { ReportPageTree } from "./ReportPageTree";
 import {
   bannerDimensions,
   comparisonDatasetOptions,
@@ -9,7 +10,7 @@ import {
 } from "../builderConstants";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { gradientCss, themePreviewBackground } from "../builderHelpers";
+import { gradientCss } from "../builderHelpers";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, SourceLibraryView } from "../builderTypes";
@@ -29,6 +30,7 @@ export type AnalysisAuthoringPanelProps = {
   selectPage: () => void;
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
+  deleteActivePage: () => void;
   pageTemplates: PageTemplatePreset[];
   pageThemes: PageThemePreset[];
   selectedTextElement: DashboardCanvasElement | null;
@@ -137,6 +139,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   selectPage,
   addPage,
   duplicateActivePage,
+  deleteActivePage,
   pageTemplates,
   pageThemes,
   selectedTextElement,
@@ -270,55 +273,17 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
           ) : (
             <>
               {leftPanelView === "pages" && (
-                <>
-              <div className="panel-title">
-                <h2>Pages</h2>
-              </div>
-              <div className="page-list">
-                {sortedPages.map((page) => (
-                  <button
-                    type="button"
-                    key={page.id}
-                    className={page.id === activePage.id ? "page-tab active" : "page-tab"}
-                    onClick={() => {
-                      setActivePageId(page.id);
-                      selectPage();
-                    }}
-                  >
-                    <span>{page.order}</span>
-                    {page.title}
-                  </button>
-                ))}
-              </div>
-              <div className="brand-card-actions">
-                <button type="button" className="secondary" onClick={() => addPage()}>
-                New page
-                </button>
-                <button type="button" className="secondary" onClick={duplicateActivePage}>
-                  Duplicate page
-                </button>
-              </div>
-              <div className="explorer-section-card">
-                <div className="explorer-section-header">
-                  <strong>Page templates</strong>
-                  <small>{pageTemplates.length} ready to use</small>
-                </div>
-                <div className="brand-theme-list">
-                  {pageTemplates.map((template) => (
-                    <button type="button" key={template.id} className="brand-theme-card" onClick={() => addPage(template)}>
-                      <span
-                        className="brand-theme-preview"
-                        style={{ background: themePreviewBackground(pageThemes.find((theme) => theme.id === template.pageThemeId)) }}
-                      />
-                      <div>
-                        <strong>{template.label}</strong>
-                        <small>{template.description}</small>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              </>
+                <ReportPageTree
+                  sortedPages={sortedPages}
+                  activePage={activePage}
+                  pageTemplates={pageTemplates}
+                  pageThemes={pageThemes}
+                  setActivePageId={setActivePageId}
+                  selectPage={selectPage}
+                  addPage={addPage}
+                  duplicateActivePage={duplicateActivePage}
+                  deleteActivePage={deleteActivePage}
+                />
               )}
 
               {leftPanelView === "insert" && (

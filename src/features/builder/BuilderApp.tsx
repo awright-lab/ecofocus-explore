@@ -712,6 +712,7 @@ export default function BuilderApp() {
           selectPage={selectPage}
           addPage={addPage}
           duplicateActivePage={duplicateActivePage}
+          deleteActivePage={deleteActivePage}
           pageTemplates={pageTemplates}
           pageThemes={pageThemes}
           selectedTextElement={selectedTextElement}

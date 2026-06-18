@@ -367,6 +367,39 @@ h2 {
   gap: 5px;
 }
 
+.report-tree-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #dfe6dc;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.report-tree-summary div {
+  display: grid;
+  gap: 2px;
+}
+
+.report-tree-summary span,
+.report-tree-summary small {
+  color: #68776e;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.report-tree-summary strong {
+  color: #1f3026;
+  font-size: 0.88rem;
+}
+
+.report-page-tree {
+  max-height: 260px;
+  overflow: auto;
+}
+
 .layers-list {
   display: grid;
   gap: 6px;
@@ -453,6 +486,31 @@ h2 {
   border-color: #11a58f;
   background: #e9f8f4;
   color: #0b5448;
+}
+
+.report-page-node {
+  grid-template-columns: 22px minmax(0, 1fr);
+  min-height: 48px;
+}
+
+.report-page-node__body {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.report-page-node__body strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-page-node__body small {
+  color: #68776e;
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 .insert-grid {
