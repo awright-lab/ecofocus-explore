@@ -82,6 +82,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     isLoading
   } = props;
   const [saveConfirmation, setSaveConfirmation] = useState<(SavedTileSettingConfirmation & { tileId: string }) | null>(null);
+  const [recentlySavedSetting, setRecentlySavedSetting] = useState<{ tileId: string; kind: Exclude<SavedTileSettingKind, "set"> } | null>(null);
 
   if (!selectedTile || !selectedTileQuestion) {
     return null;
@@ -97,11 +98,13 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const activeFilterOption = pickerView.filterOptions.find((item) => item.id === pickerView.activeFilterId);
   const activeWeightOption = pickerView.weightOptions.find((item) => item.id === pickerView.activeWeightId);
   const showSaveConfirmation = saveConfirmation?.tileId === tile.id && actionState.canSaveSettings;
+  const recentlySavedKind = recentlySavedSetting?.tileId === tile.id ? recentlySavedSetting.kind : null;
 
   function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set">, saveAction: () => void) {
     saveAction();
     const nextConfirmation = buildSavedTileSettingConfirmation(kind);
     setSaveConfirmation({ tileId: tile.id, ...nextConfirmation });
+    setRecentlySavedSetting({ tileId: tile.id, kind });
   }
 
   return (
@@ -143,6 +146,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
             {row.id === "banner" && (
               <SettingProvenanceOptionDetail
                 option={activeBannerOption}
+                recentlySaved={recentlySavedKind === "banner" && Boolean(activeBannerOption)}
                 emptyState={bannerDisabled ? { label: "Wave comparison uses Summary", helper: "Turn off wave comparison before applying a saved banner." } : pickerView.bannerEmptyState}
                 action={
                   !bannerDisabled && pickerView.bannerOptions.length === 0
@@ -177,6 +181,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
             {row.id === "filter" && (
               <SettingProvenanceOptionDetail
                 option={activeFilterOption}
+                recentlySaved={recentlySavedKind === "filter" && Boolean(activeFilterOption)}
                 emptyState={pickerView.filterEmptyState}
                 action={
                   pickerView.filterOptions.length === 0
@@ -211,6 +216,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
             {row.id === "weight" && (
               <SettingProvenanceOptionDetail
                 option={activeWeightOption}
+                recentlySaved={recentlySavedKind === "weight" && Boolean(activeWeightOption)}
                 emptyState={pickerView.weightEmptyState}
                 action={
                   pickerView.weightOptions.length === 0
@@ -274,17 +280,20 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
 
 function SettingProvenanceOptionDetail({
   option,
+  recentlySaved = false,
   emptyState,
   action
 }: {
   option?: SettingProvenanceOption;
+  recentlySaved?: boolean;
   emptyState: SettingProvenanceEmptyState;
   action?: { label: string; disabled: boolean; disabledReason: string; onClick: () => void };
 }) {
   return (
-    <div className={option ? "settings-provenance-detail active" : "settings-provenance-detail"}>
+    <div className={option ? recentlySaved ? "settings-provenance-detail active recently-saved" : "settings-provenance-detail active" : "settings-provenance-detail"}>
       <span>{option?.summary ?? emptyState.label}</span>
       <small>{option?.description ?? emptyState.helper}</small>
+      {recentlySaved && <small className="recently-saved-label">Newly saved reusable setting</small>}
       {!option && action && (
         <button type="button" className="mini-button" disabled={action.disabled} title={action.disabled ? action.disabledReason : undefined} onClick={action.onClick}>
           {action.label}

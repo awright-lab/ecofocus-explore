@@ -1884,6 +1884,13 @@ button:disabled {
   color: #174f3d;
 }
 
+.settings-provenance-detail.recently-saved {
+  padding: 5px;
+  border: 1px solid #b8d7c5;
+  border-radius: 8px;
+  background: #f2fbf5;
+}
+
 .settings-provenance-detail:not(.active) {
   padding: 5px 0 0;
 }
