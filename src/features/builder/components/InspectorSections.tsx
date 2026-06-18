@@ -9,7 +9,7 @@ import { effectShadow, gradientCss } from "../builderHelpers";
 import { getBarStyle, getPaletteId } from "./CanvasRenderers";
 import { ElementInspector, TileAnalysisInspector, TileContainerInspector } from "./InspectorObjectSections";
 import type { BuilderInspectorProps } from "./BuilderInspector";
-import type { PageThemePreset } from "../../../../shared/types/dashboard";
+import type { DashboardPage, PageMasterPreset, PageThemePreset } from "../../../../shared/types/dashboard";
 
 function pageProvenanceView(page: BuilderInspectorProps["activePage"]) {
   if (page.provenance?.status === "template-derived" && page.provenance.templateLabel) {
@@ -51,6 +51,35 @@ function pageMasterProvenanceView(page: BuilderInspectorProps["activePage"]) {
   };
 }
 
+function pageMasterProvenanceUpdate(page: DashboardPage, masterId: string, pageMasters: PageMasterPreset[]): Pick<DashboardPage, "provenance"> {
+  const baseProvenance = page.provenance ?? { masterStatus: "none" as const, status: "custom" as const };
+
+  if (masterId === "none") {
+    return {
+      provenance: {
+        ...baseProvenance,
+        masterId: undefined,
+        masterLabel: undefined,
+        masterStatus: "none"
+      }
+    };
+  }
+
+  const pageMaster = pageMasters.find((master) => master.id === masterId);
+  if (!pageMaster) {
+    return { provenance: baseProvenance };
+  }
+
+  return {
+    provenance: {
+      ...baseProvenance,
+      masterId: pageMaster.id,
+      masterLabel: pageMaster.label,
+      masterStatus: "master-based"
+    }
+  };
+}
+
 export function PageInspector(props: BuilderInspectorProps) {
   const {
     settingsView,
@@ -59,6 +88,7 @@ export function PageInspector(props: BuilderInspectorProps) {
     updateActivePage,
     duplicateActivePage,
     deleteActivePage,
+    pageMasters,
     pageThemes,
     applyPageTheme,
     setDesignModal
@@ -83,6 +113,29 @@ export function PageInspector(props: BuilderInspectorProps) {
             <strong>{masterProvenance.label}</strong>
             <span>{masterProvenance.message}</span>
             <small>{masterProvenance.helper}</small>
+          </div>
+          <div className="page-master-reassign-card">
+            <div className="explorer-section-header">
+              <strong>Page master provenance</strong>
+              <small>Metadata only. No live inheritance.</small>
+            </div>
+            <label>
+              Master
+              <select
+                value={activePage.provenance?.masterStatus === "master-based" ? activePage.provenance.masterId ?? "none" : "none"}
+                onChange={(event) => updateActivePage(pageMasterProvenanceUpdate(activePage, event.target.value, pageMasters))}
+              >
+                <option value="none">No master</option>
+                {pageMasters.map((master) => (
+                  <option value={master.id} key={master.id}>
+                    {master.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <small>
+              Changes master provenance only. It does not copy master regions, create locked inherited objects, or sync updates.
+            </small>
           </div>
           <div className="page-theme-rebase-card">
             <div className="explorer-section-header">

@@ -23,6 +23,7 @@ import type {
   DashboardPage,
   DashboardTile,
   DesignColorPalette,
+  PageMasterPreset,
   PageThemePreset,
   SavedBanner,
   SavedFilterSet,
@@ -53,6 +54,7 @@ export type BuilderInspectorProps = {
   chartStyleTargets: Array<{ id: string; label: string }>;
   textStylePresets: TextStylePreset[];
   designPalettes: DesignColorPalette[];
+  pageMasters: PageMasterPreset[];
   pageThemes: PageThemePreset[];
   setDesignModal: (modal: DesignModal) => void;
   changeSelectedLayer: (direction: "front" | "back" | "forward" | "backward") => void;

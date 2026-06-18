@@ -896,6 +896,7 @@ export default function BuilderApp() {
           chartStyleTargets={chartStyleTargets}
           textStylePresets={textStylePresets}
           designPalettes={designPalettes}
+          pageMasters={pageMasters}
           pageThemes={pageThemes}
           setDesignModal={setDesignModal}
           changeSelectedLayer={changeSelectedLayer}

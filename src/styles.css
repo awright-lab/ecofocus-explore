@@ -668,6 +668,22 @@ h2 {
   line-height: 1.4;
 }
 
+.page-master-reassign-card {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.page-master-reassign-card > small {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .page-theme-rebase-card {
   display: grid;
   gap: 8px;
