@@ -14,8 +14,10 @@ import {
   type SettingProvenanceRow
 } from "./inspectorSettingProvenanceModel";
 import {
+  buildDerivedObjectFreshnessView,
   buildRelatedObjectNavigationCueView,
   buildRelatedAnalyticalObjectsView,
+  type DerivedObjectFreshnessView,
   type RelatedAnalyticalObjectRow,
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
@@ -50,6 +52,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const summary = buildInspectorTileSummary(selectedTile);
   const relatedObjects = buildRelatedAnalyticalObjectsView(selectedTile, activePage.tiles);
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
+  const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
 
   function selectRelatedObject(item: RelatedAnalyticalObjectRow) {
     if (!selectedTile) return;
@@ -99,6 +102,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <small>{navigationCue.helper}</small>
                   </div>
                 )}
+                {freshnessCue && <DerivedObjectFreshnessCue view={freshnessCue} />}
                 <div className="explorer-chip-row">
                   {summary.chips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
@@ -108,6 +112,16 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
+  );
+}
+
+function DerivedObjectFreshnessCue({ view }: { view: DerivedObjectFreshnessView }) {
+  return (
+    <div className={`derived-freshness-cue ${view.status}`} aria-label="Derived object freshness">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
   );
 }
 

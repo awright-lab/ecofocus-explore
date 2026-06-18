@@ -1,4 +1,5 @@
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import type { AnalyticsFilter, AnalyticsQueryRequest } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 import type { RelatedObjectNavigationCue } from "../builderTypes";
 
@@ -23,6 +24,13 @@ export interface RelatedObjectNavigationCueView {
   helper: string;
 }
 
+export interface DerivedObjectFreshnessView {
+  status: "current" | "diverged" | "missingCanonical";
+  label: string;
+  message: string;
+  helper: string;
+}
+
 function tileTitle(tile: DashboardTile) {
   return tile.title || tile.name || "Untitled object";
 }
@@ -33,6 +41,33 @@ function canonicalIdFor(tile: DashboardTile) {
 
 function canonicalLabelFor(tile: DashboardTile) {
   return tile.analysisLifecycle?.canonicalLabel ?? tileTitle(tile);
+}
+
+function normalizedFilters(filters: AnalyticsFilter[]) {
+  return [...filters]
+    .map((filter) => ({
+      field: filter.field,
+      values: [...filter.values].sort()
+    }))
+    .sort((first, second) => first.field.localeCompare(second.field));
+}
+
+function queryContext(query: AnalyticsQueryRequest) {
+  return {
+    dataset: query.dataset,
+    question: query.question,
+    breakBy: query.breakBy,
+    filters: normalizedFilters(query.filters),
+    weight: query.weight,
+    metric: query.metric,
+    confidenceLevel: query.confidenceLevel,
+    comparisonMode: query.comparisonMode ?? "none",
+    comparisonDatasets: [...(query.comparisonDatasets ?? [])].sort()
+  };
+}
+
+function sameQueryContext(first: AnalyticsQueryRequest, second: AnalyticsQueryRequest) {
+  return JSON.stringify(queryContext(first)) === JSON.stringify(queryContext(second));
 }
 
 function relatedRow(
@@ -114,5 +149,38 @@ export function buildRelatedObjectNavigationCueView(
     label: "Viewing derived visualization",
     message: `Opened ${cue.targetTitle} from the related objects for ${cue.fromTitle}.`,
     helper: "This visualization is derived from that canonical analytical source on the current page."
+  };
+}
+
+export function buildDerivedObjectFreshnessView(
+  selectedTile: DashboardTile,
+  pageTiles: DashboardTile[]
+): DerivedObjectFreshnessView | null {
+  if (selectedTile.analysisLifecycle?.role !== "derived") return null;
+
+  const canonicalTile = pageTiles.find((tile) => tile.id === canonicalIdFor(selectedTile));
+  if (!canonicalTile) {
+    return {
+      status: "missingCanonical",
+      label: "Canonical source not on this page",
+      message: `${canonicalLabelFor(selectedTile)} was not found on the current page.`,
+      helper: "Freshness is limited to current-page relationships until cross-page lifecycle management is added."
+    };
+  }
+
+  if (sameQueryContext(selectedTile.query, canonicalTile.query)) {
+    return {
+      status: "current",
+      label: "Matches canonical query context",
+      message: `This derived view uses the same analytical inputs as ${tileTitle(canonicalTile)}.`,
+      helper: "The visualization can differ, but source, banner, filters, weight, metric, and comparison settings match."
+    };
+  }
+
+  return {
+    status: "diverged",
+    label: "May have diverged from canonical query",
+    message: `This derived view no longer uses the same analytical inputs as ${tileTitle(canonicalTile)}.`,
+    helper: "Review source, banner, filters, weight, metric, or comparison settings before treating the views as aligned."
   };
 }

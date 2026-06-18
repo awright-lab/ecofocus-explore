@@ -1822,6 +1822,40 @@ button:disabled {
   line-height: 1.4;
 }
 
+.derived-freshness-cue {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #dce4ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.derived-freshness-cue.current {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.derived-freshness-cue.diverged,
+.derived-freshness-cue.missingCanonical {
+  border-color: #e6c877;
+  background: #fff9e8;
+}
+
+.derived-freshness-cue strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.derived-freshness-cue span,
+.derived-freshness-cue small {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .related-objects-list {
   display: grid;
   gap: 6px;
