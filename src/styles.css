@@ -1796,6 +1796,57 @@ h2 {
   font-weight: 850;
 }
 
+.variable-set-coverage-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce5ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.variable-set-coverage-card.ready {
+  border-color: #b8d7c5;
+  background: #f6fbf8;
+}
+
+.variable-set-coverage-card.review {
+  border-color: #ead8b8;
+  background: #fff9ed;
+}
+
+.variable-set-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.variable-set-coverage-grid div,
+.variable-set-coverage-lists {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(143, 163, 153, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.variable-set-coverage-grid span,
+.variable-set-coverage-card > small,
+.variable-set-coverage-lists span {
+  color: #586f65;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.variable-set-coverage-grid strong {
+  color: #20342a;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
 .variable-set-audit-card button.active {
   border-color: rgba(47, 127, 95, 0.36);
   background: #eefaf5;

@@ -59,6 +59,19 @@ export interface VariableSetRecodePreviewView {
   authoredRows: VariableSetRowRecodePreview[];
   rows: VariableSetRowRecodePreview[];
   overlapWarnings: VariableSetOverlapWarning[];
+  coverage: VariableSetRecodeCoverageView;
+}
+
+export interface VariableSetRecodeCoverageView {
+  coveredOptionCount: number;
+  totalOptionCount: number;
+  uncoveredOptionCount: number;
+  multiplyUsedOptionCount: number;
+  coverageLabel: string;
+  helper: string;
+  uncoveredOptionLabels: string[];
+  multiplyUsedOptionLabels: string[];
+  status: "ready" | "review";
 }
 
 export interface VariableSetAuthoredRowAuditView {
@@ -156,6 +169,28 @@ function rowMiniSummaryLabel(includedCount: number, totalCount: number, unknownC
   return `Includes ${optionLabel}`;
 }
 
+function buildCoverageView(question: QuestionMetadata, includedOptionIds: Set<string>, overlapWarnings: VariableSetOverlapWarning[]): VariableSetRecodeCoverageView {
+  const uncoveredOptionLabels = question.options.filter((option) => !includedOptionIds.has(option.id)).map((option) => option.label);
+  const multiplyUsedOptionLabels = overlapWarnings.map((warning) => warning.optionLabel);
+  const coveredOptionCount = question.options.length - uncoveredOptionLabels.length;
+  const status = uncoveredOptionLabels.length > 0 || multiplyUsedOptionLabels.length > 0 ? "review" : "ready";
+
+  return {
+    coveredOptionCount,
+    totalOptionCount: question.options.length,
+    uncoveredOptionCount: uncoveredOptionLabels.length,
+    multiplyUsedOptionCount: multiplyUsedOptionLabels.length,
+    coverageLabel: `${coveredOptionCount} of ${question.options.length} question option${question.options.length === 1 ? "" : "s"} covered`,
+    helper:
+      status === "ready"
+        ? "Authored rows cover the full question option set without repeated authored usage."
+        : "Review uncovered or multiply used options before saving or creating from this set.",
+    uncoveredOptionLabels,
+    multiplyUsedOptionLabels,
+    status
+  };
+}
+
 export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], question: QuestionMetadata): VariableSetRecodePreviewView {
   const optionLabels = new Map(question.options.map((option) => [option.id, option.label]));
   const visibleRows = rows.filter((row) => row.visible);
@@ -246,7 +281,8 @@ export function buildVariableSetRecodePreview(rows: SavedVariableSet["rows"], qu
     excludedOptionLabels: question.options.filter((option) => !includedOptionIds.has(option.id)).map((option) => option.label),
     authoredRows: previewRows.filter((row) => row.kind !== "option"),
     rows: previewRows,
-    overlapWarnings
+    overlapWarnings,
+    coverage: buildCoverageView(question, includedOptionIds, overlapWarnings)
   };
 }
 

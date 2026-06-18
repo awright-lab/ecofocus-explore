@@ -13,6 +13,7 @@ import {
   type SourceDetailView
 } from "./sourceExplorerModel";
 import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCard";
+import { VariableSetCoverageSummaryCard } from "./VariableSetCoverageSummaryCard";
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
 import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, type VariableSetReadinessView } from "./variableSetValidationModel";
 
@@ -204,6 +205,7 @@ function VariableSetRowRefinement({
         showReviewRows={showRowsNeedingReview}
         onToggleReviewRows={() => setShowRowsNeedingReview((current) => !current)}
       />
+      <VariableSetCoverageSummaryCard coverage={recodePreview.coverage} />
       <div className="variable-set-recode-card">
         <div className="explorer-section-header">
           <strong>Recode and net preview</strong>

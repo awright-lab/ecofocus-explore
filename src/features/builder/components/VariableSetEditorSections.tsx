@@ -6,6 +6,7 @@ import { defaultVisualizationForQuestion } from "../../analytics/analyticsDispla
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import { VariableSetAuthoredRowAuditCard } from "./VariableSetAuthoredRowAuditCard";
+import { VariableSetCoverageSummaryCard } from "./VariableSetCoverageSummaryCard";
 import { VariableSetRowCompositionEditor } from "./VariableSetRowCompositionEditor";
 import { buildVariableSetAuthoredRowAudit, buildVariableSetReadinessView, buildVariableSetRecodePreview, isAuthoredVariableSetRow } from "./variableSetValidationModel";
 
@@ -130,6 +131,7 @@ export function VariableSetRowLogicSection(props: AnalysisAuthoringPanelProps & 
                         showReviewRows={showRowsNeedingReview}
                         onToggleReviewRows={onToggleRowsNeedingReview}
                       />
+                      <VariableSetCoverageSummaryCard coverage={recodePreview.coverage} />
                       <div className="variable-set-recode-card">
                         <div className="explorer-section-header">
                           <strong>Recode preview</strong>
