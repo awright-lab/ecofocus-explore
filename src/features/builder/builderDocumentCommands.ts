@@ -119,6 +119,24 @@ export function duplicatePage(page: DashboardPage, pageCount: number): Dashboard
   };
 }
 
+export function reorderPage(pages: DashboardPage[], pageId: string, direction: "up" | "down"): DashboardPage[] {
+  const sortedPages = [...pages].sort((first, second) => first.order - second.order);
+  const currentIndex = sortedPages.findIndex((page) => page.id === pageId);
+  if (currentIndex === -1) return pages;
+
+  const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+  if (nextIndex < 0 || nextIndex >= sortedPages.length) return pages;
+
+  const nextPages = [...sortedPages];
+  const [page] = nextPages.splice(currentIndex, 1);
+  nextPages.splice(nextIndex, 0, page);
+
+  return nextPages.map((nextPage, index) => ({
+    ...nextPage,
+    order: index + 1
+  }));
+}
+
 export function remainingPagesAfterDelete(sortedPages: DashboardPage[], activePage: DashboardPage): DashboardPage[] {
   return sortedPages.filter((page) => page.id !== activePage.id).map((page, index) => ({ ...page, order: index + 1 }));
 }

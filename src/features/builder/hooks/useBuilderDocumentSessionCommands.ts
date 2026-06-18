@@ -6,6 +6,7 @@ import {
   createTextBlockElement,
   duplicateElement,
   duplicatePage,
+  reorderPage,
   duplicateTile,
   remainingPagesAfterDelete
 } from "../builderDocumentCommands";
@@ -314,6 +315,26 @@ export function useBuilderDocumentSessionCommands({
     setSelectedChartPartId("all");
   }
 
+  function movePage(pageId: string, direction: "up" | "down") {
+    const currentIndex = sortedPages.findIndex((page) => page.id === pageId);
+    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex === -1 || nextIndex < 0 || nextIndex >= sortedPages.length) return;
+
+    setDashboard((current) => {
+      const nextPages = reorderPage(current.pages, pageId, direction);
+      return {
+        ...current,
+        status: "draft",
+        pages: nextPages
+      };
+    });
+    setActivePageId(pageId);
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+    setSettingsView("page");
+  }
+
   function deleteSelectedItem() {
     if (!selectedTile && !selectedElement) return;
 
@@ -422,6 +443,7 @@ export function useBuilderDocumentSessionCommands({
     addPage,
     duplicateActivePage,
     deleteActivePage,
+    movePage,
     deleteSelectedItem,
     duplicateSelectedItem,
     resetDashboard,

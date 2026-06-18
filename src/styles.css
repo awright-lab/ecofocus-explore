@@ -491,6 +491,33 @@ h2 {
 .report-page-node {
   grid-template-columns: 22px minmax(0, 1fr);
   min-height: 48px;
+  width: 100%;
+}
+
+.report-page-node-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.report-page-node-row.active .report-page-node-actions {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.report-page-node-actions {
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  padding: 4px;
+  border: 1px solid #e1e5ec;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.report-page-node-actions .mini-button {
+  min-width: 46px;
 }
 
 .report-page-node__body {

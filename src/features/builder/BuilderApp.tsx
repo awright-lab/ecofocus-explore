@@ -348,6 +348,7 @@ export default function BuilderApp() {
     addPage,
     duplicateActivePage,
     deleteActivePage,
+    movePage,
     deleteSelectedItem,
     duplicateSelectedItem,
     resetDashboard,
@@ -727,6 +728,7 @@ export default function BuilderApp() {
           addPage={addPage}
           duplicateActivePage={duplicateActivePage}
           deleteActivePage={deleteActivePage}
+          movePage={movePage}
           pageTemplates={pageTemplates}
           pageThemes={pageThemes}
           selectedTextElement={selectedTextElement}

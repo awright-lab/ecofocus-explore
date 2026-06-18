@@ -31,6 +31,7 @@ export type AnalysisAuthoringPanelProps = {
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
   deleteActivePage: () => void;
+  movePage: (pageId: string, direction: "up" | "down") => void;
   pageTemplates: PageTemplatePreset[];
   pageThemes: PageThemePreset[];
   selectedTextElement: DashboardCanvasElement | null;
@@ -144,6 +145,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   addPage,
   duplicateActivePage,
   deleteActivePage,
+  movePage,
   pageTemplates,
   pageThemes,
   selectedTextElement,
@@ -289,6 +291,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   addPage={addPage}
                   duplicateActivePage={duplicateActivePage}
                   deleteActivePage={deleteActivePage}
+                  movePage={movePage}
                 />
               )}
 

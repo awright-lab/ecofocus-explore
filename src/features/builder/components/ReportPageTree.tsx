@@ -12,6 +12,7 @@ type ReportPageTreeProps = {
   addPage: (template?: PageTemplatePreset) => void;
   duplicateActivePage: () => void;
   deleteActivePage: () => void;
+  movePage: (pageId: string, direction: "up" | "down") => void;
 };
 
 function pageObjectCount(page: DashboardPage) {
@@ -31,7 +32,8 @@ export function ReportPageTree({
   selectPage,
   addPage,
   duplicateActivePage,
-  deleteActivePage
+  deleteActivePage,
+  movePage
 }: ReportPageTreeProps) {
   const [pageSearch, setPageSearch] = useState("");
   const normalizedSearch = pageSearch.trim().toLowerCase();
@@ -63,25 +65,40 @@ export function ReportPageTree({
         <input value={pageSearch} onChange={(event) => setPageSearch(event.target.value)} placeholder="Page title, number, or object" />
       </label>
       <div className="page-list report-page-tree">
-        {visiblePages.map((page) => (
-          <button
-            type="button"
-            key={page.id}
-            className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
-            onClick={() => {
-              setActivePageId(page.id);
-              selectPage();
-            }}
-          >
-            <span>{page.order}</span>
-            <div className="report-page-node__body">
-              <strong>{page.title}</strong>
-              <small>
-                {page.tiles.length} analyses · {page.elements.length} objects
-              </small>
+        {visiblePages.map((page) => {
+          const pageIndex = sortedPages.findIndex((item) => item.id === page.id);
+          const isFirstPage = pageIndex <= 0;
+          const isLastPage = pageIndex === sortedPages.length - 1;
+
+          return (
+            <div className={page.id === activePage.id ? "report-page-node-row active" : "report-page-node-row"} key={page.id}>
+              <button
+                type="button"
+                className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
+                onClick={() => {
+                  setActivePageId(page.id);
+                  selectPage();
+                }}
+              >
+                <span>{page.order}</span>
+                <div className="report-page-node__body">
+                  <strong>{page.title}</strong>
+                  <small>
+                    {page.tiles.length} analyses · {page.elements.length} objects
+                  </small>
+                </div>
+              </button>
+              <div className="report-page-node-actions" aria-label={`Move ${page.title}`}>
+                <button type="button" className="mini-button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
+                  Up
+                </button>
+                <button type="button" className="mini-button" disabled={isLastPage} onClick={() => movePage(page.id, "down")}>
+                  Down
+                </button>
+              </div>
             </div>
-          </button>
-        ))}
+          );
+        })}
         {visiblePages.length === 0 && <div className="empty-state compact">No pages match that search.</div>}
       </div>
       <div className="brand-card-actions">
