@@ -32,7 +32,19 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
     selectedQuestion,
     variableSetRows,
     updateVariableSetRow,
-    reorderVariableSetRow
+    reorderVariableSetRow,
+    saveCurrentVariableSet,
+    variableSetDraftName,
+    variableSetDescription,
+    variableSetQuestionIds,
+    breakBy,
+    metric,
+    chartType,
+    comparisonMode,
+    comparisonDatasets,
+    weight,
+    filterField,
+    filterValue
   } = props;
   const variableSetGroups = groupVariableSetsByTopic(filteredVariableSets);
   const questionGroups = groupQuestionsByTopic(filteredQuestions);
@@ -147,6 +159,18 @@ export function SourcePickerSection(props: AnalysisAuthoringPanelProps) {
                       variableSetRows={variableSetRows}
                       updateVariableSetRow={updateVariableSetRow}
                       reorderVariableSetRow={reorderVariableSetRow}
+                      saveCurrentVariableSet={saveCurrentVariableSet}
+                      variableSetDraftName={variableSetDraftName}
+                      variableSetDescription={variableSetDescription}
+                      variableSetQuestionIds={variableSetQuestionIds}
+                      breakBy={breakBy}
+                      metric={metric}
+                      chartType={chartType}
+                      comparisonMode={comparisonMode}
+                      comparisonDatasets={comparisonDatasets}
+                      weight={weight}
+                      filterField={filterField}
+                      filterValue={filterValue}
                     />
                   </>
   );

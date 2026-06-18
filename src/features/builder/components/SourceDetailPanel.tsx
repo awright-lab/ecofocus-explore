@@ -2,9 +2,11 @@ import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025"
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
+  buildVariableSetDraftStatus,
   buildQuestionSourceDetail,
   buildVariableSetRowDetails,
   buildVariableSetSourceDetail,
+  type VariableSetDraftState,
   type SourceDetailView
 } from "./sourceExplorerModel";
 
@@ -15,6 +17,18 @@ interface SourceDetailPanelProps {
   variableSetRows: SavedVariableSet["rows"];
   updateVariableSetRow: AnalysisAuthoringPanelProps["updateVariableSetRow"];
   reorderVariableSetRow: AnalysisAuthoringPanelProps["reorderVariableSetRow"];
+  saveCurrentVariableSet: AnalysisAuthoringPanelProps["saveCurrentVariableSet"];
+  variableSetDraftName: AnalysisAuthoringPanelProps["variableSetDraftName"];
+  variableSetDescription: AnalysisAuthoringPanelProps["variableSetDescription"];
+  variableSetQuestionIds: AnalysisAuthoringPanelProps["variableSetQuestionIds"];
+  breakBy: AnalysisAuthoringPanelProps["breakBy"];
+  metric: AnalysisAuthoringPanelProps["metric"];
+  chartType: AnalysisAuthoringPanelProps["chartType"];
+  comparisonMode: AnalysisAuthoringPanelProps["comparisonMode"];
+  comparisonDatasets: AnalysisAuthoringPanelProps["comparisonDatasets"];
+  weight: AnalysisAuthoringPanelProps["weight"];
+  filterField: AnalysisAuthoringPanelProps["filterField"];
+  filterValue: AnalysisAuthoringPanelProps["filterValue"];
 }
 
 function SourceDetailList({ detail }: { detail: SourceDetailView }) {
@@ -41,6 +55,38 @@ function SourceDetailList({ detail }: { detail: SourceDetailView }) {
         </div>
       ))}
     </>
+  );
+}
+
+function VariableSetLifecycle({
+  selectedVariableSet,
+  draft,
+  saveCurrentVariableSet
+}: {
+  selectedVariableSet: SavedVariableSet | null;
+  draft: VariableSetDraftState;
+  saveCurrentVariableSet: AnalysisAuthoringPanelProps["saveCurrentVariableSet"];
+}) {
+  const status = buildVariableSetDraftStatus(selectedVariableSet, draft);
+
+  return (
+    <div className={status.hasUnsavedChanges ? "source-lifecycle-card dirty" : "source-lifecycle-card"}>
+      <div>
+        <span>{status.isPersisted ? "Saved library source" : "New library source"}</span>
+        <strong>{status.label}</strong>
+        <p>{status.description}</p>
+      </div>
+      <div className="source-lifecycle-card__actions">
+        <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(!selectedVariableSet)} disabled={status.isPersisted && !status.hasUnsavedChanges}>
+          {status.primaryActionLabel}
+        </button>
+        {selectedVariableSet && (
+          <button type="button" className="secondary" onClick={() => saveCurrentVariableSet(true)}>
+            Save as new
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -112,13 +158,40 @@ export function SourceDetailPanel({
   selectedVariableSet,
   variableSetRows,
   updateVariableSetRow,
-  reorderVariableSetRow
+  reorderVariableSetRow,
+  saveCurrentVariableSet,
+  variableSetDraftName,
+  variableSetDescription,
+  variableSetQuestionIds,
+  breakBy,
+  metric,
+  chartType,
+  comparisonMode,
+  comparisonDatasets,
+  weight,
+  filterField,
+  filterValue
 }: SourceDetailPanelProps) {
   const detail =
     selectedDataSource.kind === "variableSet" && selectedVariableSet
       ? buildVariableSetSourceDetail(selectedVariableSet, selectedQuestion)
       : buildQuestionSourceDetail(selectedQuestion);
   const showVariableSetRefinement = selectedDataSource.kind === "variableSet" && selectedVariableSet;
+  const variableSetDraft: VariableSetDraftState = {
+    label: variableSetDraftName,
+    description: variableSetDescription,
+    questionIds: variableSetQuestionIds,
+    primaryQuestionId: selectedQuestion.id,
+    rows: variableSetRows,
+    breakBy,
+    metric,
+    chartType,
+    comparisonMode,
+    comparisonDatasets,
+    weight,
+    filterField,
+    filterValue
+  };
 
   return (
     <div className="explorer-section-card source-detail-panel">
@@ -140,12 +213,15 @@ export function SourceDetailPanel({
       </div>
       <SourceDetailList detail={detail} />
       {showVariableSetRefinement && (
-        <VariableSetRowRefinement
-          selectedQuestion={selectedQuestion}
-          variableSetRows={variableSetRows}
-          updateVariableSetRow={updateVariableSetRow}
-          reorderVariableSetRow={reorderVariableSetRow}
-        />
+        <>
+          <VariableSetLifecycle selectedVariableSet={selectedVariableSet} draft={variableSetDraft} saveCurrentVariableSet={saveCurrentVariableSet} />
+          <VariableSetRowRefinement
+            selectedQuestion={selectedQuestion}
+            variableSetRows={variableSetRows}
+            updateVariableSetRow={updateVariableSetRow}
+            reorderVariableSetRow={reorderVariableSetRow}
+          />
+        </>
       )}
     </div>
   );

@@ -951,6 +951,53 @@ h2 {
   overflow: auto;
 }
 
+.source-lifecycle-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce5ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.source-lifecycle-card.dirty {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.source-lifecycle-card div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.source-lifecycle-card span {
+  color: #698077;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.source-lifecycle-card strong {
+  color: #20342a;
+  font-size: 0.82rem;
+}
+
+.source-lifecycle-card p {
+  margin: 0;
+  color: #586f65;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.source-lifecycle-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.source-lifecycle-card__actions button:only-child {
+  grid-column: 1 / -1;
+}
+
 .source-row-refinement {
   display: grid;
   gap: 8px;

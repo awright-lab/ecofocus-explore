@@ -2,7 +2,7 @@ import { comparisonDatasetOptions, defaultDataset } from "../builderConstants";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
-import type { BreakById, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
+import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
 export interface SourceExplorerGroup<T> {
   id: string;
@@ -39,6 +39,30 @@ export interface VariableSetRowDetail {
   emphasis: "detail" | "summary";
   sourceSummary: string;
   composition: string[];
+}
+
+export interface VariableSetDraftState {
+  label: string;
+  description: string;
+  questionIds: QuestionId[];
+  primaryQuestionId: QuestionId;
+  rows: SavedVariableSet["rows"];
+  breakBy: BreakById;
+  metric: Metric;
+  chartType: ChartType;
+  comparisonMode: ComparisonMode;
+  comparisonDatasets: DatasetId[];
+  weight: WeightId | null;
+  filterField: FilterFieldId | null;
+  filterValue: string;
+}
+
+export interface VariableSetDraftStatus {
+  isPersisted: boolean;
+  hasUnsavedChanges: boolean;
+  label: string;
+  description: string;
+  primaryActionLabel: string;
 }
 
 function groupLabel(topic: string | undefined) {
@@ -149,6 +173,80 @@ function comparisonLabel(variableSet: SavedVariableSet) {
   return variableSet.comparisonDatasets
     .map((datasetId) => comparisonDatasetOptions.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId)
     .join(", ");
+}
+
+function normalizeIds<T extends string>(ids: T[]) {
+  return ids.slice().sort();
+}
+
+function normalizeRows(rows: SavedVariableSet["rows"]) {
+  return rows
+    .slice()
+    .sort((a, b) => a.rowOrder - b.rowOrder)
+    .map((row, index) => ({
+      id: row.id,
+      label: row.label,
+      kind: row.kind,
+      sourceOptionIds: row.sourceOptionIds.slice(),
+      rowOrder: index + 1,
+      visible: row.visible,
+      emphasis: row.emphasis
+    }));
+}
+
+export function variableSetHasDraftChanges(savedVariableSet: SavedVariableSet | null, draft: VariableSetDraftState) {
+  if (!savedVariableSet) return true;
+  return JSON.stringify({
+    label: savedVariableSet.label,
+    description: savedVariableSet.description,
+    questionIds: normalizeIds(savedVariableSet.questionIds),
+    primaryQuestionId: savedVariableSet.primaryQuestionId,
+    rows: normalizeRows(savedVariableSet.rows),
+    breakBy: savedVariableSet.breakBy,
+    metric: savedVariableSet.metric,
+    chartType: savedVariableSet.chartType,
+    comparisonMode: savedVariableSet.comparisonMode ?? "none",
+    comparisonDatasets: normalizeIds(savedVariableSet.comparisonDatasets ?? []),
+    weight: savedVariableSet.weight,
+    filterField: savedVariableSet.filterField,
+    filterValue: savedVariableSet.filterValue
+  }) !== JSON.stringify({
+    label: draft.label.trim(),
+    description: draft.description.trim(),
+    questionIds: normalizeIds(draft.questionIds),
+    primaryQuestionId: draft.primaryQuestionId,
+    rows: normalizeRows(draft.rows),
+    breakBy: draft.breakBy,
+    metric: draft.metric,
+    chartType: draft.chartType,
+    comparisonMode: draft.comparisonMode,
+    comparisonDatasets: normalizeIds(draft.comparisonDatasets),
+    weight: draft.weight,
+    filterField: draft.filterField,
+    filterValue: draft.filterValue
+  });
+}
+
+export function buildVariableSetDraftStatus(savedVariableSet: SavedVariableSet | null, draft: VariableSetDraftState): VariableSetDraftStatus {
+  const hasUnsavedChanges = variableSetHasDraftChanges(savedVariableSet, draft);
+  if (!savedVariableSet) {
+    return {
+      isPersisted: false,
+      hasUnsavedChanges,
+      label: "Draft only",
+      description: "This variable-set draft has not been saved to the library yet.",
+      primaryActionLabel: "Save set"
+    };
+  }
+  return {
+    isPersisted: true,
+    hasUnsavedChanges,
+    label: hasUnsavedChanges ? "Unsaved draft changes" : "Saved set is current",
+    description: hasUnsavedChanges
+      ? "Detail-panel edits are draft-only until you update the saved set."
+      : "The selected saved set matches the current draft.",
+    primaryActionLabel: "Update saved set"
+  };
 }
 
 export function buildQuestionSourceDetail(question: QuestionMetadata): SourceDetailView {
