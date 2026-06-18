@@ -1873,6 +1873,23 @@ button:disabled {
   font-size: 0.7rem;
 }
 
+.settings-provenance-detail {
+  display: grid;
+  gap: 1px;
+  min-height: 44px;
+  padding-top: 2px;
+}
+
+.settings-provenance-detail.active {
+  color: #174f3d;
+}
+
+.settings-provenance-detail span {
+  color: #20342a;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .tile-query-group {
   display: grid;
   gap: 8px;

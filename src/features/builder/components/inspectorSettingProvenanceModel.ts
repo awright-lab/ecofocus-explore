@@ -23,6 +23,7 @@ export interface SettingProvenanceOption {
   id: string;
   label: string;
   description: string;
+  summary: string;
 }
 
 export interface SettingProvenancePickerView {
@@ -51,6 +52,22 @@ function filterLabel(tile: DashboardTile) {
 function weightLabel(tile: DashboardTile) {
   if (!tile.query.weight) return "Unweighted";
   return defaultDataset.weights.find((item) => item.id === tile.query.weight)?.label ?? tile.query.weight;
+}
+
+function bannerSettingSummary(banner: SavedBanner) {
+  return bannerDimensions.find((item) => item.id === banner.breakBy)?.label ?? banner.breakBy;
+}
+
+function filterSettingSummary(filter: SavedFilterSet) {
+  if (!filter.filterField || filter.filterValue === "all") return "No filter";
+  const dimension = filterDimensions.find((item) => item.id === filter.filterField);
+  const valueLabel = dimension?.values.find((item) => item.id === filter.filterValue)?.label ?? filter.filterValue;
+  return dimension ? `${dimension.label}: ${valueLabel}` : valueLabel;
+}
+
+function weightSettingSummary(weight: SavedWeightProfile) {
+  if (!weight.weight) return "Unweighted";
+  return defaultDataset.weights.find((item) => item.id === weight.weight)?.label ?? weight.weight;
 }
 
 function savedSource(label: string | undefined) {
@@ -108,13 +125,13 @@ export function buildSettingProvenancePickerView(
   const activeFilterValue = activeFilter?.values[0] ?? "all";
   const bannerOptions = savedBanners
     .filter((item) => item.datasetId === tile.query.dataset)
-    .map((item) => ({ id: item.id, label: item.label, description: item.description }));
+    .map((item) => ({ id: item.id, label: item.label, description: item.description, summary: bannerSettingSummary(item) }));
   const filterOptions = savedFilters
     .filter((item) => item.datasetId === tile.query.dataset)
-    .map((item) => ({ id: item.id, label: item.label, description: item.description }));
+    .map((item) => ({ id: item.id, label: item.label, description: item.description, summary: filterSettingSummary(item) }));
   const weightOptions = savedWeights
     .filter((item) => item.datasetId === tile.query.dataset)
-    .map((item) => ({ id: item.id, label: item.label, description: item.description }));
+    .map((item) => ({ id: item.id, label: item.label, description: item.description, summary: weightSettingSummary(item) }));
 
   return {
     bannerOptions,

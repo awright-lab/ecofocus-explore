@@ -7,7 +7,8 @@ import {
   buildSettingProvenanceRows,
   updatesForSavedBanner,
   updatesForSavedFilter,
-  updatesForSavedWeight
+  updatesForSavedWeight,
+  type SettingProvenanceOption
 } from "./inspectorSettingProvenanceModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
@@ -76,6 +77,9 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const compatibleSavedBanners = savedBanners.filter((item) => selectedTileQuestion.allowedBreakBys.includes(item.breakBy));
   const pickerView = buildSettingProvenancePickerView(selectedTile, compatibleSavedBanners, savedFilters, savedWeights);
   const bannerDisabled = (selectedTile.query.comparisonMode ?? "none") === "wave";
+  const activeBannerOption = pickerView.bannerOptions.find((item) => item.id === pickerView.activeBannerId);
+  const activeFilterOption = pickerView.filterOptions.find((item) => item.id === pickerView.activeFilterId);
+  const activeWeightOption = pickerView.weightOptions.find((item) => item.id === pickerView.activeWeightId);
 
   return (
     <div className="inspector-summary-card">
@@ -107,10 +111,11 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
               >
                 <option value="">{bannerDisabled ? "Wave comparison" : "Apply saved banner"}</option>
                 {pickerView.bannerOptions.map((item) => (
-                  <option value={item.id} key={item.id}>{item.label}</option>
+                  <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
                 ))}
               </select>
             )}
+            {row.id === "banner" && <SettingProvenanceOptionDetail option={activeBannerOption} fallback="Saved banner descriptions appear here after selection." />}
             {row.id === "filter" && (
               <select
                 aria-label="Apply saved filter"
@@ -125,10 +130,11 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
               >
                 <option value="">Apply saved filter</option>
                 {pickerView.filterOptions.map((item) => (
-                  <option value={item.id} key={item.id}>{item.label}</option>
+                  <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
                 ))}
               </select>
             )}
+            {row.id === "filter" && <SettingProvenanceOptionDetail option={activeFilterOption} fallback="Saved filter descriptions appear here after selection." />}
             {row.id === "weight" && (
               <select
                 aria-label="Apply saved weight"
@@ -143,10 +149,11 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
               >
                 <option value="">Apply saved weight</option>
                 {pickerView.weightOptions.map((item) => (
-                  <option value={item.id} key={item.id}>{item.label}</option>
+                  <option value={item.id} key={item.id} title={item.description}>{item.label} - {item.summary}</option>
                 ))}
               </select>
             )}
+            {row.id === "weight" && <SettingProvenanceOptionDetail option={activeWeightOption} fallback="Saved weight descriptions appear here after selection." />}
           </div>
         ))}
       </div>
@@ -182,6 +189,15 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         </div>
         <TileQueryActions {...props} />
       </div>
+    </div>
+  );
+}
+
+function SettingProvenanceOptionDetail({ option, fallback }: { option?: SettingProvenanceOption; fallback: string }) {
+  return (
+    <div className={option ? "settings-provenance-detail active" : "settings-provenance-detail"}>
+      <span>{option?.summary ?? "No saved setting selected"}</span>
+      <small>{option?.description ?? fallback}</small>
     </div>
   );
 }
