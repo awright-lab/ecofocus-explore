@@ -3,6 +3,8 @@ import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025"
 import type { SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import type { InsertionContextView } from "./insertionContextModel";
+import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
+import { buildAnalysisWeightDiagnostics } from "./analysisWeightDiagnosticsModel";
 import {
   buildSourceInsertionView,
   buildVariableSetDraftStatus,
@@ -386,6 +388,7 @@ export function SourceDetailPanel({
     filterValue
   };
   const variableSetReadiness = buildVariableSetReadinessView(variableSetRows, selectedQuestion);
+  const weightDiagnostics = buildAnalysisWeightDiagnostics(weight);
 
   return (
     <div className="explorer-section-card source-detail-panel">
@@ -406,6 +409,7 @@ export function SourceDetailPanel({
         ))}
       </div>
       <SourceDetailList detail={detail} />
+      <AnalysisWeightDiagnosticsCard view={weightDiagnostics} />
       <SourceInsertionActions
         chartType={chartType}
         selectedChartTypes={selectedChartTypes}

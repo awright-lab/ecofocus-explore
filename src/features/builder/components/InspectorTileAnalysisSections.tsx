@@ -39,6 +39,8 @@ import {
   TileQuestionConfigSection
 } from "./InspectorTileQuerySections";
 import { buildReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
+import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
+import { buildAnalysisWeightDiagnostics } from "./analysisWeightDiagnosticsModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -62,6 +64,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
+  const weightDiagnostics = buildAnalysisWeightDiagnostics(selectedTile.query.weight);
 
   function selectRelatedObject(item: RelatedAnalyticalObjectRow) {
     if (!selectedTile) return;
@@ -99,6 +102,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
+                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="explorer-chip-row">
@@ -236,6 +240,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const activeWeightOption = pickerView.weightOptions.find((item) => item.id === pickerView.activeWeightId);
   const showSaveConfirmation = saveConfirmation?.tileId === tile.id && actionState.canSaveSettings;
   const recentlySavedKind = recentlySavedSetting?.tileId === tile.id ? recentlySavedSetting.kind : null;
+  const weightDiagnostics = buildAnalysisWeightDiagnostics(tile.query.weight);
 
   function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set">, saveAction: () => void) {
     saveAction();
@@ -393,6 +398,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <strong>Filters and weights</strong>
           <small>Analysis base</small>
         </div>
+        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} />
         <TileFilterWeightControls {...props} />
       </div>
       <div className="tile-query-group">

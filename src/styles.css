@@ -1694,6 +1694,48 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.analysis-weight-diagnostics-card {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #dce5ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.analysis-weight-diagnostics-card.weighted {
+  border-color: #b8d7c5;
+  background: #f6fbf8;
+}
+
+.analysis-weight-diagnostics-card.unweighted {
+  border-color: #ead8b8;
+  background: #fff9ed;
+}
+
+.analysis-weight-diagnostics-card div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.analysis-weight-diagnostics-card span {
+  color: #698077;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.analysis-weight-diagnostics-card strong {
+  color: #20342a;
+  font-size: 0.82rem;
+}
+
+.analysis-weight-diagnostics-card p {
+  margin: 0;
+  color: #586f65;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 .variable-set-readiness-card {
   display: grid;
   gap: 8px;
