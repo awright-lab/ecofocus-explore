@@ -548,6 +548,28 @@ function AnalysisStatisticsContextCard({
           <small>{view.refreshCue.helper}</small>
         </div>
       )}
+      <div className={`analysis-significance-eligibility ${view.eligibility.status}`}>
+        <div>
+          <strong>{view.eligibility.label}</strong>
+          <span>{view.eligibility.message}</span>
+          <small>{view.eligibility.helper}</small>
+        </div>
+        <div className="explorer-chip-row">
+          <span className="explorer-chip">{view.eligibility.comparisonBasisLabel}</span>
+          {view.eligibility.chips.map((chip) => (
+            <span className={view.eligibility.status === "candidate" && chip !== "Placeholder only" && chip !== "No test performed" ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>
+              {chip}
+            </span>
+          ))}
+        </div>
+        {view.eligibility.limitations.length > 0 && (
+          <ul>
+            {view.eligibility.limitations.map((limitation) => (
+              <li key={limitation}>{limitation}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="explorer-chip-row">
         {view.chips.map((chip) => (
           <span className={chip === "Advisory only" || chip === "Refresh needed" || chip.includes("Placeholder") ? "explorer-chip warning-chip" : "explorer-chip"} key={chip}>

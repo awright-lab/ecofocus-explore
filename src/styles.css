@@ -1857,6 +1857,61 @@ h2 {
   font-weight: 650;
 }
 
+.analysis-significance-eligibility {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #cddbd3;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.analysis-significance-eligibility.limited,
+.analysis-significance-eligibility.notEligible {
+  border-color: #dfc98f;
+  background: rgba(255, 249, 237, 0.78);
+}
+
+.analysis-significance-eligibility > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.analysis-significance-eligibility strong,
+.analysis-significance-eligibility span,
+.analysis-significance-eligibility small,
+.analysis-significance-eligibility li {
+  color: #42584d;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.analysis-significance-eligibility span,
+.analysis-significance-eligibility small,
+.analysis-significance-eligibility li {
+  color: #62756d;
+  font-weight: 650;
+}
+
+.analysis-significance-eligibility.limited strong,
+.analysis-significance-eligibility.limited span,
+.analysis-significance-eligibility.limited small,
+.analysis-significance-eligibility.limited li,
+.analysis-significance-eligibility.notEligible strong,
+.analysis-significance-eligibility.notEligible span,
+.analysis-significance-eligibility.notEligible small,
+.analysis-significance-eligibility.notEligible li {
+  color: #675534;
+}
+
+.analysis-significance-eligibility ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-left: 16px;
+}
+
 .analysis-statistics-context-card.placeholder span,
 .analysis-statistics-context-card.placeholder strong,
 .analysis-statistics-context-card.placeholder p,
