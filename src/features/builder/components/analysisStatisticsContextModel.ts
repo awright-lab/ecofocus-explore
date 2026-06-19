@@ -9,10 +9,17 @@ export interface AnalysisStatisticsContextView {
   currentConfidenceLabel: string;
   resultConfidenceLabel: string;
   confidenceChangedSinceRefresh: boolean;
+  refreshCue: AnalysisConfidenceRefreshCueView | null;
   significanceLabel: string;
   message: string;
   helper: string;
   chips: string[];
+}
+
+export interface AnalysisConfidenceRefreshCueView {
+  label: string;
+  message: string;
+  helper: string;
 }
 
 export function confidenceLevelLabel(value: number) {
@@ -37,6 +44,13 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
   const confidenceChips = confidenceChangedSinceRefresh
     ? [`Current query: ${queryConfidenceLabel}`, `Result: ${resultConfidenceLabel}`, "Refresh needed"]
     : [`Current query: ${queryConfidenceLabel}`];
+  const refreshCue: AnalysisConfidenceRefreshCueView | null = confidenceChangedSinceRefresh
+    ? {
+      label: "Refresh to apply new confidence level",
+      message: `Result still reflects ${resultConfidenceLabel}; current query is ${currentConfidenceLabel}.`,
+      helper: "Use Apply and save below to refresh the selected object with this confidence context."
+    }
+    : null;
 
   if (significanceMethod === "mock_placeholder") {
     return {
@@ -45,6 +59,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
       currentConfidenceLabel,
       resultConfidenceLabel,
       confidenceChangedSinceRefresh,
+      refreshCue,
       significanceLabel,
       message: confidenceChangedSinceRefresh
         ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`
@@ -60,6 +75,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     currentConfidenceLabel,
     resultConfidenceLabel,
     confidenceChangedSinceRefresh,
+    refreshCue,
     significanceLabel,
     message: confidenceChangedSinceRefresh
       ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`

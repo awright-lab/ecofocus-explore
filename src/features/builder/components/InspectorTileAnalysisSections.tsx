@@ -541,6 +541,13 @@ function AnalysisStatisticsContextCard({
         </select>
         <small>Updates query context only; refresh analysis to update rendered results.</small>
       </label>
+      {view.refreshCue && (
+        <div className="analysis-confidence-refresh-cue" role="status">
+          <strong>{view.refreshCue.label}</strong>
+          <span>{view.refreshCue.message}</span>
+          <small>{view.refreshCue.helper}</small>
+        </div>
+      )}
       <div className="explorer-chip-row">
         {view.chips.map((chip) => (
           <span className={chip === "Advisory only" || chip === "Refresh needed" || chip.includes("Placeholder") ? "explorer-chip warning-chip" : "explorer-chip"} key={chip}>

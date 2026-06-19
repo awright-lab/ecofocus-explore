@@ -1833,6 +1833,30 @@ h2 {
   font-weight: 650;
 }
 
+.analysis-confidence-refresh-cue {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px dashed #dfc98f;
+  border-radius: 8px;
+  background: rgba(255, 249, 237, 0.78);
+}
+
+.analysis-confidence-refresh-cue strong,
+.analysis-confidence-refresh-cue span,
+.analysis-confidence-refresh-cue small {
+  color: #675534;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.analysis-confidence-refresh-cue span,
+.analysis-confidence-refresh-cue small {
+  color: #7d6a46;
+  font-weight: 650;
+}
+
 .analysis-statistics-context-card.placeholder span,
 .analysis-statistics-context-card.placeholder strong,
 .analysis-statistics-context-card.placeholder p,
