@@ -1,4 +1,4 @@
-import type { ConfidenceLevel } from "../../../../shared/types/analytics";
+import type { AnalyticsSignificanceResult, ConfidenceLevel, SignificanceMethod, SignificanceReasonCode } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 import { datasets } from "../builderConstants";
 import { filterLabel, weightLabel } from "./analysisWeightDiagnosticsModel";
@@ -62,9 +62,53 @@ export function confidenceLevelLabel(value: number) {
   return `${Math.round(value * 100)}% confidence`;
 }
 
-function significanceMethodLabel(method: DashboardTile["result"]["statistics"]["significanceMethod"]) {
+function significanceMethodLabel(method: SignificanceMethod) {
   if (method === "mock_placeholder") return "Placeholder annotations";
+  if (method === "column_comparison") return "Column comparison";
+  if (method === "wave_comparison") return "Wave comparison";
   return "No significance testing";
+}
+
+function fallbackSignificance(tile: DashboardTile): AnalyticsSignificanceResult {
+  const method = tile.result.statistics?.significanceMethod ?? "none";
+  const comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"] =
+    (tile.result.query.comparisonMode ?? tile.query.comparisonMode) === "wave"
+      ? "wave"
+      : tile.result.columns.length > 1
+        ? "breakout"
+        : tile.result.columns.length === 1
+          ? "summary"
+          : "none";
+  const hasPlaceholders = method === "mock_placeholder" || tile.result.annotations.length > 0;
+
+  return {
+    status: hasPlaceholders ? "placeholder" : method === "none" ? "none" : "eligible",
+    method,
+    reasonCodes: hasPlaceholders ? ["mock_provider_placeholder"] : ["mock_provider_not_available"],
+    comparisonBasis,
+    hasPlaceholders,
+    details: tile.result.annotations.map((annotation) => ({
+      rowId: annotation.rowId,
+      columnId: annotation.columnId,
+      direction: annotation.direction,
+      confidence: annotation.confidence as ConfidenceLevel,
+      status: "placeholder",
+      reasonCodes: ["mock_provider_placeholder"]
+    }))
+  };
+}
+
+function significanceReasonLabel(reasonCode: SignificanceReasonCode) {
+  const labels: Record<SignificanceReasonCode, string> = {
+    mock_provider_placeholder: "Mock provider placeholder",
+    mock_provider_not_available: "Mock provider does not calculate significance",
+    wave_comparison_unsupported: "Wave comparison significance unsupported",
+    summary_only: "Summary-only result",
+    no_comparison_basis: "No comparison basis",
+    insufficient_base: "Insufficient base",
+    future_method: "Future method scaffold"
+  };
+  return labels[reasonCode];
 }
 
 function datasetWaveLabel(datasetId: string) {
@@ -73,7 +117,8 @@ function datasetWaveLabel(datasetId: string) {
 
 function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificanceEligibilityView {
   const result = tile.result;
-  const significanceMethod = result.statistics?.significanceMethod ?? "none";
+  const significance = result.statistics?.significance ?? fallbackSignificance(tile);
+  const significanceMethod = significance.method;
   const comparisonMode = result.query.comparisonMode ?? tile.query.comparisonMode ?? "none";
   const columnCount = result.columns.length;
   const rowCount = result.table.length;
@@ -99,7 +144,10 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
   }
 
   const limitations = [
-    significanceMethod === "mock_placeholder" ? "Current markers are placeholders, not statistical test results." : "No significance method is active for this result.",
+    significance.hasPlaceholders ? "Current markers are placeholders, not statistical test results." : "",
+    significance.status === "unsupported" ? "The current provider reports this significance method as unsupported." : "",
+    significance.status === "none" ? "No significance method is active for this result." : "",
+    ...significance.reasonCodes.map(significanceReasonLabel),
     isWaveComparison ? "Wave comparison significance is not implemented in the mock provider." : "",
     isSummaryOnly ? "Summary-only results do not provide comparison columns for column significance." : ""
   ].filter(Boolean);
@@ -111,7 +159,7 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
       message: "This result has table rows and breakout columns that could support real significance testing later.",
       helper: "No p-values or real tests are calculated yet; eligibility only describes whether the current result has a plausible comparison structure.",
       comparisonBasisLabel,
-      chips: ["Future candidate", "Breakout basis", significanceMethod === "mock_placeholder" ? "Placeholder only" : "No test performed"],
+      chips: ["Future candidate", "Breakout basis", significance.hasPlaceholders ? "Placeholder only" : significance.status === "tested" ? "Tested" : "No test performed"],
       limitations
     };
   }
@@ -124,7 +172,7 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
       : "This result is summary-only, so there is no column comparison basis for significance testing.",
     helper: "Eligibility is advisory. It explains current analytical structure without performing a statistical test.",
     comparisonBasisLabel,
-    chips: ["Limited", isWaveComparison ? "Wave comparison" : "Summary only", significanceMethod === "mock_placeholder" ? "Placeholder only" : "No test performed"],
+    chips: ["Limited", isWaveComparison ? "Wave comparison" : "Summary only", significance.hasPlaceholders ? "Placeholder only" : "No test performed"],
     limitations
   };
 }
@@ -239,8 +287,9 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
   const queryConfidence = tile.query.confidenceLevel ?? 0.95;
   const resultConfidence = tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? queryConfidence;
   const confidenceChangedSinceRefresh = resultConfidence !== queryConfidence;
-  const significanceMethod = tile.result.statistics?.significanceMethod ?? "none";
-  const annotationCount = tile.result.annotations.length;
+  const significance = tile.result.statistics?.significance ?? fallbackSignificance(tile);
+  const significanceMethod = significance.method;
+  const annotationCount = significance.details.length || tile.result.annotations.length;
   const currentConfidenceLabel = confidenceLevelLabel(queryConfidence);
   const resultConfidenceLabel = confidenceLevelLabel(resultConfidence);
   const queryConfidenceLabel = confidenceLevelLabel(queryConfidence);
@@ -259,7 +308,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
   const baseDiagnostics = buildBaseDiagnostics(tile);
   const comparisonDiagnostics = buildComparisonDiagnostics(tile);
 
-  if (significanceMethod === "mock_placeholder") {
+  if (significance.hasPlaceholders || significance.status === "placeholder") {
     return {
       status: "placeholder",
       label: "Statistical confidence scaffold",

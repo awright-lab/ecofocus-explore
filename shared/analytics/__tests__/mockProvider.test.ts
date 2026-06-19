@@ -37,7 +37,18 @@ describe("mockAnalyticsProvider", () => {
     );
     expect(result.statistics).toEqual({
       confidenceLevel: 0.95,
-      significanceMethod: "mock_placeholder"
+      significanceMethod: "mock_placeholder",
+      significance: {
+        status: "placeholder",
+        method: "mock_placeholder",
+        reasonCodes: ["mock_provider_placeholder"],
+        comparisonBasis: "summary",
+        hasPlaceholders: true,
+        details: [
+          { rowId: "Q15r8", columnId: "summary", direction: "down", confidence: 0.95, status: "placeholder", reasonCodes: ["mock_provider_placeholder"] },
+          { rowId: "Q15r9", columnId: "summary", direction: "up", confidence: 0.95, status: "placeholder", reasonCodes: ["mock_provider_placeholder"] }
+        ]
+      }
     });
   });
 
@@ -72,7 +83,15 @@ describe("mockAnalyticsProvider", () => {
     });
     expect(result.statistics).toEqual({
       confidenceLevel: 0.95,
-      significanceMethod: "none"
+      significanceMethod: "none",
+      significance: {
+        status: "unsupported",
+        method: "none",
+        reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+        comparisonBasis: "wave",
+        hasPlaceholders: false,
+        details: []
+      }
     });
   });
 

@@ -291,9 +291,25 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             ...tile.result,
             query: { ...tile.result.query, confidenceLevel: tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 },
             annotations: tile.result.annotations.map((annotation) => ({ ...annotation, confidence: annotation.confidence ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 })),
-            statistics: tile.result.statistics ?? {
-              confidenceLevel: tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95,
-              significanceMethod: tile.result.annotations.length > 0 ? "mock_placeholder" : "none"
+            statistics: {
+              ...tile.result.statistics,
+              confidenceLevel: tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95,
+              significanceMethod: tile.result.statistics?.significanceMethod ?? (tile.result.annotations.length > 0 ? "mock_placeholder" : "none"),
+              significance: tile.result.statistics?.significance ?? {
+                status: tile.result.annotations.length > 0 ? "placeholder" : "none",
+                method: tile.result.annotations.length > 0 ? "mock_placeholder" : "none",
+                reasonCodes: tile.result.annotations.length > 0 ? ["mock_provider_placeholder"] : ["mock_provider_not_available"],
+                comparisonBasis: (tile.result.query.comparisonMode ?? tile.query.comparisonMode) === "wave" ? "wave" : tile.result.columns.length > 1 ? "breakout" : "summary",
+                hasPlaceholders: tile.result.annotations.length > 0,
+                details: tile.result.annotations.map((annotation) => ({
+                  rowId: annotation.rowId,
+                  columnId: annotation.columnId,
+                  direction: annotation.direction,
+                  confidence: annotation.confidence ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95,
+                  status: "placeholder",
+                  reasonCodes: ["mock_provider_placeholder"]
+                }))
+              }
             }
           },
           visualization,

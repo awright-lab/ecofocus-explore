@@ -66,6 +66,35 @@ export interface AnalyticsAnnotation {
   confidence: number;
 }
 
+export type SignificanceMethod = "none" | "mock_placeholder" | "column_comparison" | "wave_comparison";
+
+export type SignificanceStatus = "none" | "placeholder" | "unsupported" | "eligible" | "tested";
+
+export type SignificanceReasonCode =
+  | "mock_provider_placeholder"
+  | "mock_provider_not_available"
+  | "wave_comparison_unsupported"
+  | "summary_only"
+  | "no_comparison_basis"
+  | "insufficient_base"
+  | "future_method";
+
+export interface AnalyticsSignificanceResult {
+  status: SignificanceStatus;
+  method: SignificanceMethod;
+  reasonCodes: SignificanceReasonCode[];
+  comparisonBasis: "none" | "summary" | "breakout" | "wave";
+  hasPlaceholders: boolean;
+  details: Array<{
+    rowId: string;
+    columnId: string;
+    direction?: "up" | "down";
+    confidence: ConfidenceLevel;
+    status: Exclude<SignificanceStatus, "none">;
+    reasonCodes: SignificanceReasonCode[];
+  }>;
+}
+
 export interface AnalyticsQueryResponse {
   query: AnalyticsQueryRequest;
   labels: string[];
@@ -85,7 +114,8 @@ export interface AnalyticsQueryResponse {
   annotations: AnalyticsAnnotation[];
   statistics: {
     confidenceLevel: ConfidenceLevel;
-    significanceMethod: "mock_placeholder" | "none";
+    significanceMethod: SignificanceMethod;
+    significance: AnalyticsSignificanceResult;
   };
   warnings: string[];
   notes: string[];

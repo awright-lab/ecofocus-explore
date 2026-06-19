@@ -4,8 +4,10 @@ import type {
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   AnalyticsSeries,
+  AnalyticsSignificanceResult,
   AnalyticsTableColumn,
   AnalyticsTableRow,
+  ConfidenceLevel,
   DatasetId
 } from "../types/analytics";
 
@@ -203,6 +205,35 @@ const mockAnnotations: Record<string, AnalyticsAnnotation[]> = {
   ]
 };
 
+function placeholderSignificance(annotations: AnalyticsAnnotation[], comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
+  return {
+    status: annotations.length > 0 ? "placeholder" : "eligible",
+    method: annotations.length > 0 ? "mock_placeholder" : "none",
+    reasonCodes: annotations.length > 0 ? ["mock_provider_placeholder"] : ["future_method"],
+    comparisonBasis,
+    hasPlaceholders: annotations.length > 0,
+    details: annotations.map((annotation) => ({
+      rowId: annotation.rowId,
+      columnId: annotation.columnId,
+      direction: annotation.direction,
+      confidence: annotation.confidence as ConfidenceLevel,
+      status: "placeholder",
+      reasonCodes: ["mock_provider_placeholder"]
+    }))
+  };
+}
+
+function unsupportedSignificance(reasonCodes: AnalyticsSignificanceResult["reasonCodes"], comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
+  return {
+    status: "unsupported",
+    method: "none",
+    reasonCodes,
+    comparisonBasis,
+    hasPlaceholders: false,
+    details: []
+  };
+}
+
 export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
   const normalizedQuery = {
     ...query,
@@ -262,6 +293,8 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       emphasis: "detail"
     }
   }));
+  const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: normalizedQuery.confidenceLevel }));
+  const significance = placeholderSignificance(annotations, normalizedQuery.breakBy === "SUMMARY" ? "summary" : "breakout");
 
   return {
     query: normalizedQuery,
@@ -275,10 +308,11 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       id: query.weight,
       label: weight?.label ?? "Unweighted"
     },
-    annotations: (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: normalizedQuery.confidenceLevel })),
+    annotations,
     statistics: {
       confidenceLevel: normalizedQuery.confidenceLevel,
-      significanceMethod: "mock_placeholder"
+      significanceMethod: significance.method,
+      significance
     },
     warnings: collectBaseWarnings(series, dataset.minBaseWarning),
     notes: [
@@ -345,6 +379,7 @@ function runMockWaveComparisonQuery(
       emphasis: "detail"
     }
   }));
+  const significance = unsupportedSignificance(["wave_comparison_unsupported", "mock_provider_not_available"], "wave");
 
   return {
     query,
@@ -361,7 +396,8 @@ function runMockWaveComparisonQuery(
     annotations: [],
     statistics: {
       confidenceLevel: query.confidenceLevel,
-      significanceMethod: "none"
+      significanceMethod: significance.method,
+      significance
     },
     warnings: [],
     notes: [
@@ -409,6 +445,8 @@ function runMockMultiBinarySetQuery(
       emphasis: "detail"
     }
   }));
+  const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: query.confidenceLevel }));
+  const significance = placeholderSignificance(annotations, "summary");
 
   return {
     query,
@@ -422,10 +460,11 @@ function runMockMultiBinarySetQuery(
       id: query.weight,
       label: weightLabel ?? "Unweighted"
     },
-    annotations: (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: query.confidenceLevel })),
+    annotations,
     statistics: {
       confidenceLevel: query.confidenceLevel,
-      significanceMethod: "mock_placeholder"
+      significanceMethod: significance.method,
+      significance
     },
     warnings: collectBaseWarnings(series, getDatasetMetadata(query.dataset)?.minBaseWarning ?? 100),
     notes: [
