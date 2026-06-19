@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import type { ChartType } from "../../../../shared/types/analytics";
+import type { ChartType, ConfidenceLevel } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
   buildSettingProvenancePickerView,
@@ -47,7 +47,7 @@ import {
   buildSavedVariableSetFilterMismatch,
   buildSavedVariableSetWeightMismatch
 } from "./analysisWeightDiagnosticsModel";
-import { buildAnalysisStatisticsContext, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
+import { buildAnalysisStatisticsContext, confidenceLevelLabel, supportedConfidenceLevels, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -351,6 +351,15 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     recordSavedSettingOriginCue("weight", nextWeight.label, tile.id);
   }
 
+  function updateConfidenceLevel(confidenceLevel: ConfidenceLevel) {
+    updateSelectedTile({
+      query: {
+        ...tile.query,
+        confidenceLevel
+      }
+    });
+  }
+
   const provenancePickerConfigs = [
     {
       kind: "banner" as const,
@@ -487,7 +496,11 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <strong>Statistical context</strong>
           <small>Confidence and significance status</small>
         </div>
-        <AnalysisStatisticsContextCard view={statisticsContext} />
+        <AnalysisStatisticsContextCard
+          view={statisticsContext}
+          confidenceLevel={tile.query.confidenceLevel ?? 0.95}
+          onChangeConfidenceLevel={updateConfidenceLevel}
+        />
       </div>
       <div className="tile-query-group">
         <div className="explorer-section-header">
@@ -500,18 +513,37 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   );
 }
 
-function AnalysisStatisticsContextCard({ view }: { view: AnalysisStatisticsContextView }) {
+function AnalysisStatisticsContextCard({
+  view,
+  confidenceLevel,
+  onChangeConfidenceLevel
+}: {
+  view: AnalysisStatisticsContextView;
+  confidenceLevel: ConfidenceLevel;
+  onChangeConfidenceLevel: (confidenceLevel: ConfidenceLevel) => void;
+}) {
   return (
     <div className={`analysis-statistics-context-card ${view.status}`}>
       <div>
         <span>{view.label}</span>
-        <strong>{view.confidenceLabel}</strong>
+        <strong>{view.currentConfidenceLabel}</strong>
         <p>{view.message}</p>
         <small>{view.helper}</small>
       </div>
+      <label className="analysis-confidence-control">
+        Confidence level
+        <select value={confidenceLevel} onChange={(event) => onChangeConfidenceLevel(Number(event.target.value) as ConfidenceLevel)}>
+          {supportedConfidenceLevels.map((level) => (
+            <option value={level} key={level}>
+              {confidenceLevelLabel(level)}
+            </option>
+          ))}
+        </select>
+        <small>Updates query context only; refresh analysis to update rendered results.</small>
+      </label>
       <div className="explorer-chip-row">
         {view.chips.map((chip) => (
-          <span className={chip === "Advisory only" || chip.includes("Placeholder") ? "explorer-chip warning-chip" : "explorer-chip"} key={chip}>
+          <span className={chip === "Advisory only" || chip === "Refresh needed" || chip.includes("Placeholder") ? "explorer-chip warning-chip" : "explorer-chip"} key={chip}>
             {chip}
           </span>
         ))}
