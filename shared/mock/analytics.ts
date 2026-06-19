@@ -206,12 +206,16 @@ const mockAnnotations: Record<string, AnalyticsAnnotation[]> = {
 };
 
 function placeholderSignificance(annotations: AnalyticsAnnotation[], comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
+  if (annotations.length === 0) {
+    return eligibleSignificance(comparisonBasis);
+  }
+
   return {
-    status: annotations.length > 0 ? "placeholder" : "eligible",
-    method: annotations.length > 0 ? "mock_placeholder" : "none",
-    reasonCodes: annotations.length > 0 ? ["mock_provider_placeholder"] : ["future_method"],
+    status: "placeholder",
+    method: "mock_placeholder",
+    reasonCodes: ["mock_provider_placeholder"],
     comparisonBasis,
-    hasPlaceholders: annotations.length > 0,
+    hasPlaceholders: true,
     details: annotations.map((annotation) => ({
       rowId: annotation.rowId,
       columnId: annotation.columnId,
@@ -220,6 +224,17 @@ function placeholderSignificance(annotations: AnalyticsAnnotation[], comparisonB
       status: "placeholder",
       reasonCodes: ["mock_provider_placeholder"]
     }))
+  };
+}
+
+function eligibleSignificance(comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
+  return {
+    status: "eligible",
+    method: "column_comparison",
+    reasonCodes: ["future_method"],
+    comparisonBasis,
+    hasPlaceholders: false,
+    details: []
   };
 }
 

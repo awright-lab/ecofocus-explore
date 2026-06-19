@@ -95,6 +95,36 @@ describe("mockAnalyticsProvider", () => {
     });
   });
 
+  it("marks breakout results as eligible but not tested when no placeholder annotations exist", async () => {
+    const query: AnalyticsQueryRequest = {
+      dataset: "ecofocus_2025",
+      question: "Q_PACKAGING_TRUST",
+      breakBy: "GENERATION",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "grouped_bar",
+      confidenceLevel: 0.95
+    };
+
+    const result = await mockAnalyticsProvider.runQuery(query);
+
+    expect(result.columns.map((column) => column.id)).toEqual(["gen_z", "millennial", "gen_x", "boomer_plus"]);
+    expect(result.annotations).toEqual([]);
+    expect(result.statistics).toEqual({
+      confidenceLevel: 0.95,
+      significanceMethod: "column_comparison",
+      significance: {
+        status: "eligible",
+        method: "column_comparison",
+        reasonCodes: ["future_method"],
+        comparisonBasis: "breakout",
+        hasPlaceholders: false,
+        details: []
+      }
+    });
+  });
+
   it("returns multi-wave trend output when multiple comparison datasets are selected", async () => {
     const query: AnalyticsQueryRequest = {
       dataset: "ecofocus_2025",

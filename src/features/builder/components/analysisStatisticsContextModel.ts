@@ -64,8 +64,8 @@ export function confidenceLevelLabel(value: number) {
 
 function significanceMethodLabel(method: SignificanceMethod) {
   if (method === "mock_placeholder") return "Placeholder annotations";
-  if (method === "column_comparison") return "Column comparison";
-  if (method === "wave_comparison") return "Wave comparison";
+  if (method === "column_comparison") return "Eligible column comparison";
+  if (method === "wave_comparison") return "Eligible wave comparison";
   return "No significance testing";
 }
 
@@ -146,6 +146,7 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
   const limitations = [
     significance.hasPlaceholders ? "Current markers are placeholders, not statistical test results." : "",
     significance.status === "unsupported" ? "The current provider reports this significance method as unsupported." : "",
+    significance.status === "eligible" ? "The result is structurally eligible, but no real significance test has been run." : "",
     significance.status === "none" ? "No significance method is active for this result." : "",
     ...significance.reasonCodes.map(significanceReasonLabel),
     isWaveComparison ? "Wave comparison significance is not implemented in the mock provider." : "",
@@ -156,10 +157,13 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
     return {
       status: "candidate",
       label: "Eligible for future significance logic",
-      message: "This result has table rows and breakout columns that could support real significance testing later.",
+      message:
+        significance.status === "eligible"
+          ? "This result has a plausible comparison basis and is marked eligible, but it has not been tested."
+          : "This result has table rows and breakout columns that could support real significance testing later.",
       helper: "No p-values or real tests are calculated yet; eligibility only describes whether the current result has a plausible comparison structure.",
       comparisonBasisLabel,
-      chips: ["Future candidate", "Breakout basis", significance.hasPlaceholders ? "Placeholder only" : significance.status === "tested" ? "Tested" : "No test performed"],
+      chips: ["Future candidate", "Breakout basis", significance.hasPlaceholders ? "Placeholder only" : significance.status === "eligible" ? "Eligible, not tested" : significance.status === "tested" ? "Tested" : "No test performed"],
       limitations
     };
   }
@@ -325,6 +329,26 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
         : `${annotationCount} placeholder significance ${annotationCount === 1 ? "marker" : "markers"} at ${currentConfidenceLabel}.`,
       helper: "Markers are mock placeholders for report rendering and review. They are not a real significance test yet.",
       chips: [...confidenceChips, significanceLabel, `${annotationCount} markers`, "Advisory only"]
+    };
+  }
+
+  if (significance.status === "eligible") {
+    return {
+      status: "none",
+      label: "Statistical confidence scaffold",
+      currentConfidenceLabel,
+      resultConfidenceLabel,
+      confidenceChangedSinceRefresh,
+      refreshCue,
+      eligibility,
+      baseDiagnostics,
+      comparisonDiagnostics,
+      significanceLabel,
+      message: confidenceChangedSinceRefresh
+        ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`
+        : `This result is eligible for future ${significanceLabel.toLowerCase()} logic at ${currentConfidenceLabel}, but no real test has been run.`,
+      helper: "Eligibility is structural only. The current provider does not calculate p-values or significance decisions yet.",
+      chips: [...confidenceChips, significanceLabel, "Eligible, not tested", "Advisory only"]
     };
   }
 
