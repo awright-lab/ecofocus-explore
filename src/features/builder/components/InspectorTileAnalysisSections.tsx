@@ -570,6 +570,27 @@ function AnalysisStatisticsContextCard({
           </ul>
         )}
       </div>
+      <div className={`analysis-comparison-diagnostics ${view.comparisonDiagnostics.status}`}>
+        <div>
+          <strong>{view.comparisonDiagnostics.label}</strong>
+          <span>{view.comparisonDiagnostics.message}</span>
+          <small>{view.comparisonDiagnostics.helper}</small>
+        </div>
+        <div className="explorer-chip-row">
+          {view.comparisonDiagnostics.chips.map((chip) => (
+            <span className={view.comparisonDiagnostics.status === "inactive" ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>
+              {chip}
+            </span>
+          ))}
+        </div>
+        {view.comparisonDiagnostics.limitations.length > 0 && (
+          <ul>
+            {view.comparisonDiagnostics.limitations.map((limitation) => (
+              <li key={limitation}>{limitation}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className={`analysis-base-diagnostics ${view.baseDiagnostics.status}`}>
         <div>
           <strong>{view.baseDiagnostics.label}</strong>

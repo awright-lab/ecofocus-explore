@@ -1875,8 +1875,19 @@ h2 {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.analysis-comparison-diagnostics {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #cddbd3;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .analysis-significance-eligibility.limited,
 .analysis-significance-eligibility.notEligible,
+.analysis-comparison-diagnostics.active,
+.analysis-comparison-diagnostics.limited,
 .analysis-base-diagnostics.review,
 .analysis-base-diagnostics.unavailable {
   border-color: #dfc98f;
@@ -1884,6 +1895,7 @@ h2 {
 }
 
 .analysis-significance-eligibility > div:first-child,
+.analysis-comparison-diagnostics > div:first-child,
 .analysis-base-diagnostics > div:first-child {
   display: grid;
   gap: 3px;
@@ -1893,6 +1905,10 @@ h2 {
 .analysis-significance-eligibility span,
 .analysis-significance-eligibility small,
 .analysis-significance-eligibility li,
+.analysis-comparison-diagnostics strong,
+.analysis-comparison-diagnostics span,
+.analysis-comparison-diagnostics small,
+.analysis-comparison-diagnostics li,
 .analysis-base-diagnostics strong,
 .analysis-base-diagnostics span,
 .analysis-base-diagnostics small,
@@ -1906,6 +1922,9 @@ h2 {
 .analysis-significance-eligibility span,
 .analysis-significance-eligibility small,
 .analysis-significance-eligibility li,
+.analysis-comparison-diagnostics span,
+.analysis-comparison-diagnostics small,
+.analysis-comparison-diagnostics li,
 .analysis-base-diagnostics span,
 .analysis-base-diagnostics small,
 .analysis-base-diagnostics li {
@@ -1921,6 +1940,14 @@ h2 {
 .analysis-significance-eligibility.notEligible span,
 .analysis-significance-eligibility.notEligible small,
 .analysis-significance-eligibility.notEligible li,
+.analysis-comparison-diagnostics.active strong,
+.analysis-comparison-diagnostics.active span,
+.analysis-comparison-diagnostics.active small,
+.analysis-comparison-diagnostics.active li,
+.analysis-comparison-diagnostics.limited strong,
+.analysis-comparison-diagnostics.limited span,
+.analysis-comparison-diagnostics.limited small,
+.analysis-comparison-diagnostics.limited li,
 .analysis-base-diagnostics.review strong,
 .analysis-base-diagnostics.review span,
 .analysis-base-diagnostics.review small,
@@ -1933,6 +1960,7 @@ h2 {
 }
 
 .analysis-significance-eligibility ul,
+.analysis-comparison-diagnostics ul,
 .analysis-base-diagnostics ul {
   display: grid;
   gap: 3px;

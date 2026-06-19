@@ -1,5 +1,7 @@
 import type { ConfidenceLevel } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
+import { datasets } from "../builderConstants";
+import { filterLabel, weightLabel } from "./analysisWeightDiagnosticsModel";
 
 export const supportedConfidenceLevels: ConfidenceLevel[] = [0.9, 0.95, 0.99];
 
@@ -12,6 +14,7 @@ export interface AnalysisStatisticsContextView {
   refreshCue: AnalysisConfidenceRefreshCueView | null;
   eligibility: AnalysisSignificanceEligibilityView;
   baseDiagnostics: AnalysisBaseDiagnosticsView;
+  comparisonDiagnostics: AnalysisComparisonDiagnosticsView;
   significanceLabel: string;
   message: string;
   helper: string;
@@ -43,6 +46,18 @@ export interface AnalysisBaseDiagnosticsView {
   notes: string[];
 }
 
+export interface AnalysisComparisonDiagnosticsView {
+  status: "inactive" | "active" | "limited";
+  label: string;
+  message: string;
+  helper: string;
+  waveLabel: string;
+  filterLabel: string;
+  weightLabel: string;
+  chips: string[];
+  limitations: string[];
+}
+
 export function confidenceLevelLabel(value: number) {
   return `${Math.round(value * 100)}% confidence`;
 }
@@ -50,6 +65,10 @@ export function confidenceLevelLabel(value: number) {
 function significanceMethodLabel(method: DashboardTile["result"]["statistics"]["significanceMethod"]) {
   if (method === "mock_placeholder") return "Placeholder annotations";
   return "No significance testing";
+}
+
+function datasetWaveLabel(datasetId: string) {
+  return datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId;
 }
 
 function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificanceEligibilityView {
@@ -161,6 +180,61 @@ function buildBaseDiagnostics(tile: DashboardTile): AnalysisBaseDiagnosticsView 
   };
 }
 
+function buildComparisonDiagnostics(tile: DashboardTile): AnalysisComparisonDiagnosticsView {
+  const query = tile.query;
+  const resultQuery = tile.result.query;
+  const comparisonMode = query.comparisonMode ?? resultQuery.comparisonMode ?? "none";
+  const comparisonDatasets = query.comparisonDatasets ?? resultQuery.comparisonDatasets ?? [];
+  const waveIds = [query.dataset, ...comparisonDatasets];
+  const waveLabels = waveIds.map(datasetWaveLabel);
+  const activeFilter = query.filters[0];
+  const currentFilterLabel = filterLabel(activeFilter?.field ?? null, activeFilter?.values[0] ?? "all");
+  const currentWeightLabel = weightLabel(query.weight);
+  const isSummaryOnly = query.breakBy === "SUMMARY" || tile.result.columns.length <= 1 || comparisonMode === "wave";
+
+  if (comparisonMode !== "wave") {
+    return {
+      status: "inactive",
+      label: "No wave comparison active",
+      message: `Current result uses ${datasetWaveLabel(query.dataset)} only.`,
+      helper: "Turn on wave comparison to compare the selected question across prior waves.",
+      waveLabel: datasetWaveLabel(query.dataset),
+      filterLabel: currentFilterLabel,
+      weightLabel: currentWeightLabel,
+      chips: [`Wave: ${datasetWaveLabel(query.dataset)}`, `Filter: ${currentFilterLabel}`, `Weight: ${currentWeightLabel}`],
+      limitations: ["Trend diagnostics apply when wave comparison is active."]
+    };
+  }
+
+  const limitations = [
+    comparisonDatasets.length === 0 ? "No comparison waves are selected for the current query." : "",
+    isSummaryOnly ? "Wave comparison uses the Summary breakout in the current model." : "",
+    "Trend statistics and cross-wave significance tests are not implemented yet.",
+    activeFilter ? "Filter context is shown, but cross-wave filter harmonization is not audited yet." : "",
+    query.weight ? "Weight context is shown, but weight-method comparability across waves is not audited yet." : ""
+  ].filter(Boolean);
+
+  return {
+    status: comparisonDatasets.length > 0 ? "limited" : "active",
+    label: "Wave comparison context",
+    message:
+      comparisonDatasets.length > 0
+        ? `Comparing ${waveLabels.join(" vs ")} for the selected question.`
+        : "Wave comparison is active, but no comparison waves are selected.",
+    helper: "This summarizes the comparison setup only. It does not calculate trend statistics or cross-wave significance.",
+    waveLabel: waveLabels.join(" vs "),
+    filterLabel: currentFilterLabel,
+    weightLabel: currentWeightLabel,
+    chips: [
+      `Waves: ${waveLabels.join(" vs ") || "None"}`,
+      isSummaryOnly ? "Summary breakout" : "Custom breakout",
+      `Filter: ${currentFilterLabel}`,
+      `Weight: ${currentWeightLabel}`
+    ],
+    limitations
+  };
+}
+
 export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisStatisticsContextView {
   const queryConfidence = tile.query.confidenceLevel ?? 0.95;
   const resultConfidence = tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? queryConfidence;
@@ -183,6 +257,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     : null;
   const eligibility = buildSignificanceEligibility(tile);
   const baseDiagnostics = buildBaseDiagnostics(tile);
+  const comparisonDiagnostics = buildComparisonDiagnostics(tile);
 
   if (significanceMethod === "mock_placeholder") {
     return {
@@ -194,6 +269,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
       refreshCue,
       eligibility,
       baseDiagnostics,
+      comparisonDiagnostics,
       significanceLabel,
       message: confidenceChangedSinceRefresh
         ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`
@@ -212,6 +288,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     refreshCue,
     eligibility,
     baseDiagnostics,
+    comparisonDiagnostics,
     significanceLabel,
     message: confidenceChangedSinceRefresh
       ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`
