@@ -47,6 +47,7 @@ import {
   buildSavedVariableSetFilterMismatch,
   buildSavedVariableSetWeightMismatch
 } from "./analysisWeightDiagnosticsModel";
+import { buildAnalysisStatisticsContext, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -284,6 +285,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const showSaveConfirmation = saveConfirmation?.tileId === tile.id && actionState.canSaveSettings;
   const recentlySavedKind = recentlySavedSetting?.tileId === tile.id ? recentlySavedSetting.kind : null;
   const weightDiagnostics = buildAnalysisWeightDiagnostics(tile.query.weight);
+  const statisticsContext = buildAnalysisStatisticsContext(tile);
   const sourceVariableSet = savedVariableSets.find((item) => tile.source?.kind === "variableSet" && item.id === tile.source.id) ?? null;
   const weightMismatch = sourceVariableSet
     ? buildSavedVariableSetWeightMismatch({
@@ -482,10 +484,37 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       </div>
       <div className="tile-query-group">
         <div className="explorer-section-header">
+          <strong>Statistical context</strong>
+          <small>Confidence and significance status</small>
+        </div>
+        <AnalysisStatisticsContextCard view={statisticsContext} />
+      </div>
+      <div className="tile-query-group">
+        <div className="explorer-section-header">
           <strong>Apply and save</strong>
           <small>{queryStatus.hasPendingChanges ? "Refresh to update result" : "Reusable settings"}</small>
         </div>
         <TileQueryActions {...props} />
+      </div>
+    </div>
+  );
+}
+
+function AnalysisStatisticsContextCard({ view }: { view: AnalysisStatisticsContextView }) {
+  return (
+    <div className={`analysis-statistics-context-card ${view.status}`}>
+      <div>
+        <span>{view.label}</span>
+        <strong>{view.confidenceLabel}</strong>
+        <p>{view.message}</p>
+        <small>{view.helper}</small>
+      </div>
+      <div className="explorer-chip-row">
+        {view.chips.map((chip) => (
+          <span className={chip === "Advisory only" || chip.includes("Placeholder") ? "explorer-chip warning-chip" : "explorer-chip"} key={chip}>
+            {chip}
+          </span>
+        ))}
       </div>
     </div>
   );
