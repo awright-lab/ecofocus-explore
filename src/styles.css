@@ -1736,6 +1736,41 @@ h2 {
   line-height: 1.4;
 }
 
+.analysis-context-summary {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #cddbd3;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.analysis-context-summary.differs {
+  border-color: #dfc98f;
+  background: rgba(255, 249, 237, 0.78);
+}
+
+.analysis-context-summary strong,
+.analysis-context-summary span,
+.analysis-context-summary small {
+  color: #42584d;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.analysis-context-summary span,
+.analysis-context-summary small {
+  color: #62756d;
+  font-weight: 650;
+}
+
+.analysis-context-summary.differs strong,
+.analysis-context-summary.differs span,
+.analysis-context-summary.differs small {
+  color: #675534;
+}
+
 .analysis-weight-mismatch-cue {
   display: grid;
   gap: 5px;

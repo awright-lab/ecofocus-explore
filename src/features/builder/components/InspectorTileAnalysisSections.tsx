@@ -40,7 +40,13 @@ import {
 } from "./InspectorTileQuerySections";
 import { buildReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
 import { AnalysisWeightDiagnosticsCard } from "./AnalysisWeightDiagnosticsCard";
-import { buildAnalysisWeightDiagnostics, buildSavedVariableSetBannerMismatch, buildSavedVariableSetFilterMismatch, buildSavedVariableSetWeightMismatch } from "./analysisWeightDiagnosticsModel";
+import {
+  buildAnalysisContextDiagnosticsSummary,
+  buildAnalysisWeightDiagnostics,
+  buildSavedVariableSetBannerMismatch,
+  buildSavedVariableSetFilterMismatch,
+  buildSavedVariableSetWeightMismatch
+} from "./analysisWeightDiagnosticsModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -93,6 +99,14 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
       currentContextLabel: "selected tile"
     })
     : null;
+  const contextMismatches = [weightMismatch, filterMismatch, bannerMismatch];
+  const contextSummary = sourceVariableSet
+    ? buildAnalysisContextDiagnosticsSummary({
+      mismatches: contextMismatches,
+      sourceLabel: sourceVariableSet.label,
+      currentContextLabel: "selected tile"
+    })
+    : null;
 
   function selectRelatedObject(item: RelatedAnalyticalObjectRow) {
     if (!selectedTile) return;
@@ -130,7 +144,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
-                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={[weightMismatch, filterMismatch, bannerMismatch]} />
+                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="explorer-chip-row">
@@ -298,6 +312,14 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       currentContextLabel: "selected tile"
     })
     : null;
+  const contextMismatches = [weightMismatch, filterMismatch, bannerMismatch];
+  const contextSummary = sourceVariableSet
+    ? buildAnalysisContextDiagnosticsSummary({
+      mismatches: contextMismatches,
+      sourceLabel: sourceVariableSet.label,
+      currentContextLabel: "selected tile"
+    })
+    : null;
 
   function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set">, saveAction: () => void) {
     saveAction();
@@ -455,7 +477,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <strong>Filters and weights</strong>
           <small>Analysis base</small>
         </div>
-        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={[weightMismatch, filterMismatch, bannerMismatch]} />
+        <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
         <TileFilterWeightControls {...props} />
       </div>
       <div className="tile-query-group">

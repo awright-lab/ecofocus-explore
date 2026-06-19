@@ -12,6 +12,7 @@ export interface AnalysisWeightDiagnosticsView {
 }
 
 export interface AnalysisContextMismatchView {
+  dimension: "banner" | "filter" | "weight";
   label: string;
   message: string;
   helper: string;
@@ -19,6 +20,20 @@ export interface AnalysisContextMismatchView {
 }
 
 export type AnalysisWeightMismatchView = AnalysisContextMismatchView;
+
+export interface AnalysisContextDiagnosticsSummaryView {
+  status: "matched" | "differs";
+  label: string;
+  message: string;
+  helper: string;
+  chips: string[];
+}
+
+const mismatchDimensionLabels: Record<AnalysisContextMismatchView["dimension"], string> = {
+  banner: "Banner",
+  filter: "Filter",
+  weight: "Weight"
+};
 
 export function weightLabel(weight: WeightId | null) {
   if (!weight) return "Unweighted";
@@ -94,6 +109,7 @@ export function buildSavedVariableSetWeightMismatch({
   const currentLabel = weightLabel(currentWeight);
 
   return {
+    dimension: "weight",
     label: "Saved source weight differs",
     message: `${sourceLabel} defaults to ${savedLabel}; ${currentContextLabel} uses ${currentLabel}.`,
     helper: "Review this before saving, refreshing, or reusing the source so weighting stays intentional.",
@@ -124,6 +140,7 @@ export function buildSavedVariableSetFilterMismatch({
   const currentLabel = filterLabel(currentFilter.field, currentFilter.value);
 
   return {
+    dimension: "filter",
     label: "Saved source filter differs",
     message: `${sourceLabel} defaults to ${savedLabel}; ${currentContextLabel} uses ${currentLabel}.`,
     helper: "Review this before saving, refreshing, or reusing the source so filtering stays intentional.",
@@ -150,9 +167,46 @@ export function buildSavedVariableSetBannerMismatch({
   const currentLabel = bannerLabel(currentBanner);
 
   return {
+    dimension: "banner",
     label: "Saved source banner differs",
     message: `${sourceLabel} defaults to ${savedLabel}; ${currentContextLabel} uses ${currentLabel}.`,
     helper: "Review this before saving, refreshing, or reusing the source so banner breakouts stay intentional.",
     chips: [`Saved source: ${savedLabel}`, `Current: ${currentLabel}`]
+  };
+}
+
+export function buildAnalysisContextDiagnosticsSummary({
+  mismatches,
+  sourceLabel,
+  currentContextLabel
+}: {
+  mismatches: Array<AnalysisContextMismatchView | null | undefined>;
+  sourceLabel: string;
+  currentContextLabel: string;
+}): AnalysisContextDiagnosticsSummaryView {
+  const visibleMismatches = mismatches.filter((mismatch): mismatch is AnalysisContextMismatchView => Boolean(mismatch));
+  const differingDimensions = new Set(visibleMismatches.map((mismatch) => mismatch.dimension));
+  const dimensionChips = (Object.keys(mismatchDimensionLabels) as AnalysisContextMismatchView["dimension"][]).map((dimension) =>
+    differingDimensions.has(dimension) ? `${mismatchDimensionLabels[dimension]} differs` : `${mismatchDimensionLabels[dimension]} matches`
+  );
+
+  if (visibleMismatches.length === 0) {
+    return {
+      status: "matched",
+      label: "Saved source defaults match current context",
+      message: `${sourceLabel} defaults align with the ${currentContextLabel}.`,
+      helper: "Banner, filter, and weight settings are consistent with this saved source.",
+      chips: dimensionChips
+    };
+  }
+
+  const differingLabels = visibleMismatches.map((mismatch) => mismatchDimensionLabels[mismatch.dimension].toLowerCase());
+
+  return {
+    status: "differs",
+    label: "Saved source defaults differ from current context",
+    message: `${sourceLabel} has different ${differingLabels.join(", ")} defaults than the ${currentContextLabel}.`,
+    helper: "Review the details below before saving, refreshing, or reusing this analytical source.",
+    chips: dimensionChips
   };
 }
