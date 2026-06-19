@@ -11,6 +11,7 @@ export interface AnalysisStatisticsContextView {
   confidenceChangedSinceRefresh: boolean;
   refreshCue: AnalysisConfidenceRefreshCueView | null;
   eligibility: AnalysisSignificanceEligibilityView;
+  baseDiagnostics: AnalysisBaseDiagnosticsView;
   significanceLabel: string;
   message: string;
   helper: string;
@@ -31,6 +32,15 @@ export interface AnalysisSignificanceEligibilityView {
   comparisonBasisLabel: string;
   chips: string[];
   limitations: string[];
+}
+
+export interface AnalysisBaseDiagnosticsView {
+  status: "strong" | "review" | "unavailable";
+  label: string;
+  message: string;
+  helper: string;
+  chips: string[];
+  notes: string[];
 }
 
 export function confidenceLevelLabel(value: number) {
@@ -100,6 +110,57 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
   };
 }
 
+function buildBaseDiagnostics(tile: DashboardTile): AnalysisBaseDiagnosticsView {
+  const result = tile.result;
+  const bases = result.table
+    .flatMap((row) => Object.values(row.bases))
+    .filter((base) => base > 0)
+    .sort((a, b) => a - b);
+
+  if (bases.length === 0) {
+    return {
+      status: "unavailable",
+      label: "Base diagnostics unavailable",
+      message: "This result does not expose positive base counts for interpretation checks.",
+      helper: "Base diagnostics are advisory and depend on result table base metadata.",
+      chips: ["No base counts", "Advisory only"],
+      notes: result.warnings
+    };
+  }
+
+  const minBase = bases[0];
+  const maxBase = bases[bases.length - 1];
+  const uniqueBases = Array.from(new Set(bases));
+  const hasProviderWarnings = result.warnings.length > 0;
+  const hasUnevenBases = uniqueBases.length > 1 && maxBase >= minBase * 1.5;
+  const notes = [
+    ...result.warnings,
+    hasUnevenBases ? `Bases range from ${minBase.toLocaleString()} to ${maxBase.toLocaleString()}; compare columns cautiously.` : ""
+  ].filter(Boolean);
+
+  if (hasProviderWarnings || hasUnevenBases) {
+    return {
+      status: "review",
+      label: "Review base strength",
+      message: hasProviderWarnings
+        ? `Provider warnings or low-base signals are present. Lowest visible base is ${minBase.toLocaleString()}.`
+        : `Bases vary across the result. Lowest visible base is ${minBase.toLocaleString()}.`,
+      helper: "Low or uneven bases can make interpretation weaker. This does not run a statistical validity test.",
+      chips: [`Lowest base: ${minBase.toLocaleString()}`, `Highest base: ${maxBase.toLocaleString()}`, hasProviderWarnings ? `${result.warnings.length} warning${result.warnings.length === 1 ? "" : "s"}` : "Uneven bases"],
+      notes
+    };
+  }
+
+  return {
+    status: "strong",
+    label: "Base strength looks stable",
+    message: `Visible bases range from ${minBase.toLocaleString()} to ${maxBase.toLocaleString()}.`,
+    helper: "No provider base warnings are present for this result. This remains an advisory check.",
+    chips: [`Lowest base: ${minBase.toLocaleString()}`, `Highest base: ${maxBase.toLocaleString()}`, "No base warnings"],
+    notes: []
+  };
+}
+
 export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisStatisticsContextView {
   const queryConfidence = tile.query.confidenceLevel ?? 0.95;
   const resultConfidence = tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? queryConfidence;
@@ -121,6 +182,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     }
     : null;
   const eligibility = buildSignificanceEligibility(tile);
+  const baseDiagnostics = buildBaseDiagnostics(tile);
 
   if (significanceMethod === "mock_placeholder") {
     return {
@@ -131,6 +193,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
       confidenceChangedSinceRefresh,
       refreshCue,
       eligibility,
+      baseDiagnostics,
       significanceLabel,
       message: confidenceChangedSinceRefresh
         ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`
@@ -148,6 +211,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     confidenceChangedSinceRefresh,
     refreshCue,
     eligibility,
+    baseDiagnostics,
     significanceLabel,
     message: confidenceChangedSinceRefresh
       ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`

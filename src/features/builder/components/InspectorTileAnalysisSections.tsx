@@ -570,6 +570,27 @@ function AnalysisStatisticsContextCard({
           </ul>
         )}
       </div>
+      <div className={`analysis-base-diagnostics ${view.baseDiagnostics.status}`}>
+        <div>
+          <strong>{view.baseDiagnostics.label}</strong>
+          <span>{view.baseDiagnostics.message}</span>
+          <small>{view.baseDiagnostics.helper}</small>
+        </div>
+        <div className="explorer-chip-row">
+          {view.baseDiagnostics.chips.map((chip) => (
+            <span className={view.baseDiagnostics.status === "strong" ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>
+              {chip}
+            </span>
+          ))}
+        </div>
+        {view.baseDiagnostics.notes.length > 0 && (
+          <ul>
+            {view.baseDiagnostics.notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="explorer-chip-row">
         {view.chips.map((chip) => (
           <span className={chip === "Advisory only" || chip === "Refresh needed" || chip.includes("Placeholder") ? "explorer-chip warning-chip" : "explorer-chip"} key={chip}>
