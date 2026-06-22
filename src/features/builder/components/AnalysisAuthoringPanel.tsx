@@ -99,6 +99,8 @@ export type AnalysisAuthoringPanelProps = {
   savedFilters: SavedFilterSet[];
   savedWeights: SavedWeightProfile[];
   savedAnalyticalTemplates: SavedAnalyticalTemplate[];
+  saveAnalyticalTemplate: (template: SavedAnalyticalTemplate) => void;
+  deleteAnalyticalTemplate: (templateId: string) => void;
   savedVariableSets: SavedVariableSet[];
   breakBy: BreakById;
   setBreakBy: (breakBy: BreakById) => void;

@@ -24,6 +24,7 @@ import {
   analyticalTemplateSummaryChips,
   analyticalTemplateDifferenceLabels,
   buildAnalyticalTemplateCompatibilityView,
+  buildAnalyticalTemplateFromTile,
   buildSavedAnalyticalTemplateInsertionFeedback,
   bannerReuseState,
   buildSavedVariableSetInsertionFeedback,
@@ -495,8 +496,11 @@ function currentComparisonLabel(comparisonMode: AnalysisAuthoringPanelProps["com
 export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelProps) {
   const {
     savedAnalyticalTemplates,
+    saveAnalyticalTemplate,
+    deleteAnalyticalTemplate,
     savedLibraryHandoff,
     addTileFromAnalyticalTemplate,
+    selectedTile,
     selectedVariableSet,
     selectedQuestion,
     query,
@@ -515,6 +519,8 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     recordSavedLibraryInsertionCue
   } = props;
   const [insertionFeedback, setInsertionFeedback] = useState<SavedAnalyticalTemplateInsertionFeedback | null>(null);
+  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
+  const [managementFeedback, setManagementFeedback] = useState<{ templateId: string; message: string } | null>(null);
   const highlightNewestTemplate = savedLibraryHandoff?.view === "templates";
   const insertionContext = buildInsertionContextView({
     activePage,
@@ -553,6 +559,24 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     });
   }
 
+  function updateTemplateFromSelectedTile(template: typeof savedAnalyticalTemplates[number]) {
+    if (!selectedTile) return;
+    const nextTemplate = buildAnalyticalTemplateFromTile(selectedTile, {
+      id: template.id,
+      label: template.label
+    });
+    saveAnalyticalTemplate(nextTemplate);
+    setManagementFeedback({ templateId: template.id, message: "Updated from selected tile." });
+  }
+
+  function deleteTemplate(template: typeof savedAnalyticalTemplates[number]) {
+    if (!window.confirm(`Delete analytical template "${template.label}"?`)) return;
+    deleteAnalyticalTemplate(template.id);
+    setInsertionFeedback((current) => (current?.itemId === template.id ? null : current));
+    setManagementFeedback(null);
+    setExpandedTemplateId((current) => (current === template.id ? null : current));
+  }
+
   return (
     <div className="explorer-section-card">
       <div className="explorer-section-header">
@@ -578,6 +602,7 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
         <div className="explorer-item-list compact">
           {savedAnalyticalTemplates.map((template, index) => {
             const compatibility = buildAnalyticalTemplateCompatibilityView(template, currentTemplateContext);
+            const expanded = expandedTemplateId === template.id;
             return (
               <div key={template.id} className={savedLibraryItemClass(false, highlightNewestTemplate && index === 0)}>
                 <strong>{template.label}</strong>
@@ -601,11 +626,37 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
                     </div>
                   )}
                 </div>
+                {expanded && (
+                  <div className="template-detail-card">
+                    <span>Source: {template.summary.sourceLabel}</span>
+                    <span>Visual: {getChartTypeLabel(template.visualization)}</span>
+                    <span>Banner: {template.summary.bannerLabel}</span>
+                    <span>Filter: {template.summary.filterLabel}</span>
+                    <span>Weight: {template.summary.weightLabel}</span>
+                    <span>Confidence: {template.summary.confidenceLabel}</span>
+                    <span>Comparison: {template.summary.comparisonLabel}</span>
+                  </div>
+                )}
                 <div className="library-reuse-actions">
+                  <button type="button" className="secondary" onClick={() => setExpandedTemplateId(expanded ? null : template.id)}>
+                    {expanded ? "Hide details" : "Details"}
+                  </button>
                   <button type="button" className="secondary" onClick={() => void createTemplateObject(template, compatibility)} disabled={isLoading}>
                     Create from template
                   </button>
+                  <button type="button" className="secondary" onClick={() => updateTemplateFromSelectedTile(template)} disabled={!selectedTile}>
+                    Update from selected tile
+                  </button>
+                  <button type="button" className="secondary danger-action" onClick={() => deleteTemplate(template)}>
+                    Delete
+                  </button>
                 </div>
+                {managementFeedback?.templateId === template.id && (
+                  <div className="source-insertion-confirmation" role="status">
+                    <strong>Template updated</strong>
+                    <span>{managementFeedback.message}</span>
+                  </div>
+                )}
                 {insertionFeedback?.itemId === template.id && (
                   <div className="source-insertion-confirmation" role="status">
                     <strong>{insertionFeedback.label}</strong>

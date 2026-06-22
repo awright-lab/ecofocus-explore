@@ -1490,6 +1490,23 @@ h2 {
   font-weight: 750;
 }
 
+.template-detail-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #dce5ea;
+  border-radius: 8px;
+  background: #f8fbfa;
+}
+
+.template-detail-card span {
+  color: #526b61;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .library-insertion-context {
   display: grid;
   gap: 7px;
@@ -1516,6 +1533,11 @@ h2 {
 .library-reuse-actions button:first-child:nth-last-child(3),
 .library-reuse-actions button:first-child:nth-last-child(3) ~ button {
   font-size: 0.68rem;
+}
+
+.library-reuse-actions .danger-action {
+  border-color: #e4c6c2;
+  color: #8a3d34;
 }
 
 .library-reuse-confirmation {

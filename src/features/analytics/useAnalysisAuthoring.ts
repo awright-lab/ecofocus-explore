@@ -528,6 +528,35 @@ export function useAnalysisAuthoring({
     setError(null);
   }
 
+  function saveAnalyticalTemplate(template: SavedAnalyticalTemplate) {
+    setDashboard((current) => {
+      const existing = current.analysisLibrary.templates.some((item) => item.id === template.id);
+      return {
+        ...current,
+        status: "draft",
+        analysisLibrary: {
+          ...current.analysisLibrary,
+          templates: existing
+            ? current.analysisLibrary.templates.map((item) => (item.id === template.id ? template : item))
+            : [template, ...current.analysisLibrary.templates]
+        }
+      };
+    });
+    setError(null);
+  }
+
+  function deleteAnalyticalTemplate(templateId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        templates: current.analysisLibrary.templates.filter((item) => item.id !== templateId)
+      }
+    }));
+    setError(null);
+  }
+
   return {
     question,
     setQuestion,
@@ -596,6 +625,8 @@ export function useAnalysisAuthoring({
     applySavedFilter,
     saveCurrentFilter,
     applySavedWeight,
-    saveCurrentWeight
+    saveCurrentWeight,
+    saveAnalyticalTemplate,
+    deleteAnalyticalTemplate
   };
 }

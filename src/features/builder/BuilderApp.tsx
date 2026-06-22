@@ -505,6 +505,8 @@ export default function BuilderApp() {
     savedFilters,
     savedWeights,
     savedAnalyticalTemplates,
+    saveAnalyticalTemplate,
+    deleteAnalyticalTemplate,
     selectedQuestion,
     selectedVariableSet,
     filteredVariableSets,
@@ -883,6 +885,8 @@ export default function BuilderApp() {
           savedFilters={savedFilters}
           savedWeights={savedWeights}
           savedAnalyticalTemplates={savedAnalyticalTemplates}
+          saveAnalyticalTemplate={saveAnalyticalTemplate}
+          deleteAnalyticalTemplate={deleteAnalyticalTemplate}
           savedVariableSets={savedVariableSets}
           breakBy={breakBy}
           setBreakBy={setBreakBy}

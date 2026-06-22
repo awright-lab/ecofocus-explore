@@ -1,6 +1,13 @@
 import type { AnalyticsQueryRequest, ChartType } from "../../../../shared/types/analytics";
 import type { DashboardTile, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
+import {
+  bannerDimensions,
+  comparisonDatasetOptions,
+  defaultDataset,
+  defaultQuestion,
+  filterDimensions
+} from "../builderConstants";
 import type { SavedSettingOriginKind } from "../builderTypes";
 import type { InsertionContextView } from "./insertionContextModel";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
@@ -104,6 +111,65 @@ export function buildSavedAnalyticalTemplateInsertionFeedback(
     itemId: template.id,
     label: "Created from template",
     message: `Added "${template.label}" to "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()} and selected it for inspector editing.`
+  };
+}
+
+function queryBannerLabel(query: AnalyticsQueryRequest) {
+  return bannerDimensions.find((item) => item.id === query.breakBy)?.label ?? query.breakBy;
+}
+
+function queryFilterLabel(query: AnalyticsQueryRequest) {
+  const filter = query.filters[0];
+  if (!filter || filter.values[0] === "all") return "No filter";
+  const field = filterDimensions.find((item) => item.id === filter.field);
+  const value = field?.values.find((item) => item.id === filter.values[0]);
+  return `${field?.label ?? filter.field}: ${value?.label ?? filter.values[0]}`;
+}
+
+function queryWeightLabel(query: AnalyticsQueryRequest) {
+  return query.weight ? defaultDataset.weights.find((item) => item.id === query.weight)?.label ?? query.weight : "Unweighted";
+}
+
+function queryComparisonLabel(query: AnalyticsQueryRequest) {
+  if ((query.comparisonMode ?? "none") !== "wave") return "No wave comparison";
+  const comparisonDatasets = query.comparisonDatasets ?? [];
+  if (comparisonDatasets.length === 0) return "Wave comparison";
+  return `Wave comparison: ${comparisonDatasets.map((datasetId) => comparisonDatasetOptions.find((item) => item.id === datasetId)?.label ?? datasetId).join(", ")}`;
+}
+
+export function buildAnalyticalTemplateFromTile(
+  tile: DashboardTile,
+  options?: { id?: string; label?: string }
+): SavedAnalyticalTemplate {
+  const question = defaultDataset.questions.find((item) => item.id === tile.query.question) ?? defaultQuestion;
+  const title = tile.title.trim() || tile.name.trim() || question.shortLabel;
+  const source = tile.source ?? {
+    kind: "question" as const,
+    id: question.id,
+    label: question.shortLabel
+  };
+  const query = {
+    ...tile.query,
+    chartType: tile.visualization,
+    confidenceLevel: tile.query.confidenceLevel ?? 0.95
+  };
+
+  return {
+    id: options?.id ?? `analysis_template_${Date.now()}`,
+    datasetId: query.dataset,
+    label: options?.label ?? `${title} template`,
+    description: `Saved analytical setup from tile: ${title}`,
+    source,
+    query,
+    visualization: tile.visualization,
+    summary: {
+      sourceLabel: source.label,
+      bannerLabel: queryBannerLabel(query),
+      filterLabel: queryFilterLabel(query),
+      weightLabel: queryWeightLabel(query),
+      confidenceLabel: confidenceLabel(query),
+      comparisonLabel: queryComparisonLabel(query)
+    }
   };
 }
 
