@@ -301,6 +301,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
               confidenceLevel: tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95,
               significanceMethod: tile.result.statistics?.significanceMethod ?? (tile.result.annotations.length > 0 ? "mock_placeholder" : "none"),
               significanceExecutionPlan,
+              significanceExecutionInput: tile.result.statistics?.significanceExecutionInput ?? null,
               significance: tile.result.statistics?.significance ?? {
                 status: tile.result.annotations.length > 0 ? "placeholder" : "none",
                 method: tile.result.annotations.length > 0 ? "mock_placeholder" : "none",

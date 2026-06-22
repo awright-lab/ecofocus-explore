@@ -104,6 +104,7 @@ export function buildSignificanceExecutionPlan(
       candidateMethod: readiness.method,
       queryShapeSupported: true,
       providerCanExecute,
+      executionInputContract: readiness.method === "column_comparison" ? "column_comparison" : null,
       reasonCodes: providerCanExecute ? readiness.reasonCodes : ["mock_provider_not_available", ...readiness.reasonCodes],
       unmetPrerequisites: [
         providerSupportsMethod ? "" : "provider_method",
@@ -118,6 +119,7 @@ export function buildSignificanceExecutionPlan(
       candidateMethod: readiness.method,
       queryShapeSupported: false,
       providerCanExecute: false,
+      executionInputContract: null,
       reasonCodes: readiness.reasonCodes,
       unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
     };
@@ -128,6 +130,7 @@ export function buildSignificanceExecutionPlan(
     candidateMethod: "none",
     queryShapeSupported: false,
     providerCanExecute: false,
+    executionInputContract: null,
     reasonCodes: readiness.reasonCodes,
     unmetPrerequisites: ["comparison_basis"]
   };

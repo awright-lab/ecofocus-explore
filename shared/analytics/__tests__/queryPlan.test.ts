@@ -46,6 +46,7 @@ describe("createAnalyticsQueryPlan", () => {
           candidateMethod: "none",
           queryShapeSupported: false,
           providerCanExecute: false,
+          executionInputContract: null,
           reasonCodes: ["summary_only", "no_comparison_basis"],
           unmetPrerequisites: ["comparison_basis"]
         }
@@ -84,6 +85,7 @@ describe("createAnalyticsQueryPlan", () => {
           candidateMethod: "wave_comparison",
           queryShapeSupported: false,
           providerCanExecute: false,
+          executionInputContract: null,
           reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
           unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
         }
@@ -117,6 +119,7 @@ describe("createAnalyticsQueryPlan", () => {
           candidateMethod: "column_comparison",
           queryShapeSupported: true,
           providerCanExecute: false,
+          executionInputContract: "column_comparison",
           reasonCodes: ["mock_provider_not_available", "future_method"],
           unmetPrerequisites: ["provider_method", "statistical_engine"]
         }

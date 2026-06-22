@@ -2,6 +2,7 @@ import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../a
 import { getDatasetMetadata, getMetricMetadata, getWeightMetadata } from "../metadata/ecofocus2025";
 import type {
   AnalyticsAnnotation,
+  AnalyticsColumnComparisonExecutionInput,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   AnalyticsSeries,
@@ -274,6 +275,44 @@ function unsupportedSignificance(readiness: AnalyticsSignificanceReadiness): Ana
   };
 }
 
+function columnComparisonExecutionInput(
+  query: AnalyticsQueryRequest,
+  metric: AnalyticsQueryResponse["metric"],
+  columns: AnalyticsQueryResponse["columns"],
+  table: AnalyticsQueryResponse["table"]
+): AnalyticsColumnComparisonExecutionInput | null {
+  if ((query.comparisonMode ?? "none") === "wave" || query.breakBy === "SUMMARY" || columns.length <= 1 || table.length === 0) {
+    return null;
+  }
+
+  return {
+    method: "column_comparison",
+    confidenceLevel: query.confidenceLevel,
+    metric: {
+      id: metric.id,
+      valueFormat: metric.valueFormat
+    },
+    comparisonScope: {
+      basis: "breakout",
+      rowIds: table.map((row) => row.optionId),
+      columnIds: columns.map((column) => column.id)
+    },
+    columns: columns.map((column) => ({
+      id: column.id,
+      label: column.label
+    })),
+    rows: table.map((row) => ({
+      id: row.optionId,
+      label: row.label,
+      cells: columns.map((column) => ({
+        columnId: column.id,
+        value: row.values[column.id] ?? 0,
+        base: row.bases[column.id] ?? 0
+      }))
+    }))
+  };
+}
+
 export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
   const normalizedQuery = {
     ...query,
@@ -336,6 +375,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: normalizedQuery.confidenceLevel }));
   const significanceReadiness = buildSignificanceReadiness(normalizedQuery);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significanceExecutionInput = columnComparisonExecutionInput(normalizedQuery, metric, columns, table);
   const significance = significanceFromReadiness(significanceReadiness, annotations);
 
   return {
@@ -355,6 +395,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       confidenceLevel: normalizedQuery.confidenceLevel,
       significanceMethod: significance.method,
       significanceExecutionPlan,
+      significanceExecutionInput,
       significance
     },
     warnings: collectBaseWarnings(series, dataset.minBaseWarning),
@@ -424,6 +465,7 @@ function runMockWaveComparisonQuery(
   }));
   const significanceReadiness = buildSignificanceReadiness(query);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significanceExecutionInput = columnComparisonExecutionInput(query, metric, columns, table);
   const significance = unsupportedSignificance(significanceReadiness);
 
   return {
@@ -443,6 +485,7 @@ function runMockWaveComparisonQuery(
       confidenceLevel: query.confidenceLevel,
       significanceMethod: significance.method,
       significanceExecutionPlan,
+      significanceExecutionInput,
       significance
     },
     warnings: [],
@@ -494,6 +537,7 @@ function runMockMultiBinarySetQuery(
   const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: query.confidenceLevel }));
   const significanceReadiness = buildSignificanceReadiness(query);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significanceExecutionInput = columnComparisonExecutionInput(query, metric, columns, table);
   const significance = significanceFromReadiness(significanceReadiness, annotations);
 
   return {
@@ -513,6 +557,7 @@ function runMockMultiBinarySetQuery(
       confidenceLevel: query.confidenceLevel,
       significanceMethod: significance.method,
       significanceExecutionPlan,
+      significanceExecutionInput,
       significance
     },
     warnings: collectBaseWarnings(series, getDatasetMetadata(query.dataset)?.minBaseWarning ?? 100),

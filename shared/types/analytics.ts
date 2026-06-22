@@ -101,9 +101,39 @@ export interface AnalyticsSignificanceExecutionPlan {
   candidateMethod: SignificanceMethod;
   queryShapeSupported: boolean;
   providerCanExecute: boolean;
+  executionInputContract: "column_comparison" | null;
   reasonCodes: SignificanceReasonCode[];
   unmetPrerequisites: SignificanceExecutionPrerequisite[];
 }
+
+export interface AnalyticsColumnComparisonExecutionInput {
+  method: "column_comparison";
+  confidenceLevel: ConfidenceLevel;
+  metric: {
+    id: Metric;
+    valueFormat: "percent" | "number";
+  };
+  comparisonScope: {
+    basis: "breakout";
+    rowIds: string[];
+    columnIds: string[];
+  };
+  columns: Array<{
+    id: string;
+    label: string;
+  }>;
+  rows: Array<{
+    id: string;
+    label: string;
+    cells: Array<{
+      columnId: string;
+      value: number;
+      base: number;
+    }>;
+  }>;
+}
+
+export type AnalyticsSignificanceExecutionInput = AnalyticsColumnComparisonExecutionInput;
 
 export interface AnalyticsSignificanceResult {
   status: SignificanceStatus;
@@ -143,6 +173,7 @@ export interface AnalyticsQueryResponse {
     confidenceLevel: ConfidenceLevel;
     significanceMethod: SignificanceMethod;
     significanceExecutionPlan: AnalyticsSignificanceExecutionPlan;
+    significanceExecutionInput: AnalyticsSignificanceExecutionInput | null;
     significance: AnalyticsSignificanceResult;
   };
   warnings: string[];

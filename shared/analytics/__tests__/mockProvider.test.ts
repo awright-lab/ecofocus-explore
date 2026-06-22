@@ -43,9 +43,11 @@ describe("mockAnalyticsProvider", () => {
         candidateMethod: "none",
         queryShapeSupported: false,
         providerCanExecute: false,
+        executionInputContract: null,
         reasonCodes: ["summary_only", "no_comparison_basis"],
         unmetPrerequisites: ["comparison_basis"]
       },
+      significanceExecutionInput: null,
       significance: {
         status: "placeholder",
         method: "mock_placeholder",
@@ -103,9 +105,11 @@ describe("mockAnalyticsProvider", () => {
         candidateMethod: "wave_comparison",
         queryShapeSupported: false,
         providerCanExecute: false,
+        executionInputContract: null,
         reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
         unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
       },
+      significanceExecutionInput: null,
       significance: {
         status: "unsupported",
         method: "none",
@@ -147,8 +151,40 @@ describe("mockAnalyticsProvider", () => {
         candidateMethod: "column_comparison",
         queryShapeSupported: true,
         providerCanExecute: false,
+        executionInputContract: "column_comparison",
         reasonCodes: ["mock_provider_not_available", "future_method"],
         unmetPrerequisites: ["provider_method", "statistical_engine"]
+      },
+      significanceExecutionInput: {
+        method: "column_comparison",
+        confidenceLevel: 0.95,
+        metric: {
+          id: "column_percent",
+          valueFormat: "percent"
+        },
+        comparisonScope: {
+          basis: "breakout",
+          rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
+          columnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
+        },
+        columns: [
+          { id: "gen_z", label: "Gen Z" },
+          { id: "millennial", label: "Millennial" },
+          { id: "gen_x", label: "Gen X" },
+          { id: "boomer_plus", label: "Boomer+" }
+        ],
+        rows: expect.arrayContaining([
+          {
+            id: "trust_a_lot",
+            label: "Trust a lot",
+            cells: [
+              { columnId: "gen_z", value: 18, base: 312 },
+              { columnId: "millennial", value: 24, base: 428 },
+              { columnId: "gen_x", value: 19, base: 390 },
+              { columnId: "boomer_plus", value: 14, base: 365 }
+            ]
+          }
+        ])
       },
       significance: {
         status: "eligible",
