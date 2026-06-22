@@ -16,12 +16,15 @@ export function buildSavedLibraryInsertionCueView(
   if (now - cue.createdAt > 60_000) return null;
 
   if (cue.sourceKind === "analyticalTemplate") {
+    const differenceSummary = cue.templateDifferenceLabels?.length
+      ? ` Saved defaults differ from the prior context for ${cue.templateDifferenceLabels.join(", ")}.`
+      : "";
     return {
-      label: "Created from analytical template",
+      label: cue.templateDifferenceLabels?.length ? "Created from analytical template using saved defaults" : "Created from analytical template",
       message: `${tile.title || tile.name} was created as a ${cue.objectLabel} from ${cue.sourceLabel}.`,
       helper: cue.sourceSummary
-        ? `${cue.sourceSummary}. This object is selected for inspector editing.`
-        : "This object is selected for inspector editing. Review the saved source, visualization, and query settings below."
+        ? `${cue.sourceSummary}.${differenceSummary} This object is selected for inspector editing.`
+        : `${differenceSummary.trim()} Review the saved source, visualization, and query settings below.`.trim()
     };
   }
 

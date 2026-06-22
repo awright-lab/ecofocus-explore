@@ -208,6 +208,10 @@ export function buildAnalyticalTemplateCompatibilityView(
     };
 }
 
+export function analyticalTemplateDifferenceLabels(view: AnalyticalTemplateCompatibilityView, limit = 4) {
+  return view.differences.slice(0, limit).map((difference) => difference.label.toLowerCase());
+}
+
 export function bannerReuseState(tile: DashboardTile | null, question: QuestionMetadata | null, banner: SavedBanner) {
   if (!tile || !question) return { enabled: false, helper: "Select a tile to apply this banner." };
   if ((tile.query.comparisonMode ?? "none") === "wave") return { enabled: false, helper: "Wave comparisons use Summary as the banner." };

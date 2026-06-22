@@ -53,6 +53,7 @@ export type SavedLibraryInsertionCue = {
   sourceLabel: string;
   objectLabel: string;
   sourceSummary?: string;
+  templateDifferenceLabels?: string[];
   createdAt: number;
 } | null;
 

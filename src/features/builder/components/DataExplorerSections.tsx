@@ -22,6 +22,7 @@ import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 import {
   analyticalTemplateSummaryChips,
+  analyticalTemplateDifferenceLabels,
   buildAnalyticalTemplateCompatibilityView,
   buildSavedAnalyticalTemplateInsertionFeedback,
   bannerReuseState,
@@ -538,7 +539,7 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     }
   };
 
-  async function createTemplateObject(template: typeof savedAnalyticalTemplates[number]) {
+  async function createTemplateObject(template: typeof savedAnalyticalTemplates[number], compatibility: ReturnType<typeof buildAnalyticalTemplateCompatibilityView>) {
     const createdTileId = await addTileFromAnalyticalTemplate(template);
     if (!createdTileId) return;
     setInsertionFeedback(buildSavedAnalyticalTemplateInsertionFeedback(template, insertionContext));
@@ -547,7 +548,8 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
       sourceKind: "analyticalTemplate",
       sourceLabel: template.label,
       objectLabel: template.visualization === "table" ? "table" : getChartTypeLabel(template.visualization).toLowerCase(),
-      sourceSummary: `${template.summary.sourceLabel} · ${template.summary.confidenceLabel}`
+      sourceSummary: `${template.summary.sourceLabel} · ${template.summary.confidenceLabel}`,
+      templateDifferenceLabels: analyticalTemplateDifferenceLabels(compatibility)
     });
   }
 
@@ -600,7 +602,7 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
                   )}
                 </div>
                 <div className="library-reuse-actions">
-                  <button type="button" className="secondary" onClick={() => void createTemplateObject(template)} disabled={isLoading}>
+                  <button type="button" className="secondary" onClick={() => void createTemplateObject(template, compatibility)} disabled={isLoading}>
                     Create from template
                   </button>
                 </div>
