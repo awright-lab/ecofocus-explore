@@ -110,6 +110,17 @@ export interface DashboardTile {
       visualization: ChartType;
     };
   };
+  derivedOutput?: {
+    kind: "lead_row_summary";
+    sourceTileId: string;
+    sourceTitle: string;
+    rowId: string;
+    rowLabel: string;
+    columnId: string;
+    columnLabel: string;
+    valueLabel: string;
+    baseLabel: string;
+  };
   locked: boolean;
   hidden: boolean;
   layout: CanvasLayout;

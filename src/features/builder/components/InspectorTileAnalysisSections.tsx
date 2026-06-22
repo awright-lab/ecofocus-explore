@@ -24,6 +24,7 @@ import {
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
+import { buildDerivedSummaryOutputView } from "./derivedOutputModel";
 import { buildSavedLibraryInsertionCueView, type SavedLibraryInsertionCueView } from "./inspectorCreationCueModel";
 import {
   buildSavedTileSettingConfirmation,
@@ -58,7 +59,8 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     savedLibraryInsertionCue,
     relatedObjectNavigationCue,
     recordRelatedObjectNavigationCue,
-    reportTreeSelectionCue
+    reportTreeSelectionCue,
+    createDerivedSummaryTile
   } = props;
 
   if (!selectedTile) {
@@ -69,6 +71,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
+  const derivedSummaryView = buildDerivedSummaryOutputView(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
   const weightDiagnostics = buildAnalysisWeightDiagnostics(selectedTile.query.weight);
@@ -148,6 +151,10 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
+                <DerivedSummaryOutputCard
+                  view={derivedSummaryView}
+                  onCreate={() => createDerivedSummaryTile(selectedTile)}
+                />
                 <div className="explorer-chip-row">
                   {summary.lifecycleChips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
@@ -171,6 +178,29 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
+  );
+}
+
+function DerivedSummaryOutputCard({
+  view,
+  onCreate
+}: {
+  view: ReturnType<typeof buildDerivedSummaryOutputView>;
+  onCreate: () => string | null;
+}) {
+  return (
+    <div className={view.canCreate ? "derived-summary-output-card" : "derived-summary-output-card disabled"}>
+      <div>
+        <strong>{view.label}</strong>
+        <span>{view.helper}</span>
+        {view.canCreate && view.rowLabel && (
+          <small>{view.rowLabel} · {view.valueLabel} · {view.baseLabel}</small>
+        )}
+      </div>
+      <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
+        Create summary output
+      </button>
+    </div>
   );
 }
 

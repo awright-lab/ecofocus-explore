@@ -7,6 +7,7 @@ import { makeTileId, nextZIndex } from "../../document/documentModel";
 import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import { buildDerivedSummaryMetadata, buildDerivedSummaryResponse } from "../components/derivedOutputModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedVariableSet } from "../../../../shared/types/dashboard";
 
@@ -316,6 +317,63 @@ export function useBuilderTileCommands({
     selectTile(duplicate.id);
   }
 
+  function createDerivedSummaryTile(tile: DashboardTile) {
+    const summaryResult = buildDerivedSummaryResponse(tile);
+    const derivedOutput = buildDerivedSummaryMetadata(tile);
+    if (!summaryResult || !derivedOutput) {
+      setError("This tile does not have a result row that can be summarized.");
+      return null;
+    }
+
+    const summaryId = makeTileId();
+    const summaryTile: DashboardTile = {
+      ...tile,
+      id: summaryId,
+      name: `${derivedOutput.rowLabel} summary`,
+      title: `${derivedOutput.rowLabel} summary`,
+      visualization: "table",
+      query: { ...tile.query, chartType: "table" },
+      result: {
+        ...summaryResult,
+        query: { ...summaryResult.query, chartType: "table" }
+      },
+      derivedOutput,
+      analysisLifecycle: {
+        role: "derived",
+        canonicalTileId: tile.analysisLifecycle?.canonicalTileId ?? tile.id,
+        canonicalLabel: tile.analysisLifecycle?.canonicalLabel ?? tile.title,
+        derivedFrom: {
+          tileId: tile.id,
+          title: tile.title || tile.name,
+          visualization: tile.visualization
+        }
+      },
+      layout: {
+        ...tileInsertionLayout(activePage, undefined, tile.layout),
+        width: 560,
+        height: 260
+      },
+      appearance: {
+        ...tile.appearance,
+        palette: [...tile.appearance.palette],
+        barStyles: { ...tile.appearance.barStyles },
+        showTable: true,
+        showValueLabels: true,
+        showBases: true,
+        showNotes: true
+      }
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, summaryTile] } : page))
+    }));
+    selectTile(summaryTile.id);
+    setError(null);
+    return summaryTile.id;
+  }
+
   return {
     createTileFromSource,
     startDataSourceDrag,
@@ -326,6 +384,7 @@ export function useBuilderTileCommands({
     addTileFromAnalyticalTemplate,
     rerunTileAnalysis,
     tileWithVisualization,
-    duplicateTileAsVisualization
+    duplicateTileAsVisualization,
+    createDerivedSummaryTile
   };
 }

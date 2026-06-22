@@ -1563,6 +1563,40 @@ h2 {
   font-weight: 650;
 }
 
+.derived-summary-output-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #b8d7c5;
+  border-radius: 8px;
+  background: #f2fbf5;
+}
+
+.derived-summary-output-card.disabled {
+  border-color: #dce5ea;
+  background: #f8fbfa;
+}
+
+.derived-summary-output-card div {
+  display: grid;
+  gap: 3px;
+}
+
+.derived-summary-output-card strong {
+  color: #174f3d;
+  font-size: 0.78rem;
+}
+
+.derived-summary-output-card span,
+.derived-summary-output-card small {
+  color: #4d6a5e;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .library-insertion-context {
   display: grid;
   gap: 7px;
