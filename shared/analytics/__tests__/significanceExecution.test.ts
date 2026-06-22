@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runColumnComparisonSignificanceAdapter } from "../significanceExecution";
+import { runColumnComparisonSignificanceAdapter, shapeDeferredColumnComparisonResult } from "../significanceExecution";
 import type {
   AnalyticsColumnComparisonExecutionInput,
   AnalyticsColumnComparisonExecutionResult,
@@ -52,7 +52,32 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       inputAccepted: true,
       reasonCodes: ["mock_provider_not_available", "future_method"],
       unmetPrerequisites: ["provider_method", "statistical_engine"],
-      result: null
+      result: {
+        method: "column_comparison",
+        comparisonScope: {
+          basis: "breakout",
+          rowIds: ["trust_a_lot"],
+          columnIds: ["gen_z", "millennial"]
+        },
+        outcomes: [
+          {
+            rowId: "trust_a_lot",
+            columnId: "gen_z",
+            comparedColumnId: "millennial",
+            status: "deferred",
+            reasonCodes: ["mock_provider_not_available", "future_method"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          }
+        ],
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: 1
+        }
+      }
     });
   });
 
@@ -71,7 +96,32 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       inputAccepted: true,
       reasonCodes: ["future_method"],
       unmetPrerequisites: [],
-      result: null
+      result: {
+        method: "column_comparison",
+        comparisonScope: {
+          basis: "breakout",
+          rowIds: ["trust_a_lot"],
+          columnIds: ["gen_z", "millennial"]
+        },
+        outcomes: [
+          {
+            rowId: "trust_a_lot",
+            columnId: "gen_z",
+            comparedColumnId: "millennial",
+            status: "deferred",
+            reasonCodes: ["future_method"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          }
+        ],
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: 1
+        }
+      }
     });
   });
 
@@ -93,7 +143,7 @@ describe("runColumnComparisonSignificanceAdapter", () => {
     expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, unsupportedPlan)).toBeNull();
   });
 
-  it("reserves a typed result payload shape without requiring current execution output", () => {
+  it("reserves a typed result payload shape for future execution output", () => {
     const futureEmptyResult: AnalyticsColumnComparisonExecutionResult = {
       method: "column_comparison",
       comparisonScope: {
@@ -121,6 +171,35 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         deferredComparisons: 0
       }
     });
-    expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, deferredColumnComparisonPlan)?.result).toBeNull();
+    expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, deferredColumnComparisonPlan)?.result).toBeTruthy();
+  });
+
+  it("shapes deferred row and column comparison outcomes from accepted input", () => {
+    expect(shapeDeferredColumnComparisonResult(columnComparisonInput, ["future_method"])).toEqual({
+      method: "column_comparison",
+      comparisonScope: {
+        basis: "breakout",
+        rowIds: ["trust_a_lot"],
+        columnIds: ["gen_z", "millennial"]
+      },
+      outcomes: [
+        {
+          rowId: "trust_a_lot",
+          columnId: "gen_z",
+          comparedColumnId: "millennial",
+          status: "deferred",
+          reasonCodes: ["future_method"],
+          statistics: {
+            pValue: null,
+            confidence: null,
+            direction: null
+          }
+        }
+      ],
+      summary: {
+        testedComparisons: 0,
+        deferredComparisons: 1
+      }
+    });
   });
 });

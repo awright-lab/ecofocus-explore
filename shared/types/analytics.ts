@@ -148,7 +148,7 @@ export interface AnalyticsColumnComparisonExecutionResult {
     rowId: string;
     columnId: string;
     comparedColumnId: string;
-    status: "not_tested" | "placeholder";
+    status: "deferred" | "not_tested" | "placeholder";
     reasonCodes: SignificanceReasonCode[];
     statistics: {
       pValue: null;

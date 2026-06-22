@@ -194,7 +194,32 @@ describe("mockAnalyticsProvider", () => {
         inputAccepted: true,
         reasonCodes: ["mock_provider_not_available", "future_method"],
         unmetPrerequisites: ["provider_method", "statistical_engine"],
-        result: null
+        result: {
+          method: "column_comparison",
+          comparisonScope: {
+            basis: "breakout",
+            rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
+            columnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
+          },
+          outcomes: expect.arrayContaining([
+            {
+              rowId: "trust_a_lot",
+              columnId: "gen_z",
+              comparedColumnId: "millennial",
+              status: "deferred",
+              reasonCodes: ["mock_provider_not_available", "future_method"],
+              statistics: {
+                pValue: null,
+                confidence: null,
+                direction: null
+              }
+            }
+          ]),
+          summary: {
+            testedComparisons: 0,
+            deferredComparisons: 24
+          }
+        }
       },
       significance: {
         status: "eligible",
