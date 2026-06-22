@@ -128,7 +128,8 @@ function significanceReasonLabel(reasonCode: SignificanceReasonCode) {
     summary_only: "Summary-only result",
     no_comparison_basis: "No comparison basis",
     insufficient_base: "Insufficient base",
-    future_method: "Future method scaffold"
+    future_method: "Future method scaffold",
+    invalid_execution_input: "Invalid execution input"
   };
   return labels[reasonCode];
 }

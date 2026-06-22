@@ -77,7 +77,8 @@ export type SignificanceReasonCode =
   | "summary_only"
   | "no_comparison_basis"
   | "insufficient_base"
-  | "future_method";
+  | "future_method"
+  | "invalid_execution_input";
 
 export type SignificanceReadinessStatus = "candidate" | "unsupported" | "not_applicable";
 
@@ -94,7 +95,8 @@ export type SignificanceExecutionPrerequisite =
   | "comparison_basis"
   | "provider_method"
   | "statistical_engine"
-  | "wave_support";
+  | "wave_support"
+  | "execution_input";
 
 export interface AnalyticsSignificanceExecutionPlan {
   status: SignificanceExecutionPlanStatus;

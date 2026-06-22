@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { runColumnComparisonSignificanceAdapter, shapeDeferredColumnComparisonResult } from "../significanceExecution";
+import {
+  runColumnComparisonSignificanceAdapter,
+  shapeDeferredColumnComparisonResult,
+  validateColumnComparisonExecutionInput
+} from "../significanceExecution";
 import type {
   AnalyticsColumnComparisonExecutionInput,
   AnalyticsColumnComparisonExecutionResult,
@@ -45,6 +49,14 @@ const deferredColumnComparisonPlan: AnalyticsSignificanceExecutionPlan = {
 };
 
 describe("runColumnComparisonSignificanceAdapter", () => {
+  it("validates structurally usable column-comparison input", () => {
+    expect(validateColumnComparisonExecutionInput(columnComparisonInput)).toEqual({
+      valid: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    });
+  });
+
   it("returns a deferred report for valid column-comparison input when execution prerequisites are missing", () => {
     expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, deferredColumnComparisonPlan)).toEqual({
       method: "column_comparison",
@@ -127,6 +139,49 @@ describe("runColumnComparisonSignificanceAdapter", () => {
 
   it("does not fabricate a report when no column-comparison input is available", () => {
     expect(runColumnComparisonSignificanceAdapter(null, deferredColumnComparisonPlan)).toBeNull();
+  });
+
+  it("returns a structured deferred report when accepted input is malformed", () => {
+    const malformedInput: AnalyticsColumnComparisonExecutionInput = {
+      ...columnComparisonInput,
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [{ columnId: "gen_z", value: 18, base: 312 }]
+        }
+      ]
+    };
+
+    expect(validateColumnComparisonExecutionInput(malformedInput)).toEqual({
+      valid: false,
+      reasonCodes: ["invalid_execution_input"],
+      unmetPrerequisites: ["execution_input"]
+    });
+    expect(runColumnComparisonSignificanceAdapter(malformedInput, deferredColumnComparisonPlan)).toEqual({
+      method: "column_comparison",
+      status: "deferred",
+      inputAccepted: false,
+      reasonCodes: ["mock_provider_not_available", "future_method", "invalid_execution_input"],
+      unmetPrerequisites: ["provider_method", "statistical_engine", "execution_input"],
+      result: null
+    });
+  });
+
+  it("rejects invalid comparison scope metadata", () => {
+    const malformedInput: AnalyticsColumnComparisonExecutionInput = {
+      ...columnComparisonInput,
+      comparisonScope: {
+        ...columnComparisonInput.comparisonScope,
+        columnIds: ["gen_z", "missing_column"]
+      }
+    };
+
+    expect(validateColumnComparisonExecutionInput(malformedInput)).toEqual({
+      valid: false,
+      reasonCodes: ["invalid_execution_input"],
+      unmetPrerequisites: ["execution_input"]
+    });
   });
 
   it("keeps unsupported or non-column paths outside the column-comparison adapter", () => {
