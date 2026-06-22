@@ -1507,6 +1507,28 @@ h2 {
   line-height: 1.35;
 }
 
+.template-edit-card {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dce5ea;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.template-edit-card label {
+  gap: 4px;
+  color: #526b61;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.template-edit-card input,
+.template-edit-card textarea {
+  min-height: 34px;
+  font-size: 0.74rem;
+}
+
 .library-insertion-context {
   display: grid;
   gap: 7px;

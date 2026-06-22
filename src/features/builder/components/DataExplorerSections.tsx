@@ -520,6 +520,7 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
   } = props;
   const [insertionFeedback, setInsertionFeedback] = useState<SavedAnalyticalTemplateInsertionFeedback | null>(null);
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<{ id: string; label: string; description: string } | null>(null);
   const [managementFeedback, setManagementFeedback] = useState<{ templateId: string; message: string } | null>(null);
   const highlightNewestTemplate = savedLibraryHandoff?.view === "templates";
   const insertionContext = buildInsertionContextView({
@@ -569,6 +570,31 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     setManagementFeedback({ templateId: template.id, message: "Updated from selected tile." });
   }
 
+  function startEditingTemplate(template: typeof savedAnalyticalTemplates[number]) {
+    setEditingTemplate({
+      id: template.id,
+      label: template.label,
+      description: template.description
+    });
+    setManagementFeedback(null);
+  }
+
+  function saveTemplateMetadata(template: typeof savedAnalyticalTemplates[number]) {
+    if (!editingTemplate || editingTemplate.id !== template.id) return;
+    const nextLabel = editingTemplate.label.trim();
+    if (!nextLabel) {
+      setManagementFeedback({ templateId: template.id, message: "Template name is required." });
+      return;
+    }
+    saveAnalyticalTemplate({
+      ...template,
+      label: nextLabel,
+      description: editingTemplate.description.trim()
+    });
+    setEditingTemplate(null);
+    setManagementFeedback({ templateId: template.id, message: "Template metadata saved." });
+  }
+
   function deleteTemplate(template: typeof savedAnalyticalTemplates[number]) {
     if (!window.confirm(`Delete analytical template "${template.label}"?`)) return;
     deleteAnalyticalTemplate(template.id);
@@ -603,11 +629,39 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
           {savedAnalyticalTemplates.map((template, index) => {
             const compatibility = buildAnalyticalTemplateCompatibilityView(template, currentTemplateContext);
             const expanded = expandedTemplateId === template.id;
+            const editing = editingTemplate?.id === template.id;
             return (
               <div key={template.id} className={savedLibraryItemClass(false, highlightNewestTemplate && index === 0)}>
                 <strong>{template.label}</strong>
                 <span>{template.description}</span>
                 {highlightNewestTemplate && index === 0 && <small className="recently-saved-label">Recently saved</small>}
+                {editing && (
+                  <div className="template-edit-card">
+                    <label>
+                      Name
+                      <input
+                        value={editingTemplate.label}
+                        onChange={(event) => setEditingTemplate((current) => current ? { ...current, label: event.target.value } : current)}
+                      />
+                    </label>
+                    <label>
+                      Description
+                      <textarea
+                        value={editingTemplate.description}
+                        onChange={(event) => setEditingTemplate((current) => current ? { ...current, description: event.target.value } : current)}
+                        rows={3}
+                      />
+                    </label>
+                    <div className="library-reuse-actions">
+                      <button type="button" className="secondary" onClick={() => saveTemplateMetadata(template)}>
+                        Save metadata
+                      </button>
+                      <button type="button" className="secondary" onClick={() => setEditingTemplate(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="explorer-chip-row">
                   {analyticalTemplateSummaryChips(template).map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
@@ -640,6 +694,9 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
                 <div className="library-reuse-actions">
                   <button type="button" className="secondary" onClick={() => setExpandedTemplateId(expanded ? null : template.id)}>
                     {expanded ? "Hide details" : "Details"}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => editing ? setEditingTemplate(null) : startEditingTemplate(template)}>
+                    {editing ? "Close edit" : "Edit metadata"}
                   </button>
                   <button type="button" className="secondary" onClick={() => void createTemplateObject(template, compatibility)} disabled={isLoading}>
                     Create from template
