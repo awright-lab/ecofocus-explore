@@ -79,9 +79,36 @@ export type SignificanceReasonCode =
   | "insufficient_base"
   | "future_method";
 
+export type SignificanceReadinessStatus = "candidate" | "unsupported" | "not_applicable";
+
+export interface AnalyticsSignificanceReadiness {
+  status: SignificanceReadinessStatus;
+  method: SignificanceMethod;
+  reasonCodes: SignificanceReasonCode[];
+  comparisonBasis: "none" | "summary" | "breakout" | "wave";
+}
+
+export type SignificanceExecutionPlanStatus = "ready" | "deferred" | "blocked" | "not_applicable";
+
+export type SignificanceExecutionPrerequisite =
+  | "comparison_basis"
+  | "provider_method"
+  | "statistical_engine"
+  | "wave_support";
+
+export interface AnalyticsSignificanceExecutionPlan {
+  status: SignificanceExecutionPlanStatus;
+  candidateMethod: SignificanceMethod;
+  queryShapeSupported: boolean;
+  providerCanExecute: boolean;
+  reasonCodes: SignificanceReasonCode[];
+  unmetPrerequisites: SignificanceExecutionPrerequisite[];
+}
+
 export interface AnalyticsSignificanceResult {
   status: SignificanceStatus;
   method: SignificanceMethod;
+  readiness: AnalyticsSignificanceReadiness;
   reasonCodes: SignificanceReasonCode[];
   comparisonBasis: "none" | "summary" | "breakout" | "wave";
   hasPlaceholders: boolean;
@@ -115,6 +142,7 @@ export interface AnalyticsQueryResponse {
   statistics: {
     confidenceLevel: ConfidenceLevel;
     significanceMethod: SignificanceMethod;
+    significanceExecutionPlan: AnalyticsSignificanceExecutionPlan;
     significance: AnalyticsSignificanceResult;
   };
   warnings: string[];

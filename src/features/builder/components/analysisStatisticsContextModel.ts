@@ -80,10 +80,32 @@ function fallbackSignificance(tile: DashboardTile): AnalyticsSignificanceResult 
           ? "summary"
           : "none";
   const hasPlaceholders = method === "mock_placeholder" || tile.result.annotations.length > 0;
+  const readiness: AnalyticsSignificanceResult["readiness"] =
+    comparisonBasis === "wave"
+      ? {
+          status: "unsupported",
+          method: "wave_comparison",
+          reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+          comparisonBasis
+        }
+      : comparisonBasis === "breakout"
+        ? {
+            status: "candidate",
+            method: "column_comparison",
+            reasonCodes: ["future_method"],
+            comparisonBasis
+          }
+        : {
+            status: "not_applicable",
+            method: "none",
+            reasonCodes: ["summary_only", "no_comparison_basis"],
+            comparisonBasis
+          };
 
   return {
     status: hasPlaceholders ? "placeholder" : method === "none" ? "none" : "eligible",
     method,
+    readiness,
     reasonCodes: hasPlaceholders ? ["mock_provider_placeholder"] : ["mock_provider_not_available"],
     comparisonBasis,
     hasPlaceholders,
@@ -118,6 +140,7 @@ function datasetWaveLabel(datasetId: string) {
 function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificanceEligibilityView {
   const result = tile.result;
   const significance = result.statistics?.significance ?? fallbackSignificance(tile);
+  const readiness = significance.readiness;
   const significanceMethod = significance.method;
   const comparisonMode = result.query.comparisonMode ?? tile.query.comparisonMode ?? "none";
   const columnCount = result.columns.length;
@@ -143,12 +166,15 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
     };
   }
 
+  const significanceReasonLabels = Array.from(new Set([...significance.reasonCodes, ...readiness.reasonCodes])).map(significanceReasonLabel);
   const limitations = [
     significance.hasPlaceholders ? "Current markers are placeholders, not statistical test results." : "",
     significance.status === "unsupported" ? "The current provider reports this significance method as unsupported." : "",
+    readiness.status === "unsupported" ? "The provider readiness model marks this query shape as unsupported." : "",
+    readiness.status === "not_applicable" ? "The provider readiness model does not see a comparison method for this query shape." : "",
     significance.status === "eligible" ? "The result is structurally eligible, but no real significance test has been run." : "",
     significance.status === "none" ? "No significance method is active for this result." : "",
-    ...significance.reasonCodes.map(significanceReasonLabel),
+    ...significanceReasonLabels,
     isWaveComparison ? "Wave comparison significance is not implemented in the mock provider." : "",
     isSummaryOnly ? "Summary-only results do not provide comparison columns for column significance." : ""
   ].filter(Boolean);

@@ -1,9 +1,11 @@
+import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../analytics/queryPlan";
 import { getDatasetMetadata, getMetricMetadata, getWeightMetadata } from "../metadata/ecofocus2025";
 import type {
   AnalyticsAnnotation,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   AnalyticsSeries,
+  AnalyticsSignificanceReadiness,
   AnalyticsSignificanceResult,
   AnalyticsTableColumn,
   AnalyticsTableRow,
@@ -205,16 +207,13 @@ const mockAnnotations: Record<string, AnalyticsAnnotation[]> = {
   ]
 };
 
-function placeholderSignificance(annotations: AnalyticsAnnotation[], comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
-  if (annotations.length === 0) {
-    return eligibleSignificance(comparisonBasis);
-  }
-
+function placeholderSignificance(annotations: AnalyticsAnnotation[], readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
   return {
     status: "placeholder",
     method: "mock_placeholder",
+    readiness,
     reasonCodes: ["mock_provider_placeholder"],
-    comparisonBasis,
+    comparisonBasis: readiness.comparisonBasis,
     hasPlaceholders: true,
     details: annotations.map((annotation) => ({
       rowId: annotation.rowId,
@@ -227,23 +226,49 @@ function placeholderSignificance(annotations: AnalyticsAnnotation[], comparisonB
   };
 }
 
-function eligibleSignificance(comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
+function eligibleSignificance(readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
   return {
     status: "eligible",
-    method: "column_comparison",
-    reasonCodes: ["future_method"],
-    comparisonBasis,
+    method: readiness.method,
+    readiness,
+    reasonCodes: readiness.reasonCodes,
+    comparisonBasis: readiness.comparisonBasis,
     hasPlaceholders: false,
     details: []
   };
 }
 
-function unsupportedSignificance(reasonCodes: AnalyticsSignificanceResult["reasonCodes"], comparisonBasis: AnalyticsSignificanceResult["comparisonBasis"]): AnalyticsSignificanceResult {
+function inactiveSignificance(readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
+  return {
+    status: readiness.status === "unsupported" ? "unsupported" : "none",
+    method: "none",
+    readiness,
+    reasonCodes: readiness.reasonCodes,
+    comparisonBasis: readiness.comparisonBasis,
+    hasPlaceholders: false,
+    details: []
+  };
+}
+
+function significanceFromReadiness(readiness: AnalyticsSignificanceReadiness, annotations: AnalyticsAnnotation[]): AnalyticsSignificanceResult {
+  if (annotations.length > 0) {
+    return placeholderSignificance(annotations, readiness);
+  }
+
+  if (readiness.status === "candidate") {
+    return eligibleSignificance(readiness);
+  }
+
+  return inactiveSignificance(readiness);
+}
+
+function unsupportedSignificance(readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
   return {
     status: "unsupported",
     method: "none",
-    reasonCodes,
-    comparisonBasis,
+    readiness,
+    reasonCodes: readiness.reasonCodes,
+    comparisonBasis: readiness.comparisonBasis,
     hasPlaceholders: false,
     details: []
   };
@@ -309,7 +334,9 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
     }
   }));
   const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: normalizedQuery.confidenceLevel }));
-  const significance = placeholderSignificance(annotations, normalizedQuery.breakBy === "SUMMARY" ? "summary" : "breakout");
+  const significanceReadiness = buildSignificanceReadiness(normalizedQuery);
+  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significance = significanceFromReadiness(significanceReadiness, annotations);
 
   return {
     query: normalizedQuery,
@@ -327,6 +354,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
     statistics: {
       confidenceLevel: normalizedQuery.confidenceLevel,
       significanceMethod: significance.method,
+      significanceExecutionPlan,
       significance
     },
     warnings: collectBaseWarnings(series, dataset.minBaseWarning),
@@ -394,7 +422,9 @@ function runMockWaveComparisonQuery(
       emphasis: "detail"
     }
   }));
-  const significance = unsupportedSignificance(["wave_comparison_unsupported", "mock_provider_not_available"], "wave");
+  const significanceReadiness = buildSignificanceReadiness(query);
+  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significance = unsupportedSignificance(significanceReadiness);
 
   return {
     query,
@@ -412,6 +442,7 @@ function runMockWaveComparisonQuery(
     statistics: {
       confidenceLevel: query.confidenceLevel,
       significanceMethod: significance.method,
+      significanceExecutionPlan,
       significance
     },
     warnings: [],
@@ -461,7 +492,9 @@ function runMockMultiBinarySetQuery(
     }
   }));
   const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: query.confidenceLevel }));
-  const significance = placeholderSignificance(annotations, "summary");
+  const significanceReadiness = buildSignificanceReadiness(query);
+  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significance = significanceFromReadiness(significanceReadiness, annotations);
 
   return {
     query,
@@ -479,6 +512,7 @@ function runMockMultiBinarySetQuery(
     statistics: {
       confidenceLevel: query.confidenceLevel,
       significanceMethod: significance.method,
+      significanceExecutionPlan,
       significance
     },
     warnings: collectBaseWarnings(series, getDatasetMetadata(query.dataset)?.minBaseWarning ?? 100),

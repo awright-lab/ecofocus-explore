@@ -18,6 +18,7 @@ import {
   seedVariableSets
 } from "./documentSeeds";
 import { defaultVisualizationForQuestion, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
+import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { BreakById } from "../../../shared/types/analytics";
 import type { DashboardDraft, DashboardPage, PageThemePreset, TileAppearance } from "../../../shared/types/dashboard";
 
@@ -276,6 +277,10 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
         const compatibleChartTypes = getCompatibleChartTypes(tile.result);
         const visualization = tile.visualization === "table" ? compatibleChartTypes[0] ?? "vertical_bar" : tile.visualization;
         const legacyAxisColor = (tile.appearance as (Partial<TileAppearance> & { axisColor?: string }) | undefined)?.axisColor;
+        const normalizedQuery = { ...tile.query, chartType: visualization, confidenceLevel: tile.query.confidenceLevel ?? tile.result.query.confidenceLevel ?? 0.95 };
+        const normalizedResultQuery = { ...tile.result.query, confidenceLevel: tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 };
+        const significanceReadiness = tile.result.statistics?.significance?.readiness ?? buildSignificanceReadiness(normalizedResultQuery);
+        const significanceExecutionPlan = tile.result.statistics?.significanceExecutionPlan ?? buildSignificanceExecutionPlan(significanceReadiness);
         return {
           ...tile,
           name: tile.name ?? tile.title,
@@ -286,18 +291,20 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             canonicalTileId: tile.id,
             canonicalLabel: tile.title ?? tile.name ?? "Analysis object"
           },
-          query: { ...tile.query, chartType: visualization, confidenceLevel: tile.query.confidenceLevel ?? tile.result.query.confidenceLevel ?? 0.95 },
+          query: normalizedQuery,
           result: {
             ...tile.result,
-            query: { ...tile.result.query, confidenceLevel: tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 },
+            query: normalizedResultQuery,
             annotations: tile.result.annotations.map((annotation) => ({ ...annotation, confidence: annotation.confidence ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95 })),
             statistics: {
               ...tile.result.statistics,
               confidenceLevel: tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? tile.query.confidenceLevel ?? 0.95,
               significanceMethod: tile.result.statistics?.significanceMethod ?? (tile.result.annotations.length > 0 ? "mock_placeholder" : "none"),
+              significanceExecutionPlan,
               significance: tile.result.statistics?.significance ?? {
                 status: tile.result.annotations.length > 0 ? "placeholder" : "none",
                 method: tile.result.annotations.length > 0 ? "mock_placeholder" : "none",
+                readiness: significanceReadiness,
                 reasonCodes: tile.result.annotations.length > 0 ? ["mock_provider_placeholder"] : ["mock_provider_not_available"],
                 comparisonBasis: (tile.result.query.comparisonMode ?? tile.query.comparisonMode) === "wave" ? "wave" : tile.result.columns.length > 1 ? "breakout" : "summary",
                 hasPlaceholders: tile.result.annotations.length > 0,

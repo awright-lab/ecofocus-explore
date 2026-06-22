@@ -33,6 +33,22 @@ describe("createAnalyticsQueryPlan", () => {
       weight: {
         id: "weightvar",
         sourceColumn: "weightvar"
+      },
+      statistics: {
+        significanceReadiness: {
+          status: "not_applicable",
+          method: "none",
+          reasonCodes: ["summary_only", "no_comparison_basis"],
+          comparisonBasis: "summary"
+        },
+        significanceExecutionPlan: {
+          status: "not_applicable",
+          candidateMethod: "none",
+          queryShapeSupported: false,
+          providerCanExecute: false,
+          reasonCodes: ["summary_only", "no_comparison_basis"],
+          unmetPrerequisites: ["comparison_basis"]
+        }
       }
     });
   });
@@ -55,6 +71,55 @@ describe("createAnalyticsQueryPlan", () => {
       comparison: {
         mode: "wave",
         datasets: ["ecofocus_2024"]
+      },
+      statistics: {
+        significanceReadiness: {
+          status: "unsupported",
+          method: "wave_comparison",
+          reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+          comparisonBasis: "wave"
+        },
+        significanceExecutionPlan: {
+          status: "blocked",
+          candidateMethod: "wave_comparison",
+          queryShapeSupported: false,
+          providerCanExecute: false,
+          reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+          unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
+        }
+      }
+    });
+  });
+
+  it("marks breakout queries as candidate column comparison readiness", () => {
+    const query: AnalyticsQueryRequest = {
+      dataset: "ecofocus_2025",
+      question: "Q_PACKAGING_TRUST",
+      breakBy: "GENERATION",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "grouped_bar",
+      confidenceLevel: 0.95
+    };
+
+    expect(createAnalyticsQueryPlan(query)).toMatchObject({
+      statistics: {
+        confidenceLevel: 0.95,
+        significanceReadiness: {
+          status: "candidate",
+          method: "column_comparison",
+          reasonCodes: ["future_method"],
+          comparisonBasis: "breakout"
+        },
+        significanceExecutionPlan: {
+          status: "deferred",
+          candidateMethod: "column_comparison",
+          queryShapeSupported: true,
+          providerCanExecute: false,
+          reasonCodes: ["mock_provider_not_available", "future_method"],
+          unmetPrerequisites: ["provider_method", "statistical_engine"]
+        }
       }
     });
   });

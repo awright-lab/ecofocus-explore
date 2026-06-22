@@ -38,9 +38,23 @@ describe("mockAnalyticsProvider", () => {
     expect(result.statistics).toEqual({
       confidenceLevel: 0.95,
       significanceMethod: "mock_placeholder",
+      significanceExecutionPlan: {
+        status: "not_applicable",
+        candidateMethod: "none",
+        queryShapeSupported: false,
+        providerCanExecute: false,
+        reasonCodes: ["summary_only", "no_comparison_basis"],
+        unmetPrerequisites: ["comparison_basis"]
+      },
       significance: {
         status: "placeholder",
         method: "mock_placeholder",
+        readiness: {
+          status: "not_applicable",
+          method: "none",
+          reasonCodes: ["summary_only", "no_comparison_basis"],
+          comparisonBasis: "summary"
+        },
         reasonCodes: ["mock_provider_placeholder"],
         comparisonBasis: "summary",
         hasPlaceholders: true,
@@ -84,9 +98,23 @@ describe("mockAnalyticsProvider", () => {
     expect(result.statistics).toEqual({
       confidenceLevel: 0.95,
       significanceMethod: "none",
+      significanceExecutionPlan: {
+        status: "blocked",
+        candidateMethod: "wave_comparison",
+        queryShapeSupported: false,
+        providerCanExecute: false,
+        reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+        unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
+      },
       significance: {
         status: "unsupported",
         method: "none",
+        readiness: {
+          status: "unsupported",
+          method: "wave_comparison",
+          reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+          comparisonBasis: "wave"
+        },
         reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
         comparisonBasis: "wave",
         hasPlaceholders: false,
@@ -114,9 +142,23 @@ describe("mockAnalyticsProvider", () => {
     expect(result.statistics).toEqual({
       confidenceLevel: 0.95,
       significanceMethod: "column_comparison",
+      significanceExecutionPlan: {
+        status: "deferred",
+        candidateMethod: "column_comparison",
+        queryShapeSupported: true,
+        providerCanExecute: false,
+        reasonCodes: ["mock_provider_not_available", "future_method"],
+        unmetPrerequisites: ["provider_method", "statistical_engine"]
+      },
       significance: {
         status: "eligible",
         method: "column_comparison",
+        readiness: {
+          status: "candidate",
+          method: "column_comparison",
+          reasonCodes: ["future_method"],
+          comparisonBasis: "breakout"
+        },
         reasonCodes: ["future_method"],
         comparisonBasis: "breakout",
         hasPlaceholders: false,
