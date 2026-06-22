@@ -89,6 +89,7 @@ import type {
   DashboardDraft,
   GradientStop,
   GradientType,
+  SavedAnalyticalTemplate,
   SavedBanner,
   SavedFilterSet,
   SavedVariableSet,
@@ -317,6 +318,62 @@ export default function BuilderApp() {
     setError(null);
   }
 
+  function saveSelectedTileAnalyticalTemplate() {
+    if (!selectedTile || !selectedTileQuestion) return;
+
+    const tileTitle = selectedTile.title.trim() || selectedTileQuestion.shortLabel;
+    const activeFilter = selectedTile.query.filters[0];
+    const activeFilterField = activeFilter ? filterDimensions.find((item) => item.id === activeFilter.field) : undefined;
+    const activeFilterValue = activeFilterField && activeFilter ? activeFilterField.values.find((item) => item.id === activeFilter.values[0]) : undefined;
+    const comparisonDatasetsLabel =
+      selectedTile.query.comparisonMode === "wave" && selectedTile.query.comparisonDatasets?.length
+        ? selectedTile.query.comparisonDatasets
+            .map((datasetId) => comparisonDatasetOptions.find((item) => item.id === datasetId)?.label ?? datasetId)
+            .join(", ")
+        : "";
+    const source = selectedTile.source ?? {
+      kind: "question" as const,
+      id: selectedTileQuestion.id,
+      label: selectedTileQuestion.shortLabel
+    };
+    const nextTemplate: SavedAnalyticalTemplate = {
+      id: `analysis_template_${Date.now()}`,
+      datasetId: selectedTile.query.dataset,
+      label: `${tileTitle} template`,
+      description: `Saved analytical setup from tile: ${tileTitle}`,
+      source,
+      query: {
+        ...selectedTile.query,
+        chartType: selectedTile.visualization,
+        confidenceLevel: selectedTile.query.confidenceLevel ?? 0.95
+      },
+      visualization: selectedTile.visualization,
+      summary: {
+        sourceLabel: source.label,
+        bannerLabel: bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy,
+        filterLabel:
+          activeFilter && activeFilter.values[0] !== "all"
+            ? `${activeFilterField?.label ?? activeFilter.field}: ${activeFilterValue?.label ?? activeFilter.values[0]}`
+            : "No filter",
+        weightLabel: selectedTile.query.weight
+          ? defaultDataset.weights.find((item) => item.id === selectedTile.query.weight)?.label ?? selectedTile.query.weight
+          : "Unweighted",
+        confidenceLabel: `${Math.round((selectedTile.query.confidenceLevel ?? 0.95) * 100)}% confidence`,
+        comparisonLabel: comparisonDatasetsLabel ? `Wave comparison: ${comparisonDatasetsLabel}` : "No wave comparison"
+      }
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        templates: [nextTemplate, ...current.analysisLibrary.templates]
+      }
+    }));
+    setError(null);
+  }
+
   function viewSavedSettingInLibrary(view: AnalysisLibraryView) {
     setLeftPanelView("data");
     setExploreView("library");
@@ -447,6 +504,7 @@ export default function BuilderApp() {
     savedBanners,
     savedFilters,
     savedWeights,
+    savedAnalyticalTemplates,
     selectedQuestion,
     selectedVariableSet,
     filteredVariableSets,
@@ -523,6 +581,7 @@ export default function BuilderApp() {
     addTileFromQuery,
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
+    addTileFromAnalyticalTemplate,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization
@@ -823,6 +882,7 @@ export default function BuilderApp() {
           savedBanners={savedBanners}
           savedFilters={savedFilters}
           savedWeights={savedWeights}
+          savedAnalyticalTemplates={savedAnalyticalTemplates}
           savedVariableSets={savedVariableSets}
           breakBy={breakBy}
           setBreakBy={setBreakBy}
@@ -849,6 +909,7 @@ export default function BuilderApp() {
           addTileFromQuery={addTileFromQuery}
           addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
           addTileFromVariableSet={addTileFromVariableSet}
+          addTileFromAnalyticalTemplate={addTileFromAnalyticalTemplate}
           isLoading={isLoading}
           applySavedBanner={applySavedBanner}
           bannerDraftName={bannerDraftName}
@@ -950,6 +1011,7 @@ export default function BuilderApp() {
           duplicateTileAsVisualization={duplicateTileAsVisualization}
           rerunTileAnalysis={rerunTileAnalysis}
           saveSelectedTileVariableSet={saveSelectedTileVariableSet}
+          saveSelectedTileAnalyticalTemplate={saveSelectedTileAnalyticalTemplate}
           saveSelectedTileBanner={saveSelectedTileBanner}
           saveSelectedTileFilter={saveSelectedTileFilter}
           saveSelectedTileWeight={saveSelectedTileWeight}

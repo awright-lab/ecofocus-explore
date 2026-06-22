@@ -23,6 +23,7 @@ import type {
 } from "../../../shared/types/analytics";
 import type {
   DashboardDraft,
+  SavedAnalyticalTemplate,
   SavedBanner,
   SavedFilterSet,
   SavedVariableSet,
@@ -73,6 +74,14 @@ export function queryForVariableSet(variableSet: SavedVariableSet): AnalyticsQue
   };
 }
 
+export function queryForAnalyticalTemplate(template: SavedAnalyticalTemplate): AnalyticsQueryRequest {
+  return {
+    ...template.query,
+    chartType: template.visualization,
+    confidenceLevel: template.query.confidenceLevel ?? 0.95
+  };
+}
+
 export function useAnalysisAuthoring({
   dashboard,
   setDashboard,
@@ -92,6 +101,7 @@ export function useAnalysisAuthoring({
   const savedBanners = dashboard.analysisLibrary.banners;
   const savedFilters = dashboard.analysisLibrary.filters;
   const savedWeights = dashboard.analysisLibrary.weights;
+  const savedAnalyticalTemplates = dashboard.analysisLibrary.templates;
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
@@ -557,6 +567,7 @@ export function useAnalysisAuthoring({
     savedBanners,
     savedFilters,
     savedWeights,
+    savedAnalyticalTemplates,
     selectedQuestion,
     selectedVariableSet,
     filteredVariableSets,

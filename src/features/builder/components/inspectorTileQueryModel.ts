@@ -23,7 +23,7 @@ export interface TileQueryActionState {
   refreshHelperText: string;
 }
 
-export type SavedTileSettingKind = "set" | "banner" | "filter" | "weight";
+export type SavedTileSettingKind = "set" | "template" | "banner" | "filter" | "weight";
 
 export interface SavedTileSettingConfirmation {
   label: string;
@@ -168,6 +168,13 @@ export function buildSavedTileSettingConfirmation(kind: SavedTileSettingKind): S
       label: "Variable set saved",
       message: "Saved a new reusable variable set from this selected object.",
       libraryView: "variableSets"
+    };
+  }
+  if (kind === "template") {
+    return {
+      label: "Analytical template saved",
+      message: "Saved this object's source, query, visualization, and analytical context as a reusable template.",
+      libraryView: "templates"
     };
   }
   if (kind === "banner") {

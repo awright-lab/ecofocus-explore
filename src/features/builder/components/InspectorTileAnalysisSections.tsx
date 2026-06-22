@@ -267,7 +267,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     isLoading
   } = props;
   const [saveConfirmation, setSaveConfirmation] = useState<(SavedTileSettingConfirmation & { tileId: string }) | null>(null);
-  const [recentlySavedSetting, setRecentlySavedSetting] = useState<{ tileId: string; kind: Exclude<SavedTileSettingKind, "set"> } | null>(null);
+  const [recentlySavedSetting, setRecentlySavedSetting] = useState<{ tileId: string; kind: Exclude<SavedTileSettingKind, "set" | "template"> } | null>(null);
 
   if (!selectedTile || !selectedTileQuestion) {
     return null;
@@ -323,7 +323,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     })
     : null;
 
-  function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set">, saveAction: () => void) {
+  function saveEmptyStateSetting(kind: Exclude<SavedTileSettingKind, "set" | "template">, saveAction: () => void) {
     saveAction();
     const nextConfirmation = buildSavedTileSettingConfirmation(kind);
     setSaveConfirmation({ tileId: tile.id, ...nextConfirmation });

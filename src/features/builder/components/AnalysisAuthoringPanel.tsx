@@ -13,7 +13,7 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
-import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
+import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
@@ -98,6 +98,7 @@ export type AnalysisAuthoringPanelProps = {
   savedBanners: SavedBanner[];
   savedFilters: SavedFilterSet[];
   savedWeights: SavedWeightProfile[];
+  savedAnalyticalTemplates: SavedAnalyticalTemplate[];
   savedVariableSets: SavedVariableSet[];
   breakBy: BreakById;
   setBreakBy: (breakBy: BreakById) => void;
@@ -124,6 +125,7 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromQuery: () => void;
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
+  addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
   isLoading: boolean;
   applySavedBanner: (banner: SavedBanner) => void;
   bannerDraftName: string;

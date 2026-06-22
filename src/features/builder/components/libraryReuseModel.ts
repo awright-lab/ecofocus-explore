@@ -1,5 +1,5 @@
 import type { ChartType } from "../../../../shared/types/analytics";
-import type { DashboardTile, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
+import type { DashboardTile, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedSettingOriginKind } from "../builderTypes";
 import type { InsertionContextView } from "./insertionContextModel";
@@ -19,6 +19,12 @@ export interface SavedSettingApplyFeedback {
 }
 
 export interface SavedVariableSetInsertionFeedback {
+  itemId: string;
+  label: string;
+  message: string;
+}
+
+export interface SavedAnalyticalTemplateInsertionFeedback {
   itemId: string;
   label: string;
   message: string;
@@ -45,6 +51,28 @@ export function buildSavedVariableSetInsertionFeedback(
     itemId: variableSet.id,
     label: `Created ${objectLabel}`,
     message: `Added "${variableSet.label}" to "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()} and selected it for inspector editing.`
+  };
+}
+
+export function analyticalTemplateSummaryChips(template: SavedAnalyticalTemplate) {
+  return [
+    template.summary.sourceLabel,
+    template.summary.bannerLabel,
+    template.summary.filterLabel,
+    template.summary.weightLabel,
+    template.summary.confidenceLabel,
+    template.summary.comparisonLabel
+  ].filter(Boolean);
+}
+
+export function buildSavedAnalyticalTemplateInsertionFeedback(
+  template: SavedAnalyticalTemplate,
+  insertionContext: InsertionContextView
+): SavedAnalyticalTemplateInsertionFeedback {
+  return {
+    itemId: template.id,
+    label: "Created from template",
+    message: `Added "${template.label}" to "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()} and selected it for inspector editing.`
   };
 }
 

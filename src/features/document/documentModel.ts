@@ -1,9 +1,11 @@
 import {
+  bannerDimensions,
   defaultAppearance,
   defaultBreakBy,
   defaultDataset,
   defaultFilterDimension,
   defaultQuestion,
+  filterDimensions,
   fontFamilies
 } from "../builder/builderConstants";
 import {
@@ -11,6 +13,7 @@ import {
   defaultPageDesign,
   defaultVariableSetRows,
   normalizeVariableSetRows,
+  seedAnalyticalTemplates,
   seedDesignLibrary,
   seedSavedBanners,
   seedSavedFilters,
@@ -71,6 +74,59 @@ function normalizePageProvenance(page: DashboardPage, pageThemes: PageThemePrese
     masterLabel: page.provenance?.masterLabel,
     masterStatus,
     status: page.provenance?.status ?? "custom"
+  };
+}
+
+function normalizeTemplateQuery(query: Partial<DashboardDraft["analysisLibrary"]["templates"][number]["query"]> | undefined) {
+  const question = defaultDataset.questions.find((item) => item.id === query?.question) ?? defaultQuestion;
+  const comparisonMode = query?.comparisonMode ?? "none";
+  const chartType = query?.chartType && question.allowedChartTypes.includes(query.chartType)
+    ? query.chartType
+    : defaultVisualizationForQuestion(question);
+
+  return {
+    dataset: query?.dataset ?? defaultDataset.id,
+    question: question.id,
+    breakBy:
+      comparisonMode === "wave"
+        ? "SUMMARY"
+        : query?.breakBy && question.allowedBreakBys.includes(query.breakBy)
+          ? query.breakBy
+          : question.allowedBreakBys[0],
+    filters: query?.filters ?? [],
+    weight: query?.weight ?? defaultDataset.defaultWeight,
+    metric: query?.metric && question.allowedMetrics.includes(query.metric) ? query.metric : question.defaultMetric,
+    chartType,
+    confidenceLevel: query?.confidenceLevel ?? 0.95,
+    comparisonMode,
+    comparisonDatasets: query?.comparisonDatasets ?? []
+  };
+}
+
+function normalizeTemplateSummary(
+  template: DashboardDraft["analysisLibrary"]["templates"][number],
+  query: ReturnType<typeof normalizeTemplateQuery>
+) {
+  const filter = query.filters[0];
+  const filterField = filter ? filterDimensions.find((item) => item.id === filter.field) : undefined;
+  const filterValue = filterField && filter ? filterField.values.find((item) => item.id === filter.values[0]) : undefined;
+  return {
+    sourceLabel: template.summary?.sourceLabel ?? template.source?.label ?? getQuestionLabel(query.question),
+    bannerLabel: template.summary?.bannerLabel ?? bannerDimensions.find((item) => item.id === query.breakBy)?.label ?? query.breakBy,
+    filterLabel:
+      template.summary?.filterLabel ??
+      (filter && filter.values[0] !== "all"
+        ? `${filterField?.label ?? filter.field}: ${filterValue?.label ?? filter.values[0]}`
+        : "No filter"),
+    weightLabel:
+      template.summary?.weightLabel ??
+      (query.weight ? defaultDataset.weights.find((item) => item.id === query.weight)?.label ?? query.weight : "Unweighted"),
+    confidenceLabel: template.summary?.confidenceLabel ?? `${Math.round((query.confidenceLevel ?? 0.95) * 100)}% confidence`,
+    comparisonLabel:
+      template.summary?.comparisonLabel ??
+      (query.comparisonMode === "wave" && query.comparisonDatasets.length
+        ? `Wave comparison: ${query.comparisonDatasets.length} wave${query.comparisonDatasets.length === 1 ? "" : "s"}`
+        : "No wave comparison")
   };
 }
 
@@ -142,7 +198,27 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           label: weightProfile.label ?? `Weight ${index + 1}`,
           description: weightProfile.description ?? "",
           weight: weightProfile.weight ?? null
-        })) ?? seedSavedWeights()
+        })) ?? seedSavedWeights(),
+      templates:
+        dashboard.analysisLibrary?.templates?.map((template, index) => {
+          const query = normalizeTemplateQuery(template.query);
+          const source = template.source ?? {
+            kind: "question" as const,
+            id: query.question,
+            label: getQuestionLabel(query.question)
+          };
+          return {
+            ...template,
+            id: template.id ?? `analysis_template_${index + 1}`,
+            datasetId: template.datasetId ?? query.dataset,
+            label: template.label ?? `Analytical template ${index + 1}`,
+            description: template.description ?? "",
+            source,
+            query,
+            visualization: template.visualization ?? query.chartType,
+            summary: normalizeTemplateSummary(template, query)
+          };
+        }) ?? seedAnalyticalTemplates()
     },
     designLibrary: {
       palettes:

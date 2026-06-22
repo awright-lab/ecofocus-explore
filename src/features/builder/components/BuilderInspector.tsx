@@ -88,6 +88,7 @@ export type BuilderInspectorProps = {
   duplicateTileAsVisualization: (tile: DashboardTile, nextVisualization: ChartType) => void;
   rerunTileAnalysis: (tile: DashboardTile, nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest) => Promise<boolean>;
   saveSelectedTileVariableSet: () => void;
+  saveSelectedTileAnalyticalTemplate: () => void;
   saveSelectedTileBanner: () => void;
   saveSelectedTileFilter: () => void;
   saveSelectedTileWeight: () => void;

@@ -247,6 +247,28 @@ export interface SavedWeightProfile {
   weight: WeightId | null;
 }
 
+export interface SavedAnalyticalTemplate {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  source: {
+    kind: "question" | "variableSet";
+    id: string;
+    label: string;
+  };
+  query: AnalyticsQueryRequest;
+  visualization: ChartType;
+  summary: {
+    sourceLabel: string;
+    bannerLabel: string;
+    filterLabel: string;
+    weightLabel: string;
+    confidenceLabel: string;
+    comparisonLabel: string;
+  };
+}
+
 export interface DesignColorPalette {
   id: string;
   label: string;
@@ -372,6 +394,7 @@ export interface DashboardDraft {
     banners: SavedBanner[];
     filters: SavedFilterSet[];
     weights: SavedWeightProfile[];
+    templates: SavedAnalyticalTemplate[];
   };
   designLibrary: DesignLibrary;
   pages: DashboardPage[];

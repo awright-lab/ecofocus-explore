@@ -15,6 +15,7 @@ import type {
   PageMasterPreset,
   PageTemplatePreset,
   PageThemePreset,
+  SavedAnalyticalTemplate,
   SavedBanner,
   SavedFilterSet,
   SavedVariableSet,
@@ -455,6 +456,10 @@ export function seedVariableSets(): SavedVariableSet[] {
   ];
 }
 
+export function seedAnalyticalTemplates(): SavedAnalyticalTemplate[] {
+  return [];
+}
+
 export function seedSavedBanners(): SavedBanner[] {
   return [
     {
@@ -537,7 +542,8 @@ export const initialDashboard: DashboardDraft = {
     variableSets: seedVariableSets(),
     banners: seedSavedBanners(),
     filters: seedSavedFilters(),
-    weights: seedSavedWeights()
+    weights: seedSavedWeights(),
+    templates: seedAnalyticalTemplates()
   },
   designLibrary: seedDesignLibrary(),
   pages: [

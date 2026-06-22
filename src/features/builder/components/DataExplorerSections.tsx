@@ -21,11 +21,14 @@ import {
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 import {
+  analyticalTemplateSummaryChips,
+  buildSavedAnalyticalTemplateInsertionFeedback,
   bannerReuseState,
   buildSavedVariableSetInsertionFeedback,
   buildSavedSettingApplyFeedback,
   filterReuseState,
   savedLibraryItemClass,
+  type SavedAnalyticalTemplateInsertionFeedback,
   type SavedSettingApplyFeedback,
   type SavedVariableSetInsertionFeedback,
   variableSetChartAction,
@@ -447,6 +450,9 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
         <button type="button" className={analysisLibraryView === "variableSets" ? "active" : ""} onClick={() => setAnalysisLibraryView("variableSets")}>
           Variable sets
         </button>
+        <button type="button" className={analysisLibraryView === "templates" ? "active" : ""} onClick={() => setAnalysisLibraryView("templates")}>
+          Templates
+        </button>
         <button type="button" className={analysisLibraryView === "banners" ? "active" : ""} onClick={() => setAnalysisLibraryView("banners")}>
           Banners
         </button>
@@ -458,10 +464,96 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
         </button>
       </div>
       {analysisLibraryView === "variableSets" && <VariableSetEditorSection {...props} />}
+      {analysisLibraryView === "templates" && <AnalyticalTemplateLibrarySection {...props} />}
       {analysisLibraryView === "banners" && <SavedBannersSection {...props} />}
       {analysisLibraryView === "filters" && <SavedFiltersSection {...props} />}
       {analysisLibraryView === "weights" && <SavedWeightsSection {...props} />}
     </>
+  );
+}
+
+export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelProps) {
+  const {
+    savedAnalyticalTemplates,
+    savedLibraryHandoff,
+    addTileFromAnalyticalTemplate,
+    isLoading,
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    recordSavedLibraryInsertionCue
+  } = props;
+  const [insertionFeedback, setInsertionFeedback] = useState<SavedAnalyticalTemplateInsertionFeedback | null>(null);
+  const highlightNewestTemplate = savedLibraryHandoff?.view === "templates";
+  const insertionContext = buildInsertionContextView({
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    objectKind: "analytical"
+  });
+
+  async function createTemplateObject(template: typeof savedAnalyticalTemplates[number]) {
+    const createdTileId = await addTileFromAnalyticalTemplate(template);
+    if (!createdTileId) return;
+    setInsertionFeedback(buildSavedAnalyticalTemplateInsertionFeedback(template, insertionContext));
+    recordSavedLibraryInsertionCue({
+      tileId: createdTileId,
+      sourceLabel: template.label,
+      objectLabel: "template object"
+    });
+  }
+
+  return (
+    <div className="explorer-section-card">
+      <div className="explorer-section-header">
+        <strong>Analytical templates</strong>
+        <small>{savedAnalyticalTemplates.length} saved · {insertionContext.targetPageLabel} · {insertionContext.placementLabel}</small>
+      </div>
+      <div className="library-insertion-context">
+        <div className="insertion-context-grid">
+          <div>
+            <span>Selection</span>
+            <strong>{insertionContext.selectedObjectLabel}</strong>
+          </div>
+          <div>
+            <span>Placement</span>
+            <strong>{insertionContext.placementLabel}</strong>
+          </div>
+        </div>
+        <small>{insertionContext.helperText}</small>
+      </div>
+      {savedAnalyticalTemplates.length === 0 ? (
+        <div className="empty-state compact">No analytical templates saved yet.</div>
+      ) : (
+        <div className="explorer-item-list compact">
+          {savedAnalyticalTemplates.map((template, index) => (
+            <div key={template.id} className={savedLibraryItemClass(false, highlightNewestTemplate && index === 0)}>
+              <strong>{template.label}</strong>
+              <span>{template.description}</span>
+              {highlightNewestTemplate && index === 0 && <small className="recently-saved-label">Recently saved</small>}
+              <div className="explorer-chip-row">
+                {analyticalTemplateSummaryChips(template).map((chip) => (
+                  <span className="explorer-chip" key={chip}>{chip}</span>
+                ))}
+              </div>
+              <div className="library-reuse-actions">
+                <button type="button" className="secondary" onClick={() => void createTemplateObject(template)} disabled={isLoading}>
+                  Create from template
+                </button>
+              </div>
+              {insertionFeedback?.itemId === template.id && (
+                <div className="source-insertion-confirmation" role="status">
+                  <strong>{insertionFeedback.label}</strong>
+                  <span>{insertionFeedback.message}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

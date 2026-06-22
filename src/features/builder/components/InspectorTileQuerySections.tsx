@@ -190,6 +190,7 @@ export function TileQueryActions(props: BuilderInspectorProps) {
     selectedTile,
     rerunTileAnalysis,
     saveSelectedTileVariableSet,
+    saveSelectedTileAnalyticalTemplate,
     saveSelectedTileBanner,
     saveSelectedTileFilter,
     saveSelectedTileWeight,
@@ -257,6 +258,7 @@ export function TileQueryActions(props: BuilderInspectorProps) {
       </div>
       <div className="analysis-library-actions">
         <button type="button" className="secondary" onClick={() => saveReusableSetting("set", saveSelectedTileVariableSet)} disabled={!actionState.canSaveSettings}>Save set</button>
+        <button type="button" className="secondary" onClick={() => saveReusableSetting("template", saveSelectedTileAnalyticalTemplate)} disabled={!actionState.canSaveSettings}>Save template</button>
         <button type="button" className="secondary" onClick={() => saveReusableSetting("banner", saveSelectedTileBanner)} disabled={!actionState.canSaveSettings}>Save banner</button>
         <button type="button" className="secondary" onClick={() => saveReusableSetting("filter", saveSelectedTileFilter)} disabled={!actionState.canSaveSettings}>Save filter</button>
         <button type="button" className="secondary" onClick={() => saveReusableSetting("weight", saveSelectedTileWeight)} disabled={!actionState.canSaveSettings}>Save weight</button>

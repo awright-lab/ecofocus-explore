@@ -5,10 +5,10 @@ import { canvasHeight, canvasWidth, defaultAppearance, defaultDataset } from "..
 import { defaultVariableSetRows } from "../../document/documentSeeds";
 import { makeTileId, nextZIndex } from "../../document/documentModel";
 import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import { queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
+import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedVariableSet } from "../../../../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedVariableSet } from "../../../../shared/types/dashboard";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
 
@@ -243,6 +243,11 @@ export function useBuilderTileCommands({
     );
   }
 
+  async function addTileFromAnalyticalTemplate(template: SavedAnalyticalTemplate) {
+    const templateQuery = queryForAnalyticalTemplate(template);
+    return createTileFromSource(templateQuery, template.label, undefined, template.source);
+  }
+
   async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
     setIsLoading(true);
     setError(null);
@@ -318,6 +323,7 @@ export function useBuilderTileCommands({
     addTileFromQuery,
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
+    addTileFromAnalyticalTemplate,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization
