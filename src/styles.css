@@ -1442,6 +1442,11 @@ h2 {
   font-weight: 800;
 }
 
+.recently-saved-label.changed {
+  border-color: #d8cda7;
+  color: #665d3a !important;
+}
+
 .library-reuse-helper {
   color: #60756b !important;
   font-size: 0.7rem !important;
@@ -1527,6 +1532,35 @@ h2 {
 .template-edit-card textarea {
   min-height: 34px;
   font-size: 0.74rem;
+}
+
+.template-management-feedback {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #b8d7c5;
+  border-radius: 8px;
+  background: #f2fbf5;
+}
+
+.template-management-feedback.deleted {
+  border-color: #e4c6c2;
+  background: #fff7f5;
+}
+
+.template-management-feedback strong {
+  color: #174f3d;
+  font-size: 0.76rem;
+}
+
+.template-management-feedback.deleted strong {
+  color: #8a3d34;
+}
+
+.template-management-feedback span {
+  color: #4d6a5e;
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
 .library-insertion-context {

@@ -521,7 +521,12 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
   const [insertionFeedback, setInsertionFeedback] = useState<SavedAnalyticalTemplateInsertionFeedback | null>(null);
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<{ id: string; label: string; description: string } | null>(null);
-  const [managementFeedback, setManagementFeedback] = useState<{ templateId: string; message: string } | null>(null);
+  const [managementFeedback, setManagementFeedback] = useState<{
+    templateId: string | null;
+    label: string;
+    message: string;
+  } | null>(null);
+  const [recentlyChangedTemplateId, setRecentlyChangedTemplateId] = useState<string | null>(null);
   const highlightNewestTemplate = savedLibraryHandoff?.view === "templates";
   const insertionContext = buildInsertionContextView({
     activePage,
@@ -567,7 +572,12 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
       label: template.label
     });
     saveAnalyticalTemplate(nextTemplate);
-    setManagementFeedback({ templateId: template.id, message: "Updated from selected tile." });
+    setRecentlyChangedTemplateId(template.id);
+    setManagementFeedback({
+      templateId: template.id,
+      label: "Template content updated",
+      message: "Saved source, query, visual, and defaults from the selected tile."
+    });
   }
 
   function startEditingTemplate(template: typeof savedAnalyticalTemplates[number]) {
@@ -583,7 +593,11 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     if (!editingTemplate || editingTemplate.id !== template.id) return;
     const nextLabel = editingTemplate.label.trim();
     if (!nextLabel) {
-      setManagementFeedback({ templateId: template.id, message: "Template name is required." });
+      setManagementFeedback({
+        templateId: template.id,
+        label: "Metadata not saved",
+        message: "Template name is required."
+      });
       return;
     }
     saveAnalyticalTemplate({
@@ -592,14 +606,25 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
       description: editingTemplate.description.trim()
     });
     setEditingTemplate(null);
-    setManagementFeedback({ templateId: template.id, message: "Template metadata saved." });
+    setRecentlyChangedTemplateId(template.id);
+    setManagementFeedback({
+      templateId: template.id,
+      label: "Template metadata saved",
+      message: "Updated the template name and description."
+    });
   }
 
   function deleteTemplate(template: typeof savedAnalyticalTemplates[number]) {
     if (!window.confirm(`Delete analytical template "${template.label}"?`)) return;
     deleteAnalyticalTemplate(template.id);
     setInsertionFeedback((current) => (current?.itemId === template.id ? null : current));
-    setManagementFeedback(null);
+    setManagementFeedback({
+      templateId: null,
+      label: "Template deleted",
+      message: `"${template.label}" was removed from the template library.`
+    });
+    setRecentlyChangedTemplateId(null);
+    setEditingTemplate((current) => (current?.id === template.id ? null : current));
     setExpandedTemplateId((current) => (current === template.id ? null : current));
   }
 
@@ -622,6 +647,12 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
         </div>
         <small>{insertionContext.helperText}</small>
       </div>
+      {managementFeedback?.templateId === null && (
+        <div className="template-management-feedback deleted" role="status">
+          <strong>{managementFeedback.label}</strong>
+          <span>{managementFeedback.message}</span>
+        </div>
+      )}
       {savedAnalyticalTemplates.length === 0 ? (
         <div className="empty-state compact">No analytical templates saved yet.</div>
       ) : (
@@ -630,11 +661,13 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
             const compatibility = buildAnalyticalTemplateCompatibilityView(template, currentTemplateContext);
             const expanded = expandedTemplateId === template.id;
             const editing = editingTemplate?.id === template.id;
+            const recentlyChanged = recentlyChangedTemplateId === template.id;
             return (
-              <div key={template.id} className={savedLibraryItemClass(false, highlightNewestTemplate && index === 0)}>
+              <div key={template.id} className={savedLibraryItemClass(false, (highlightNewestTemplate && index === 0) || recentlyChanged)}>
                 <strong>{template.label}</strong>
                 <span>{template.description}</span>
                 {highlightNewestTemplate && index === 0 && <small className="recently-saved-label">Recently saved</small>}
+                {recentlyChanged && <small className="recently-saved-label changed">Recently changed</small>}
                 {editing && (
                   <div className="template-edit-card">
                     <label>
@@ -709,8 +742,8 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
                   </button>
                 </div>
                 {managementFeedback?.templateId === template.id && (
-                  <div className="source-insertion-confirmation" role="status">
-                    <strong>Template updated</strong>
+                  <div className="template-management-feedback" role="status">
+                    <strong>{managementFeedback.label}</strong>
                     <span>{managementFeedback.message}</span>
                   </div>
                 )}
