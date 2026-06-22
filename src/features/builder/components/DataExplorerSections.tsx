@@ -500,8 +500,10 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     setInsertionFeedback(buildSavedAnalyticalTemplateInsertionFeedback(template, insertionContext));
     recordSavedLibraryInsertionCue({
       tileId: createdTileId,
+      sourceKind: "analyticalTemplate",
       sourceLabel: template.label,
-      objectLabel: "template object"
+      objectLabel: template.visualization === "table" ? "table" : getChartTypeLabel(template.visualization).toLowerCase(),
+      sourceSummary: `${template.summary.sourceLabel} · ${template.summary.confidenceLabel}`
     });
   }
 
@@ -592,6 +594,7 @@ export function VariableSetEditorSection(props: AnalysisAuthoringPanelProps) {
     setInsertionFeedback(buildSavedVariableSetInsertionFeedback(variableSet, objectLabel, insertionContext));
     recordSavedLibraryInsertionCue({
       tileId: createdTileId,
+      sourceKind: "variableSet",
       sourceLabel: variableSet.label,
       objectLabel
     });

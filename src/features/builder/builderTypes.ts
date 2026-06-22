@@ -49,8 +49,10 @@ export type ReportTreeSelectionCue = {
 } | null;
 export type SavedLibraryInsertionCue = {
   tileId: string;
+  sourceKind: "variableSet" | "analyticalTemplate";
   sourceLabel: string;
   objectLabel: string;
+  sourceSummary?: string;
   createdAt: number;
 } | null;
 

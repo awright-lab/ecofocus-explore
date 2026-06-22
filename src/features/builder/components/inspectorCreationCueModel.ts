@@ -15,6 +15,16 @@ export function buildSavedLibraryInsertionCueView(
   if (!cue || cue.tileId !== tile.id) return null;
   if (now - cue.createdAt > 60_000) return null;
 
+  if (cue.sourceKind === "analyticalTemplate") {
+    return {
+      label: "Created from analytical template",
+      message: `${tile.title || tile.name} was created as a ${cue.objectLabel} from ${cue.sourceLabel}.`,
+      helper: cue.sourceSummary
+        ? `${cue.sourceSummary}. This object is selected for inspector editing.`
+        : "This object is selected for inspector editing. Review the saved source, visualization, and query settings below."
+    };
+  }
+
   return {
     label: "Created from saved variable set",
     message: `${tile.title || tile.name} was created as a ${cue.objectLabel} from ${cue.sourceLabel}.`,
