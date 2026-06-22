@@ -36,7 +36,8 @@ function filterSummary(tile: DashboardTile) {
 
 function sourceDescription(tile: DashboardTile) {
   if (tile.derivedOutput) {
-    return `Derived ${tile.derivedOutput.kind === "lead_row_summary" ? "lead row summary" : "summary output"} from ${tile.derivedOutput.sourceTitle}.`;
+    const outputLabel = tile.derivedOutput.kind === "top_n_extract" ? "top-N extract" : "lead row summary";
+    return `Derived ${outputLabel} from ${tile.derivedOutput.sourceTitle}.`;
   }
   if (tile.source?.kind === "variableSet") return "Based on a saved variable set. Row structure and saved defaults can be refined from the source library.";
   if (tile.source?.kind === "question") return "Based on a dataset question. Query settings can be edited below for this report object.";
@@ -75,6 +76,14 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
   const visualizationLabel = getChartTypeLabel(tile.visualization);
   const datasetWave = datasets.find((dataset) => dataset.id === tile.query.dataset)?.wave ?? tile.query.dataset;
   const lifecycle = lifecycleSummary(tile);
+  const derivedOutputChips = tile.derivedOutput
+    ? [
+      `Derived output: ${tile.derivedOutput.kind === "top_n_extract" ? "Top-N extract" : "Lead row summary"}`,
+      tile.derivedOutput.kind === "top_n_extract" ? `${tile.derivedOutput.rowCount ?? 0} rows` : tile.derivedOutput.rowLabel ?? "Summary row",
+      `${tile.derivedOutput.columnLabel}${tile.derivedOutput.valueLabel ? `: ${tile.derivedOutput.valueLabel}` : ""}`,
+      ...(tile.derivedOutput.baseLabel ? [tile.derivedOutput.baseLabel] : [])
+    ]
+    : [];
 
   return {
     sourceKind: tileSourceKindLabel(tile.source),
@@ -86,13 +95,7 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
     title: tile.title || tile.name,
     subtitle: `${visualizationLabel} from ${tileSourceKindLabel(tile.source).toLowerCase()}`,
     chips: [
-      ...(tile.derivedOutput
-        ? [
-          `Derived output: ${tile.derivedOutput.rowLabel}`,
-          `${tile.derivedOutput.columnLabel}: ${tile.derivedOutput.valueLabel}`,
-          tile.derivedOutput.baseLabel
-        ]
-        : []),
+      ...derivedOutputChips,
       `Question: ${questionLabel}`,
       `Source: ${tile.source?.label ?? "Ad hoc query"}`,
       `Visualization: ${visualizationLabel}`,

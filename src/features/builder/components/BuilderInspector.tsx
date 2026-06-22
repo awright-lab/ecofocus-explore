@@ -34,6 +34,7 @@ import type {
   TileAppearance
 } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
+import type { DerivedOutputKind } from "./derivedOutputModel";
 
 export type BuilderInspectorProps = {
   settingsView: SettingsView;
@@ -86,7 +87,7 @@ export type BuilderInspectorProps = {
   applySelectedTileEffectPreset: (preset: EffectPreset) => void;
   tileWithVisualization: (tile: DashboardTile, nextVisualization: ChartType) => Partial<DashboardTile>;
   duplicateTileAsVisualization: (tile: DashboardTile, nextVisualization: ChartType) => void;
-  createDerivedSummaryTile: (tile: DashboardTile) => string | null;
+  createDerivedOutputTile: (tile: DashboardTile, kind: DerivedOutputKind) => string | null;
   rerunTileAnalysis: (tile: DashboardTile, nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest) => Promise<boolean>;
   saveSelectedTileVariableSet: () => void;
   saveSelectedTileAnalyticalTemplate: () => void;

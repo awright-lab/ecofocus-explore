@@ -7,7 +7,7 @@ import { makeTileId, nextZIndex } from "../../document/documentModel";
 import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { buildDerivedSummaryMetadata, buildDerivedSummaryResponse } from "../components/derivedOutputModel";
+import { buildDerivedOutputMetadata, buildDerivedOutputResponse, type DerivedOutputKind } from "../components/derivedOutputModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedVariableSet } from "../../../../shared/types/dashboard";
 
@@ -317,25 +317,30 @@ export function useBuilderTileCommands({
     selectTile(duplicate.id);
   }
 
-  function createDerivedSummaryTile(tile: DashboardTile) {
-    const summaryResult = buildDerivedSummaryResponse(tile);
-    const derivedOutput = buildDerivedSummaryMetadata(tile);
-    if (!summaryResult || !derivedOutput) {
-      setError("This tile does not have a result row that can be summarized.");
+  function createDerivedOutputTile(tile: DashboardTile, kind: DerivedOutputKind) {
+    const outputResult = buildDerivedOutputResponse(tile, kind);
+    const derivedOutput = buildDerivedOutputMetadata(tile, kind);
+    if (!outputResult || !derivedOutput) {
+      setError(kind === "top_n_extract"
+        ? "This tile does not have result rows that can be extracted."
+        : "This tile does not have a result row that can be summarized.");
       return null;
     }
 
-    const summaryId = makeTileId();
-    const summaryTile: DashboardTile = {
+    const outputId = makeTileId();
+    const outputTitle = derivedOutput.kind === "top_n_extract"
+      ? `Top ${derivedOutput.rowCount ?? 0} ${derivedOutput.columnLabel}`
+      : `${derivedOutput.rowLabel} summary`;
+    const outputTile: DashboardTile = {
       ...tile,
-      id: summaryId,
-      name: `${derivedOutput.rowLabel} summary`,
-      title: `${derivedOutput.rowLabel} summary`,
+      id: outputId,
+      name: outputTitle,
+      title: outputTitle,
       visualization: "table",
       query: { ...tile.query, chartType: "table" },
       result: {
-        ...summaryResult,
-        query: { ...summaryResult.query, chartType: "table" }
+        ...outputResult,
+        query: { ...outputResult.query, chartType: "table" }
       },
       derivedOutput,
       analysisLifecycle: {
@@ -367,11 +372,11 @@ export function useBuilderTileCommands({
     setDashboard((current) => ({
       ...current,
       status: "draft",
-      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, summaryTile] } : page))
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, outputTile] } : page))
     }));
-    selectTile(summaryTile.id);
+    selectTile(outputTile.id);
     setError(null);
-    return summaryTile.id;
+    return outputTile.id;
   }
 
   return {
@@ -385,6 +390,6 @@ export function useBuilderTileCommands({
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
-    createDerivedSummaryTile
+    createDerivedOutputTile
   };
 }

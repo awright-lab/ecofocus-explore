@@ -24,7 +24,7 @@ import {
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
-import { buildDerivedSummaryOutputView } from "./derivedOutputModel";
+import { buildDerivedOutputViews, type DerivedOutputView } from "./derivedOutputModel";
 import { buildSavedLibraryInsertionCueView, type SavedLibraryInsertionCueView } from "./inspectorCreationCueModel";
 import {
   buildSavedTileSettingConfirmation,
@@ -60,7 +60,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     relatedObjectNavigationCue,
     recordRelatedObjectNavigationCue,
     reportTreeSelectionCue,
-    createDerivedSummaryTile
+    createDerivedOutputTile
   } = props;
 
   if (!selectedTile) {
@@ -71,7 +71,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
-  const derivedSummaryView = buildDerivedSummaryOutputView(selectedTile);
+  const derivedOutputViews = buildDerivedOutputViews(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
   const weightDiagnostics = buildAnalysisWeightDiagnostics(selectedTile.query.weight);
@@ -151,10 +151,15 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
-                <DerivedSummaryOutputCard
-                  view={derivedSummaryView}
-                  onCreate={() => createDerivedSummaryTile(selectedTile)}
-                />
+                <div className="derived-output-actions">
+                  {derivedOutputViews.map((view) => (
+                    <DerivedOutputCard
+                      key={view.kind}
+                      view={view}
+                      onCreate={() => createDerivedOutputTile(selectedTile, view.kind)}
+                    />
+                  ))}
+                </div>
                 <div className="explorer-chip-row">
                   {summary.lifecycleChips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
@@ -181,11 +186,11 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   );
 }
 
-function DerivedSummaryOutputCard({
+function DerivedOutputCard({
   view,
   onCreate
 }: {
-  view: ReturnType<typeof buildDerivedSummaryOutputView>;
+  view: DerivedOutputView;
   onCreate: () => string | null;
 }) {
   return (
@@ -194,11 +199,11 @@ function DerivedSummaryOutputCard({
         <strong>{view.label}</strong>
         <span>{view.helper}</span>
         {view.canCreate && view.rowLabel && (
-          <small>{view.rowLabel} · {view.valueLabel} · {view.baseLabel}</small>
+          <small>{[view.rowLabel, view.valueLabel, view.baseLabel, view.rowCountLabel].filter(Boolean).join(" · ")}</small>
         )}
       </div>
       <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
-        Create summary output
+        {view.kind === "top_n_extract" ? "Create top-N extract" : "Create summary output"}
       </button>
     </div>
   );

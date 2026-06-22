@@ -111,15 +111,16 @@ export interface DashboardTile {
     };
   };
   derivedOutput?: {
-    kind: "lead_row_summary";
+    kind: "lead_row_summary" | "top_n_extract";
     sourceTileId: string;
     sourceTitle: string;
-    rowId: string;
-    rowLabel: string;
+    rowId?: string;
+    rowLabel?: string;
     columnId: string;
     columnLabel: string;
-    valueLabel: string;
-    baseLabel: string;
+    valueLabel?: string;
+    baseLabel?: string;
+    rowCount?: number;
   };
   locked: boolean;
   hidden: boolean;
