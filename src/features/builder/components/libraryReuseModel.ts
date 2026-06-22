@@ -1,4 +1,4 @@
-import type { ChartType } from "../../../../shared/types/analytics";
+import type { AnalyticsQueryRequest, ChartType } from "../../../../shared/types/analytics";
 import type { DashboardTile, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import type { SavedSettingOriginKind } from "../builderTypes";
@@ -28,6 +28,37 @@ export interface SavedAnalyticalTemplateInsertionFeedback {
   itemId: string;
   label: string;
   message: string;
+}
+
+export interface AnalyticalTemplateReuseContext {
+  source: {
+    kind: "question" | "variableSet";
+    id: string;
+    label: string;
+  };
+  query: AnalyticsQueryRequest;
+  visualization: ChartType;
+  summary: {
+    bannerLabel: string;
+    filterLabel: string;
+    weightLabel: string;
+    confidenceLabel: string;
+    comparisonLabel: string;
+  };
+}
+
+export interface AnalyticalTemplateCompatibilityDifference {
+  id: string;
+  label: string;
+  templateValue: string;
+  currentValue: string;
+}
+
+export interface AnalyticalTemplateCompatibilityView {
+  status: "matches" | "differs";
+  label: string;
+  helper: string;
+  differences: AnalyticalTemplateCompatibilityDifference[];
 }
 
 export function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
@@ -74,6 +105,107 @@ export function buildSavedAnalyticalTemplateInsertionFeedback(
     label: "Created from template",
     message: `Added "${template.label}" to "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()} and selected it for inspector editing.`
   };
+}
+
+function chartTypeLabel(chartType: ChartType) {
+  return chartType === "table" ? "Table" : chartType.replace(/_/g, " ");
+}
+
+function confidenceLabel(query: AnalyticsQueryRequest) {
+  return `${Math.round((query.confidenceLevel ?? 0.95) * 100)}% confidence`;
+}
+
+function normalizedFilterValue(query: AnalyticsQueryRequest) {
+  const filter = query.filters[0];
+  return filter ? `${filter.field}:${filter.values.join(",")}` : "none";
+}
+
+function normalizedComparisonValue(query: AnalyticsQueryRequest) {
+  return `${query.comparisonMode ?? "none"}:${(query.comparisonDatasets ?? []).join(",")}`;
+}
+
+export function buildAnalyticalTemplateCompatibilityView(
+  template: SavedAnalyticalTemplate,
+  context: AnalyticalTemplateReuseContext
+): AnalyticalTemplateCompatibilityView {
+  const differences: AnalyticalTemplateCompatibilityDifference[] = [];
+
+  if (template.source.kind !== context.source.kind || template.source.id !== context.source.id) {
+    differences.push({
+      id: "source",
+      label: "Source",
+      templateValue: template.summary.sourceLabel,
+      currentValue: context.source.label
+    });
+  }
+
+  if (template.visualization !== context.visualization) {
+    differences.push({
+      id: "visualization",
+      label: "Visual",
+      templateValue: chartTypeLabel(template.visualization),
+      currentValue: chartTypeLabel(context.visualization)
+    });
+  }
+
+  if ((template.query.confidenceLevel ?? 0.95) !== (context.query.confidenceLevel ?? 0.95)) {
+    differences.push({
+      id: "confidence",
+      label: "Confidence",
+      templateValue: template.summary.confidenceLabel || confidenceLabel(template.query),
+      currentValue: context.summary.confidenceLabel || confidenceLabel(context.query)
+    });
+  }
+
+  if (template.query.breakBy !== context.query.breakBy) {
+    differences.push({
+      id: "banner",
+      label: "Banner",
+      templateValue: template.summary.bannerLabel,
+      currentValue: context.summary.bannerLabel
+    });
+  }
+
+  if (normalizedFilterValue(template.query) !== normalizedFilterValue(context.query)) {
+    differences.push({
+      id: "filter",
+      label: "Filter",
+      templateValue: template.summary.filterLabel,
+      currentValue: context.summary.filterLabel
+    });
+  }
+
+  if ((template.query.weight ?? "unweighted") !== (context.query.weight ?? "unweighted")) {
+    differences.push({
+      id: "weight",
+      label: "Weight",
+      templateValue: template.summary.weightLabel,
+      currentValue: context.summary.weightLabel
+    });
+  }
+
+  if (normalizedComparisonValue(template.query) !== normalizedComparisonValue(context.query)) {
+    differences.push({
+      id: "comparison",
+      label: "Comparison",
+      templateValue: template.summary.comparisonLabel,
+      currentValue: context.summary.comparisonLabel
+    });
+  }
+
+  return differences.length
+    ? {
+      status: "differs",
+      label: "Differs from current context",
+      helper: "Creating from this template uses the saved template setup.",
+      differences
+    }
+    : {
+      status: "matches",
+      label: "Matches current context",
+      helper: "Source, visual, confidence, and defaults align with the current authoring context.",
+      differences
+    };
 }
 
 export function bannerReuseState(tile: DashboardTile | null, question: QuestionMetadata | null, banner: SavedBanner) {

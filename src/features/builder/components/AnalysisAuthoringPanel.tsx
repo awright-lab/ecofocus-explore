@@ -118,6 +118,7 @@ export type AnalysisAuthoringPanelProps = {
   toggleComparisonDataset: (datasetId: DatasetId) => void;
   selectedFilterDimension?: typeof filterDimensions[number];
   selectedChartTypes: ChartType[];
+  query: import("../../../../shared/types/analytics").AnalyticsQueryRequest;
   setComparisonDatasets: React.Dispatch<React.SetStateAction<DatasetId[]>>;
   setVariableSetRows: React.Dispatch<React.SetStateAction<SavedVariableSet["rows"]>>;
   setVariableSetOptionSelection: React.Dispatch<React.SetStateAction<string[]>>;

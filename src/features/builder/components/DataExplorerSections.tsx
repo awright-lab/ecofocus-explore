@@ -22,12 +22,14 @@ import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
 import {
   analyticalTemplateSummaryChips,
+  buildAnalyticalTemplateCompatibilityView,
   buildSavedAnalyticalTemplateInsertionFeedback,
   bannerReuseState,
   buildSavedVariableSetInsertionFeedback,
   buildSavedSettingApplyFeedback,
   filterReuseState,
   savedLibraryItemClass,
+  type AnalyticalTemplateReuseContext,
   type SavedAnalyticalTemplateInsertionFeedback,
   type SavedSettingApplyFeedback,
   type SavedVariableSetInsertionFeedback,
@@ -472,11 +474,38 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
   );
 }
 
+function currentFilterLabel(filterField: typeof filterDimensions[number]["id"] | null, filterValue: string) {
+  if (!filterField || filterValue === "all") return "No filter";
+  const field = filterDimensions.find((item) => item.id === filterField);
+  const value = field?.values.find((item) => item.id === filterValue);
+  return `${field?.label ?? filterField}: ${value?.label ?? filterValue}`;
+}
+
+function currentWeightLabel(weight: AnalysisAuthoringPanelProps["weight"]) {
+  return weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted";
+}
+
+function currentComparisonLabel(comparisonMode: AnalysisAuthoringPanelProps["comparisonMode"], comparisonDatasets: AnalysisAuthoringPanelProps["comparisonDatasets"]) {
+  if (comparisonMode !== "wave") return "No wave comparison";
+  if (comparisonDatasets.length === 0) return "Wave comparison";
+  return `Wave comparison: ${comparisonDatasets.map((datasetId) => comparisonDatasetOptions.find((item) => item.id === datasetId)?.label ?? datasetId).join(", ")}`;
+}
+
 export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelProps) {
   const {
     savedAnalyticalTemplates,
     savedLibraryHandoff,
     addTileFromAnalyticalTemplate,
+    selectedVariableSet,
+    selectedQuestion,
+    query,
+    chartType,
+    breakBy,
+    weight,
+    filterField,
+    filterValue,
+    comparisonMode,
+    comparisonDatasets,
     isLoading,
     activePage,
     layerItems,
@@ -493,6 +522,21 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
     selectedElementId,
     objectKind: "analytical"
   });
+  const currentSource = selectedVariableSet
+    ? { kind: "variableSet" as const, id: selectedVariableSet.id, label: selectedVariableSet.label }
+    : { kind: "question" as const, id: selectedQuestion.id, label: selectedQuestion.shortLabel };
+  const currentTemplateContext: AnalyticalTemplateReuseContext = {
+    source: currentSource,
+    query,
+    visualization: chartType,
+    summary: {
+      bannerLabel: bannerDimensions.find((item) => item.id === breakBy)?.label ?? breakBy,
+      filterLabel: currentFilterLabel(filterField, filterValue),
+      weightLabel: currentWeightLabel(weight),
+      confidenceLabel: `${Math.round((query.confidenceLevel ?? 0.95) * 100)}% confidence`,
+      comparisonLabel: currentComparisonLabel(comparisonMode, comparisonDatasets)
+    }
+  };
 
   async function createTemplateObject(template: typeof savedAnalyticalTemplates[number]) {
     const createdTileId = await addTileFromAnalyticalTemplate(template);
@@ -530,29 +574,45 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
         <div className="empty-state compact">No analytical templates saved yet.</div>
       ) : (
         <div className="explorer-item-list compact">
-          {savedAnalyticalTemplates.map((template, index) => (
-            <div key={template.id} className={savedLibraryItemClass(false, highlightNewestTemplate && index === 0)}>
-              <strong>{template.label}</strong>
-              <span>{template.description}</span>
-              {highlightNewestTemplate && index === 0 && <small className="recently-saved-label">Recently saved</small>}
-              <div className="explorer-chip-row">
-                {analyticalTemplateSummaryChips(template).map((chip) => (
-                  <span className="explorer-chip" key={chip}>{chip}</span>
-                ))}
-              </div>
-              <div className="library-reuse-actions">
-                <button type="button" className="secondary" onClick={() => void createTemplateObject(template)} disabled={isLoading}>
-                  Create from template
-                </button>
-              </div>
-              {insertionFeedback?.itemId === template.id && (
-                <div className="source-insertion-confirmation" role="status">
-                  <strong>{insertionFeedback.label}</strong>
-                  <span>{insertionFeedback.message}</span>
+          {savedAnalyticalTemplates.map((template, index) => {
+            const compatibility = buildAnalyticalTemplateCompatibilityView(template, currentTemplateContext);
+            return (
+              <div key={template.id} className={savedLibraryItemClass(false, highlightNewestTemplate && index === 0)}>
+                <strong>{template.label}</strong>
+                <span>{template.description}</span>
+                {highlightNewestTemplate && index === 0 && <small className="recently-saved-label">Recently saved</small>}
+                <div className="explorer-chip-row">
+                  {analyticalTemplateSummaryChips(template).map((chip) => (
+                    <span className="explorer-chip" key={chip}>{chip}</span>
+                  ))}
                 </div>
-              )}
-            </div>
-          ))}
+                <div className={compatibility.status === "differs" ? "template-compatibility differs" : "template-compatibility"}>
+                  <strong>{compatibility.label}</strong>
+                  <small>{compatibility.helper}</small>
+                  {compatibility.differences.length > 0 && (
+                    <div className="template-compatibility-grid">
+                      {compatibility.differences.slice(0, 4).map((difference) => (
+                        <span key={difference.id}>
+                          {difference.label}: {difference.templateValue}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="library-reuse-actions">
+                  <button type="button" className="secondary" onClick={() => void createTemplateObject(template)} disabled={isLoading}>
+                    Create from template
+                  </button>
+                </div>
+                {insertionFeedback?.itemId === template.id && (
+                  <div className="source-insertion-confirmation" role="status">
+                    <strong>{insertionFeedback.label}</strong>
+                    <span>{insertionFeedback.message}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

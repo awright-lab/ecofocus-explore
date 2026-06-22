@@ -903,6 +903,7 @@ export default function BuilderApp() {
           toggleComparisonDataset={toggleComparisonDataset}
           selectedFilterDimension={selectedFilterDimension}
           selectedChartTypes={selectedChartTypes}
+          query={query}
           setVariableSetRows={setVariableSetRows}
           setVariableSetOptionSelection={setVariableSetOptionSelection}
           addCanvasElement={addCanvasElement}

@@ -1449,6 +1449,47 @@ h2 {
   line-height: 1.35;
 }
 
+.template-compatibility {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid #dce5ea;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.template-compatibility.differs {
+  border-color: #d8cda7;
+  background: #fffaf0;
+}
+
+.template-compatibility strong {
+  color: #274139;
+  font-size: 0.74rem;
+}
+
+.template-compatibility small {
+  color: #60756b;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.template-compatibility-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.template-compatibility-grid span {
+  padding: 3px 6px;
+  border: 1px solid #e4dcc1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #665d3a;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
 .library-insertion-context {
   display: grid;
   gap: 7px;
