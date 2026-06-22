@@ -302,6 +302,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
               significanceMethod: tile.result.statistics?.significanceMethod ?? (tile.result.annotations.length > 0 ? "mock_placeholder" : "none"),
               significanceExecutionPlan,
               significanceExecutionInput: tile.result.statistics?.significanceExecutionInput ?? null,
+              significanceExecutionReport: tile.result.statistics?.significanceExecutionReport ?? null,
               significance: tile.result.statistics?.significance ?? {
                 status: tile.result.annotations.length > 0 ? "placeholder" : "none",
                 method: tile.result.annotations.length > 0 ? "mock_placeholder" : "none",

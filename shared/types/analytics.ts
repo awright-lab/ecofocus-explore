@@ -135,6 +135,19 @@ export interface AnalyticsColumnComparisonExecutionInput {
 
 export type AnalyticsSignificanceExecutionInput = AnalyticsColumnComparisonExecutionInput;
 
+export type SignificanceExecutionReportStatus = "not_executed" | "deferred";
+
+export interface AnalyticsColumnComparisonExecutionReport {
+  method: "column_comparison";
+  status: SignificanceExecutionReportStatus;
+  inputAccepted: boolean;
+  reasonCodes: SignificanceReasonCode[];
+  unmetPrerequisites: SignificanceExecutionPrerequisite[];
+  result: null;
+}
+
+export type AnalyticsSignificanceExecutionReport = AnalyticsColumnComparisonExecutionReport;
+
 export interface AnalyticsSignificanceResult {
   status: SignificanceStatus;
   method: SignificanceMethod;
@@ -174,6 +187,7 @@ export interface AnalyticsQueryResponse {
     significanceMethod: SignificanceMethod;
     significanceExecutionPlan: AnalyticsSignificanceExecutionPlan;
     significanceExecutionInput: AnalyticsSignificanceExecutionInput | null;
+    significanceExecutionReport: AnalyticsSignificanceExecutionReport | null;
     significance: AnalyticsSignificanceResult;
   };
   warnings: string[];

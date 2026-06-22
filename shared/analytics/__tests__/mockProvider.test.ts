@@ -48,6 +48,7 @@ describe("mockAnalyticsProvider", () => {
         unmetPrerequisites: ["comparison_basis"]
       },
       significanceExecutionInput: null,
+      significanceExecutionReport: null,
       significance: {
         status: "placeholder",
         method: "mock_placeholder",
@@ -110,6 +111,7 @@ describe("mockAnalyticsProvider", () => {
         unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
       },
       significanceExecutionInput: null,
+      significanceExecutionReport: null,
       significance: {
         status: "unsupported",
         method: "none",
@@ -185,6 +187,14 @@ describe("mockAnalyticsProvider", () => {
             ]
           }
         ])
+      },
+      significanceExecutionReport: {
+        method: "column_comparison",
+        status: "deferred",
+        inputAccepted: true,
+        reasonCodes: ["mock_provider_not_available", "future_method"],
+        unmetPrerequisites: ["provider_method", "statistical_engine"],
+        result: null
       },
       significance: {
         status: "eligible",

@@ -1,4 +1,5 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../analytics/queryPlan";
+import { runColumnComparisonSignificanceAdapter } from "../analytics/significanceExecution";
 import { getDatasetMetadata, getMetricMetadata, getWeightMetadata } from "../metadata/ecofocus2025";
 import type {
   AnalyticsAnnotation,
@@ -376,6 +377,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   const significanceReadiness = buildSignificanceReadiness(normalizedQuery);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
   const significanceExecutionInput = columnComparisonExecutionInput(normalizedQuery, metric, columns, table);
+  const significanceExecutionReport = runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
   const significance = significanceFromReadiness(significanceReadiness, annotations);
 
   return {
@@ -396,6 +398,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       significanceMethod: significance.method,
       significanceExecutionPlan,
       significanceExecutionInput,
+      significanceExecutionReport,
       significance
     },
     warnings: collectBaseWarnings(series, dataset.minBaseWarning),
@@ -466,6 +469,7 @@ function runMockWaveComparisonQuery(
   const significanceReadiness = buildSignificanceReadiness(query);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
   const significanceExecutionInput = columnComparisonExecutionInput(query, metric, columns, table);
+  const significanceExecutionReport = runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
   const significance = unsupportedSignificance(significanceReadiness);
 
   return {
@@ -486,6 +490,7 @@ function runMockWaveComparisonQuery(
       significanceMethod: significance.method,
       significanceExecutionPlan,
       significanceExecutionInput,
+      significanceExecutionReport,
       significance
     },
     warnings: [],
@@ -538,6 +543,7 @@ function runMockMultiBinarySetQuery(
   const significanceReadiness = buildSignificanceReadiness(query);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
   const significanceExecutionInput = columnComparisonExecutionInput(query, metric, columns, table);
+  const significanceExecutionReport = runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
   const significance = significanceFromReadiness(significanceReadiness, annotations);
 
   return {
@@ -558,6 +564,7 @@ function runMockMultiBinarySetQuery(
       significanceMethod: significance.method,
       significanceExecutionPlan,
       significanceExecutionInput,
+      significanceExecutionReport,
       significance
     },
     warnings: collectBaseWarnings(series, getDatasetMetadata(query.dataset)?.minBaseWarning ?? 100),
