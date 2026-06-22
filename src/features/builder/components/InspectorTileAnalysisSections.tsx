@@ -570,6 +570,27 @@ function AnalysisStatisticsContextCard({
           </ul>
         )}
       </div>
+      <div className={`analysis-execution-diagnostics ${view.executionDiagnostics.status}`}>
+        <div>
+          <strong>{view.executionDiagnostics.label}</strong>
+          <span>{view.executionDiagnostics.message}</span>
+          <small>{view.executionDiagnostics.helper}</small>
+        </div>
+        <div className="explorer-chip-row">
+          {view.executionDiagnostics.chips.map((chip) => (
+            <span className={view.executionDiagnostics.status === "deferred" || view.executionDiagnostics.status === "ready" ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>
+              {chip}
+            </span>
+          ))}
+        </div>
+        {view.executionDiagnostics.details.length > 0 && (
+          <ul>
+            {view.executionDiagnostics.details.map((detail) => (
+              <li key={detail}>{detail}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className={`analysis-comparison-diagnostics ${view.comparisonDiagnostics.status}`}>
         <div>
           <strong>{view.comparisonDiagnostics.label}</strong>

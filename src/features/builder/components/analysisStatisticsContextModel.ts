@@ -13,6 +13,7 @@ export interface AnalysisStatisticsContextView {
   confidenceChangedSinceRefresh: boolean;
   refreshCue: AnalysisConfidenceRefreshCueView | null;
   eligibility: AnalysisSignificanceEligibilityView;
+  executionDiagnostics: AnalysisExecutionDiagnosticsView;
   baseDiagnostics: AnalysisBaseDiagnosticsView;
   comparisonDiagnostics: AnalysisComparisonDiagnosticsView;
   significanceLabel: string;
@@ -35,6 +36,15 @@ export interface AnalysisSignificanceEligibilityView {
   comparisonBasisLabel: string;
   chips: string[];
   limitations: string[];
+}
+
+export interface AnalysisExecutionDiagnosticsView {
+  status: "deferred" | "invalid" | "unsupported" | "ready" | "unavailable";
+  label: string;
+  message: string;
+  helper: string;
+  chips: string[];
+  details: string[];
 }
 
 export interface AnalysisBaseDiagnosticsView {
@@ -259,6 +269,84 @@ function buildBaseDiagnostics(tile: DashboardTile): AnalysisBaseDiagnosticsView 
   };
 }
 
+function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagnosticsView {
+  const statistics = tile.result.statistics;
+  const plan = statistics?.significanceExecutionPlan;
+  const report = statistics?.significanceExecutionReport;
+  const input = statistics?.significanceExecutionInput;
+
+  if (!plan) {
+    return {
+      status: "unavailable",
+      label: "Execution diagnostics unavailable",
+      message: "This result does not expose significance execution planning metadata.",
+      helper: "Older or external results may not include the provider execution handoff scaffold.",
+      chips: ["No execution plan", "Advisory only"],
+      details: []
+    };
+  }
+
+  const reasonLabels = plan.reasonCodes.map(significanceReasonLabel);
+  const prerequisiteLabels = plan.unmetPrerequisites.map((item) => {
+    if (item === "comparison_basis") return "Comparison basis";
+    if (item === "provider_method") return "Provider method";
+    if (item === "statistical_engine") return "Statistical engine";
+    if (item === "wave_support") return "Wave support";
+    return "Execution input";
+  });
+  const details = Array.from(new Set([...reasonLabels, ...prerequisiteLabels]));
+
+  if (report?.inputAccepted === false || plan.reasonCodes.includes("invalid_execution_input") || report?.reasonCodes.includes("invalid_execution_input")) {
+    return {
+      status: "invalid",
+      label: "Execution input needs review",
+      message: "The provider handoff found malformed or incomplete significance execution input.",
+      helper: "No statistical output was generated. The adapter returned a structured deferred report with the input issue attached.",
+      chips: ["Invalid input", plan.executionInputContract ?? "No input contract", "No test performed"],
+      details
+    };
+  }
+
+  if (plan.status === "blocked" || plan.status === "not_applicable") {
+    return {
+      status: "unsupported",
+      label: plan.status === "blocked" ? "Execution unsupported" : "No execution basis",
+      message:
+        plan.status === "blocked"
+          ? "This context is outside the current significance execution boundary."
+          : "This result does not have a comparison structure for significance execution.",
+      helper: "The execution adapter stays inactive for unsupported or summary-only contexts.",
+      chips: [plan.candidateMethod === "none" ? "No method" : plan.candidateMethod, plan.status === "blocked" ? "Unsupported" : "Not applicable", "No test performed"],
+      details
+    };
+  }
+
+  if (plan.providerCanExecute && report?.status === "not_executed") {
+    return {
+      status: "ready",
+      label: "Execution handoff ready",
+      message: "The query shape and provider plan are ready, but the current adapter still does not run statistical tests.",
+      helper: "This is a non-calculating scaffold. Future provider code can replace this report with real execution output.",
+      chips: [plan.executionInputContract ?? "No input contract", "Ready structure", "Not executed"],
+      details
+    };
+  }
+
+  const deferredComparisons = report?.result?.summary.deferredComparisons ?? 0;
+  const hasInput = Boolean(input);
+
+  return {
+    status: "deferred",
+    label: "Execution deferred",
+    message: hasInput
+      ? `Column-comparison input was accepted and ${deferredComparisons.toLocaleString()} comparison ${deferredComparisons === 1 ? "pair is" : "pairs are"} shaped as deferred.`
+      : "The provider has a candidate method, but no execution input payload is attached.",
+    helper: "No p-values, directions, or significance flags are calculated yet.",
+    chips: [plan.executionInputContract ?? "No input contract", hasInput ? "Input accepted" : "No input", "Provider deferred"],
+    details
+  };
+}
+
 function buildComparisonDiagnostics(tile: DashboardTile): AnalysisComparisonDiagnosticsView {
   const query = tile.query;
   const resultQuery = tile.result.query;
@@ -336,6 +424,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     }
     : null;
   const eligibility = buildSignificanceEligibility(tile);
+  const executionDiagnostics = buildExecutionDiagnostics(tile);
   const baseDiagnostics = buildBaseDiagnostics(tile);
   const comparisonDiagnostics = buildComparisonDiagnostics(tile);
 
@@ -348,6 +437,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
       confidenceChangedSinceRefresh,
       refreshCue,
       eligibility,
+      executionDiagnostics,
       baseDiagnostics,
       comparisonDiagnostics,
       significanceLabel,
@@ -368,6 +458,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
       confidenceChangedSinceRefresh,
       refreshCue,
       eligibility,
+      executionDiagnostics,
       baseDiagnostics,
       comparisonDiagnostics,
       significanceLabel,
@@ -387,6 +478,7 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
     confidenceChangedSinceRefresh,
     refreshCue,
     eligibility,
+    executionDiagnostics,
     baseDiagnostics,
     comparisonDiagnostics,
     significanceLabel,

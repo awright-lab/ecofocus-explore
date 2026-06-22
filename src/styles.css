@@ -1857,24 +1857,9 @@ h2 {
   font-weight: 650;
 }
 
-.analysis-significance-eligibility {
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid #cddbd3;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.analysis-base-diagnostics {
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid #cddbd3;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-}
-
+.analysis-significance-eligibility,
+.analysis-execution-diagnostics,
+.analysis-base-diagnostics,
 .analysis-comparison-diagnostics {
   display: grid;
   gap: 6px;
@@ -1886,6 +1871,9 @@ h2 {
 
 .analysis-significance-eligibility.limited,
 .analysis-significance-eligibility.notEligible,
+.analysis-execution-diagnostics.invalid,
+.analysis-execution-diagnostics.unsupported,
+.analysis-execution-diagnostics.unavailable,
 .analysis-comparison-diagnostics.active,
 .analysis-comparison-diagnostics.limited,
 .analysis-base-diagnostics.review,
@@ -1895,6 +1883,7 @@ h2 {
 }
 
 .analysis-significance-eligibility > div:first-child,
+.analysis-execution-diagnostics > div:first-child,
 .analysis-comparison-diagnostics > div:first-child,
 .analysis-base-diagnostics > div:first-child {
   display: grid;
@@ -1905,6 +1894,10 @@ h2 {
 .analysis-significance-eligibility span,
 .analysis-significance-eligibility small,
 .analysis-significance-eligibility li,
+.analysis-execution-diagnostics strong,
+.analysis-execution-diagnostics span,
+.analysis-execution-diagnostics small,
+.analysis-execution-diagnostics li,
 .analysis-comparison-diagnostics strong,
 .analysis-comparison-diagnostics span,
 .analysis-comparison-diagnostics small,
@@ -1922,6 +1915,9 @@ h2 {
 .analysis-significance-eligibility span,
 .analysis-significance-eligibility small,
 .analysis-significance-eligibility li,
+.analysis-execution-diagnostics span,
+.analysis-execution-diagnostics small,
+.analysis-execution-diagnostics li,
 .analysis-comparison-diagnostics span,
 .analysis-comparison-diagnostics small,
 .analysis-comparison-diagnostics li,
@@ -1940,6 +1936,18 @@ h2 {
 .analysis-significance-eligibility.notEligible span,
 .analysis-significance-eligibility.notEligible small,
 .analysis-significance-eligibility.notEligible li,
+.analysis-execution-diagnostics.invalid strong,
+.analysis-execution-diagnostics.invalid span,
+.analysis-execution-diagnostics.invalid small,
+.analysis-execution-diagnostics.invalid li,
+.analysis-execution-diagnostics.unsupported strong,
+.analysis-execution-diagnostics.unsupported span,
+.analysis-execution-diagnostics.unsupported small,
+.analysis-execution-diagnostics.unsupported li,
+.analysis-execution-diagnostics.unavailable strong,
+.analysis-execution-diagnostics.unavailable span,
+.analysis-execution-diagnostics.unavailable small,
+.analysis-execution-diagnostics.unavailable li,
 .analysis-comparison-diagnostics.active strong,
 .analysis-comparison-diagnostics.active span,
 .analysis-comparison-diagnostics.active small,
@@ -1960,6 +1968,7 @@ h2 {
 }
 
 .analysis-significance-eligibility ul,
+.analysis-execution-diagnostics ul,
 .analysis-comparison-diagnostics ul,
 .analysis-base-diagnostics ul {
   display: grid;
