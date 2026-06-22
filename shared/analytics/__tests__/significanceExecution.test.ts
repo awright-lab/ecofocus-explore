@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { runColumnComparisonSignificanceAdapter } from "../significanceExecution";
-import type { AnalyticsColumnComparisonExecutionInput, AnalyticsSignificanceExecutionPlan } from "../../types/analytics";
+import type {
+  AnalyticsColumnComparisonExecutionInput,
+  AnalyticsColumnComparisonExecutionResult,
+  AnalyticsSignificanceExecutionPlan
+} from "../../types/analytics";
 
 const columnComparisonInput: AnalyticsColumnComparisonExecutionInput = {
   method: "column_comparison",
@@ -87,5 +91,36 @@ describe("runColumnComparisonSignificanceAdapter", () => {
     };
 
     expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, unsupportedPlan)).toBeNull();
+  });
+
+  it("reserves a typed result payload shape without requiring current execution output", () => {
+    const futureEmptyResult: AnalyticsColumnComparisonExecutionResult = {
+      method: "column_comparison",
+      comparisonScope: {
+        basis: "breakout",
+        rowIds: ["trust_a_lot"],
+        columnIds: ["gen_z", "millennial"]
+      },
+      outcomes: [],
+      summary: {
+        testedComparisons: 0,
+        deferredComparisons: 0
+      }
+    };
+
+    expect(futureEmptyResult).toEqual({
+      method: "column_comparison",
+      comparisonScope: {
+        basis: "breakout",
+        rowIds: ["trust_a_lot"],
+        columnIds: ["gen_z", "millennial"]
+      },
+      outcomes: [],
+      summary: {
+        testedComparisons: 0,
+        deferredComparisons: 0
+      }
+    });
+    expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, deferredColumnComparisonPlan)?.result).toBeNull();
   });
 });

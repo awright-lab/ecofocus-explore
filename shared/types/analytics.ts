@@ -137,13 +137,38 @@ export type AnalyticsSignificanceExecutionInput = AnalyticsColumnComparisonExecu
 
 export type SignificanceExecutionReportStatus = "not_executed" | "deferred";
 
+export interface AnalyticsColumnComparisonExecutionResult {
+  method: "column_comparison";
+  comparisonScope: {
+    basis: "breakout";
+    rowIds: string[];
+    columnIds: string[];
+  };
+  outcomes: Array<{
+    rowId: string;
+    columnId: string;
+    comparedColumnId: string;
+    status: "not_tested" | "placeholder";
+    reasonCodes: SignificanceReasonCode[];
+    statistics: {
+      pValue: null;
+      confidence: ConfidenceLevel | null;
+      direction: "up" | "down" | null;
+    };
+  }>;
+  summary: {
+    testedComparisons: number;
+    deferredComparisons: number;
+  };
+}
+
 export interface AnalyticsColumnComparisonExecutionReport {
   method: "column_comparison";
   status: SignificanceExecutionReportStatus;
   inputAccepted: boolean;
   reasonCodes: SignificanceReasonCode[];
   unmetPrerequisites: SignificanceExecutionPrerequisite[];
-  result: null;
+  result: AnalyticsColumnComparisonExecutionResult | null;
 }
 
 export type AnalyticsSignificanceExecutionReport = AnalyticsColumnComparisonExecutionReport;
