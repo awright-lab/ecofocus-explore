@@ -7,7 +7,7 @@ import { makeTileId, nextZIndex } from "../../document/documentModel";
 import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { buildDerivedOutputMetadata, buildDerivedOutputResponse, type DerivedOutputKind } from "../components/derivedOutputModel";
+import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputKind } from "../components/derivedOutputModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedOutputCreationCue } from "../builderTypes";
@@ -331,9 +331,7 @@ export function useBuilderTileCommands({
     }
 
     const outputId = makeTileId();
-    const outputTitle = derivedOutput.kind === "top_n_extract" || derivedOutput.kind === "bottom_n_extract"
-      ? `${derivedOutput.kind === "top_n_extract" ? "Top" : "Bottom"} ${derivedOutput.rowCount ?? 0} ${derivedOutput.columnLabel}`
-      : `${derivedOutput.rowLabel} summary`;
+    const outputTitle = buildDerivedOutputTitle(derivedOutput);
     const outputTile: DashboardTile = {
       ...tile,
       id: outputId,
@@ -388,6 +386,53 @@ export function useBuilderTileCommands({
     return outputTile.id;
   }
 
+  function recreateDerivedOutputTile(tile: DashboardTile) {
+    const sourceTileId = tile.derivedOutput?.sourceTileId;
+    if (!tile.derivedOutput || !sourceTileId) {
+      setError("This derived output does not have a source tile relationship to recreate from.");
+      return false;
+    }
+
+    const sourceTile = activePage.tiles.find((item) => item.id === sourceTileId);
+    if (!sourceTile) {
+      setError("The source tile for this derived output is not on the current page.");
+      return false;
+    }
+
+    const outputResult = buildDerivedOutputResponse(sourceTile, tile.derivedOutput.kind);
+    const derivedOutput = buildDerivedOutputMetadata(sourceTile, tile.derivedOutput.kind);
+    if (!outputResult || !derivedOutput) {
+      setError("The source tile no longer has result data that can recreate this derived output.");
+      return false;
+    }
+
+    const outputTitle = buildDerivedOutputTitle(derivedOutput);
+    updateTile(tile.id, {
+      name: outputTitle,
+      title: outputTitle,
+      visualization: "table",
+      query: { ...sourceTile.query, chartType: "table" },
+      result: {
+        ...outputResult,
+        query: { ...outputResult.query, chartType: "table" }
+      },
+      derivedOutput,
+      analysisLifecycle: {
+        role: "derived",
+        canonicalTileId: sourceTile.analysisLifecycle?.canonicalTileId ?? sourceTile.id,
+        canonicalLabel: sourceTile.analysisLifecycle?.canonicalLabel ?? sourceTile.title,
+        derivedFrom: {
+          tileId: sourceTile.id,
+          title: sourceTile.title || sourceTile.name,
+          visualization: sourceTile.visualization
+        }
+      }
+    });
+    selectTile(tile.id);
+    setError(null);
+    return true;
+  }
+
   return {
     createTileFromSource,
     startDataSourceDrag,
@@ -399,6 +444,7 @@ export function useBuilderTileCommands({
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
-    createDerivedOutputTile
+    createDerivedOutputTile,
+    recreateDerivedOutputTile
   };
 }

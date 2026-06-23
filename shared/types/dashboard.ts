@@ -121,6 +121,7 @@ export interface DashboardTile {
     valueLabel?: string;
     baseLabel?: string;
     rowCount?: number;
+    sourceResultSignature?: string;
   };
   locked: boolean;
   hidden: boolean;

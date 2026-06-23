@@ -1,5 +1,6 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
+import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type DerivedOutputKind = NonNullable<DashboardTile["derivedOutput"]>["kind"];
 
@@ -22,6 +23,10 @@ export interface DerivedOutputDetailView {
   sourceStatus: "available" | "missing" | "unresolved";
   sourceStatusLabel: string;
   sourceStatusHelper: string;
+  readinessStatus: "current" | "sourceChanged" | "sourceStale" | "unknown" | "unresolved";
+  readinessLabel: string;
+  readinessHelper: string;
+  canRecreate: boolean;
   sourceTileId?: string;
   chips: string[];
 }
@@ -55,6 +60,12 @@ function derivedOutputKindLabel(kind: DerivedOutputKind) {
   if (kind === "top_n_extract") return "Top-N extract";
   if (kind === "bottom_n_extract") return "Bottom-N extract";
   return "Lead-row summary";
+}
+
+function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>) {
+  return output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
+    ? `${output.kind === "top_n_extract" ? "Top" : "Bottom"} ${output.rowCount ?? 0} ${output.columnLabel}`
+    : `${output.rowLabel} summary`;
 }
 
 function extractRows(tile: DashboardTile, columnId: string, kind: "top_n_extract" | "bottom_n_extract") {
@@ -183,7 +194,74 @@ function sourceRelationshipStatus(output: NonNullable<DashboardTile["derivedOutp
     sourceStatus: "available" as const,
     sourceStatusLabel: "Source still available",
     sourceStatusHelper: "Open the source tile to inspect the analytical result this output was derived from.",
-    sourceTileId: sourceTile.id
+    sourceTileId: sourceTile.id,
+    sourceTile
+  };
+}
+
+export function buildDerivedSourceResultSignature(tile: DashboardTile) {
+  return JSON.stringify({
+    query: tile.result.query,
+    columns: tile.result.columns,
+    table: tile.result.table.map((row) => ({
+      optionId: row.optionId,
+      label: row.label,
+      values: row.values,
+      bases: row.bases,
+      presentation: row.presentation
+    })),
+    metric: tile.result.metric,
+    weighting: tile.result.weighting,
+    annotations: tile.result.annotations
+  });
+}
+
+function derivedOutputReadiness(
+  output: NonNullable<DashboardTile["derivedOutput"]>,
+  sourceTile?: DashboardTile
+) {
+  if (!sourceTile) {
+    return {
+      readinessStatus: "unresolved" as const,
+      readinessLabel: "Readiness unresolved",
+      readinessHelper: "The source relationship cannot currently be resolved, so this output cannot be checked or recreated.",
+      canRecreate: false
+    };
+  }
+
+  const sourceQueryStatus = buildTileQueryStatus(sourceTile);
+  if (sourceQueryStatus.hasPendingChanges) {
+    return {
+      readinessStatus: "sourceStale" as const,
+      readinessLabel: "Source result may be stale",
+      readinessHelper: "The source tile has pending analysis changes. Refresh the source first if this output should reflect those changes.",
+      canRecreate: true
+    };
+  }
+
+  if (!output.sourceResultSignature) {
+    return {
+      readinessStatus: "unknown" as const,
+      readinessLabel: "Readiness unknown",
+      readinessHelper: "This derived output was created before source-result signatures were recorded. Recreate it to establish a current baseline.",
+      canRecreate: true
+    };
+  }
+
+  if (output.sourceResultSignature !== buildDerivedSourceResultSignature(sourceTile)) {
+    return {
+      readinessStatus: "sourceChanged" as const,
+      readinessLabel: "Recreate recommended",
+      readinessHelper: "The stored source result has changed since this derived output was created.",
+      canRecreate: true
+    };
+  }
+
+  return {
+    readinessStatus: "current" as const,
+    readinessLabel: "Reflects current stored source result",
+    readinessHelper: "This derived output matches the current stored result on its source tile.",
+    canRecreate: true
   };
 }
 
@@ -191,6 +269,14 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
   const output = tile.derivedOutput;
   if (!output) return null;
   const sourceStatus = sourceRelationshipStatus(output, pageTiles);
+  const readiness = derivedOutputReadiness(output, sourceStatus.sourceTile);
+  const relationship = {
+    sourceStatus: sourceStatus.sourceStatus,
+    sourceStatusLabel: sourceStatus.sourceStatusLabel,
+    sourceStatusHelper: sourceStatus.sourceStatusHelper,
+    sourceTileId: sourceStatus.sourceTileId,
+    ...readiness
+  };
 
   if (output.kind === "top_n_extract" || output.kind === "bottom_n_extract") {
     const directionLabel = output.kind === "top_n_extract" ? "leading" : "lowest";
@@ -199,11 +285,12 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
       label: `Derived output: ${patternLabel.toLowerCase()}`,
       sourceLabel: output.sourceTitle,
       description: `Read-only extract of the ${directionLabel} ${output.rowCount ?? "selected"} rows by ${output.columnLabel} from the source tile.`,
-      ...sourceStatus,
+      ...relationship,
       chips: [
         `Pattern: ${patternLabel}`,
         `Source: ${output.sourceTitle}`,
         sourceStatus.sourceStatusLabel,
+        readiness.readinessLabel,
         `Column: ${output.columnLabel}`,
         `${output.rowCount ?? 0} rows`
       ]
@@ -214,11 +301,12 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
     label: "Derived output: lead-row summary",
     sourceLabel: output.sourceTitle,
     description: `Read-only summary of ${output.rowLabel ?? "the lead row"} from ${output.columnLabel} in the source tile.`,
-    ...sourceStatus,
+    ...relationship,
     chips: [
       `Pattern: ${derivedOutputKindLabel(output.kind)}`,
       `Source: ${output.sourceTitle}`,
       sourceStatus.sourceStatusLabel,
+      readiness.readinessLabel,
       output.rowLabel ? `Row: ${output.rowLabel}` : "Row: Lead row",
       `${output.columnLabel}${output.valueLabel ? `: ${output.valueLabel}` : ""}`,
       ...(output.baseLabel ? [output.baseLabel] : [])
@@ -281,7 +369,8 @@ export function buildDerivedSummaryMetadata(tile: DashboardTile): NonNullable<Da
     columnId: column.id,
     columnLabel: column.label,
     valueLabel: formatSummaryValue(value, tile.result.metric.valueFormat),
-    baseLabel: `Base ${base.toLocaleString()}`
+    baseLabel: `Base ${base.toLocaleString()}`,
+    sourceResultSignature: buildDerivedSourceResultSignature(tile)
   };
 }
 
@@ -363,7 +452,8 @@ export function buildDerivedTopNMetadata(tile: DashboardTile): NonNullable<Dashb
     sourceTitle: tile.title || tile.name,
     columnId: column.id,
     columnLabel: column.label,
-    rowCount: rows.length
+    rowCount: rows.length,
+    sourceResultSignature: buildDerivedSourceResultSignature(tile)
   };
 }
 
@@ -379,7 +469,8 @@ export function buildDerivedBottomNMetadata(tile: DashboardTile): NonNullable<Da
     sourceTitle: tile.title || tile.name,
     columnId: column.id,
     columnLabel: column.label,
-    rowCount: rows.length
+    rowCount: rows.length,
+    sourceResultSignature: buildDerivedSourceResultSignature(tile)
   };
 }
 
@@ -393,4 +484,8 @@ export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOut
   if (kind === "top_n_extract") return buildDerivedTopNMetadata(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNMetadata(tile);
   return buildDerivedSummaryMetadata(tile);
+}
+
+export function buildDerivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>) {
+  return derivedOutputTitle(output);
 }

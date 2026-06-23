@@ -1659,7 +1659,13 @@ h2 {
   line-height: 1.4;
 }
 
-.derived-output-detail-card button {
+.derived-output-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.derived-output-detail-actions button {
   justify-self: start;
 }
 

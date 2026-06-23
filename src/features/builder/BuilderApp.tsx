@@ -589,7 +589,8 @@ export default function BuilderApp() {
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
-    createDerivedOutputTile
+    createDerivedOutputTile,
+    recreateDerivedOutputTile
   } = useBuilderTileCommands({
     activePage,
     canvasScale,
@@ -1019,6 +1020,7 @@ export default function BuilderApp() {
           tileWithVisualization={tileWithVisualization}
           duplicateTileAsVisualization={duplicateTileAsVisualization}
           createDerivedOutputTile={createDerivedOutputTile}
+          recreateDerivedOutputTile={recreateDerivedOutputTile}
           rerunTileAnalysis={rerunTileAnalysis}
           saveSelectedTileVariableSet={saveSelectedTileVariableSet}
           saveSelectedTileAnalyticalTemplate={saveSelectedTileAnalyticalTemplate}

@@ -66,7 +66,8 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     recordRelatedObjectNavigationCue,
     reportTreeSelectionCue,
     derivedOutputCreationCue,
-    createDerivedOutputTile
+    createDerivedOutputTile,
+    recreateDerivedOutputTile
   } = props;
 
   if (!selectedTile) {
@@ -163,6 +164,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <DerivedOutputDetailCard
                     view={derivedOutputDetail}
                     onSelectSource={(tileId) => selectTile(tileId)}
+                    onRecreate={() => recreateDerivedOutputTile(selectedTile)}
                   />
                 )}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
@@ -246,10 +248,12 @@ function DerivedOutputCreationCueCard({ view }: { view: DerivedOutputCreationCue
 
 function DerivedOutputDetailCard({
   view,
-  onSelectSource
+  onSelectSource,
+  onRecreate
 }: {
   view: DerivedOutputDetailView;
   onSelectSource: (tileId: string) => void;
+  onRecreate: () => boolean;
 }) {
   return (
     <div className={`derived-output-detail-card ${view.sourceStatus}`} aria-label="Derived output relationship">
@@ -264,9 +268,14 @@ function DerivedOutputDetailCard({
         ))}
       </div>
       {view.sourceTileId && (
-        <button type="button" className="secondary" onClick={() => onSelectSource(view.sourceTileId!)}>
-          Go to source tile
-        </button>
+        <div className="derived-output-detail-actions">
+          <button type="button" className="secondary" onClick={() => onSelectSource(view.sourceTileId!)}>
+            Go to source tile
+          </button>
+          <button type="button" className="secondary" onClick={onRecreate} disabled={!view.canRecreate}>
+            Recreate from source
+          </button>
+        </div>
       )}
     </div>
   );
