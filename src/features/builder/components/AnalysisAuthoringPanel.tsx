@@ -129,6 +129,7 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
+  duplicateDerivedOutputFromLibrary: (pageId: string, tileId: string) => string | null;
   isLoading: boolean;
   applySavedBanner: (banner: SavedBanner) => void;
   bannerDraftName: string;

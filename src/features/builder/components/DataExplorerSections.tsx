@@ -20,6 +20,7 @@ import {
 } from "./sourceExplorerModel";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
+import { buildDerivedOutputLibraryItems } from "./derivedOutputModel";
 import {
   analyticalTemplateSummaryChips,
   analyticalTemplateDifferenceLabels,
@@ -457,6 +458,9 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
         <button type="button" className={analysisLibraryView === "templates" ? "active" : ""} onClick={() => setAnalysisLibraryView("templates")}>
           Templates
         </button>
+        <button type="button" className={analysisLibraryView === "derivedOutputs" ? "active" : ""} onClick={() => setAnalysisLibraryView("derivedOutputs")}>
+          Derived
+        </button>
         <button type="button" className={analysisLibraryView === "banners" ? "active" : ""} onClick={() => setAnalysisLibraryView("banners")}>
           Banners
         </button>
@@ -469,6 +473,7 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
       </div>
       {analysisLibraryView === "variableSets" && <VariableSetEditorSection {...props} />}
       {analysisLibraryView === "templates" && <AnalyticalTemplateLibrarySection {...props} />}
+      {analysisLibraryView === "derivedOutputs" && <DerivedOutputLibrarySection {...props} />}
       {analysisLibraryView === "banners" && <SavedBannersSection {...props} />}
       {analysisLibraryView === "filters" && <SavedFiltersSection {...props} />}
       {analysisLibraryView === "weights" && <SavedWeightsSection {...props} />}
@@ -756,6 +761,111 @@ export function AnalyticalTemplateLibrarySection(props: AnalysisAuthoringPanelPr
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
+  const {
+    sortedPages,
+    activePage,
+    setActivePageId,
+    selectTile,
+    duplicateDerivedOutputFromLibrary,
+    saveAnalyticalTemplate
+  } = props;
+  const [feedback, setFeedback] = useState<{
+    itemId: string;
+    label: string;
+    message: string;
+  } | null>(null);
+  const derivedOutputs = buildDerivedOutputLibraryItems(sortedPages);
+
+  function findTile(pageId: string, tileId: string) {
+    const page = sortedPages.find((item) => item.id === pageId);
+    return page?.tiles.find((tile) => tile.id === tileId) ?? null;
+  }
+
+  function locateOutput(pageId: string, tileId: string) {
+    setActivePageId(pageId);
+    selectTile(tileId);
+    setFeedback({
+      itemId: `${pageId}:${tileId}`,
+      label: "Derived output selected",
+      message: "Opened the derived output in the report so its inspector details can be reviewed."
+    });
+  }
+
+  function duplicateOutput(pageId: string, tileId: string) {
+    const duplicateId = duplicateDerivedOutputFromLibrary(pageId, tileId);
+    if (!duplicateId) return;
+    setFeedback({
+      itemId: `${pageId}:${tileId}`,
+      label: "Derived output duplicated",
+      message: "Created a separate copy on the same page and selected it for inspection."
+    });
+  }
+
+  function saveOutputAsTemplate(pageId: string, tileId: string) {
+    const tile = findTile(pageId, tileId);
+    if (!tile) return;
+    saveAnalyticalTemplate(buildAnalyticalTemplateFromTile(tile));
+    setFeedback({
+      itemId: `${pageId}:${tileId}`,
+      label: "Template saved",
+      message: "Saved this derived output's analytical setup to the template library."
+    });
+  }
+
+  return (
+    <div className="explorer-section-card">
+      <div className="explorer-section-header">
+        <strong>Derived outputs</strong>
+        <small>{derivedOutputs.length} in report · Current page: {activePage.title}</small>
+      </div>
+      <small className="library-reuse-helper">
+        Derived outputs are managed report artifacts. They are not live-linked; recreate from the inspector when a source result should be reflected.
+      </small>
+      {derivedOutputs.length === 0 ? (
+        <div className="empty-state compact">No derived outputs in this report yet.</div>
+      ) : (
+        <div className="explorer-item-list compact">
+          {derivedOutputs.map((item) => (
+            <div key={item.id} className={savedLibraryItemClass(false, feedback?.itemId === item.id)}>
+              <strong>{item.title}</strong>
+              <span>{item.label} · {item.pageTitle}</span>
+              <small className="library-reuse-helper">Source: {item.sourceLabel} · {item.structuralSummary}</small>
+              <div className="explorer-chip-row">
+                {item.chips.map((chip) => (
+                  <span className="explorer-chip" key={chip}>{chip}</span>
+                ))}
+              </div>
+              <div className="template-detail-card">
+                <span>Source status: {item.sourceStatusLabel}</span>
+                <span>Readiness: {item.readinessLabel}</span>
+                <span>Structure: {item.structuralSummary}</span>
+              </div>
+              <div className="library-reuse-actions">
+                <button type="button" className="secondary" onClick={() => locateOutput(item.pageId, item.tileId)}>
+                  Locate in report
+                </button>
+                <button type="button" className="secondary" onClick={() => duplicateOutput(item.pageId, item.tileId)}>
+                  Duplicate copy
+                </button>
+                <button type="button" className="secondary" onClick={() => saveOutputAsTemplate(item.pageId, item.tileId)}>
+                  Save as template
+                </button>
+              </div>
+              {feedback?.itemId === item.id && (
+                <div className="template-management-feedback" role="status">
+                  <strong>{feedback.label}</strong>
+                  <span>{feedback.message}</span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

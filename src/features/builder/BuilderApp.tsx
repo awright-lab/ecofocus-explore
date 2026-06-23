@@ -592,6 +592,7 @@ export default function BuilderApp() {
     tileWithVisualization,
     duplicateTileAsVisualization,
     duplicateDerivedOutputTile,
+    duplicateDerivedOutputFromLibrary,
     createDerivedOutputTile,
     recreateDerivedOutputTile
   } = useBuilderTileCommands({
@@ -605,6 +606,7 @@ export default function BuilderApp() {
     selectedElement,
     setDashboard,
     selectTile,
+    setActivePageId,
     updateTile,
     applyQuestionSelection,
     applyVariableSetSelection,
@@ -896,6 +898,7 @@ export default function BuilderApp() {
           savedAnalyticalTemplates={savedAnalyticalTemplates}
           saveAnalyticalTemplate={saveAnalyticalTemplate}
           deleteAnalyticalTemplate={deleteAnalyticalTemplate}
+          duplicateDerivedOutputFromLibrary={duplicateDerivedOutputFromLibrary}
           savedVariableSets={savedVariableSets}
           breakBy={breakBy}
           setBreakBy={setBreakBy}

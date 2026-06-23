@@ -26,6 +26,7 @@ type UseBuilderTileCommandsArgs = {
   selectedElement: DashboardCanvasElement | null;
   setDashboard: SetDashboard;
   selectTile: (tileId: string) => void;
+  setActivePageId: (pageId: string) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   applyQuestionSelection: (question: typeof defaultDataset.questions[number]) => void;
   applyVariableSetSelection: (variableSet: SavedVariableSet) => void;
@@ -118,6 +119,7 @@ export function useBuilderTileCommands({
   selectedElement,
   setDashboard,
   selectTile,
+  setActivePageId,
   updateTile,
   applyQuestionSelection,
   applyVariableSetSelection,
@@ -359,6 +361,54 @@ export function useBuilderTileCommands({
     return duplicate.id;
   }
 
+  function duplicateDerivedOutputFromLibrary(pageId: string, tileId: string) {
+    let duplicateId: string | null = null;
+    let canDuplicate = false;
+
+    setDashboard((current) => {
+      const targetPage = current.pages.find((page) => page.id === pageId);
+      const sourceTile = targetPage?.tiles.find((tile) => tile.id === tileId);
+      if (!targetPage || !sourceTile?.derivedOutput) return current;
+
+      duplicateId = makeTileId();
+      canDuplicate = true;
+      const duplicate: DashboardTile = {
+        ...sourceTile,
+        id: duplicateId,
+        name: `${sourceTile.name} copy`,
+        title: `${sourceTile.title || sourceTile.name} copy`,
+        derivedOutput: { ...sourceTile.derivedOutput },
+        layout: {
+          ...sourceTile.layout,
+          x: sourceTile.layout.x + 28,
+          y: sourceTile.layout.y + 28,
+          zIndex: nextZIndex(targetPage)
+        },
+        appearance: {
+          ...sourceTile.appearance,
+          palette: [...sourceTile.appearance.palette],
+          barStyles: { ...sourceTile.appearance.barStyles }
+        }
+      };
+
+      return {
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) => (page.id === pageId ? { ...page, tiles: [...page.tiles, duplicate] } : page))
+      };
+    });
+
+    if (!canDuplicate || !duplicateId) {
+      setError("Could not find that derived output to duplicate.");
+      return null;
+    }
+
+    setActivePageId(pageId);
+    selectTile(duplicateId);
+    setError(null);
+    return duplicateId;
+  }
+
   function createDerivedOutputTile(tile: DashboardTile, kind: DerivedOutputKind) {
     const outputResult = buildDerivedOutputResponse(tile, kind);
     const derivedOutput = buildDerivedOutputMetadata(tile, kind);
@@ -491,6 +541,7 @@ export function useBuilderTileCommands({
     tileWithVisualization,
     duplicateTileAsVisualization,
     duplicateDerivedOutputTile,
+    duplicateDerivedOutputFromLibrary,
     createDerivedOutputTile,
     recreateDerivedOutputTile
   };

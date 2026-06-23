@@ -1,5 +1,5 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
-import type { DashboardTile } from "../../../../shared/types/dashboard";
+import type { DashboardPage, DashboardTile } from "../../../../shared/types/dashboard";
 import type { DerivedOutputRecreationCue } from "../builderTypes";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
@@ -38,6 +38,20 @@ export interface DerivedOutputRecreationCueView {
   label: string;
   message: string;
   helper: string;
+}
+
+export interface DerivedOutputLibraryItemView {
+  id: string;
+  tileId: string;
+  pageId: string;
+  pageTitle: string;
+  title: string;
+  label: string;
+  sourceLabel: string;
+  readinessLabel: string;
+  sourceStatusLabel: string;
+  structuralSummary: string;
+  chips: string[];
 }
 
 const topNCount = 5;
@@ -529,4 +543,36 @@ export function buildDerivedOutputRecreationCueView(
       ? "Readiness is current against the stored source result."
       : `Current readiness: ${cue.readinessLabel}.`
   };
+}
+
+export function buildDerivedOutputLibraryItems(pages: DashboardPage[]): DerivedOutputLibraryItemView[] {
+  return pages.flatMap((page) => page.tiles
+    .filter((tile) => tile.derivedOutput)
+    .map((tile) => {
+      const detail = buildDerivedOutputDetailView(tile, page.tiles);
+      const output = tile.derivedOutput!;
+      const structuralSummary = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
+        ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
+        : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
+
+      return {
+        id: `${page.id}:${tile.id}`,
+        tileId: tile.id,
+        pageId: page.id,
+        pageTitle: page.title,
+        title: tile.title || tile.name,
+        label: detail?.label ?? `Derived output: ${derivedOutputKindSentenceLabel(output.kind)}`,
+        sourceLabel: output.sourceTitle,
+        readinessLabel: detail?.readinessLabel ?? "Readiness unresolved",
+        sourceStatusLabel: detail?.sourceStatusLabel ?? "Source relationship unresolved",
+        structuralSummary,
+        chips: [
+          derivedOutputKindLabel(output.kind),
+          page.title,
+          detail?.sourceStatusLabel ?? "Source unresolved",
+          detail?.readinessLabel ?? "Readiness unresolved",
+          structuralSummary
+        ]
+      };
+    }));
 }
