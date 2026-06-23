@@ -1611,14 +1611,31 @@ h2 {
   background: #f2fbf5;
 }
 
+.derived-output-recreation-cue {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #b8d7c5;
+  border-radius: 10px;
+  background: #f2fbf5;
+}
+
 .derived-output-creation-cue strong {
   color: #20342a;
   font-size: 0.78rem;
   font-weight: 800;
 }
 
+.derived-output-recreation-cue strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .derived-output-creation-cue span,
-.derived-output-creation-cue small {
+.derived-output-creation-cue small,
+.derived-output-recreation-cue span,
+.derived-output-recreation-cue small {
   color: #60756b;
   font-size: 0.72rem;
   font-weight: 650;

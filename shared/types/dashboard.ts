@@ -122,6 +122,7 @@ export interface DashboardTile {
     baseLabel?: string;
     rowCount?: number;
     sourceResultSignature?: string;
+    lastRecreatedAt?: number;
   };
   locked: boolean;
   hidden: boolean;

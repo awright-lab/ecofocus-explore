@@ -143,6 +143,8 @@ export default function BuilderApp() {
     setSavedLibraryInsertionCue,
     derivedOutputCreationCue,
     setDerivedOutputCreationCue,
+    derivedOutputRecreationCue,
+    setDerivedOutputRecreationCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -589,6 +591,7 @@ export default function BuilderApp() {
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
+    duplicateDerivedOutputTile,
     createDerivedOutputTile,
     recreateDerivedOutputTile
   } = useBuilderTileCommands({
@@ -606,6 +609,7 @@ export default function BuilderApp() {
     applyQuestionSelection,
     applyVariableSetSelection,
     recordDerivedOutputCreationCue: (cue) => setDerivedOutputCreationCue({ ...cue, createdAt: Date.now() }),
+    recordDerivedOutputRecreationCue: (cue) => setDerivedOutputRecreationCue({ ...cue, createdAt: Date.now() }),
     setIsLoading,
     setError
   });
@@ -1019,6 +1023,7 @@ export default function BuilderApp() {
           applySelectedTileEffectPreset={applySelectedTileEffectPreset}
           tileWithVisualization={tileWithVisualization}
           duplicateTileAsVisualization={duplicateTileAsVisualization}
+          duplicateDerivedOutputTile={duplicateDerivedOutputTile}
           createDerivedOutputTile={createDerivedOutputTile}
           recreateDerivedOutputTile={recreateDerivedOutputTile}
           rerunTileAnalysis={rerunTileAnalysis}
@@ -1038,6 +1043,7 @@ export default function BuilderApp() {
           reportTreeSelectionCue={reportTreeSelectionCue}
           savedLibraryInsertionCue={savedLibraryInsertionCue}
           derivedOutputCreationCue={derivedOutputCreationCue}
+          derivedOutputRecreationCue={derivedOutputRecreationCue}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

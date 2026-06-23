@@ -33,7 +33,7 @@ import type {
   TextStylePreset,
   TileAppearance
 } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, DerivedOutputCreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
+import type { AnalysisLibraryView, DerivedOutputCreationCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputKind } from "./derivedOutputModel";
 
 export type BuilderInspectorProps = {
@@ -87,6 +87,7 @@ export type BuilderInspectorProps = {
   applySelectedTileEffectPreset: (preset: EffectPreset) => void;
   tileWithVisualization: (tile: DashboardTile, nextVisualization: ChartType) => Partial<DashboardTile>;
   duplicateTileAsVisualization: (tile: DashboardTile, nextVisualization: ChartType) => void;
+  duplicateDerivedOutputTile: (tile: DashboardTile) => string | null;
   createDerivedOutputTile: (tile: DashboardTile, kind: DerivedOutputKind) => string | null;
   recreateDerivedOutputTile: (tile: DashboardTile) => boolean;
   rerunTileAnalysis: (tile: DashboardTile, nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest) => Promise<boolean>;
@@ -104,6 +105,7 @@ export type BuilderInspectorProps = {
   reportTreeSelectionCue: ReportTreeSelectionCue;
   savedLibraryInsertionCue: SavedLibraryInsertionCue;
   derivedOutputCreationCue: DerivedOutputCreationCue;
+  derivedOutputRecreationCue: DerivedOutputRecreationCue;
   deleteSelectedItem: () => void;
   isLoading: boolean;
   comparisonDatasets: DatasetId[];

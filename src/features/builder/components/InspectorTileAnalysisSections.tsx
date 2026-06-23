@@ -24,7 +24,14 @@ import {
   type RelatedAnalyticalObjectsView
 } from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
-import { buildDerivedOutputDetailView, buildDerivedOutputViews, type DerivedOutputDetailView, type DerivedOutputView } from "./derivedOutputModel";
+import {
+  buildDerivedOutputDetailView,
+  buildDerivedOutputRecreationCueView,
+  buildDerivedOutputViews,
+  type DerivedOutputDetailView,
+  type DerivedOutputRecreationCueView,
+  type DerivedOutputView
+} from "./derivedOutputModel";
 import {
   buildDerivedOutputCreationCueView,
   buildSavedLibraryInsertionCueView,
@@ -66,8 +73,11 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     recordRelatedObjectNavigationCue,
     reportTreeSelectionCue,
     derivedOutputCreationCue,
+    derivedOutputRecreationCue,
+    duplicateDerivedOutputTile,
     createDerivedOutputTile,
-    recreateDerivedOutputTile
+    recreateDerivedOutputTile,
+    saveSelectedTileAnalyticalTemplate
   } = props;
 
   if (!selectedTile) {
@@ -79,6 +89,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
   const derivedOutputCue = buildDerivedOutputCreationCueView(derivedOutputCreationCue, selectedTile);
+  const derivedOutputRecreation = buildDerivedOutputRecreationCueView(derivedOutputRecreationCue, selectedTile);
   const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, activePage.tiles);
   const derivedOutputViews = buildDerivedOutputViews(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
@@ -160,11 +171,14 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
+                {derivedOutputRecreation && <DerivedOutputRecreationCueCard view={derivedOutputRecreation} />}
                 {derivedOutputDetail && (
                   <DerivedOutputDetailCard
                     view={derivedOutputDetail}
                     onSelectSource={(tileId) => selectTile(tileId)}
                     onRecreate={() => recreateDerivedOutputTile(selectedTile)}
+                    onDuplicate={() => duplicateDerivedOutputTile(selectedTile)}
+                    onSaveTemplate={saveSelectedTileAnalyticalTemplate}
                   />
                 )}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
@@ -246,37 +260,63 @@ function DerivedOutputCreationCueCard({ view }: { view: DerivedOutputCreationCue
   );
 }
 
+function DerivedOutputRecreationCueCard({ view }: { view: DerivedOutputRecreationCueView }) {
+  return (
+    <div className="derived-output-recreation-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
+  );
+}
+
 function DerivedOutputDetailCard({
   view,
   onSelectSource,
-  onRecreate
+  onRecreate,
+  onDuplicate,
+  onSaveTemplate
 }: {
   view: DerivedOutputDetailView;
   onSelectSource: (tileId: string) => void;
   onRecreate: () => boolean;
+  onDuplicate: () => string | null;
+  onSaveTemplate: () => void;
 }) {
   return (
     <div className={`derived-output-detail-card ${view.sourceStatus}`} aria-label="Derived output relationship">
       <strong>{view.label}</strong>
       <span>Source tile: {view.sourceLabel}</span>
       <span>{view.sourceStatusLabel}</span>
+      <span>{view.readinessLabel}</span>
       <small>{view.description}</small>
       <small>{view.sourceStatusHelper}</small>
+      <small>{view.readinessHelper}</small>
+      {view.lastRecreatedLabel && <small>{view.lastRecreatedLabel}</small>}
+      <small>{view.managementHelper}</small>
       <div className="explorer-chip-row">
         {view.chips.map((chip) => (
           <span className="explorer-chip" key={chip}>{chip}</span>
         ))}
       </div>
-      {view.sourceTileId && (
-        <div className="derived-output-detail-actions">
+      <div className="derived-output-detail-actions">
+        {view.sourceTileId && (
+          <>
           <button type="button" className="secondary" onClick={() => onSelectSource(view.sourceTileId!)}>
             Go to source tile
           </button>
           <button type="button" className="secondary" onClick={onRecreate} disabled={!view.canRecreate}>
             Recreate from source
           </button>
-        </div>
-      )}
+          </>
+        )}
+        <button type="button" className="secondary" onClick={onDuplicate}>
+          Duplicate derived output
+        </button>
+        <button type="button" className="secondary" onClick={onSaveTemplate}>
+          Save as template
+        </button>
+      </div>
     </div>
   );
 }

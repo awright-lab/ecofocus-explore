@@ -1,5 +1,6 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
+import type { DerivedOutputRecreationCue } from "../builderTypes";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type DerivedOutputKind = NonNullable<DashboardTile["derivedOutput"]>["kind"];
@@ -27,8 +28,16 @@ export interface DerivedOutputDetailView {
   readinessLabel: string;
   readinessHelper: string;
   canRecreate: boolean;
+  managementHelper: string;
+  lastRecreatedLabel?: string;
   sourceTileId?: string;
   chips: string[];
+}
+
+export interface DerivedOutputRecreationCueView {
+  label: string;
+  message: string;
+  helper: string;
 }
 
 const topNCount = 5;
@@ -60,6 +69,10 @@ function derivedOutputKindLabel(kind: DerivedOutputKind) {
   if (kind === "top_n_extract") return "Top-N extract";
   if (kind === "bottom_n_extract") return "Bottom-N extract";
   return "Lead-row summary";
+}
+
+function derivedOutputKindSentenceLabel(kind: DerivedOutputKind) {
+  return derivedOutputKindLabel(kind).toLowerCase();
 }
 
 function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>) {
@@ -216,6 +229,11 @@ export function buildDerivedSourceResultSignature(tile: DashboardTile) {
   });
 }
 
+function lastRecreatedLabel(output: NonNullable<DashboardTile["derivedOutput"]>) {
+  if (!output.lastRecreatedAt) return undefined;
+  return `Last recreated ${new Date(output.lastRecreatedAt).toLocaleString()}`;
+}
+
 function derivedOutputReadiness(
   output: NonNullable<DashboardTile["derivedOutput"]>,
   sourceTile?: DashboardTile
@@ -285,12 +303,15 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
       label: `Derived output: ${patternLabel.toLowerCase()}`,
       sourceLabel: output.sourceTitle,
       description: `Read-only extract of the ${directionLabel} ${output.rowCount ?? "selected"} rows by ${output.columnLabel} from the source tile.`,
+      managementHelper: "Use the title field above to rename this derived output, duplicate it for a separate maintained copy, or save the setup as a template.",
+      lastRecreatedLabel: lastRecreatedLabel(output),
       ...relationship,
       chips: [
         `Pattern: ${patternLabel}`,
         `Source: ${output.sourceTitle}`,
         sourceStatus.sourceStatusLabel,
         readiness.readinessLabel,
+        ...(output.lastRecreatedAt ? ["Recreated"] : []),
         `Column: ${output.columnLabel}`,
         `${output.rowCount ?? 0} rows`
       ]
@@ -301,12 +322,15 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
     label: "Derived output: lead-row summary",
     sourceLabel: output.sourceTitle,
     description: `Read-only summary of ${output.rowLabel ?? "the lead row"} from ${output.columnLabel} in the source tile.`,
+    managementHelper: "Use the title field above to rename this derived output, duplicate it for a separate maintained copy, or save the setup as a template.",
+    lastRecreatedLabel: lastRecreatedLabel(output),
     ...relationship,
     chips: [
       `Pattern: ${derivedOutputKindLabel(output.kind)}`,
       `Source: ${output.sourceTitle}`,
       sourceStatus.sourceStatusLabel,
       readiness.readinessLabel,
+      ...(output.lastRecreatedAt ? ["Recreated"] : []),
       output.rowLabel ? `Row: ${output.rowLabel}` : "Row: Lead row",
       `${output.columnLabel}${output.valueLabel ? `: ${output.valueLabel}` : ""}`,
       ...(output.baseLabel ? [output.baseLabel] : [])
@@ -488,4 +512,21 @@ export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOut
 
 export function buildDerivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>) {
   return derivedOutputTitle(output);
+}
+
+export function buildDerivedOutputRecreationCueView(
+  cue: DerivedOutputRecreationCue,
+  tile: DashboardTile,
+  now = Date.now()
+): DerivedOutputRecreationCueView | null {
+  if (!cue || cue.tileId !== tile.id) return null;
+  if (now - cue.createdAt > 60_000) return null;
+
+  return {
+    label: "Derived output recreated",
+    message: `${derivedOutputKindSentenceLabel(cue.outputKind)} was regenerated from ${cue.sourceTitle}.`,
+    helper: cue.readinessLabel === "Reflects current stored source result"
+      ? "Readiness is current against the stored source result."
+      : `Current readiness: ${cue.readinessLabel}.`
+  };
 }

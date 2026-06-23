@@ -63,6 +63,13 @@ export type DerivedOutputCreationCue = {
   outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
   createdAt: number;
 } | null;
+export type DerivedOutputRecreationCue = {
+  tileId: string;
+  sourceTitle: string;
+  outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
+  readinessLabel: string;
+  createdAt: number;
+} | null;
 
 export type LayerItem =
   | { id: string; type: "tile"; name: string; hidden: boolean; locked: boolean; zIndex: number }
@@ -87,6 +94,7 @@ export type EditorUiState = {
   reportTreeSelectionCue: ReportTreeSelectionCue;
   savedLibraryInsertionCue: SavedLibraryInsertionCue;
   derivedOutputCreationCue: DerivedOutputCreationCue;
+  derivedOutputRecreationCue: DerivedOutputRecreationCue;
   sourceSearch: string;
   settingsView: SettingsView;
   designModal: DesignModal;
