@@ -1620,6 +1620,15 @@ h2 {
   background: #f2fbf5;
 }
 
+.derived-output-library-action-cue {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #b8d7c5;
+  border-radius: 10px;
+  background: #f2fbf5;
+}
+
 .derived-output-creation-cue strong {
   color: #20342a;
   font-size: 0.78rem;
@@ -1632,10 +1641,18 @@ h2 {
   font-weight: 800;
 }
 
+.derived-output-library-action-cue strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .derived-output-creation-cue span,
 .derived-output-creation-cue small,
 .derived-output-recreation-cue span,
-.derived-output-recreation-cue small {
+.derived-output-recreation-cue small,
+.derived-output-library-action-cue span,
+.derived-output-library-action-cue small {
   color: #60756b;
   font-size: 0.72rem;
   font-weight: 650;

@@ -774,7 +774,8 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     setActivePageId,
     selectTile,
     duplicateDerivedOutputFromLibrary,
-    saveAnalyticalTemplate
+    saveAnalyticalTemplate,
+    recordDerivedOutputLibraryActionCue
   } = props;
   const [feedback, setFeedback] = useState<{
     itemId: string;
@@ -789,8 +790,16 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
   }
 
   function locateOutput(pageId: string, tileId: string) {
+    const tile = findTile(pageId, tileId);
+    if (!tile?.derivedOutput) return;
     setActivePageId(pageId);
     selectTile(tileId);
+    recordDerivedOutputLibraryActionCue({
+      tileId,
+      action: "located",
+      sourceTitle: tile.derivedOutput.sourceTitle,
+      outputKind: tile.derivedOutput.kind
+    });
     setFeedback({
       itemId: `${pageId}:${tileId}`,
       label: "Derived output selected",
@@ -799,8 +808,16 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
   }
 
   function duplicateOutput(pageId: string, tileId: string) {
+    const tile = findTile(pageId, tileId);
+    if (!tile?.derivedOutput) return;
     const duplicateId = duplicateDerivedOutputFromLibrary(pageId, tileId);
     if (!duplicateId) return;
+    recordDerivedOutputLibraryActionCue({
+      tileId: duplicateId,
+      action: "duplicated",
+      sourceTitle: tile.derivedOutput.sourceTitle,
+      outputKind: tile.derivedOutput.kind
+    });
     setFeedback({
       itemId: `${pageId}:${tileId}`,
       label: "Derived output duplicated",
@@ -810,8 +827,18 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
 
   function saveOutputAsTemplate(pageId: string, tileId: string) {
     const tile = findTile(pageId, tileId);
-    if (!tile) return;
-    saveAnalyticalTemplate(buildAnalyticalTemplateFromTile(tile));
+    if (!tile?.derivedOutput) return;
+    const template = buildAnalyticalTemplateFromTile(tile);
+    saveAnalyticalTemplate(template);
+    setActivePageId(pageId);
+    selectTile(tileId);
+    recordDerivedOutputLibraryActionCue({
+      tileId,
+      action: "savedAsTemplate",
+      sourceTitle: tile.derivedOutput.sourceTitle,
+      outputKind: tile.derivedOutput.kind,
+      templateLabel: template.label
+    });
     setFeedback({
       itemId: `${pageId}:${tileId}`,
       label: "Template saved",

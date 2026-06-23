@@ -1,6 +1,6 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
 import type { DashboardPage, DashboardTile } from "../../../../shared/types/dashboard";
-import type { DerivedOutputRecreationCue } from "../builderTypes";
+import type { DerivedOutputLibraryActionCue, DerivedOutputRecreationCue } from "../builderTypes";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type DerivedOutputKind = NonNullable<DashboardTile["derivedOutput"]>["kind"];
@@ -35,6 +35,12 @@ export interface DerivedOutputDetailView {
 }
 
 export interface DerivedOutputRecreationCueView {
+  label: string;
+  message: string;
+  helper: string;
+}
+
+export interface DerivedOutputLibraryActionCueView {
   label: string;
   message: string;
   helper: string;
@@ -542,6 +548,38 @@ export function buildDerivedOutputRecreationCueView(
     helper: cue.readinessLabel === "Reflects current stored source result"
       ? "Readiness is current against the stored source result."
       : `Current readiness: ${cue.readinessLabel}.`
+  };
+}
+
+export function buildDerivedOutputLibraryActionCueView(
+  cue: DerivedOutputLibraryActionCue,
+  tile: DashboardTile,
+  now = Date.now()
+): DerivedOutputLibraryActionCueView | null {
+  if (!cue || cue.tileId !== tile.id) return null;
+  if (now - cue.createdAt > 60_000) return null;
+
+  const outputLabel = derivedOutputKindSentenceLabel(cue.outputKind);
+  if (cue.action === "duplicated") {
+    return {
+      label: "Derived output duplicated",
+      message: `Created this ${outputLabel} copy from the derived-output library.`,
+      helper: "This copy is selected for inspection and can be maintained independently."
+    };
+  }
+
+  if (cue.action === "savedAsTemplate") {
+    return {
+      label: "Derived output saved as template",
+      message: `${cue.templateLabel ?? "A template"} was saved from this ${outputLabel}.`,
+      helper: "Open Templates in the library to reuse or manage that saved analytical setup."
+    };
+  }
+
+  return {
+    label: "Located from derived-output library",
+    message: `Opened this ${outputLabel} from the derived-output library.`,
+    helper: `Source relationship: ${cue.sourceTitle}. Review readiness and management actions below.`
   };
 }
 

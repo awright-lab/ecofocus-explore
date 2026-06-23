@@ -26,9 +26,11 @@ import {
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import {
   buildDerivedOutputDetailView,
+  buildDerivedOutputLibraryActionCueView,
   buildDerivedOutputRecreationCueView,
   buildDerivedOutputViews,
   type DerivedOutputDetailView,
+  type DerivedOutputLibraryActionCueView,
   type DerivedOutputRecreationCueView,
   type DerivedOutputView
 } from "./derivedOutputModel";
@@ -74,6 +76,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     reportTreeSelectionCue,
     derivedOutputCreationCue,
     derivedOutputRecreationCue,
+    derivedOutputLibraryActionCue,
     duplicateDerivedOutputTile,
     createDerivedOutputTile,
     recreateDerivedOutputTile,
@@ -90,6 +93,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
   const derivedOutputCue = buildDerivedOutputCreationCueView(derivedOutputCreationCue, selectedTile);
   const derivedOutputRecreation = buildDerivedOutputRecreationCueView(derivedOutputRecreationCue, selectedTile);
+  const derivedOutputLibraryAction = buildDerivedOutputLibraryActionCueView(derivedOutputLibraryActionCue, selectedTile);
   const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, activePage.tiles);
   const derivedOutputViews = buildDerivedOutputViews(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
@@ -172,6 +176,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
                 {derivedOutputRecreation && <DerivedOutputRecreationCueCard view={derivedOutputRecreation} />}
+                {derivedOutputLibraryAction && <DerivedOutputLibraryActionCueCard view={derivedOutputLibraryAction} />}
                 {derivedOutputDetail && (
                   <DerivedOutputDetailCard
                     view={derivedOutputDetail}
@@ -263,6 +268,16 @@ function DerivedOutputCreationCueCard({ view }: { view: DerivedOutputCreationCue
 function DerivedOutputRecreationCueCard({ view }: { view: DerivedOutputRecreationCueView }) {
   return (
     <div className="derived-output-recreation-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function DerivedOutputLibraryActionCueCard({ view }: { view: DerivedOutputLibraryActionCueView }) {
+  return (
+    <div className="derived-output-library-action-cue" role="status">
       <strong>{view.label}</strong>
       <span>{view.message}</span>
       <small>{view.helper}</small>

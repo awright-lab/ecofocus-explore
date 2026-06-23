@@ -145,6 +145,8 @@ export default function BuilderApp() {
     setDerivedOutputCreationCue,
     derivedOutputRecreationCue,
     setDerivedOutputRecreationCue,
+    derivedOutputLibraryActionCue,
+    setDerivedOutputLibraryActionCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -846,6 +848,7 @@ export default function BuilderApp() {
           selectedTile={selectedTile}
           focusSelectedTileInspector={() => setSettingsView("chart")}
           recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() })}
+          recordDerivedOutputLibraryActionCue={(cue) => setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() })}
           designPalettes={designPalettes}
           applyPaletteToTile={applyPaletteToTile}
           textStylePresets={textStylePresets}
@@ -1047,6 +1050,7 @@ export default function BuilderApp() {
           savedLibraryInsertionCue={savedLibraryInsertionCue}
           derivedOutputCreationCue={derivedOutputCreationCue}
           derivedOutputRecreationCue={derivedOutputRecreationCue}
+          derivedOutputLibraryActionCue={derivedOutputLibraryActionCue}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}
