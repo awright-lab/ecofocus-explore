@@ -11,7 +11,7 @@ import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOut
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedVariableSet } from "../../../../shared/types/dashboard";
-import type { DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
+import type { DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
 
@@ -32,6 +32,7 @@ type UseBuilderTileCommandsArgs = {
   applyVariableSetSelection: (variableSet: SavedVariableSet) => void;
   recordDerivedOutputCreationCue: (cue: Omit<NonNullable<DerivedOutputCreationCue>, "createdAt">) => void;
   recordDerivedOutputRecreationCue: (cue: Omit<NonNullable<DerivedOutputRecreationCue>, "createdAt">) => void;
+  recordDerivedDefinitionRecreationCue: (cue: Omit<NonNullable<DerivedDefinitionRecreationCue>, "createdAt">) => void;
   setIsLoading: (value: boolean) => void;
   setError: (value: string | null) => void;
 };
@@ -125,6 +126,7 @@ export function useBuilderTileCommands({
   applyVariableSetSelection,
   recordDerivedOutputCreationCue,
   recordDerivedOutputRecreationCue,
+  recordDerivedDefinitionRecreationCue,
   setIsLoading,
   setError
 }: UseBuilderTileCommandsArgs) {
@@ -409,7 +411,11 @@ export function useBuilderTileCommands({
     return duplicateId;
   }
 
-  function createDerivedOutputTile(tile: DashboardTile, kind: DerivedOutputKind) {
+  function createDerivedOutputTile(
+    tile: DashboardTile,
+    kind: DerivedOutputKind,
+    options?: { savedDefinition?: NonNullable<DashboardTile["derivedOutput"]>["savedDefinition"] }
+  ) {
     const outputResult = buildDerivedOutputResponse(tile, kind);
     const derivedOutput = buildDerivedOutputMetadata(tile, kind);
     if (!outputResult || !derivedOutput) {
@@ -432,7 +438,10 @@ export function useBuilderTileCommands({
         ...outputResult,
         query: { ...outputResult.query, chartType: "table" }
       },
-      derivedOutput,
+      derivedOutput: {
+        ...derivedOutput,
+        savedDefinition: options?.savedDefinition
+      },
       analysisLifecycle: {
         role: "derived",
         canonicalTileId: tile.analysisLifecycle?.canonicalTileId ?? tile.id,
@@ -482,7 +491,24 @@ export function useBuilderTileCommands({
       return null;
     }
 
-    return createDerivedOutputTile(sourceTile, definition.outputKind);
+    const createdTileId = createDerivedOutputTile(sourceTile, definition.outputKind, {
+      savedDefinition: {
+        id: definition.id,
+        label: definition.label,
+        outputKind: definition.outputKind,
+        sourceTileId: definition.sourceTileId,
+        sourceTileTitle: definition.sourceTileTitle
+      }
+    });
+    if (createdTileId) {
+      recordDerivedDefinitionRecreationCue({
+        tileId: createdTileId,
+        definitionId: definition.id,
+        definitionLabel: definition.label,
+        outputKind: definition.outputKind
+      });
+    }
+    return createdTileId;
   }
 
   function recreateDerivedOutputTile(tile: DashboardTile) {

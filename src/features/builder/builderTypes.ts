@@ -75,6 +75,13 @@ export type DerivedOutputRecreationCue = {
   readinessLabel: string;
   createdAt: number;
 } | null;
+export type DerivedDefinitionRecreationCue = {
+  tileId: string;
+  definitionId: string;
+  definitionLabel: string;
+  outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
+  createdAt: number;
+} | null;
 export type DerivedOutputLibraryActionCue = {
   tileId: string;
   action: "located" | "duplicated" | "savedAsTemplate";
@@ -108,6 +115,7 @@ export type EditorUiState = {
   savedLibraryInsertionCue: SavedLibraryInsertionCue;
   derivedOutputCreationCue: DerivedOutputCreationCue;
   derivedOutputRecreationCue: DerivedOutputRecreationCue;
+  derivedDefinitionRecreationCue: DerivedDefinitionRecreationCue;
   derivedOutputLibraryActionCue: DerivedOutputLibraryActionCue;
   sourceSearch: string;
   settingsView: SettingsView;

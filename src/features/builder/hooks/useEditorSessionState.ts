@@ -4,6 +4,7 @@ import { initialDashboard } from "../../document/documentSeeds";
 import type {
   AnalysisLibraryView,
   DerivedOutputCreationCue,
+  DerivedDefinitionRecreationCue,
   DerivedOutputLibraryActionCue,
   DerivedOutputRecreationCue,
   DesignModal,
@@ -39,6 +40,7 @@ export function useEditorSessionState() {
   const [savedLibraryInsertionCue, setSavedLibraryInsertionCue] = useState<SavedLibraryInsertionCue>(null);
   const [derivedOutputCreationCue, setDerivedOutputCreationCue] = useState<DerivedOutputCreationCue>(null);
   const [derivedOutputRecreationCue, setDerivedOutputRecreationCue] = useState<DerivedOutputRecreationCue>(null);
+  const [derivedDefinitionRecreationCue, setDerivedDefinitionRecreationCue] = useState<DerivedDefinitionRecreationCue>(null);
   const [derivedOutputLibraryActionCue, setDerivedOutputLibraryActionCue] = useState<DerivedOutputLibraryActionCue>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [settingsView, setSettingsView] = useState<SettingsView>("home");
@@ -91,6 +93,8 @@ export function useEditorSessionState() {
     setDerivedOutputCreationCue,
     derivedOutputRecreationCue,
     setDerivedOutputRecreationCue,
+    derivedDefinitionRecreationCue,
+    setDerivedDefinitionRecreationCue,
     derivedOutputLibraryActionCue,
     setDerivedOutputLibraryActionCue,
     sourceSearch,

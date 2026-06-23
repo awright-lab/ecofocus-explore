@@ -27,10 +27,14 @@ import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import {
   buildDerivedOutputDetailView,
   buildDerivedDefinitionFromTile,
+  buildDerivedDefinitionProvenanceView,
+  buildDerivedDefinitionRecreationCueView,
   buildDerivedOutputLibraryActionCueView,
   buildDerivedOutputRecreationCueView,
   buildDerivedOutputViews,
   type DerivedOutputDetailView,
+  type DerivedDefinitionProvenanceView,
+  type DerivedDefinitionRecreationCueView,
   type DerivedOutputLibraryActionCueView,
   type DerivedOutputRecreationCueView,
   type DerivedOutputView
@@ -77,6 +81,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     reportTreeSelectionCue,
     derivedOutputCreationCue,
     derivedOutputRecreationCue,
+    derivedDefinitionRecreationCue,
     derivedOutputLibraryActionCue,
     duplicateDerivedOutputTile,
     createDerivedOutputTile,
@@ -96,8 +101,10 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
   const derivedOutputCue = buildDerivedOutputCreationCueView(derivedOutputCreationCue, selectedTile);
   const derivedOutputRecreation = buildDerivedOutputRecreationCueView(derivedOutputRecreationCue, selectedTile);
+  const derivedDefinitionRecreation = buildDerivedDefinitionRecreationCueView(derivedDefinitionRecreationCue, selectedTile);
   const derivedOutputLibraryAction = buildDerivedOutputLibraryActionCueView(derivedOutputLibraryActionCue, selectedTile);
   const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, activePage.tiles);
+  const derivedDefinitionProvenance = buildDerivedDefinitionProvenanceView(selectedTile, props.savedDerivedDefinitions);
   const derivedOutputViews = buildDerivedOutputViews(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
@@ -179,7 +186,9 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
                 {derivedOutputRecreation && <DerivedOutputRecreationCueCard view={derivedOutputRecreation} />}
+                {derivedDefinitionRecreation && <DerivedDefinitionRecreationCueCard view={derivedDefinitionRecreation} />}
                 {derivedOutputLibraryAction && <DerivedOutputLibraryActionCueCard view={derivedOutputLibraryAction} />}
+                {derivedDefinitionProvenance && <DerivedDefinitionProvenanceCard view={derivedDefinitionProvenance} />}
                 {derivedOutputDetail && (
                   <DerivedOutputDetailCard
                     view={derivedOutputDetail}
@@ -287,6 +296,33 @@ function DerivedOutputRecreationCueCard({ view }: { view: DerivedOutputRecreatio
       <strong>{view.label}</strong>
       <span>{view.message}</span>
       <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function DerivedDefinitionRecreationCueCard({ view }: { view: DerivedDefinitionRecreationCueView }) {
+  return (
+    <div className="derived-definition-recreation-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function DerivedDefinitionProvenanceCard({ view }: { view: DerivedDefinitionProvenanceView }) {
+  return (
+    <div className={`derived-definition-provenance-card ${view.status}`}>
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+      <div className="explorer-chip-row">
+        {view.chips.map((chip) => (
+          <span className={view.status === "matches" ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>
+            {chip}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

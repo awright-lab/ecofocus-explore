@@ -1,6 +1,6 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
 import type { DashboardPage, DashboardTile, SavedDerivedDefinition } from "../../../../shared/types/dashboard";
-import type { DerivedOutputLibraryActionCue, DerivedOutputRecreationCue } from "../builderTypes";
+import type { DerivedDefinitionRecreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue } from "../builderTypes";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type DerivedOutputKind = NonNullable<DashboardTile["derivedOutput"]>["kind"];
@@ -40,10 +40,24 @@ export interface DerivedOutputRecreationCueView {
   helper: string;
 }
 
+export interface DerivedDefinitionRecreationCueView {
+  label: string;
+  message: string;
+  helper: string;
+}
+
 export interface DerivedOutputLibraryActionCueView {
   label: string;
   message: string;
   helper: string;
+}
+
+export interface DerivedDefinitionProvenanceView {
+  label: string;
+  message: string;
+  helper: string;
+  status: "matches" | "differs" | "missing";
+  chips: string[];
 }
 
 export interface DerivedOutputLibraryItemView {
@@ -617,6 +631,52 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
   };
 }
 
+export function buildDerivedDefinitionFromDerivedTile(
+  tile: DashboardTile,
+  options?: { id?: string; label?: string; description?: string }
+): SavedDerivedDefinition | null {
+  const output = tile.derivedOutput;
+  if (!output) return null;
+  const source = tile.source ?? {
+    kind: "question" as const,
+    id: tile.query.question,
+    label: output.sourceTitle || tile.query.question
+  };
+  const outputLabel = derivedOutputKindLabel(output.kind);
+  const structureLabel = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
+    ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
+    : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
+  const confidenceLabel = `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
+
+  return {
+    id: options?.id ?? `derived_definition_${Date.now()}`,
+    datasetId: tile.query.dataset,
+    label: options?.label ?? `${output.sourceTitle} ${outputLabel.toLowerCase()}`,
+    description: options?.description ?? `Reusable ${outputLabel.toLowerCase()} definition from ${output.sourceTitle}.`,
+    source,
+    sourceTileId: output.sourceTileId,
+    sourceTileTitle: output.sourceTitle,
+    query: {
+      ...tile.query,
+      chartType: tile.visualization
+    },
+    outputKind: output.kind,
+    spec: {
+      columnId: output.columnId,
+      columnLabel: output.columnLabel,
+      rowId: output.rowId,
+      rowLabel: output.rowLabel,
+      rowCount: output.rowCount
+    },
+    summary: {
+      outputLabel,
+      sourceLabel: source.label,
+      structureLabel,
+      queryLabel: `${tile.result.metric.label} · ${confidenceLabel}`
+    }
+  };
+}
+
 export function buildDerivedOutputRecreationCueView(
   cue: DerivedOutputRecreationCue,
   tile: DashboardTile,
@@ -631,6 +691,64 @@ export function buildDerivedOutputRecreationCueView(
     helper: cue.readinessLabel === "Reflects current stored source result"
       ? "Readiness is current against the stored source result."
       : `Current readiness: ${cue.readinessLabel}.`
+  };
+}
+
+export function buildDerivedDefinitionRecreationCueView(
+  cue: DerivedDefinitionRecreationCue,
+  tile: DashboardTile,
+  now = Date.now()
+): DerivedDefinitionRecreationCueView | null {
+  if (!cue || cue.tileId !== tile.id) return null;
+  if (now - cue.createdAt > 60_000) return null;
+
+  return {
+    label: "Recreated from saved definition",
+    message: `${derivedOutputKindSentenceLabel(cue.outputKind)} was recreated from "${cue.definitionLabel}".`,
+    helper: "This tile now carries saved-definition provenance in its derived-output details."
+  };
+}
+
+function derivedOutputMatchesDefinition(output: NonNullable<DashboardTile["derivedOutput"]>, definition: SavedDerivedDefinition) {
+  return output.kind === definition.outputKind
+    && output.sourceTileId === definition.sourceTileId
+    && output.columnId === definition.spec.columnId
+    && (output.rowId ?? "") === (definition.spec.rowId ?? "")
+    && (output.rowCount ?? 0) === (definition.spec.rowCount ?? 0);
+}
+
+export function buildDerivedDefinitionProvenanceView(
+  tile: DashboardTile,
+  definitions: SavedDerivedDefinition[]
+): DerivedDefinitionProvenanceView | null {
+  const output = tile.derivedOutput;
+  const savedDefinition = output?.savedDefinition;
+  if (!output || !savedDefinition) return null;
+
+  const definition = definitions.find((item) => item.id === savedDefinition.id);
+  if (!definition) {
+    return {
+      label: "Saved definition provenance",
+      message: `Created from "${savedDefinition.label}".`,
+      helper: "The saved definition is no longer in the library, so only the tile's stored provenance is available.",
+      status: "missing",
+      chips: [derivedOutputKindLabel(savedDefinition.outputKind), "Definition missing"]
+    };
+  }
+
+  const matches = derivedOutputMatchesDefinition(output, definition);
+  return {
+    label: "Saved definition provenance",
+    message: `Created from "${definition.label}".`,
+    helper: matches
+      ? "This tile still matches the saved definition kind, source, and structural spec."
+      : "This tile no longer fully matches the saved definition kind, source, or structural spec.",
+    status: matches ? "matches" : "differs",
+    chips: [
+      derivedOutputKindLabel(definition.outputKind),
+      definition.summary.structureLabel,
+      matches ? "Matches saved definition" : "Differs from saved definition"
+    ]
   };
 }
 

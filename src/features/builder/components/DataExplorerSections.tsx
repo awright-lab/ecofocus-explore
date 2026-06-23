@@ -20,7 +20,7 @@ import {
 } from "./sourceExplorerModel";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
-import { buildDerivedDefinitionLibraryItems, buildDerivedOutputLibraryItems } from "./derivedOutputModel";
+import { buildDerivedDefinitionFromDerivedTile, buildDerivedDefinitionLibraryItems, buildDerivedOutputLibraryItems } from "./derivedOutputModel";
 import {
   analyticalTemplateSummaryChips,
   analyticalTemplateDifferenceLabels,
@@ -773,7 +773,9 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     activePage,
     setActivePageId,
     selectTile,
+    selectedTile,
     savedDerivedDefinitions,
+    saveDerivedDefinition,
     deleteDerivedDefinition,
     createDerivedOutputFromDefinition,
     duplicateDerivedOutputFromLibrary,
@@ -884,6 +886,23 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     });
   }
 
+  function updateDefinitionFromSelectedTile(definitionId: string) {
+    const definition = savedDerivedDefinitions.find((item) => item.id === definitionId);
+    if (!definition || !selectedTile?.derivedOutput) return;
+    const nextDefinition = buildDerivedDefinitionFromDerivedTile(selectedTile, {
+      id: definition.id,
+      label: definition.label,
+      description: definition.description
+    });
+    if (!nextDefinition) return;
+    saveDerivedDefinition(nextDefinition);
+    setDefinitionFeedback({
+      itemId: definition.id,
+      label: "Definition updated",
+      message: `Updated this definition from "${selectedTile.title || selectedTile.name}".`
+    });
+  }
+
   return (
     <div className="explorer-section-card">
       <div className="explorer-section-header">
@@ -951,6 +970,9 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
                 <div className="library-reuse-actions">
                   <button type="button" className="secondary" onClick={() => createFromDefinition(item.id)} disabled={!item.canCreate}>
                     Recreate from definition
+                  </button>
+                  <button type="button" className="secondary" onClick={() => updateDefinitionFromSelectedTile(item.id)} disabled={!selectedTile?.derivedOutput}>
+                    Update from selected derived tile
                   </button>
                   <button type="button" className="secondary danger-action" onClick={() => removeDefinition(item.id)}>
                     Delete definition

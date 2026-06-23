@@ -34,7 +34,7 @@ import type {
   TextStylePreset,
   TileAppearance
 } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
+import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputKind } from "./derivedOutputModel";
 
 export type BuilderInspectorProps = {
@@ -56,6 +56,7 @@ export type BuilderInspectorProps = {
   savedFilters: SavedFilterSet[];
   savedVariableSets: SavedVariableSet[];
   savedWeights: SavedWeightProfile[];
+  savedDerivedDefinitions: SavedDerivedDefinition[];
   selectedTileQuestion: typeof defaultDataset.questions[number] | null;
   selectedTileFilterDimension?: typeof filterDimensions[number];
   selectedChartPart: { id: string; label: string } | null;
@@ -108,6 +109,7 @@ export type BuilderInspectorProps = {
   savedLibraryInsertionCue: SavedLibraryInsertionCue;
   derivedOutputCreationCue: DerivedOutputCreationCue;
   derivedOutputRecreationCue: DerivedOutputRecreationCue;
+  derivedDefinitionRecreationCue: DerivedDefinitionRecreationCue;
   derivedOutputLibraryActionCue: DerivedOutputLibraryActionCue;
   deleteSelectedItem: () => void;
   isLoading: boolean;

@@ -1643,13 +1643,21 @@ h2 {
   line-height: 1.35;
 }
 
-.derived-output-creation-cue {
+.derived-output-creation-cue,
+.derived-definition-recreation-cue,
+.derived-definition-provenance-card {
   display: grid;
   gap: 3px;
   padding: 8px;
   border: 1px solid #b8d7c5;
   border-radius: 10px;
   background: #f2fbf5;
+}
+
+.derived-definition-provenance-card.differs,
+.derived-definition-provenance-card.missing {
+  border-color: #e4c6c2;
+  background: #fff7f5;
 }
 
 .derived-output-recreation-cue {
@@ -1670,10 +1678,17 @@ h2 {
   background: #f2fbf5;
 }
 
-.derived-output-creation-cue strong {
+.derived-output-creation-cue strong,
+.derived-definition-recreation-cue strong,
+.derived-definition-provenance-card strong {
   color: #20342a;
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+.derived-definition-provenance-card.differs strong,
+.derived-definition-provenance-card.missing strong {
+  color: #8a3d34;
 }
 
 .derived-output-recreation-cue strong {
@@ -1690,6 +1705,10 @@ h2 {
 
 .derived-output-creation-cue span,
 .derived-output-creation-cue small,
+.derived-definition-recreation-cue span,
+.derived-definition-recreation-cue small,
+.derived-definition-provenance-card span,
+.derived-definition-provenance-card small,
 .derived-output-recreation-cue span,
 .derived-output-recreation-cue small,
 .derived-output-library-action-cue span,

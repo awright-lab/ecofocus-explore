@@ -123,6 +123,13 @@ export interface DashboardTile {
     rowCount?: number;
     sourceResultSignature?: string;
     lastRecreatedAt?: number;
+    savedDefinition?: {
+      id: string;
+      label: string;
+      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract";
+      sourceTileId: string;
+      sourceTileTitle: string;
+    };
   };
   locked: boolean;
   hidden: boolean;

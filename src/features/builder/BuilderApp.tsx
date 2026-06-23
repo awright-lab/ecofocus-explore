@@ -145,6 +145,8 @@ export default function BuilderApp() {
     setDerivedOutputCreationCue,
     derivedOutputRecreationCue,
     setDerivedOutputRecreationCue,
+    derivedDefinitionRecreationCue,
+    setDerivedDefinitionRecreationCue,
     derivedOutputLibraryActionCue,
     setDerivedOutputLibraryActionCue,
     sourceSearch,
@@ -618,6 +620,7 @@ export default function BuilderApp() {
     applyVariableSetSelection,
     recordDerivedOutputCreationCue: (cue) => setDerivedOutputCreationCue({ ...cue, createdAt: Date.now() }),
     recordDerivedOutputRecreationCue: (cue) => setDerivedOutputRecreationCue({ ...cue, createdAt: Date.now() }),
+    recordDerivedDefinitionRecreationCue: (cue) => setDerivedDefinitionRecreationCue({ ...cue, createdAt: Date.now() }),
     setIsLoading,
     setError
   });
@@ -1005,6 +1008,7 @@ export default function BuilderApp() {
           savedFilters={savedFilters}
           savedVariableSets={savedVariableSets}
           savedWeights={savedWeights}
+          savedDerivedDefinitions={savedDerivedDefinitions}
           selectedTileQuestion={selectedTileQuestion}
           selectedTileFilterDimension={selectedTileFilterDimension}
           selectedChartPart={selectedChartPart}
@@ -1059,6 +1063,7 @@ export default function BuilderApp() {
           savedLibraryInsertionCue={savedLibraryInsertionCue}
           derivedOutputCreationCue={derivedOutputCreationCue}
           derivedOutputRecreationCue={derivedOutputRecreationCue}
+          derivedDefinitionRecreationCue={derivedDefinitionRecreationCue}
           derivedOutputLibraryActionCue={derivedOutputLibraryActionCue}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
