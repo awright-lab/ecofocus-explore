@@ -790,6 +790,10 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     label: string;
     message: string;
   } | null>(null);
+  const savedDefinitionHandoff =
+    props.savedLibraryHandoff?.view === "derivedOutputs" && props.savedLibraryHandoff.action === "derivedDefinitionSaved"
+      ? props.savedLibraryHandoff
+      : null;
   const highlightNewestDefinition = props.savedLibraryHandoff?.view === "derivedOutputs";
   const derivedDefinitions = buildDerivedDefinitionLibraryItems(savedDerivedDefinitions, activePage);
   const derivedOutputs = buildDerivedOutputLibraryItems(sortedPages);
@@ -863,8 +867,8 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     if (!createdTileId) return;
     setDefinitionFeedback({
       itemId: definition.id,
-      label: "Created from definition",
-      message: `Created a ${definition.summary.outputLabel.toLowerCase()} from "${definition.sourceTileTitle}".`
+      label: "Definition recreated",
+      message: `Created a ${definition.summary.outputLabel.toLowerCase()} from the current stored result for "${definition.sourceTileTitle}".`
     });
   }
 
@@ -905,23 +909,48 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
         ) : (
           <div className="explorer-item-list compact">
             {derivedDefinitions.map((item, index) => (
-              <div key={item.id} className={savedLibraryItemClass(false, (highlightNewestDefinition && index === 0) || definitionFeedback?.itemId === item.id)}>
+              <div
+                key={item.id}
+                className={savedLibraryItemClass(
+                  false,
+                  (highlightNewestDefinition && index === 0)
+                    || savedDefinitionHandoff?.itemId === item.id
+                    || definitionFeedback?.itemId === item.id
+                )}
+              >
                 <strong>{item.title}</strong>
                 <span>{item.label} · {item.sourceLabel}</span>
                 <small className="library-reuse-helper">{item.structuralSummary} · {item.querySummary}</small>
+                {savedDefinitionHandoff?.itemId === item.id && (
+                  <small className="recently-saved-label">Definition saved</small>
+                )}
                 <div className="explorer-chip-row">
                   {item.chips.map((chip) => (
-                    <span className={item.sourceStatus === "available" || chip !== item.sourceStatusLabel ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>{chip}</span>
+                    <span
+                      className={
+                        item.readinessStatus === "ready" || (chip !== item.readinessLabel && chip !== item.sourceStatusLabel)
+                          ? "explorer-chip"
+                          : "explorer-chip warning-chip"
+                      }
+                      key={chip}
+                    >
+                      {chip}
+                    </span>
                   ))}
                 </div>
-                <div className="template-detail-card">
+                <div className={`template-detail-card derived-definition-readiness ${item.readinessStatus}`}>
+                  <strong>{item.readinessLabel}</strong>
+                  <span>{item.readinessHelper}</span>
                   <span>Source status: {item.sourceStatusLabel}</span>
                   <span>Definition: {item.structuralSummary}</span>
                   <span>Query: {item.querySummary}</span>
+                  {item.readinessReasons.map((reason) => (
+                    <small key={reason}>{reason}</small>
+                  ))}
                 </div>
                 <div className="library-reuse-actions">
-                  <button type="button" className="secondary" onClick={() => createFromDefinition(item.id)} disabled={item.sourceStatus !== "available"}>
-                    Create from definition
+                  <button type="button" className="secondary" onClick={() => createFromDefinition(item.id)} disabled={!item.canCreate}>
+                    Recreate from definition
                   </button>
                   <button type="button" className="secondary danger-action" onClick={() => removeDefinition(item.id)}>
                     Delete definition
@@ -931,6 +960,12 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
                   <div className="template-management-feedback" role="status">
                     <strong>{definitionFeedback.label}</strong>
                     <span>{definitionFeedback.message}</span>
+                  </div>
+                )}
+                {savedDefinitionHandoff?.itemId === item.id && (
+                  <div className="template-management-feedback" role="status">
+                    <strong>Definition saved</strong>
+                    <span>This derived definition is now available for recreate-from-source workflows.</span>
                   </div>
                 )}
               </div>

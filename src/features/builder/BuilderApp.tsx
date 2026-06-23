@@ -380,11 +380,11 @@ export default function BuilderApp() {
     setError(null);
   }
 
-  function viewSavedSettingInLibrary(view: AnalysisLibraryView) {
+  function viewSavedSettingInLibrary(view: AnalysisLibraryView, handoff?: { action?: "derivedDefinitionSaved"; itemId?: string }) {
     setLeftPanelView("data");
     setExploreView("library");
     setAnalysisLibraryView(view);
-    setSavedLibraryHandoff({ view, createdAt: Date.now() });
+    setSavedLibraryHandoff({ view, ...handoff, createdAt: Date.now() });
   }
 
   useEffect(() => {

@@ -67,7 +67,12 @@ export interface DerivedDefinitionLibraryItemView {
   label: string;
   sourceLabel: string;
   sourceStatusLabel: string;
-  sourceStatus: "available" | "missing";
+  sourceStatus: "available" | "missing" | "unresolved";
+  readinessStatus: "ready" | "caution" | "unavailable" | "unresolved";
+  readinessLabel: string;
+  readinessHelper: string;
+  readinessReasons: string[];
+  canCreate: boolean;
   structuralSummary: string;
   querySummary: string;
   outputKind: DerivedOutputKind;
@@ -120,6 +125,19 @@ function derivedDefinitionStructureLabel(definition: SavedDerivedDefinition) {
   return definition.outputKind === "top_n_extract" || definition.outputKind === "bottom_n_extract"
     ? `${definition.spec.rowCount ?? 0} rows from ${definition.spec.columnLabel}`
     : `${definition.spec.rowLabel ?? "Lead row"} from ${definition.spec.columnLabel}`;
+}
+
+function derivedDefinitionSourceMatches(definition: SavedDerivedDefinition, sourceTile: DashboardTile) {
+  const tileSource = sourceTile.source ?? {
+    kind: "question" as const,
+    id: sourceTile.query.question,
+    label: sourceTile.title || sourceTile.name
+  };
+
+  return tileSource.kind === definition.source.kind
+    && tileSource.id === definition.source.id
+    && sourceTile.query.dataset === definition.query.dataset
+    && sourceTile.query.question === definition.query.question;
 }
 
 function extractRows(tile: DashboardTile, columnId: string, kind: "top_n_extract" | "bottom_n_extract") {
@@ -680,12 +698,94 @@ export function buildDerivedOutputLibraryItems(pages: DashboardPage[]): DerivedO
     }));
 }
 
+export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefinition, activePage: DashboardPage) {
+  if (!definition.sourceTileId) {
+    return {
+      sourceTile: null,
+      sourceStatus: "unresolved" as const,
+      sourceStatusLabel: "Source relationship unresolved",
+      readinessStatus: "unresolved" as const,
+      readinessLabel: "Unresolved",
+      readinessHelper: "This definition does not have a source tile id recorded.",
+      readinessReasons: ["No source tile relationship is recorded."],
+      canCreate: false
+    };
+  }
+
+  const sourceTile = activePage.tiles.find((tile) => tile.id === definition.sourceTileId);
+  if (!sourceTile) {
+    return {
+      sourceTile: null,
+      sourceStatus: "missing" as const,
+      sourceStatusLabel: "Source missing on current page",
+      readinessStatus: "unavailable" as const,
+      readinessLabel: "Unavailable",
+      readinessHelper: "Open the page with the source tile before recreating this definition.",
+      readinessReasons: ["The saved source tile is not on the current page."],
+      canCreate: false
+    };
+  }
+
+  if (!derivedDefinitionSourceMatches(definition, sourceTile)) {
+    return {
+      sourceTile,
+      sourceStatus: "unresolved" as const,
+      sourceStatusLabel: "Source context changed",
+      readinessStatus: "unresolved" as const,
+      readinessLabel: "Unresolved",
+      readinessHelper: "The source tile id exists, but its source/query context no longer matches the saved definition.",
+      readinessReasons: ["Source tile identity or question context differs from the saved definition."],
+      canCreate: false
+    };
+  }
+
+  const supportedResult = buildDerivedOutputResponse(sourceTile, definition.outputKind);
+  const supportedMetadata = buildDerivedOutputMetadata(sourceTile, definition.outputKind);
+  if (!supportedResult || !supportedMetadata) {
+    return {
+      sourceTile,
+      sourceStatus: "available" as const,
+      sourceStatusLabel: "Source available on current page",
+      readinessStatus: "unavailable" as const,
+      readinessLabel: "Unavailable",
+      readinessHelper: "The current source result cannot produce this derived output kind.",
+      readinessReasons: ["The source result does not have the rows or columns needed for this definition."],
+      canCreate: false
+    };
+  }
+
+  const queryStatus = buildTileQueryStatus(sourceTile);
+  if (queryStatus.hasPendingChanges) {
+    return {
+      sourceTile,
+      sourceStatus: "available" as const,
+      sourceStatusLabel: "Source available on current page",
+      readinessStatus: "caution" as const,
+      readinessLabel: "Recreate with caution",
+      readinessHelper: "The definition can be recreated, but the source tile has pending query changes.",
+      readinessReasons: ["Source result may be stale until the source tile is refreshed."],
+      canCreate: true
+    };
+  }
+
+  return {
+    sourceTile,
+    sourceStatus: "available" as const,
+    sourceStatusLabel: "Source available on current page",
+    readinessStatus: "ready" as const,
+    readinessLabel: "Ready to recreate",
+    readinessHelper: "The source tile is available and the current stored result supports this definition.",
+    readinessReasons: ["Source result is current for the stored query context."],
+    canCreate: true
+  };
+}
+
 export function buildDerivedDefinitionLibraryItems(
   definitions: SavedDerivedDefinition[],
   activePage: DashboardPage
 ): DerivedDefinitionLibraryItemView[] {
   return definitions.map((definition) => {
-    const sourceAvailable = activePage.tiles.some((tile) => tile.id === definition.sourceTileId);
+    const readiness = buildDerivedDefinitionReadinessView(definition, activePage);
     const structuralSummary = definition.summary.structureLabel || derivedDefinitionStructureLabel(definition);
 
     return {
@@ -694,8 +794,13 @@ export function buildDerivedDefinitionLibraryItems(
       description: definition.description,
       label: definition.summary.outputLabel || derivedOutputKindLabel(definition.outputKind),
       sourceLabel: definition.sourceTileTitle || definition.summary.sourceLabel,
-      sourceStatus: sourceAvailable ? "available" : "missing",
-      sourceStatusLabel: sourceAvailable ? "Source available on current page" : "Source not on current page",
+      sourceStatus: readiness.sourceStatus,
+      sourceStatusLabel: readiness.sourceStatusLabel,
+      readinessStatus: readiness.readinessStatus,
+      readinessLabel: readiness.readinessLabel,
+      readinessHelper: readiness.readinessHelper,
+      readinessReasons: readiness.readinessReasons,
+      canCreate: readiness.canCreate,
       structuralSummary,
       querySummary: definition.summary.queryLabel,
       outputKind: definition.outputKind,
@@ -703,9 +808,10 @@ export function buildDerivedDefinitionLibraryItems(
       chips: [
         definition.summary.outputLabel || derivedOutputKindLabel(definition.outputKind),
         definition.summary.sourceLabel,
+        readiness.readinessLabel,
         structuralSummary,
         definition.summary.queryLabel,
-        sourceAvailable ? "Can create now" : "Needs source page"
+        readiness.sourceStatusLabel
       ].filter(Boolean)
     };
   });

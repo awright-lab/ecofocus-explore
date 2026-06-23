@@ -200,7 +200,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                         const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind);
                         if (!definition) return;
                         saveDerivedDefinition(definition);
-                        onViewSavedSettingInLibrary("derivedOutputs");
+                        onViewSavedSettingInLibrary("derivedOutputs", { action: "derivedDefinitionSaved", itemId: definition.id });
                       }}
                     />
                   ))}

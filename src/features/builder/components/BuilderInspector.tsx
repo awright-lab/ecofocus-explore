@@ -98,7 +98,7 @@ export type BuilderInspectorProps = {
   saveSelectedTileBanner: () => void;
   saveSelectedTileFilter: () => void;
   saveSelectedTileWeight: () => void;
-  onViewSavedSettingInLibrary: (view: AnalysisLibraryView) => void;
+  onViewSavedSettingInLibrary: (view: AnalysisLibraryView, handoff?: { action?: "derivedDefinitionSaved"; itemId?: string }) => void;
   savedSettingOriginCue: SavedSettingOriginCue;
   recordSavedSettingOriginCue: (kind: "banner" | "filter" | "weight", label: string, tileId: string) => void;
   completeSavedSettingOriginCue: (tileId: string) => void;

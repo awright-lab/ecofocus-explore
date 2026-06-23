@@ -21,7 +21,12 @@ export type SourceLibraryView = "variableSets" | "questions";
 export type AnalysisLibraryView = "variableSets" | "templates" | "derivedOutputs" | "banners" | "filters" | "weights";
 export type SettingsView = "home" | "page" | "layout" | "element" | "chart" | "container";
 export type MultiSelectedObject = { id: string; type: "tile" | "element" };
-export type SavedLibraryHandoff = { view: AnalysisLibraryView; createdAt: number } | null;
+export type SavedLibraryHandoff = {
+  view: AnalysisLibraryView;
+  createdAt: number;
+  action?: "derivedDefinitionSaved";
+  itemId?: string;
+} | null;
 export type SavedSettingOriginKind = "banner" | "filter" | "weight";
 export type SavedSettingOriginCue = {
   tileId: string;
