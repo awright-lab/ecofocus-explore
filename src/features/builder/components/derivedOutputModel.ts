@@ -15,6 +15,13 @@ export interface DerivedOutputView {
   rowCountLabel?: string;
 }
 
+export interface DerivedOutputDetailView {
+  label: string;
+  sourceLabel: string;
+  description: string;
+  chips: string[];
+}
+
 const topNCount = 5;
 
 function leadingRow(rows: AnalyticsTableRow[], columnId: string) {
@@ -32,6 +39,10 @@ function topRows(rows: AnalyticsTableRow[], columnId: string, count: number) {
 
 function formatSummaryValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
   return format === "percent" ? `${value}%` : value.toLocaleString();
+}
+
+function derivedOutputKindLabel(kind: DerivedOutputKind) {
+  return kind === "top_n_extract" ? "Top-N extract" : "Lead-row summary";
 }
 
 function unavailableView(kind: DerivedOutputKind, label: string, helper: string): DerivedOutputView {
@@ -103,6 +114,38 @@ export function buildDerivedOutputViews(tile: DashboardTile): DerivedOutputView[
     buildDerivedSummaryOutputView(tile),
     buildDerivedTopNOutputView(tile)
   ];
+}
+
+export function buildDerivedOutputDetailView(tile: DashboardTile): DerivedOutputDetailView | null {
+  const output = tile.derivedOutput;
+  if (!output) return null;
+
+  if (output.kind === "top_n_extract") {
+    return {
+      label: "Derived output: top-N extract",
+      sourceLabel: output.sourceTitle,
+      description: `Read-only extract of the leading ${output.rowCount ?? "selected"} rows by ${output.columnLabel} from the source tile.`,
+      chips: [
+        "Pattern: Top-N extract",
+        `Source: ${output.sourceTitle}`,
+        `Column: ${output.columnLabel}`,
+        `${output.rowCount ?? 0} rows`
+      ]
+    };
+  }
+
+  return {
+    label: "Derived output: lead-row summary",
+    sourceLabel: output.sourceTitle,
+    description: `Read-only summary of ${output.rowLabel ?? "the lead row"} from ${output.columnLabel} in the source tile.`,
+    chips: [
+      `Pattern: ${derivedOutputKindLabel(output.kind)}`,
+      `Source: ${output.sourceTitle}`,
+      output.rowLabel ? `Row: ${output.rowLabel}` : "Row: Lead row",
+      `${output.columnLabel}${output.valueLabel ? `: ${output.valueLabel}` : ""}`,
+      ...(output.baseLabel ? [output.baseLabel] : [])
+    ]
+  };
 }
 
 export function buildDerivedSummaryResponse(tile: DashboardTile): AnalyticsQueryResponse | null {

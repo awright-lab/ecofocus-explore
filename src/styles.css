@@ -1625,6 +1625,29 @@ h2 {
   line-height: 1.4;
 }
 
+.derived-output-detail-card {
+  display: grid;
+  gap: 6px;
+  padding: 9px;
+  border: 1px solid #d5e7dc;
+  border-radius: 10px;
+  background: #fbfefb;
+}
+
+.derived-output-detail-card strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.derived-output-detail-card span,
+.derived-output-detail-card small {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .library-insertion-context {
   display: grid;
   gap: 7px;
