@@ -25,7 +25,12 @@ import {
 } from "./inspectorRelatedObjectsModel";
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import { buildDerivedOutputViews, type DerivedOutputView } from "./derivedOutputModel";
-import { buildSavedLibraryInsertionCueView, type SavedLibraryInsertionCueView } from "./inspectorCreationCueModel";
+import {
+  buildDerivedOutputCreationCueView,
+  buildSavedLibraryInsertionCueView,
+  type DerivedOutputCreationCueView,
+  type SavedLibraryInsertionCueView
+} from "./inspectorCreationCueModel";
 import {
   buildSavedTileSettingConfirmation,
   buildTileQueryActionState,
@@ -60,6 +65,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     relatedObjectNavigationCue,
     recordRelatedObjectNavigationCue,
     reportTreeSelectionCue,
+    derivedOutputCreationCue,
     createDerivedOutputTile
   } = props;
 
@@ -71,6 +77,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
+  const derivedOutputCue = buildDerivedOutputCreationCueView(derivedOutputCreationCue, selectedTile);
   const derivedOutputViews = buildDerivedOutputViews(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
@@ -150,6 +157,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 </div>
                 <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
+                {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="derived-output-actions">
                   {derivedOutputViews.map((view) => (
@@ -212,6 +220,16 @@ function DerivedOutputCard({
 function SavedLibraryInsertionCueCard({ view }: { view: SavedLibraryInsertionCueView }) {
   return (
     <div className="saved-library-insertion-cue" role="status">
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function DerivedOutputCreationCueCard({ view }: { view: DerivedOutputCreationCueView }) {
+  return (
+    <div className="derived-output-creation-cue" role="status">
       <strong>{view.label}</strong>
       <span>{view.message}</span>
       <small>{view.helper}</small>

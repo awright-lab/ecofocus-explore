@@ -10,6 +10,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, type DerivedOutputKind } from "../components/derivedOutputModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedVariableSet } from "../../../../shared/types/dashboard";
+import type { DerivedOutputCreationCue } from "../builderTypes";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
 
@@ -27,6 +28,7 @@ type UseBuilderTileCommandsArgs = {
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   applyQuestionSelection: (question: typeof defaultDataset.questions[number]) => void;
   applyVariableSetSelection: (variableSet: SavedVariableSet) => void;
+  recordDerivedOutputCreationCue: (cue: Omit<NonNullable<DerivedOutputCreationCue>, "createdAt">) => void;
   setIsLoading: (value: boolean) => void;
   setError: (value: string | null) => void;
 };
@@ -117,6 +119,7 @@ export function useBuilderTileCommands({
   updateTile,
   applyQuestionSelection,
   applyVariableSetSelection,
+  recordDerivedOutputCreationCue,
   setIsLoading,
   setError
 }: UseBuilderTileCommandsArgs) {
@@ -375,6 +378,12 @@ export function useBuilderTileCommands({
       pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, outputTile] } : page))
     }));
     selectTile(outputTile.id);
+    recordDerivedOutputCreationCue({
+      tileId: outputTile.id,
+      sourceTileId: tile.id,
+      sourceTitle: tile.title || tile.name,
+      outputKind: derivedOutput.kind
+    });
     setError(null);
     return outputTile.id;
   }

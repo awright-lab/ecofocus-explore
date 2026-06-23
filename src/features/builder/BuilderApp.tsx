@@ -141,6 +141,8 @@ export default function BuilderApp() {
     setReportTreeSelectionCue,
     savedLibraryInsertionCue,
     setSavedLibraryInsertionCue,
+    derivedOutputCreationCue,
+    setDerivedOutputCreationCue,
     sourceSearch,
     setSourceSearch,
     settingsView,
@@ -602,6 +604,7 @@ export default function BuilderApp() {
     updateTile,
     applyQuestionSelection,
     applyVariableSetSelection,
+    recordDerivedOutputCreationCue: (cue) => setDerivedOutputCreationCue({ ...cue, createdAt: Date.now() }),
     setIsLoading,
     setError
   });
@@ -1032,6 +1035,7 @@ export default function BuilderApp() {
           recordRelatedObjectNavigationCue={(cue) => setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() })}
           reportTreeSelectionCue={reportTreeSelectionCue}
           savedLibraryInsertionCue={savedLibraryInsertionCue}
+          derivedOutputCreationCue={derivedOutputCreationCue}
           deleteSelectedItem={deleteSelectedItem}
           isLoading={isLoading}
           comparisonDatasets={comparisonDatasets}

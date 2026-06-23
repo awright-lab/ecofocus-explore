@@ -33,7 +33,7 @@ import type {
   TextStylePreset,
   TileAppearance
 } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
+import type { AnalysisLibraryView, DerivedOutputCreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputKind } from "./derivedOutputModel";
 
 export type BuilderInspectorProps = {
@@ -102,6 +102,7 @@ export type BuilderInspectorProps = {
   recordRelatedObjectNavigationCue: (cue: Omit<NonNullable<RelatedObjectNavigationCue>, "createdAt">) => void;
   reportTreeSelectionCue: ReportTreeSelectionCue;
   savedLibraryInsertionCue: SavedLibraryInsertionCue;
+  derivedOutputCreationCue: DerivedOutputCreationCue;
   deleteSelectedItem: () => void;
   isLoading: boolean;
   comparisonDatasets: DatasetId[];

@@ -3,6 +3,7 @@ import { defaultQuestion } from "../builderConstants";
 import { initialDashboard } from "../../document/documentSeeds";
 import type {
   AnalysisLibraryView,
+  DerivedOutputCreationCue,
   DesignModal,
   ExploreView,
   LeftPanelView,
@@ -34,6 +35,7 @@ export function useEditorSessionState() {
   const [relatedObjectNavigationCue, setRelatedObjectNavigationCue] = useState<RelatedObjectNavigationCue>(null);
   const [reportTreeSelectionCue, setReportTreeSelectionCue] = useState<ReportTreeSelectionCue>(null);
   const [savedLibraryInsertionCue, setSavedLibraryInsertionCue] = useState<SavedLibraryInsertionCue>(null);
+  const [derivedOutputCreationCue, setDerivedOutputCreationCue] = useState<DerivedOutputCreationCue>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [settingsView, setSettingsView] = useState<SettingsView>("home");
   const [designModal, setDesignModal] = useState<DesignModal>(null);
@@ -81,6 +83,8 @@ export function useEditorSessionState() {
     setReportTreeSelectionCue,
     savedLibraryInsertionCue,
     setSavedLibraryInsertionCue,
+    derivedOutputCreationCue,
+    setDerivedOutputCreationCue,
     sourceSearch,
     setSourceSearch,
     settingsView,

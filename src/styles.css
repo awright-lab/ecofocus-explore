@@ -1602,6 +1602,29 @@ h2 {
   line-height: 1.35;
 }
 
+.derived-output-creation-cue {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid #b8d7c5;
+  border-radius: 10px;
+  background: #f2fbf5;
+}
+
+.derived-output-creation-cue strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.derived-output-creation-cue span,
+.derived-output-creation-cue small {
+  color: #60756b;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 .library-insertion-context {
   display: grid;
   gap: 7px;
