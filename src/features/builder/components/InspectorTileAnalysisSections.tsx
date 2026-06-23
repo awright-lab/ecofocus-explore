@@ -78,7 +78,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
   const derivedOutputCue = buildDerivedOutputCreationCueView(derivedOutputCreationCue, selectedTile);
-  const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile);
+  const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, activePage.tiles);
   const derivedOutputViews = buildDerivedOutputViews(selectedTile);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
@@ -159,7 +159,12 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
-                {derivedOutputDetail && <DerivedOutputDetailCard view={derivedOutputDetail} />}
+                {derivedOutputDetail && (
+                  <DerivedOutputDetailCard
+                    view={derivedOutputDetail}
+                    onSelectSource={(tileId) => selectTile(tileId)}
+                  />
+                )}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
                 <div className="derived-output-actions">
                   {derivedOutputViews.map((view) => (
@@ -213,7 +218,7 @@ function DerivedOutputCard({
         )}
       </div>
       <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
-        {view.kind === "top_n_extract" ? "Create top-N extract" : "Create summary output"}
+        {view.kind === "top_n_extract" ? "Create top-N extract" : view.kind === "bottom_n_extract" ? "Create bottom-N extract" : "Create summary output"}
       </button>
     </div>
   );
@@ -239,17 +244,30 @@ function DerivedOutputCreationCueCard({ view }: { view: DerivedOutputCreationCue
   );
 }
 
-function DerivedOutputDetailCard({ view }: { view: DerivedOutputDetailView }) {
+function DerivedOutputDetailCard({
+  view,
+  onSelectSource
+}: {
+  view: DerivedOutputDetailView;
+  onSelectSource: (tileId: string) => void;
+}) {
   return (
-    <div className="derived-output-detail-card" aria-label="Derived output relationship">
+    <div className={`derived-output-detail-card ${view.sourceStatus}`} aria-label="Derived output relationship">
       <strong>{view.label}</strong>
       <span>Source tile: {view.sourceLabel}</span>
+      <span>{view.sourceStatusLabel}</span>
       <small>{view.description}</small>
+      <small>{view.sourceStatusHelper}</small>
       <div className="explorer-chip-row">
         {view.chips.map((chip) => (
           <span className="explorer-chip" key={chip}>{chip}</span>
         ))}
       </div>
+      {view.sourceTileId && (
+        <button type="button" className="secondary" onClick={() => onSelectSource(view.sourceTileId!)}>
+          Go to source tile
+        </button>
+      )}
     </div>
   );
 }

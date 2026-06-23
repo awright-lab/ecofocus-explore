@@ -14,7 +14,9 @@ export interface DerivedOutputCreationCueView {
 }
 
 function derivedOutputKindLabel(kind: NonNullable<DashboardTile["derivedOutput"]>["kind"]) {
-  return kind === "top_n_extract" ? "top-N extract" : "lead-row summary";
+  if (kind === "top_n_extract") return "top-N extract";
+  if (kind === "bottom_n_extract") return "bottom-N extract";
+  return "lead-row summary";
 }
 
 export function buildSavedLibraryInsertionCueView(

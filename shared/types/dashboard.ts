@@ -111,7 +111,7 @@ export interface DashboardTile {
     };
   };
   derivedOutput?: {
-    kind: "lead_row_summary" | "top_n_extract";
+    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract";
     sourceTileId: string;
     sourceTitle: string;
     rowId?: string;

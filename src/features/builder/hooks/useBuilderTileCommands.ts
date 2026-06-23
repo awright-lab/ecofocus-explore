@@ -324,15 +324,15 @@ export function useBuilderTileCommands({
     const outputResult = buildDerivedOutputResponse(tile, kind);
     const derivedOutput = buildDerivedOutputMetadata(tile, kind);
     if (!outputResult || !derivedOutput) {
-      setError(kind === "top_n_extract"
+      setError(kind === "top_n_extract" || kind === "bottom_n_extract"
         ? "This tile does not have result rows that can be extracted."
         : "This tile does not have a result row that can be summarized.");
       return null;
     }
 
     const outputId = makeTileId();
-    const outputTitle = derivedOutput.kind === "top_n_extract"
-      ? `Top ${derivedOutput.rowCount ?? 0} ${derivedOutput.columnLabel}`
+    const outputTitle = derivedOutput.kind === "top_n_extract" || derivedOutput.kind === "bottom_n_extract"
+      ? `${derivedOutput.kind === "top_n_extract" ? "Top" : "Bottom"} ${derivedOutput.rowCount ?? 0} ${derivedOutput.columnLabel}`
       : `${derivedOutput.rowLabel} summary`;
     const outputTile: DashboardTile = {
       ...tile,

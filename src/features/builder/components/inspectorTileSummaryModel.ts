@@ -36,7 +36,11 @@ function filterSummary(tile: DashboardTile) {
 
 function sourceDescription(tile: DashboardTile) {
   if (tile.derivedOutput) {
-    const outputLabel = tile.derivedOutput.kind === "top_n_extract" ? "top-N extract" : "lead row summary";
+    const outputLabel = tile.derivedOutput.kind === "top_n_extract"
+      ? "top-N extract"
+      : tile.derivedOutput.kind === "bottom_n_extract"
+        ? "bottom-N extract"
+        : "lead row summary";
     return `Derived ${outputLabel} from ${tile.derivedOutput.sourceTitle}.`;
   }
   if (tile.source?.kind === "variableSet") return "Based on a saved variable set. Row structure and saved defaults can be refined from the source library.";
@@ -78,8 +82,8 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
   const lifecycle = lifecycleSummary(tile);
   const derivedOutputChips = tile.derivedOutput
     ? [
-      `Derived output: ${tile.derivedOutput.kind === "top_n_extract" ? "Top-N extract" : "Lead row summary"}`,
-      tile.derivedOutput.kind === "top_n_extract" ? `${tile.derivedOutput.rowCount ?? 0} rows` : tile.derivedOutput.rowLabel ?? "Summary row",
+      `Derived output: ${tile.derivedOutput.kind === "top_n_extract" ? "Top-N extract" : tile.derivedOutput.kind === "bottom_n_extract" ? "Bottom-N extract" : "Lead row summary"}`,
+      tile.derivedOutput.kind === "top_n_extract" || tile.derivedOutput.kind === "bottom_n_extract" ? `${tile.derivedOutput.rowCount ?? 0} rows` : tile.derivedOutput.rowLabel ?? "Summary row",
       `${tile.derivedOutput.columnLabel}${tile.derivedOutput.valueLabel ? `: ${tile.derivedOutput.valueLabel}` : ""}`,
       ...(tile.derivedOutput.baseLabel ? [tile.derivedOutput.baseLabel] : [])
     ]

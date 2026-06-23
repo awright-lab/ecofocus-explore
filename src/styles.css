@@ -1634,6 +1634,17 @@ h2 {
   background: #fbfefb;
 }
 
+.derived-output-detail-card.available {
+  border-color: #b8d7c5;
+  background: #f2fbf5;
+}
+
+.derived-output-detail-card.missing,
+.derived-output-detail-card.unresolved {
+  border-color: #f0d8aa;
+  background: #fffaf0;
+}
+
 .derived-output-detail-card strong {
   color: #20342a;
   font-size: 0.78rem;
@@ -1646,6 +1657,10 @@ h2 {
   font-size: 0.72rem;
   font-weight: 650;
   line-height: 1.4;
+}
+
+.derived-output-detail-card button {
+  justify-self: start;
 }
 
 .library-insertion-context {
