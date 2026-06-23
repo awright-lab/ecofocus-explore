@@ -511,6 +511,7 @@ export default function BuilderApp() {
     savedVariableSets,
     savedBanners,
     savedFilters,
+    savedSegmentProfiles,
     savedWeights,
     savedAnalyticalTemplates,
     savedDerivedDefinitions,
@@ -545,6 +546,9 @@ export default function BuilderApp() {
     saveCurrentBanner,
     applySavedFilter,
     saveCurrentFilter,
+    saveCurrentSegmentProfile,
+    applySegmentProfile,
+    deleteSegmentProfile,
     applySavedWeight,
     saveCurrentWeight
   } = useAnalysisAuthoring({
@@ -595,6 +599,7 @@ export default function BuilderApp() {
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
     addTileFromAnalyticalTemplate,
+    addTileFromSegmentProfile,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
@@ -904,6 +909,7 @@ export default function BuilderApp() {
           deleteVariableSet={deleteVariableSet}
           savedBanners={savedBanners}
           savedFilters={savedFilters}
+          savedSegmentProfiles={savedSegmentProfiles}
           savedWeights={savedWeights}
           savedAnalyticalTemplates={savedAnalyticalTemplates}
           savedDerivedDefinitions={savedDerivedDefinitions}
@@ -941,6 +947,7 @@ export default function BuilderApp() {
           addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
           addTileFromVariableSet={addTileFromVariableSet}
           addTileFromAnalyticalTemplate={addTileFromAnalyticalTemplate}
+          addTileFromSegmentProfile={addTileFromSegmentProfile}
           isLoading={isLoading}
           applySavedBanner={applySavedBanner}
           bannerDraftName={bannerDraftName}
@@ -950,6 +957,9 @@ export default function BuilderApp() {
           filterDraftName={filterDraftName}
           setFilterDraftName={setFilterDraftName}
           saveCurrentFilter={saveCurrentFilter}
+          saveCurrentSegmentProfile={saveCurrentSegmentProfile}
+          applySegmentProfile={applySegmentProfile}
+          deleteSegmentProfile={deleteSegmentProfile}
           applySavedWeight={applySavedWeight}
           weightDraftName={weightDraftName}
           setWeightDraftName={setWeightDraftName}

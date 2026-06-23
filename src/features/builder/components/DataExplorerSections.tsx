@@ -30,8 +30,10 @@ import {
   bannerReuseState,
   buildSavedVariableSetInsertionFeedback,
   buildSavedSettingApplyFeedback,
+  buildSegmentProfileCompatibilityView,
   filterReuseState,
   savedLibraryItemClass,
+  segmentProfileFilterLabel,
   type AnalyticalTemplateReuseContext,
   type SavedAnalyticalTemplateInsertionFeedback,
   type SavedSettingApplyFeedback,
@@ -461,6 +463,9 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
         <button type="button" className={analysisLibraryView === "derivedOutputs" ? "active" : ""} onClick={() => setAnalysisLibraryView("derivedOutputs")}>
           Derived
         </button>
+        <button type="button" className={analysisLibraryView === "segments" ? "active" : ""} onClick={() => setAnalysisLibraryView("segments")}>
+          Segments
+        </button>
         <button type="button" className={analysisLibraryView === "banners" ? "active" : ""} onClick={() => setAnalysisLibraryView("banners")}>
           Banners
         </button>
@@ -474,6 +479,7 @@ export function AnalysisLibrarySection(props: AnalysisAuthoringPanelProps) {
       {analysisLibraryView === "variableSets" && <VariableSetEditorSection {...props} />}
       {analysisLibraryView === "templates" && <AnalyticalTemplateLibrarySection {...props} />}
       {analysisLibraryView === "derivedOutputs" && <DerivedOutputLibrarySection {...props} />}
+      {analysisLibraryView === "segments" && <SegmentProfileLibrarySection {...props} />}
       {analysisLibraryView === "banners" && <SavedBannersSection {...props} />}
       {analysisLibraryView === "filters" && <SavedFiltersSection {...props} />}
       {analysisLibraryView === "weights" && <SavedWeightsSection {...props} />}
@@ -1041,6 +1047,156 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
         </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SegmentProfileLibrarySection(props: AnalysisAuthoringPanelProps) {
+  const {
+    savedSegmentProfiles,
+    saveCurrentSegmentProfile,
+    applySegmentProfile,
+    deleteSegmentProfile,
+    addTileFromSegmentProfile,
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    filterField,
+    filterValue,
+    isLoading
+  } = props;
+  const [feedback, setFeedback] = useState<{
+    itemId: string | null;
+    label: string;
+    message: string;
+  } | null>(null);
+  const insertionContext = buildInsertionContextView({
+    activePage,
+    layerItems,
+    selectedTileId,
+    selectedElementId,
+    objectKind: "analytical"
+  });
+
+  function saveCurrentSegment() {
+    saveCurrentSegmentProfile();
+    setFeedback({
+      itemId: null,
+      label: "Segment profile saved",
+      message: "Saved the current filter context as a reusable segment profile."
+    });
+  }
+
+  function loadSegment(segment: typeof savedSegmentProfiles[number]) {
+    applySegmentProfile(segment);
+    setFeedback({
+      itemId: segment.id,
+      label: "Segment loaded",
+      message: `${segment.label} is now the active authoring segment.`
+    });
+  }
+
+  async function createSegmentOutput(segment: typeof savedSegmentProfiles[number]) {
+    const createdTileId = await addTileFromSegmentProfile(segment);
+    if (!createdTileId) return;
+    setFeedback({
+      itemId: segment.id,
+      label: "Created from segment",
+      message: `Added an analytical output using ${segmentProfileFilterLabel(segment)} at ${insertionContext.placementLabel.toLowerCase()}.`
+    });
+  }
+
+  function removeSegment(segment: typeof savedSegmentProfiles[number]) {
+    if (!window.confirm(`Delete segment profile "${segment.label}"?`)) return;
+    deleteSegmentProfile(segment.id);
+    setFeedback({
+      itemId: null,
+      label: "Segment profile deleted",
+      message: `"${segment.label}" was removed from the segment library.`
+    });
+  }
+
+  return (
+    <div className="explorer-section-card">
+      <div className="explorer-section-header">
+        <strong>Segment profiles</strong>
+        <small>{savedSegmentProfiles.length} saved · {insertionContext.targetPageLabel} · {insertionContext.placementLabel}</small>
+      </div>
+      <div className="library-insertion-context">
+        <div className="insertion-context-grid">
+          <div>
+            <span>Current segment</span>
+            <strong>{currentFilterLabel(filterField, filterValue)}</strong>
+          </div>
+          <div>
+            <span>Placement</span>
+            <strong>{insertionContext.placementLabel}</strong>
+          </div>
+        </div>
+        <small>{insertionContext.helperText}</small>
+      </div>
+      <div className="library-reuse-actions">
+        <button type="button" className="secondary" onClick={saveCurrentSegment}>
+          Save current segment
+        </button>
+      </div>
+      {feedback?.itemId === null && (
+        <div className="template-management-feedback" role="status">
+          <strong>{feedback.label}</strong>
+          <span>{feedback.message}</span>
+        </div>
+      )}
+      {savedSegmentProfiles.length === 0 ? (
+        <div className="empty-state compact">No segment profiles saved yet.</div>
+      ) : (
+        <div className="explorer-item-list compact">
+          {savedSegmentProfiles.map((segment) => {
+            const compatibility = buildSegmentProfileCompatibilityView(segment, filterField, filterValue);
+            return (
+              <div key={segment.id} className={savedLibraryItemClass(false, feedback?.itemId === segment.id)}>
+                <strong>{segment.label}</strong>
+                <span>{segment.description}</span>
+                <small className="library-reuse-helper">
+                  {segmentProfileFilterLabel(segment)} · Context: {segment.summary.contextLabel}
+                </small>
+                <div className="explorer-chip-row">
+                  <span className="explorer-chip">{segment.summary.dimensionLabel}</span>
+                  <span className="explorer-chip">{segment.summary.valueLabel}</span>
+                  <span className={compatibility.status === "matches" ? "explorer-chip" : "explorer-chip warning-chip"}>
+                    {compatibility.label}
+                  </span>
+                </div>
+                <div className={compatibility.status === "matches" ? "template-compatibility" : "template-compatibility differs"}>
+                  <strong>{compatibility.label}</strong>
+                  <small>{compatibility.helper}</small>
+                  <div className="template-compatibility-grid">
+                    <span>Saved: {segmentProfileFilterLabel(segment)}</span>
+                    <span>Current: {compatibility.currentLabel}</span>
+                  </div>
+                </div>
+                <div className="library-reuse-actions">
+                  <button type="button" className="secondary" onClick={() => loadSegment(segment)}>
+                    Load segment
+                  </button>
+                  <button type="button" className="secondary" onClick={() => void createSegmentOutput(segment)} disabled={isLoading}>
+                    Create from segment
+                  </button>
+                  <button type="button" className="secondary danger-action" onClick={() => removeSegment(segment)}>
+                    Delete
+                  </button>
+                </div>
+                {feedback?.itemId === segment.id && (
+                  <div className="template-management-feedback" role="status">
+                    <strong>{feedback.label}</strong>
+                    <span>{feedback.message}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

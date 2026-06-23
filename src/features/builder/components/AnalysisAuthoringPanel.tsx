@@ -13,7 +13,7 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
-import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedDerivedDefinition, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
+import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedDerivedDefinition, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
@@ -98,6 +98,7 @@ export type AnalysisAuthoringPanelProps = {
   deleteVariableSet: (variableSetId: string) => void;
   savedBanners: SavedBanner[];
   savedFilters: SavedFilterSet[];
+  savedSegmentProfiles: SavedSegmentProfile[];
   savedWeights: SavedWeightProfile[];
   savedAnalyticalTemplates: SavedAnalyticalTemplate[];
   savedDerivedDefinitions: SavedDerivedDefinition[];
@@ -133,6 +134,7 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
+  addTileFromSegmentProfile: (segment: SavedSegmentProfile) => Promise<string | null>;
   duplicateDerivedOutputFromLibrary: (pageId: string, tileId: string) => string | null;
   createDerivedOutputFromDefinition: (definition: SavedDerivedDefinition) => string | null;
   isLoading: boolean;
@@ -144,6 +146,9 @@ export type AnalysisAuthoringPanelProps = {
   filterDraftName: string;
   setFilterDraftName: (value: string) => void;
   saveCurrentFilter: () => void;
+  saveCurrentSegmentProfile: () => void;
+  applySegmentProfile: (segment: SavedSegmentProfile) => void;
+  deleteSegmentProfile: (segmentId: string) => void;
   applySavedWeight: (weight: SavedWeightProfile) => void;
   weightDraftName: string;
   setWeightDraftName: (value: string) => void;

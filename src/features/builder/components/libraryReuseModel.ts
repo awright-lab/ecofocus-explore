@@ -1,5 +1,5 @@
 import type { AnalyticsQueryRequest, ChartType } from "../../../../shared/types/analytics";
-import type { DashboardTile, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
+import type { DashboardTile, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import {
   bannerDimensions,
@@ -68,6 +68,13 @@ export interface AnalyticalTemplateCompatibilityView {
   differences: AnalyticalTemplateCompatibilityDifference[];
 }
 
+export interface SegmentProfileCompatibilityView {
+  status: "matches" | "differs";
+  label: string;
+  helper: string;
+  currentLabel: string;
+}
+
 export function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
   return ["explorer-item", active ? "active" : "", recentlySaved ? "recently-saved" : ""].filter(Boolean).join(" ");
 }
@@ -112,6 +119,40 @@ export function buildSavedAnalyticalTemplateInsertionFeedback(
     label: "Created from template",
     message: `Added "${template.label}" to "${insertionContext.targetPageLabel}" at ${insertionContext.placementLabel.toLowerCase()} and selected it for inspector editing.`
   };
+}
+
+export function segmentProfileFilterLabel(profile: SavedSegmentProfile) {
+  if (!profile.filterField || profile.filterValue === "all") return "All respondents";
+  return `${profile.summary.dimensionLabel}: ${profile.summary.valueLabel}`;
+}
+
+export function buildSegmentProfileCompatibilityView(
+  profile: SavedSegmentProfile,
+  currentFilterField: SavedSegmentProfile["filterField"],
+  currentFilterValue: string
+): SegmentProfileCompatibilityView {
+  const profileKey = `${profile.filterField ?? "none"}:${profile.filterValue}`;
+  const currentKey = `${currentFilterField ?? "none"}:${currentFilterValue}`;
+  const currentField = currentFilterField ? filterDimensions.find((item) => item.id === currentFilterField) : undefined;
+  const currentValue = currentField?.values.find((item) => item.id === currentFilterValue);
+  const currentLabel =
+    currentFilterField && currentFilterValue !== "all"
+      ? `${currentField?.label ?? currentFilterField}: ${currentValue?.label ?? currentFilterValue}`
+      : "All respondents";
+
+  return profileKey === currentKey
+    ? {
+      status: "matches",
+      label: "Matches current segment",
+      helper: "The current authoring filter already matches this saved segment.",
+      currentLabel
+    }
+    : {
+      status: "differs",
+      label: "Differs from current segment",
+      helper: "Loading or creating from this profile uses the saved segment filter.",
+      currentLabel
+    };
 }
 
 function queryBannerLabel(query: AnalyticsQueryRequest) {

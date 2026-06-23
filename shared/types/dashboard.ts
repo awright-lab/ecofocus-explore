@@ -260,6 +260,25 @@ export interface SavedFilterSet {
   filterValue: string;
 }
 
+export interface SavedSegmentProfile {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  filterField: FilterFieldId | null;
+  filterValue: string;
+  sourceContext?: {
+    kind: "question" | "variableSet";
+    id: string;
+    label: string;
+  };
+  summary: {
+    dimensionLabel: string;
+    valueLabel: string;
+    contextLabel: string;
+  };
+}
+
 export interface SavedWeightProfile {
   id: string;
   datasetId: DatasetId;
@@ -443,6 +462,7 @@ export interface DashboardDraft {
     variableSets: SavedVariableSet[];
     banners: SavedBanner[];
     filters: SavedFilterSet[];
+    segments: SavedSegmentProfile[];
     weights: SavedWeightProfile[];
     templates: SavedAnalyticalTemplate[];
     derivedDefinitions: SavedDerivedDefinition[];

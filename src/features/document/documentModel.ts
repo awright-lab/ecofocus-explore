@@ -216,6 +216,25 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           filterField: filter.filterField ?? (defaultFilterDimension?.id ?? null),
           filterValue: filter.filterValue ?? "all"
         })) ?? seedSavedFilters(),
+      segments:
+        dashboard.analysisLibrary?.segments?.map((segment, index) => {
+          const field = segment.filterField ? filterDimensions.find((item) => item.id === segment.filterField) : undefined;
+          const value = field?.values.find((item) => item.id === segment.filterValue);
+          return {
+            ...segment,
+            id: segment.id ?? `segment_${index + 1}`,
+            datasetId: segment.datasetId ?? defaultDataset.id,
+            label: segment.label ?? value?.label ?? field?.label ?? `Segment ${index + 1}`,
+            description: segment.description ?? "",
+            filterField: segment.filterField ?? null,
+            filterValue: segment.filterValue ?? "all",
+            summary: {
+              dimensionLabel: segment.summary?.dimensionLabel ?? field?.label ?? "All respondents",
+              valueLabel: segment.summary?.valueLabel ?? value?.label ?? (segment.filterValue === "all" ? "All" : segment.filterValue ?? "All"),
+              contextLabel: segment.summary?.contextLabel ?? segment.sourceContext?.label ?? "Any source"
+            }
+          };
+        }) ?? [],
       weights:
         dashboard.analysisLibrary?.weights?.map((weightProfile, index) => ({
           ...weightProfile,

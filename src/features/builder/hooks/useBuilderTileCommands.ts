@@ -10,7 +10,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedVariableSet } from "../../../../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
@@ -257,6 +257,24 @@ export function useBuilderTileCommands({
   async function addTileFromAnalyticalTemplate(template: SavedAnalyticalTemplate) {
     const templateQuery = queryForAnalyticalTemplate(template);
     return createTileFromSource(templateQuery, template.label, undefined, template.source);
+  }
+
+  async function addTileFromSegmentProfile(segment: SavedSegmentProfile) {
+    const segmentQuery: AnalyticsQueryRequest = {
+      ...query,
+      filters:
+        segment.filterField && segment.filterValue !== "all"
+          ? [{ field: segment.filterField, values: [segment.filterValue] }]
+          : []
+    };
+    return createTileFromSource(
+      segmentQuery,
+      `${selectedVariableSet?.label ?? selectedQuestion.shortLabel} - ${segment.label}`,
+      undefined,
+      selectedVariableSet
+        ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
+        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
+    );
   }
 
   async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
@@ -573,6 +591,7 @@ export function useBuilderTileCommands({
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
     addTileFromAnalyticalTemplate,
+    addTileFromSegmentProfile,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,

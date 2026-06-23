@@ -27,6 +27,7 @@ import type {
   SavedBanner,
   SavedDerivedDefinition,
   SavedFilterSet,
+  SavedSegmentProfile,
   SavedVariableSet,
   SavedWeightProfile
 } from "../../../shared/types/dashboard";
@@ -101,6 +102,7 @@ export function useAnalysisAuthoring({
   const savedVariableSets = dashboard.analysisLibrary.variableSets;
   const savedBanners = dashboard.analysisLibrary.banners;
   const savedFilters = dashboard.analysisLibrary.filters;
+  const savedSegmentProfiles = dashboard.analysisLibrary.segments;
   const savedWeights = dashboard.analysisLibrary.weights;
   const savedAnalyticalTemplates = dashboard.analysisLibrary.templates;
   const savedDerivedDefinitions = dashboard.analysisLibrary.derivedDefinitions;
@@ -499,6 +501,72 @@ export function useAnalysisAuthoring({
     setError(null);
   }
 
+  function segmentProfileSummary(nextFilterField: FilterFieldId | null, nextFilterValue: string) {
+    const field = nextFilterField ? filterDimensions.find((item) => item.id === nextFilterField) : undefined;
+    const value = field?.values.find((item) => item.id === nextFilterValue);
+    const sourceContext = selectedVariableSet
+      ? { kind: "variableSet" as const, id: selectedVariableSet.id, label: selectedVariableSet.label }
+      : { kind: "question" as const, id: selectedQuestion.id, label: selectedQuestion.shortLabel };
+
+    return {
+      field,
+      value,
+      sourceContext,
+      dimensionLabel: field?.label ?? "All respondents",
+      valueLabel: nextFilterField && nextFilterValue !== "all" ? value?.label ?? nextFilterValue : "All respondents"
+    };
+  }
+
+  function saveCurrentSegmentProfile() {
+    const summary = segmentProfileSummary(filterField, filterValue);
+    const label = summary.valueLabel === "All respondents" ? "All respondents segment" : summary.valueLabel;
+    const nextSegment: SavedSegmentProfile = {
+      id: `segment_${Date.now()}`,
+      datasetId: defaultDataset.id,
+      label,
+      description:
+        filterField && filterValue !== "all"
+          ? `Saved segment for ${summary.dimensionLabel}: ${summary.valueLabel}`
+          : "No segment filter applied.",
+      filterField,
+      filterValue,
+      sourceContext: summary.sourceContext,
+      summary: {
+        dimensionLabel: summary.dimensionLabel,
+        valueLabel: summary.valueLabel,
+        contextLabel: summary.sourceContext.label
+      }
+    };
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        segments: [nextSegment, ...current.analysisLibrary.segments]
+      }
+    }));
+    setError(null);
+  }
+
+  function applySegmentProfile(segment: SavedSegmentProfile) {
+    setFilterField(segment.filterField);
+    setFilterValue(segment.filterValue);
+    setFilterDraftName(segment.label);
+  }
+
+  function deleteSegmentProfile(segmentId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        segments: current.analysisLibrary.segments.filter((item) => item.id !== segmentId)
+      }
+    }));
+    setError(null);
+  }
+
   function applySavedWeight(weightProfile: SavedWeightProfile) {
     setWeight(weightProfile.weight);
     setWeightDraftName(weightProfile.label);
@@ -626,6 +694,7 @@ export function useAnalysisAuthoring({
     savedVariableSets,
     savedBanners,
     savedFilters,
+    savedSegmentProfiles,
     savedWeights,
     savedAnalyticalTemplates,
     savedDerivedDefinitions,
@@ -656,6 +725,9 @@ export function useAnalysisAuthoring({
     saveCurrentBanner,
     applySavedFilter,
     saveCurrentFilter,
+    saveCurrentSegmentProfile,
+    applySegmentProfile,
+    deleteSegmentProfile,
     applySavedWeight,
     saveCurrentWeight,
     saveAnalyticalTemplate,

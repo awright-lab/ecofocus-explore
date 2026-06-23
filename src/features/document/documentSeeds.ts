@@ -542,6 +542,7 @@ export const initialDashboard: DashboardDraft = {
     variableSets: seedVariableSets(),
     banners: seedSavedBanners(),
     filters: seedSavedFilters(),
+    segments: [],
     weights: seedSavedWeights(),
     templates: seedAnalyticalTemplates(),
     derivedDefinitions: []
