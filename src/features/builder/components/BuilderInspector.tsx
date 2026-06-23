@@ -27,6 +27,7 @@ import type {
   PageMasterPreset,
   PageThemePreset,
   SavedBanner,
+  SavedDerivedDefinition,
   SavedFilterSet,
   SavedVariableSet,
   SavedWeightProfile,
@@ -90,6 +91,7 @@ export type BuilderInspectorProps = {
   duplicateDerivedOutputTile: (tile: DashboardTile) => string | null;
   createDerivedOutputTile: (tile: DashboardTile, kind: DerivedOutputKind) => string | null;
   recreateDerivedOutputTile: (tile: DashboardTile) => boolean;
+  saveDerivedDefinition: (definition: SavedDerivedDefinition) => void;
   rerunTileAnalysis: (tile: DashboardTile, nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest) => Promise<boolean>;
   saveSelectedTileVariableSet: () => void;
   saveSelectedTileAnalyticalTemplate: () => void;

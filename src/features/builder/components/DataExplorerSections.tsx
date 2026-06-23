@@ -20,7 +20,7 @@ import {
 } from "./sourceExplorerModel";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { VariableSetMetadataSection, VariableSetRowListSection, VariableSetRowLogicSection } from "./VariableSetEditorSections";
-import { buildDerivedOutputLibraryItems } from "./derivedOutputModel";
+import { buildDerivedDefinitionLibraryItems, buildDerivedOutputLibraryItems } from "./derivedOutputModel";
 import {
   analyticalTemplateSummaryChips,
   analyticalTemplateDifferenceLabels,
@@ -773,6 +773,9 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     activePage,
     setActivePageId,
     selectTile,
+    savedDerivedDefinitions,
+    deleteDerivedDefinition,
+    createDerivedOutputFromDefinition,
     duplicateDerivedOutputFromLibrary,
     saveAnalyticalTemplate,
     recordDerivedOutputLibraryActionCue
@@ -782,6 +785,13 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     label: string;
     message: string;
   } | null>(null);
+  const [definitionFeedback, setDefinitionFeedback] = useState<{
+    itemId: string | null;
+    label: string;
+    message: string;
+  } | null>(null);
+  const highlightNewestDefinition = props.savedLibraryHandoff?.view === "derivedOutputs";
+  const derivedDefinitions = buildDerivedDefinitionLibraryItems(savedDerivedDefinitions, activePage);
   const derivedOutputs = buildDerivedOutputLibraryItems(sortedPages);
 
   function findTile(pageId: string, tileId: string) {
@@ -846,18 +856,96 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
     });
   }
 
+  function createFromDefinition(definitionId: string) {
+    const definition = savedDerivedDefinitions.find((item) => item.id === definitionId);
+    if (!definition) return;
+    const createdTileId = createDerivedOutputFromDefinition(definition);
+    if (!createdTileId) return;
+    setDefinitionFeedback({
+      itemId: definition.id,
+      label: "Created from definition",
+      message: `Created a ${definition.summary.outputLabel.toLowerCase()} from "${definition.sourceTileTitle}".`
+    });
+  }
+
+  function removeDefinition(definitionId: string) {
+    const definition = savedDerivedDefinitions.find((item) => item.id === definitionId);
+    if (!definition) return;
+    if (!window.confirm(`Delete derived definition "${definition.label}"?`)) return;
+    deleteDerivedDefinition(definitionId);
+    setDefinitionFeedback({
+      itemId: null,
+      label: "Definition deleted",
+      message: `"${definition.label}" was removed from the derived definition library.`
+    });
+  }
+
   return (
     <div className="explorer-section-card">
       <div className="explorer-section-header">
         <strong>Derived outputs</strong>
-        <small>{derivedOutputs.length} in report · Current page: {activePage.title}</small>
+        <small>{derivedDefinitions.length} definitions · {derivedOutputs.length} in report · Current page: {activePage.title}</small>
       </div>
       <small className="library-reuse-helper">
         Derived outputs are managed report artifacts. They are not live-linked; recreate from the inspector when a source result should be reflected.
       </small>
-      {derivedOutputs.length === 0 ? (
-        <div className="empty-state compact">No derived outputs in this report yet.</div>
-      ) : (
+      {definitionFeedback?.itemId === null && (
+        <div className="template-management-feedback deleted" role="status">
+          <strong>{definitionFeedback.label}</strong>
+          <span>{definitionFeedback.message}</span>
+        </div>
+      )}
+      <div className="derived-library-subsection">
+        <div className="explorer-section-header compact">
+          <strong>Saved definitions</strong>
+          <small>Reusable derived-output specs</small>
+        </div>
+        {derivedDefinitions.length === 0 ? (
+          <div className="empty-state compact">No derived definitions saved yet.</div>
+        ) : (
+          <div className="explorer-item-list compact">
+            {derivedDefinitions.map((item, index) => (
+              <div key={item.id} className={savedLibraryItemClass(false, (highlightNewestDefinition && index === 0) || definitionFeedback?.itemId === item.id)}>
+                <strong>{item.title}</strong>
+                <span>{item.label} · {item.sourceLabel}</span>
+                <small className="library-reuse-helper">{item.structuralSummary} · {item.querySummary}</small>
+                <div className="explorer-chip-row">
+                  {item.chips.map((chip) => (
+                    <span className={item.sourceStatus === "available" || chip !== item.sourceStatusLabel ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>{chip}</span>
+                  ))}
+                </div>
+                <div className="template-detail-card">
+                  <span>Source status: {item.sourceStatusLabel}</span>
+                  <span>Definition: {item.structuralSummary}</span>
+                  <span>Query: {item.querySummary}</span>
+                </div>
+                <div className="library-reuse-actions">
+                  <button type="button" className="secondary" onClick={() => createFromDefinition(item.id)} disabled={item.sourceStatus !== "available"}>
+                    Create from definition
+                  </button>
+                  <button type="button" className="secondary danger-action" onClick={() => removeDefinition(item.id)}>
+                    Delete definition
+                  </button>
+                </div>
+                {definitionFeedback?.itemId === item.id && (
+                  <div className="template-management-feedback" role="status">
+                    <strong>{definitionFeedback.label}</strong>
+                    <span>{definitionFeedback.message}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="derived-library-subsection">
+        <div className="explorer-section-header compact">
+          <strong>Report instances</strong>
+          <small>Existing derived-output tiles</small>
+        </div>
+        {derivedOutputs.length === 0 ? (
+          <div className="empty-state compact">No derived outputs in this report yet.</div>
+        ) : (
         <div className="explorer-item-list compact">
           {derivedOutputs.map((item) => (
             <div key={item.id} className={savedLibraryItemClass(false, feedback?.itemId === item.id)}>
@@ -894,7 +982,8 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
             </div>
           ))}
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

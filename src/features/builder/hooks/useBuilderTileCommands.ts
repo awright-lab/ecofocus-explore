@@ -10,7 +10,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedVariableSet } from "../../../../shared/types/dashboard";
+import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
@@ -475,6 +475,16 @@ export function useBuilderTileCommands({
     return outputTile.id;
   }
 
+  function createDerivedOutputFromDefinition(definition: SavedDerivedDefinition) {
+    const sourceTile = activePage.tiles.find((tile) => tile.id === definition.sourceTileId);
+    if (!sourceTile) {
+      setError("Open the page with this definition's source tile before creating from it.");
+      return null;
+    }
+
+    return createDerivedOutputTile(sourceTile, definition.outputKind);
+  }
+
   function recreateDerivedOutputTile(tile: DashboardTile) {
     const sourceTileId = tile.derivedOutput?.sourceTileId;
     if (!tile.derivedOutput || !sourceTileId) {
@@ -543,6 +553,7 @@ export function useBuilderTileCommands({
     duplicateDerivedOutputTile,
     duplicateDerivedOutputFromLibrary,
     createDerivedOutputTile,
+    createDerivedOutputFromDefinition,
     recreateDerivedOutputTile
   };
 }

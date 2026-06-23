@@ -130,6 +130,32 @@ function normalizeTemplateSummary(
   };
 }
 
+function derivedOutputLabel(kind: DashboardDraft["analysisLibrary"]["derivedDefinitions"][number]["outputKind"]) {
+  if (kind === "top_n_extract") return "Top-N extract";
+  if (kind === "bottom_n_extract") return "Bottom-N extract";
+  return "Lead-row summary";
+}
+
+function normalizeDerivedDefinitionSummary(
+  definition: DashboardDraft["analysisLibrary"]["derivedDefinitions"][number],
+  query: ReturnType<typeof normalizeTemplateQuery>
+) {
+  const outputLabel = derivedOutputLabel(definition.outputKind ?? "lead_row_summary");
+  const sourceLabel = definition.summary?.sourceLabel ?? definition.source?.label ?? getQuestionLabel(query.question);
+  const structureLabel =
+    definition.summary?.structureLabel ??
+    (definition.outputKind === "top_n_extract" || definition.outputKind === "bottom_n_extract"
+      ? `${definition.spec?.rowCount ?? 0} rows from ${definition.spec?.columnLabel ?? "selected column"}`
+      : `${definition.spec?.rowLabel ?? "Lead row"} from ${definition.spec?.columnLabel ?? "selected column"}`);
+
+  return {
+    outputLabel: definition.summary?.outputLabel ?? outputLabel,
+    sourceLabel,
+    structureLabel,
+    queryLabel: definition.summary?.queryLabel ?? `${sourceLabel} · ${outputLabel}`
+  };
+}
+
 export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
   const seededDesignLibrary = seedDesignLibrary();
   return {
@@ -218,7 +244,37 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             visualization: template.visualization ?? query.chartType,
             summary: normalizeTemplateSummary(template, query)
           };
-        }) ?? seedAnalyticalTemplates()
+        }) ?? seedAnalyticalTemplates(),
+      derivedDefinitions:
+        dashboard.analysisLibrary?.derivedDefinitions?.map((definition, index) => {
+          const query = normalizeTemplateQuery(definition.query);
+          const source = definition.source ?? {
+            kind: "question" as const,
+            id: query.question,
+            label: getQuestionLabel(query.question)
+          };
+          const outputKind = definition.outputKind ?? "lead_row_summary";
+          return {
+            ...definition,
+            id: definition.id ?? `derived_definition_${index + 1}`,
+            datasetId: definition.datasetId ?? query.dataset,
+            label: definition.label ?? `Derived definition ${index + 1}`,
+            description: definition.description ?? "",
+            source,
+            sourceTileId: definition.sourceTileId ?? "",
+            sourceTileTitle: definition.sourceTileTitle ?? source.label,
+            query,
+            outputKind,
+            spec: {
+              columnId: definition.spec?.columnId ?? query.breakBy,
+              columnLabel: definition.spec?.columnLabel ?? definition.summary?.structureLabel ?? "Selected column",
+              rowId: definition.spec?.rowId,
+              rowLabel: definition.spec?.rowLabel,
+              rowCount: definition.spec?.rowCount
+            },
+            summary: normalizeDerivedDefinitionSummary({ ...definition, outputKind }, query)
+          };
+        }) ?? []
     },
     designLibrary: {
       palettes:

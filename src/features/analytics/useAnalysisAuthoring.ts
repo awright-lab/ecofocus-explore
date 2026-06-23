@@ -25,6 +25,7 @@ import type {
   DashboardDraft,
   SavedAnalyticalTemplate,
   SavedBanner,
+  SavedDerivedDefinition,
   SavedFilterSet,
   SavedVariableSet,
   SavedWeightProfile
@@ -102,6 +103,7 @@ export function useAnalysisAuthoring({
   const savedFilters = dashboard.analysisLibrary.filters;
   const savedWeights = dashboard.analysisLibrary.weights;
   const savedAnalyticalTemplates = dashboard.analysisLibrary.templates;
+  const savedDerivedDefinitions = dashboard.analysisLibrary.derivedDefinitions;
   const [question, setQuestion] = useState<QuestionId>(defaultQuestion.id);
   const [breakBy, setBreakBy] = useState<BreakById>(defaultBreakBy.id as BreakById);
   const [metric, setMetric] = useState<Metric>(defaultQuestion.defaultMetric);
@@ -557,6 +559,35 @@ export function useAnalysisAuthoring({
     setError(null);
   }
 
+  function saveDerivedDefinition(definition: SavedDerivedDefinition) {
+    setDashboard((current) => {
+      const existing = current.analysisLibrary.derivedDefinitions.some((item) => item.id === definition.id);
+      return {
+        ...current,
+        status: "draft",
+        analysisLibrary: {
+          ...current.analysisLibrary,
+          derivedDefinitions: existing
+            ? current.analysisLibrary.derivedDefinitions.map((item) => (item.id === definition.id ? definition : item))
+            : [definition, ...current.analysisLibrary.derivedDefinitions]
+        }
+      };
+    });
+    setError(null);
+  }
+
+  function deleteDerivedDefinition(definitionId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        derivedDefinitions: current.analysisLibrary.derivedDefinitions.filter((item) => item.id !== definitionId)
+      }
+    }));
+    setError(null);
+  }
+
   return {
     question,
     setQuestion,
@@ -597,6 +628,7 @@ export function useAnalysisAuthoring({
     savedFilters,
     savedWeights,
     savedAnalyticalTemplates,
+    savedDerivedDefinitions,
     selectedQuestion,
     selectedVariableSet,
     filteredVariableSets,
@@ -627,6 +659,8 @@ export function useAnalysisAuthoring({
     applySavedWeight,
     saveCurrentWeight,
     saveAnalyticalTemplate,
-    deleteAnalyticalTemplate
+    deleteAnalyticalTemplate,
+    saveDerivedDefinition,
+    deleteDerivedDefinition
   };
 }

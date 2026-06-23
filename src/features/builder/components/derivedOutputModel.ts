@@ -1,5 +1,5 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
-import type { DashboardPage, DashboardTile } from "../../../../shared/types/dashboard";
+import type { DashboardPage, DashboardTile, SavedDerivedDefinition } from "../../../../shared/types/dashboard";
 import type { DerivedOutputLibraryActionCue, DerivedOutputRecreationCue } from "../builderTypes";
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
@@ -60,6 +60,21 @@ export interface DerivedOutputLibraryItemView {
   chips: string[];
 }
 
+export interface DerivedDefinitionLibraryItemView {
+  id: string;
+  title: string;
+  description: string;
+  label: string;
+  sourceLabel: string;
+  sourceStatusLabel: string;
+  sourceStatus: "available" | "missing";
+  structuralSummary: string;
+  querySummary: string;
+  outputKind: DerivedOutputKind;
+  chips: string[];
+  sourceTileId: string;
+}
+
 const topNCount = 5;
 
 function leadingRow(rows: AnalyticsTableRow[], columnId: string) {
@@ -99,6 +114,12 @@ function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>)
   return output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.kind === "top_n_extract" ? "Top" : "Bottom"} ${output.rowCount ?? 0} ${output.columnLabel}`
     : `${output.rowLabel} summary`;
+}
+
+function derivedDefinitionStructureLabel(definition: SavedDerivedDefinition) {
+  return definition.outputKind === "top_n_extract" || definition.outputKind === "bottom_n_extract"
+    ? `${definition.spec.rowCount ?? 0} rows from ${definition.spec.columnLabel}`
+    : `${definition.spec.rowLabel ?? "Lead row"} from ${definition.spec.columnLabel}`;
 }
 
 function extractRows(tile: DashboardTile, columnId: string, kind: "top_n_extract" | "bottom_n_extract") {
@@ -534,6 +555,50 @@ export function buildDerivedOutputTitle(output: NonNullable<DashboardTile["deriv
   return derivedOutputTitle(output);
 }
 
+export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: DerivedOutputKind): SavedDerivedDefinition | null {
+  const metadata = buildDerivedOutputMetadata(tile, kind);
+  if (!metadata) return null;
+
+  const source = tile.source ?? {
+    kind: "question" as const,
+    id: tile.query.question,
+    label: tile.title || tile.name || tile.query.question
+  };
+  const outputLabel = derivedOutputKindLabel(kind);
+  const structureLabel = kind === "top_n_extract" || kind === "bottom_n_extract"
+    ? `${metadata.rowCount ?? 0} rows from ${metadata.columnLabel}`
+    : `${metadata.rowLabel ?? "Lead row"} from ${metadata.columnLabel}`;
+  const confidenceLabel = `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
+
+  return {
+    id: `derived_definition_${Date.now()}`,
+    datasetId: tile.query.dataset,
+    label: `${tile.title || tile.name} ${outputLabel.toLowerCase()}`,
+    description: `Reusable ${outputLabel.toLowerCase()} definition from ${tile.title || tile.name}.`,
+    source,
+    sourceTileId: tile.id,
+    sourceTileTitle: tile.title || tile.name,
+    query: {
+      ...tile.query,
+      chartType: tile.visualization
+    },
+    outputKind: kind,
+    spec: {
+      columnId: metadata.columnId,
+      columnLabel: metadata.columnLabel,
+      rowId: metadata.rowId,
+      rowLabel: metadata.rowLabel,
+      rowCount: metadata.rowCount
+    },
+    summary: {
+      outputLabel,
+      sourceLabel: source.label,
+      structureLabel,
+      queryLabel: `${tile.result.metric.label} · ${confidenceLabel}`
+    }
+  };
+}
+
 export function buildDerivedOutputRecreationCueView(
   cue: DerivedOutputRecreationCue,
   tile: DashboardTile,
@@ -613,4 +678,35 @@ export function buildDerivedOutputLibraryItems(pages: DashboardPage[]): DerivedO
         ]
       };
     }));
+}
+
+export function buildDerivedDefinitionLibraryItems(
+  definitions: SavedDerivedDefinition[],
+  activePage: DashboardPage
+): DerivedDefinitionLibraryItemView[] {
+  return definitions.map((definition) => {
+    const sourceAvailable = activePage.tiles.some((tile) => tile.id === definition.sourceTileId);
+    const structuralSummary = definition.summary.structureLabel || derivedDefinitionStructureLabel(definition);
+
+    return {
+      id: definition.id,
+      title: definition.label,
+      description: definition.description,
+      label: definition.summary.outputLabel || derivedOutputKindLabel(definition.outputKind),
+      sourceLabel: definition.sourceTileTitle || definition.summary.sourceLabel,
+      sourceStatus: sourceAvailable ? "available" : "missing",
+      sourceStatusLabel: sourceAvailable ? "Source available on current page" : "Source not on current page",
+      structuralSummary,
+      querySummary: definition.summary.queryLabel,
+      outputKind: definition.outputKind,
+      sourceTileId: definition.sourceTileId,
+      chips: [
+        definition.summary.outputLabel || derivedOutputKindLabel(definition.outputKind),
+        definition.summary.sourceLabel,
+        structuralSummary,
+        definition.summary.queryLabel,
+        sourceAvailable ? "Can create now" : "Needs source page"
+      ].filter(Boolean)
+    };
+  });
 }

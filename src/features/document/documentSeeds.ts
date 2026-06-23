@@ -543,7 +543,8 @@ export const initialDashboard: DashboardDraft = {
     banners: seedSavedBanners(),
     filters: seedSavedFilters(),
     weights: seedSavedWeights(),
-    templates: seedAnalyticalTemplates()
+    templates: seedAnalyticalTemplates(),
+    derivedDefinitions: []
   },
   designLibrary: seedDesignLibrary(),
   pages: [

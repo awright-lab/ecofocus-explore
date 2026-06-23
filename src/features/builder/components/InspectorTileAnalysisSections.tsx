@@ -26,6 +26,7 @@ import {
 import { buildInspectorTileSummary } from "./inspectorTileSummaryModel";
 import {
   buildDerivedOutputDetailView,
+  buildDerivedDefinitionFromTile,
   buildDerivedOutputLibraryActionCueView,
   buildDerivedOutputRecreationCueView,
   buildDerivedOutputViews,
@@ -80,6 +81,8 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     duplicateDerivedOutputTile,
     createDerivedOutputTile,
     recreateDerivedOutputTile,
+    saveDerivedDefinition,
+    onViewSavedSettingInLibrary,
     saveSelectedTileAnalyticalTemplate
   } = props;
 
@@ -193,6 +196,12 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                       key={view.kind}
                       view={view}
                       onCreate={() => createDerivedOutputTile(selectedTile, view.kind)}
+                      onSaveDefinition={() => {
+                        const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind);
+                        if (!definition) return;
+                        saveDerivedDefinition(definition);
+                        onViewSavedSettingInLibrary("derivedOutputs");
+                      }}
                     />
                   ))}
                 </div>
@@ -224,10 +233,12 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
 
 function DerivedOutputCard({
   view,
-  onCreate
+  onCreate,
+  onSaveDefinition
 }: {
   view: DerivedOutputView;
   onCreate: () => string | null;
+  onSaveDefinition: () => void;
 }) {
   return (
     <div className={view.canCreate ? "derived-summary-output-card" : "derived-summary-output-card disabled"}>
@@ -238,9 +249,14 @@ function DerivedOutputCard({
           <small>{[view.rowLabel, view.valueLabel, view.baseLabel, view.rowCountLabel].filter(Boolean).join(" · ")}</small>
         )}
       </div>
-      <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
-        {view.kind === "top_n_extract" ? "Create top-N extract" : view.kind === "bottom_n_extract" ? "Create bottom-N extract" : "Create summary output"}
-      </button>
+      <div className="derived-output-card-actions">
+        <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
+          {view.kind === "top_n_extract" ? "Create top-N extract" : view.kind === "bottom_n_extract" ? "Create bottom-N extract" : "Create summary output"}
+        </button>
+        <button type="button" className="secondary" onClick={onSaveDefinition} disabled={!view.canCreate}>
+          Save definition
+        </button>
+      </div>
     </div>
   );
 }

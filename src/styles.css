@@ -1568,6 +1568,11 @@ h2 {
   gap: 8px;
 }
 
+.derived-library-subsection {
+  display: grid;
+  gap: 8px;
+}
+
 .derived-summary-output-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -1587,6 +1592,13 @@ h2 {
 .derived-summary-output-card div {
   display: grid;
   gap: 3px;
+}
+
+.derived-summary-output-card .derived-output-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .derived-summary-output-card strong {

@@ -13,7 +13,7 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
-import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
+import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedDerivedDefinition, SavedFilterSet, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
@@ -100,8 +100,11 @@ export type AnalysisAuthoringPanelProps = {
   savedFilters: SavedFilterSet[];
   savedWeights: SavedWeightProfile[];
   savedAnalyticalTemplates: SavedAnalyticalTemplate[];
+  savedDerivedDefinitions: SavedDerivedDefinition[];
   saveAnalyticalTemplate: (template: SavedAnalyticalTemplate) => void;
   deleteAnalyticalTemplate: (templateId: string) => void;
+  saveDerivedDefinition: (definition: SavedDerivedDefinition) => void;
+  deleteDerivedDefinition: (definitionId: string) => void;
   savedVariableSets: SavedVariableSet[];
   breakBy: BreakById;
   setBreakBy: (breakBy: BreakById) => void;
@@ -131,6 +134,7 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
   duplicateDerivedOutputFromLibrary: (pageId: string, tileId: string) => string | null;
+  createDerivedOutputFromDefinition: (definition: SavedDerivedDefinition) => string | null;
   isLoading: boolean;
   applySavedBanner: (banner: SavedBanner) => void;
   bannerDraftName: string;

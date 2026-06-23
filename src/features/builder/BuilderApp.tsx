@@ -511,8 +511,11 @@ export default function BuilderApp() {
     savedFilters,
     savedWeights,
     savedAnalyticalTemplates,
+    savedDerivedDefinitions,
     saveAnalyticalTemplate,
     deleteAnalyticalTemplate,
+    saveDerivedDefinition,
+    deleteDerivedDefinition,
     selectedQuestion,
     selectedVariableSet,
     filteredVariableSets,
@@ -596,6 +599,7 @@ export default function BuilderApp() {
     duplicateDerivedOutputTile,
     duplicateDerivedOutputFromLibrary,
     createDerivedOutputTile,
+    createDerivedOutputFromDefinition,
     recreateDerivedOutputTile
   } = useBuilderTileCommands({
     activePage,
@@ -899,9 +903,13 @@ export default function BuilderApp() {
           savedFilters={savedFilters}
           savedWeights={savedWeights}
           savedAnalyticalTemplates={savedAnalyticalTemplates}
+          savedDerivedDefinitions={savedDerivedDefinitions}
           saveAnalyticalTemplate={saveAnalyticalTemplate}
           deleteAnalyticalTemplate={deleteAnalyticalTemplate}
+          saveDerivedDefinition={saveDerivedDefinition}
+          deleteDerivedDefinition={deleteDerivedDefinition}
           duplicateDerivedOutputFromLibrary={duplicateDerivedOutputFromLibrary}
+          createDerivedOutputFromDefinition={createDerivedOutputFromDefinition}
           savedVariableSets={savedVariableSets}
           breakBy={breakBy}
           setBreakBy={setBreakBy}
@@ -1032,6 +1040,7 @@ export default function BuilderApp() {
           duplicateDerivedOutputTile={duplicateDerivedOutputTile}
           createDerivedOutputTile={createDerivedOutputTile}
           recreateDerivedOutputTile={recreateDerivedOutputTile}
+          saveDerivedDefinition={saveDerivedDefinition}
           rerunTileAnalysis={rerunTileAnalysis}
           saveSelectedTileVariableSet={saveSelectedTileVariableSet}
           saveSelectedTileAnalyticalTemplate={saveSelectedTileAnalyticalTemplate}

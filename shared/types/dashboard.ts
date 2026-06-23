@@ -283,6 +283,35 @@ export interface SavedAnalyticalTemplate {
   };
 }
 
+export interface SavedDerivedDefinition {
+  id: string;
+  datasetId: DatasetId;
+  label: string;
+  description: string;
+  source: {
+    kind: "question" | "variableSet";
+    id: string;
+    label: string;
+  };
+  sourceTileId: string;
+  sourceTileTitle: string;
+  query: AnalyticsQueryRequest;
+  outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
+  spec: {
+    columnId: string;
+    columnLabel: string;
+    rowId?: string;
+    rowLabel?: string;
+    rowCount?: number;
+  };
+  summary: {
+    outputLabel: string;
+    sourceLabel: string;
+    structureLabel: string;
+    queryLabel: string;
+  };
+}
+
 export interface DesignColorPalette {
   id: string;
   label: string;
@@ -409,6 +438,7 @@ export interface DashboardDraft {
     filters: SavedFilterSet[];
     weights: SavedWeightProfile[];
     templates: SavedAnalyticalTemplate[];
+    derivedDefinitions: SavedDerivedDefinition[];
   };
   designLibrary: DesignLibrary;
   pages: DashboardPage[];
