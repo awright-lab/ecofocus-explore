@@ -3,6 +3,7 @@ import { runMockAnalyticsQuery } from "../../../../../shared/mock/analytics";
 import type { AnalyticsQueryRequest } from "../../../../../shared/types/analytics";
 import {
   buildExecutedColumnComparisonPresentation,
+  buildExecutedSignificanceExplanationView,
   getExecutedSignificanceCell
 } from "../analysisSignificancePresentationModel";
 
@@ -69,6 +70,32 @@ describe("buildExecutedColumnComparisonPresentation", () => {
     expect(buildExecutedColumnComparisonPresentation(waveResult)).toMatchObject({
       available: false,
       cells: {}
+    });
+  });
+
+  it("builds a compact explanation for executed table markers", () => {
+    const result = runMockAnalyticsQuery(breakoutQuery);
+    const explanation = buildExecutedSignificanceExplanationView(result);
+
+    expect(explanation).toMatchObject({
+      available: true,
+      label: "Tested table markers",
+      message: expect.stringContaining("Sig markers"),
+      chips: [
+        "24 tested comparisons",
+        expect.stringContaining("significant comparisons"),
+        "95% confidence"
+      ],
+      comparedColumns: ["Gen Z", "Millennial", "Gen X", "Boomer+"],
+      markerMeanings: [
+        "Sig ↑ means this cell tested higher than the listed comparison column.",
+        "Sig ↓ means this cell tested lower than the listed comparison column.",
+        "A number on the marker means the cell differs from multiple columns."
+      ]
+    });
+    expect(explanation.exampleCells.length).toBeGreaterThan(0);
+    expect(explanation.exampleCells[0]).toMatchObject({
+      label: expect.stringContaining("Sig")
     });
   });
 });

@@ -18,6 +18,17 @@ export interface ExecutedSignificancePresentation {
   summaryLabel: string;
 }
 
+export interface ExecutedSignificanceExplanationView {
+  available: boolean;
+  label: string;
+  message: string;
+  helper: string;
+  chips: string[];
+  markerMeanings: string[];
+  comparedColumns: string[];
+  exampleCells: ExecutedSignificanceCellPresentation[];
+}
+
 function cellKey(rowId: string, columnId: string) {
   return `${rowId}::${columnId}`;
 }
@@ -126,4 +137,44 @@ export function getExecutedSignificanceCell(
   columnId: string
 ) {
   return presentation.cells[cellKey(rowId, columnId)] ?? null;
+}
+
+export function buildExecutedSignificanceExplanationView(result: AnalyticsQueryResponse): ExecutedSignificanceExplanationView {
+  const presentation = buildExecutedColumnComparisonPresentation(result);
+
+  if (!presentation.available || presentation.significantComparisons === 0) {
+    return {
+      available: false,
+      label: "No executed table markers",
+      message: "This result has no executed column-comparison markers to explain.",
+      helper: "Summary-only, wave, deferred, unsupported, and placeholder-only contexts do not show tested table markers.",
+      chips: [],
+      markerMeanings: [],
+      comparedColumns: [],
+      exampleCells: []
+    };
+  }
+
+  const comparedColumns = result.columns.map((column) => column.label);
+  const cells = Object.values(presentation.cells)
+    .sort((a, b) => b.comparisonCount - a.comparisonCount || a.rowId.localeCompare(b.rowId) || a.columnId.localeCompare(b.columnId));
+
+  return {
+    available: true,
+    label: "Tested table markers",
+    message: "Sig markers show cells that tested higher or lower than another breakout column in the same row.",
+    helper: "Only the current executed column-comparison path is represented here. It does not include wave significance or unsupported/deferred contexts.",
+    chips: [
+      `${presentation.testedComparisons.toLocaleString()} tested comparisons`,
+      `${presentation.significantComparisons.toLocaleString()} significant comparisons`,
+      `${Math.round(result.statistics.confidenceLevel * 100)}% confidence`
+    ],
+    markerMeanings: [
+      "Sig ↑ means this cell tested higher than the listed comparison column.",
+      "Sig ↓ means this cell tested lower than the listed comparison column.",
+      "A number on the marker means the cell differs from multiple columns."
+    ],
+    comparedColumns,
+    exampleCells: cells.slice(0, 4)
+  };
 }

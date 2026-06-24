@@ -2311,6 +2311,93 @@ h2 {
   color: #675534;
 }
 
+.executed-significance-explanation-card {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #cddbd3;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.executed-significance-explanation-card p,
+.executed-significance-explanation-card small,
+.executed-significance-explanation-card li,
+.executed-significance-columns span,
+.executed-significance-columns strong {
+  margin: 0;
+  color: #62756d;
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.executed-significance-explanation-card p,
+.executed-significance-columns strong {
+  color: #42584d;
+  font-weight: 800;
+}
+
+.executed-significance-explanation-card ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.executed-significance-columns {
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid #dbe5df;
+  border-radius: 7px;
+  background: #f8fbf9;
+}
+
+.executed-significance-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.executed-significance-example {
+  display: inline-grid;
+  gap: 2px;
+  min-width: 84px;
+  padding: 6px 7px;
+  border: 1px solid #dbe5df;
+  border-radius: 7px;
+  background: #f8fbf9;
+}
+
+.executed-significance-example.down {
+  border-color: #f2c5bb;
+  background: #fff7f4;
+}
+
+.executed-significance-example.mixed {
+  border-color: #d5d1ff;
+  background: #f7f5ff;
+}
+
+.executed-significance-example strong,
+.executed-significance-example small {
+  color: #315f48;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.executed-significance-example.down strong,
+.executed-significance-example.down small {
+  color: #8f2b1b;
+}
+
+.executed-significance-example.mixed strong,
+.executed-significance-example.mixed small {
+  color: #514f97;
+}
+
 .analysis-weight-mismatch-cue {
   display: grid;
   gap: 5px;

@@ -69,6 +69,7 @@ import {
 } from "./analysisWeightDiagnosticsModel";
 import { buildSegmentProfileProvenanceView, type SegmentProfileProvenanceView } from "./libraryReuseModel";
 import { buildAnalysisStatisticsContext, confidenceLevelLabel, supportedConfidenceLevels, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
+import { buildExecutedSignificanceExplanationView, type ExecutedSignificanceExplanationView } from "./analysisSignificancePresentationModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -510,6 +511,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const recentlySavedKind = recentlySavedSetting?.tileId === tile.id ? recentlySavedSetting.kind : null;
   const weightDiagnostics = buildAnalysisWeightDiagnostics(tile.query.weight);
   const statisticsContext = buildAnalysisStatisticsContext(tile);
+  const significanceExplanation = buildExecutedSignificanceExplanationView(tile.result);
   const sourceVariableSet = savedVariableSets.find((item) => tile.source?.kind === "variableSet" && item.id === tile.source.id) ?? null;
   const weightMismatch = sourceVariableSet
     ? buildSavedVariableSetWeightMismatch({
@@ -725,6 +727,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           confidenceLevel={tile.query.confidenceLevel ?? 0.95}
           onChangeConfidenceLevel={updateConfidenceLevel}
         />
+        <ExecutedSignificanceExplanationCard view={significanceExplanation} visualization={tile.visualization} />
       </div>
       <div className="tile-query-group">
         <div className="explorer-section-header">
@@ -864,6 +867,53 @@ function AnalysisStatisticsContextCard({
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ExecutedSignificanceExplanationCard({
+  view,
+  visualization
+}: {
+  view: ExecutedSignificanceExplanationView;
+  visualization: ChartType;
+}) {
+  if (!view.available || visualization !== "table") {
+    return null;
+  }
+
+  return (
+    <div className="executed-significance-explanation-card">
+      <div className="explorer-section-header">
+        <strong>{view.label}</strong>
+        <small>Executed column comparisons</small>
+      </div>
+      <p>{view.message}</p>
+      <small>{view.helper}</small>
+      <div className="explorer-chip-row">
+        {view.chips.map((chip) => (
+          <span className="explorer-chip" key={chip}>{chip}</span>
+        ))}
+      </div>
+      <div className="executed-significance-columns">
+        <span>Compared columns</span>
+        <strong>{view.comparedColumns.join(" vs ")}</strong>
+      </div>
+      <ul>
+        {view.markerMeanings.map((meaning) => (
+          <li key={meaning}>{meaning}</li>
+        ))}
+      </ul>
+      {view.exampleCells.length > 0 && (
+        <div className="executed-significance-examples">
+          {view.exampleCells.map((cell) => (
+            <span className={`executed-significance-example ${cell.direction}`} key={`${cell.rowId}-${cell.columnId}`}>
+              <strong>{cell.label}</strong>
+              <small>{cell.comparedLabels.join(", ")}</small>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
