@@ -74,7 +74,7 @@ describe("derived output row-difference metric scaffold", () => {
         columnLabel: "Millennial",
         leftValueLabel: "Neither trust nor distrust: 18%",
         rightValueLabel: "Distrust: 12%",
-        differenceLabel: "Difference: 6%",
+        resultLabel: "Difference: 6%",
         baseContextLabel: "Bases: 428 vs 428 (metric uses 428)"
       }
     });
@@ -114,6 +114,98 @@ describe("derived output row-difference metric scaffold", () => {
         comparedRowId: "distrust",
         columnId: "millennial"
       }
+    });
+  });
+
+  it("builds a reusable row-average metric through the same configurable pipeline", () => {
+    const sourceTile = tileFromResult(runMockAnalyticsQuery(breakoutQuery));
+    const config = {
+      rowId: "trust_a_lot",
+      comparedRowId: "distrust",
+      columnId: "boomer_plus"
+    };
+    const rowAverageView = buildDerivedOutputViews(sourceTile, config).find((view) => view.kind === "row_average");
+    const response = buildDerivedOutputResponse(sourceTile, "row_average", config);
+    const metadata = buildDerivedOutputMetadata(sourceTile, "row_average", config);
+    const definition = buildDerivedDefinitionFromTile(sourceTile, "row_average", config);
+    const libraryItems = buildDerivedDefinitionLibraryItems(definition ? [definition] : [], {
+      id: "page_one",
+      title: "Page one",
+      order: 1,
+      showCanvasGrid: false,
+      snapToGrid: false,
+      gridSize: 20,
+      background: "#ffffff",
+      backgroundMode: "solid",
+      backgroundImage: "",
+      backgroundImageFit: "cover",
+      gradientFrom: "#ffffff",
+      gradientTo: "#ffffff",
+      gradientType: "linear",
+      gradientAngle: 0,
+      gradientStops: [],
+      elements: [],
+      tiles: [sourceTile]
+    });
+
+    expect(rowAverageView).toMatchObject({
+      canCreate: true,
+      label: "Row-average metric",
+      rowLabel: "Average of Trust a lot and Distrust",
+      columnLabel: "Boomer+",
+      valueLabel: "17.5%",
+      selectedRowId: "trust_a_lot",
+      selectedComparedRowId: "distrust",
+      selectedColumnId: "boomer_plus",
+      metricPreview: {
+        formulaLabel: "Average of Trust a lot and Distrust",
+        columnLabel: "Boomer+",
+        leftValueLabel: "Trust a lot: 14%",
+        rightValueLabel: "Distrust: 21%",
+        resultLabel: "Average: 17.5%",
+        baseContextLabel: "Bases: 365 vs 365 (metric uses 365)"
+      }
+    });
+    expect(response?.table).toEqual([
+      expect.objectContaining({
+        optionId: "row_average",
+        label: "Average of Trust a lot and Distrust",
+        values: { boomer_plus: 17.5 },
+        bases: { boomer_plus: 365 },
+        presentation: {
+          rowKind: "net",
+          emphasis: "summary"
+        }
+      })
+    ]);
+    expect(metadata).toMatchObject({
+      kind: "row_average",
+      rowId: "trust_a_lot",
+      comparedRowId: "distrust",
+      columnId: "boomer_plus",
+      valueLabel: "17.5%"
+    });
+    expect(definition).toMatchObject({
+      definitionType: "metric",
+      outputKind: "row_average",
+      metricKind: "row_average",
+      summary: {
+        outputLabel: "Row average metric",
+        structureLabel: "Average of Trust a lot and Distrust in Boomer+"
+      },
+      spec: {
+        rowId: "trust_a_lot",
+        comparedRowId: "distrust",
+        columnId: "boomer_plus"
+      }
+    });
+    expect(libraryItems[0]).toMatchObject({
+      label: "Row average metric",
+      structuralSummary: "Average of Trust a lot and Distrust in Boomer+",
+      detailSummary: "Average of Trust a lot and Distrust · Boomer+",
+      readinessStatus: "ready",
+      canCreate: true,
+      outputKind: "row_average"
     });
   });
 

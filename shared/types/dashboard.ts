@@ -111,7 +111,7 @@ export interface DashboardTile {
     };
   };
   derivedOutput?: {
-    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference";
+    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference" | "row_average";
     sourceTileId: string;
     sourceTitle: string;
     rowId?: string;
@@ -128,7 +128,7 @@ export interface DashboardTile {
     savedDefinition?: {
       id: string;
       label: string;
-      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference";
+      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference" | "row_average";
       sourceTileId: string;
       sourceTileTitle: string;
     };
@@ -334,7 +334,7 @@ export interface SavedDerivedDefinition {
   sourceTileTitle: string;
   query: AnalyticsQueryRequest;
   outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
-  metricKind?: "row_difference";
+  metricKind?: "row_difference" | "row_average";
   spec: {
     columnId: string;
     columnLabel: string;

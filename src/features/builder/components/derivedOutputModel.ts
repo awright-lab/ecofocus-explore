@@ -20,7 +20,7 @@ export interface RowDifferenceMetricPreview {
   columnLabel: string;
   leftValueLabel: string;
   rightValueLabel: string;
-  differenceLabel: string;
+  resultLabel: string;
   baseContextLabel: string;
   helper: string;
 }
@@ -147,6 +147,7 @@ function formatSummaryValue(value: number, format: AnalyticsQueryResponse["metri
 }
 
 function derivedOutputKindLabel(kind: DerivedOutputKind) {
+  if (kind === "row_average") return "Row average metric";
   if (kind === "row_difference") return "Row difference metric";
   if (kind === "top_n_extract") return "Top-N extract";
   if (kind === "bottom_n_extract") return "Bottom-N extract";
@@ -161,6 +162,9 @@ function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>)
   if (output.kind === "row_difference") {
     return `${output.rowLabel ?? "Row"} vs ${output.comparedRowLabel ?? "comparison"} difference`;
   }
+  if (output.kind === "row_average") {
+    return `${output.rowLabel ?? "Row"} and ${output.comparedRowLabel ?? "comparison"} average`;
+  }
 
   return output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.kind === "top_n_extract" ? "Top" : "Bottom"} ${output.rowCount ?? 0} ${output.columnLabel}`
@@ -168,7 +172,10 @@ function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>)
 }
 
 function derivedDefinitionStructureLabel(definition: SavedDerivedDefinition) {
-  if (definition.outputKind === "row_difference") {
+  if (definition.outputKind === "row_difference" || definition.outputKind === "row_average") {
+    if (definition.outputKind === "row_average") {
+      return `Average of ${definition.spec.rowLabel ?? "row"} and ${definition.spec.comparedRowLabel ?? "comparison row"} in ${definition.spec.columnLabel}`;
+    }
     return `${definition.spec.rowLabel ?? "Row"} minus ${definition.spec.comparedRowLabel ?? "comparison row"} in ${definition.spec.columnLabel}`;
   }
 
@@ -240,7 +247,28 @@ function buildRowDifferenceMetricPreview(
     columnLabel: spec.column.label,
     leftValueLabel: `${spec.leftRow.label}: ${formatSummaryValue(leftValue, tile.result.metric.valueFormat)}`,
     rightValueLabel: `${spec.rightRow.label}: ${formatSummaryValue(rightValue, tile.result.metric.valueFormat)}`,
-    differenceLabel: `Difference: ${formatSummaryValue(difference, tile.result.metric.valueFormat)}`,
+    resultLabel: `Difference: ${formatSummaryValue(difference, tile.result.metric.valueFormat)}`,
+    baseContextLabel: `Bases: ${leftBase.toLocaleString()} vs ${rightBase.toLocaleString()} (metric uses ${Math.min(leftBase, rightBase).toLocaleString()})`,
+    helper: "Preview uses the current stored result and matches the derived metric output that will be created or saved."
+  };
+}
+
+function buildRowAverageMetricPreview(
+  tile: DashboardTile,
+  spec: NonNullable<ReturnType<typeof resolveRowDifferenceSpec>>
+): RowDifferenceMetricPreview {
+  const leftValue = spec.leftRow.values[spec.column.id] ?? 0;
+  const rightValue = spec.rightRow.values[spec.column.id] ?? 0;
+  const average = (leftValue + rightValue) / 2;
+  const leftBase = spec.leftRow.bases[spec.column.id] ?? 0;
+  const rightBase = spec.rightRow.bases[spec.column.id] ?? 0;
+
+  return {
+    formulaLabel: `Average of ${spec.leftRow.label} and ${spec.rightRow.label}`,
+    columnLabel: spec.column.label,
+    leftValueLabel: `${spec.leftRow.label}: ${formatSummaryValue(leftValue, tile.result.metric.valueFormat)}`,
+    rightValueLabel: `${spec.rightRow.label}: ${formatSummaryValue(rightValue, tile.result.metric.valueFormat)}`,
+    resultLabel: `Average: ${formatSummaryValue(average, tile.result.metric.valueFormat)}`,
     baseContextLabel: `Bases: ${leftBase.toLocaleString()} vs ${rightBase.toLocaleString()} (metric uses ${Math.min(leftBase, rightBase).toLocaleString()})`,
     helper: "Preview uses the current stored result and matches the derived metric output that will be created or saved."
   };
@@ -370,12 +398,47 @@ export function buildDerivedRowDifferenceOutputView(tile: DashboardTile, config:
   };
 }
 
+export function buildDerivedRowAverageOutputView(tile: DashboardTile, config: DerivedOutputConfig = {}): DerivedOutputView {
+  if (tile.derivedOutput) {
+    return unavailableView("row_average", "Row-average metric already derived", "This tile is already a derived output.");
+  }
+
+  const selectedColumn = tile.result.columns.find((item) => item.id === config.columnId) ?? tile.result.columns[0];
+  if (!selectedColumn) {
+    return unavailableView("row_average", "Row-average metric unavailable", "This result has no columns to average.");
+  }
+
+  const spec = resolveRowDifferenceSpec(tile, config);
+  if (!spec) {
+    return unavailableView("row_average", "Row-average metric unavailable", "This result needs at least two rows with values.");
+  }
+
+  const average = ((spec.leftRow.values[spec.column.id] ?? 0) + (spec.rightRow.values[spec.column.id] ?? 0)) / 2;
+
+  return {
+    kind: "row_average",
+    canCreate: true,
+    label: "Row-average metric",
+    helper: `Creates a reusable metric definition for the average of ${spec.leftRow.label} and ${spec.rightRow.label} in ${spec.column.label}.`,
+    rowLabel: `Average of ${spec.leftRow.label} and ${spec.rightRow.label}`,
+    columnLabel: spec.column.label,
+    valueLabel: formatSummaryValue(average, tile.result.metric.valueFormat),
+    rowOptions: spec.rows.map((row) => ({ id: row.optionId, label: row.label })),
+    columnOptions: tile.result.columns.map((column) => ({ id: column.id, label: column.label })),
+    selectedRowId: spec.leftRow.optionId,
+    selectedComparedRowId: spec.rightRow.optionId,
+    selectedColumnId: spec.column.id,
+    metricPreview: buildRowAverageMetricPreview(tile, spec)
+  };
+}
+
 export function buildDerivedOutputViews(tile: DashboardTile, config: DerivedOutputConfig = {}): DerivedOutputView[] {
   return [
     buildDerivedSummaryOutputView(tile),
     buildDerivedTopNOutputView(tile),
     buildDerivedBottomNOutputView(tile),
-    buildDerivedRowDifferenceOutputView(tile, config)
+    buildDerivedRowDifferenceOutputView(tile, config),
+    buildDerivedRowAverageOutputView(tile, config)
   ];
 }
 
@@ -514,21 +577,26 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
     };
   }
 
-  if (output.kind === "row_difference") {
+  if (output.kind === "row_difference" || output.kind === "row_average") {
+    const isAverage = output.kind === "row_average";
     return {
-      label: "Derived metric: row difference",
+      label: `Derived metric: ${isAverage ? "row average" : "row difference"}`,
       sourceLabel: output.sourceTitle,
-      description: `Read-only metric for ${output.rowLabel ?? "the first row"} minus ${output.comparedRowLabel ?? "the comparison row"} in ${output.columnLabel}.`,
+      description: isAverage
+        ? `Read-only metric for the average of ${output.rowLabel ?? "the first row"} and ${output.comparedRowLabel ?? "the comparison row"} in ${output.columnLabel}.`
+        : `Read-only metric for ${output.rowLabel ?? "the first row"} minus ${output.comparedRowLabel ?? "the comparison row"} in ${output.columnLabel}.`,
       managementHelper: "Use the title field above to rename this metric, duplicate it for a separate maintained copy, or save the definition for reuse.",
       lastRecreatedLabel: lastRecreatedLabel(output),
       ...relationship,
       chips: [
-        "Pattern: Row difference metric",
+        `Pattern: ${isAverage ? "Row average metric" : "Row difference metric"}`,
         `Source: ${output.sourceTitle}`,
         sourceStatus.sourceStatusLabel,
         readiness.readinessLabel,
         ...(output.lastRecreatedAt ? ["Recreated"] : []),
-        `${output.rowLabel ?? "Row"} - ${output.comparedRowLabel ?? "comparison row"}`,
+        isAverage
+          ? `Average of ${output.rowLabel ?? "Row"} and ${output.comparedRowLabel ?? "comparison row"}`
+          : `${output.rowLabel ?? "Row"} - ${output.comparedRowLabel ?? "comparison row"}`,
         `${output.columnLabel}${output.valueLabel ? `: ${output.valueLabel}` : ""}`,
         ...(output.baseLabel ? [output.baseLabel] : []),
         "Formula preview saved"
@@ -722,6 +790,46 @@ export function buildDerivedRowDifferenceResponse(tile: DashboardTile, config: D
   };
 }
 
+export function buildDerivedRowAverageResponse(tile: DashboardTile, config: DerivedOutputConfig = {}): AnalyticsQueryResponse | null {
+  const spec = resolveRowDifferenceSpec(tile, config);
+  if (!spec) return null;
+
+  const { column, leftRow, rightRow } = spec;
+  const average = ((leftRow.values[column.id] ?? 0) + (rightRow.values[column.id] ?? 0)) / 2;
+  const base = Math.min(leftRow.bases[column.id] ?? 0, rightRow.bases[column.id] ?? 0);
+  const metricRow: AnalyticsTableRow = {
+    optionId: "row_average",
+    label: `Average of ${leftRow.label} and ${rightRow.label}`,
+    values: { [column.id]: average },
+    bases: { [column.id]: base },
+    presentation: {
+      rowKind: "net",
+      emphasis: "summary"
+    }
+  };
+
+  return {
+    ...tile.result,
+    labels: [metricRow.label],
+    columns: [column],
+    series: [
+      {
+        id: metricRow.optionId,
+        label: metricRow.label,
+        values: [average],
+        bases: [base]
+      }
+    ],
+    table: [metricRow],
+    annotations: [],
+    notes: [
+      `Derived row-average metric from ${tile.title || tile.name}.`,
+      `Average of ${leftRow.label} and ${rightRow.label} in ${column.label}.`,
+      ...tile.result.notes
+    ]
+  };
+}
+
 export function buildDerivedTopNMetadata(tile: DashboardTile): NonNullable<DashboardTile["derivedOutput"]> | null {
   const column = tile.result.columns[0];
   if (!column) return null;
@@ -780,7 +888,32 @@ export function buildDerivedRowDifferenceMetadata(tile: DashboardTile, config: D
   };
 }
 
+export function buildDerivedRowAverageMetadata(tile: DashboardTile, config: DerivedOutputConfig = {}): NonNullable<DashboardTile["derivedOutput"]> | null {
+  const spec = resolveRowDifferenceSpec(tile, config);
+  if (!spec) return null;
+
+  const { column, leftRow, rightRow } = spec;
+  const average = ((leftRow.values[column.id] ?? 0) + (rightRow.values[column.id] ?? 0)) / 2;
+
+  return {
+    kind: "row_average",
+    sourceTileId: tile.id,
+    sourceTitle: tile.title || tile.name,
+    rowId: leftRow.optionId,
+    rowLabel: leftRow.label,
+    comparedRowId: rightRow.optionId,
+    comparedRowLabel: rightRow.label,
+    columnId: column.id,
+    columnLabel: column.label,
+    valueLabel: formatSummaryValue(average, tile.result.metric.valueFormat),
+    baseLabel: `Min base ${Math.min(leftRow.bases[column.id] ?? 0, rightRow.bases[column.id] ?? 0).toLocaleString()}`,
+    rowCount: 2,
+    sourceResultSignature: buildDerivedSourceResultSignature(tile)
+  };
+}
+
 export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): AnalyticsQueryResponse | null {
+  if (kind === "row_average") return buildDerivedRowAverageResponse(tile, config);
   if (kind === "row_difference") return buildDerivedRowDifferenceResponse(tile, config);
   if (kind === "top_n_extract") return buildDerivedTopNResponse(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNResponse(tile);
@@ -788,6 +921,7 @@ export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOut
 }
 
 export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): NonNullable<DashboardTile["derivedOutput"]> | null {
+  if (kind === "row_average") return buildDerivedRowAverageMetadata(tile, config);
   if (kind === "row_difference") return buildDerivedRowDifferenceMetadata(tile, config);
   if (kind === "top_n_extract") return buildDerivedTopNMetadata(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNMetadata(tile);
@@ -810,6 +944,8 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
   const outputLabel = derivedOutputKindLabel(kind);
   const structureLabel = kind === "top_n_extract" || kind === "bottom_n_extract"
     ? `${metadata.rowCount ?? 0} rows from ${metadata.columnLabel}`
+    : kind === "row_average"
+      ? `Average of ${metadata.rowLabel ?? "Row"} and ${metadata.comparedRowLabel ?? "comparison row"} in ${metadata.columnLabel}`
     : kind === "row_difference"
       ? `${metadata.rowLabel ?? "Row"} minus ${metadata.comparedRowLabel ?? "comparison row"} in ${metadata.columnLabel}`
     : `${metadata.rowLabel ?? "Lead row"} from ${metadata.columnLabel}`;
@@ -820,7 +956,7 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
     datasetId: tile.query.dataset,
     label: `${tile.title || tile.name} ${outputLabel.toLowerCase()}`,
     description: `Reusable ${outputLabel.toLowerCase()} definition from ${tile.title || tile.name}.`,
-    definitionType: kind === "row_difference" ? "metric" : "output",
+    definitionType: kind === "row_difference" || kind === "row_average" ? "metric" : "output",
     source,
     sourceTileId: tile.id,
     sourceTileTitle: tile.title || tile.name,
@@ -829,7 +965,7 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
       chartType: tile.visualization
     },
     outputKind: kind,
-    metricKind: kind === "row_difference" ? "row_difference" : undefined,
+    metricKind: kind === "row_difference" || kind === "row_average" ? kind : undefined,
     spec: {
       columnId: metadata.columnId,
       columnLabel: metadata.columnLabel,
@@ -862,6 +998,8 @@ export function buildDerivedDefinitionFromDerivedTile(
   const outputLabel = derivedOutputKindLabel(output.kind);
   const structureLabel = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
+    : output.kind === "row_average"
+      ? `Average of ${output.rowLabel ?? "Row"} and ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
     : output.kind === "row_difference"
       ? `${output.rowLabel ?? "Row"} minus ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
     : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
@@ -872,7 +1010,7 @@ export function buildDerivedDefinitionFromDerivedTile(
     datasetId: tile.query.dataset,
     label: options?.label ?? `${output.sourceTitle} ${outputLabel.toLowerCase()}`,
     description: options?.description ?? `Reusable ${outputLabel.toLowerCase()} definition from ${output.sourceTitle}.`,
-    definitionType: output.kind === "row_difference" ? "metric" : "output",
+    definitionType: output.kind === "row_difference" || output.kind === "row_average" ? "metric" : "output",
     source,
     sourceTileId: output.sourceTileId,
     sourceTileTitle: output.sourceTitle,
@@ -881,7 +1019,7 @@ export function buildDerivedDefinitionFromDerivedTile(
       chartType: tile.visualization
     },
     outputKind: output.kind,
-    metricKind: output.kind === "row_difference" ? "row_difference" : undefined,
+    metricKind: output.kind === "row_difference" || output.kind === "row_average" ? output.kind : undefined,
     spec: {
       columnId: output.columnId,
       columnLabel: output.columnLabel,
@@ -1016,6 +1154,8 @@ export function buildDerivedOutputLibraryItems(pages: DashboardPage[]): DerivedO
       const output = tile.derivedOutput!;
       const structuralSummary = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
         ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
+        : output.kind === "row_average"
+          ? `Average of ${output.rowLabel ?? "Row"} and ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
         : output.kind === "row_difference"
           ? `${output.rowLabel ?? "Row"} minus ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
         : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
@@ -1103,7 +1243,7 @@ export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefi
     };
   }
 
-  if (definition.outputKind === "row_difference" && (
+  if ((definition.outputKind === "row_difference" || definition.outputKind === "row_average") && (
     supportedMetadata.rowId !== definition.spec.rowId
     || supportedMetadata.comparedRowId !== definition.spec.comparedRowId
     || supportedMetadata.columnId !== definition.spec.columnId
@@ -1115,7 +1255,7 @@ export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefi
       readinessStatus: "unresolved" as const,
       readinessLabel: "Metric rows changed",
       readinessHelper: "The source result is available, but the saved row-pair definition no longer matches the current metric scaffold.",
-      readinessReasons: ["The saved metric expects a specific first-row and comparison-row pair."],
+      readinessReasons: ["The saved metric expects a specific row pair and column."],
       canCreate: false
     };
   }
@@ -1153,7 +1293,9 @@ export function buildDerivedDefinitionLibraryItems(
   return definitions.map((definition) => {
     const readiness = buildDerivedDefinitionReadinessView(definition, activePage);
     const structuralSummary = definition.summary.structureLabel || derivedDefinitionStructureLabel(definition);
-    const detailSummary = definition.outputKind === "row_difference"
+    const detailSummary = definition.outputKind === "row_average"
+      ? `Average of ${definition.spec.rowLabel ?? "Row"} and ${definition.spec.comparedRowLabel ?? "comparison row"} · ${definition.spec.columnLabel}`
+      : definition.outputKind === "row_difference"
       ? `${definition.spec.rowLabel ?? "Row"} - ${definition.spec.comparedRowLabel ?? "comparison row"} · ${definition.spec.columnLabel}`
       : structuralSummary;
 

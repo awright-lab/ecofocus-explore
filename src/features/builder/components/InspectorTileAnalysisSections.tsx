@@ -210,7 +210,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <DerivedOutputCard
                       key={view.kind}
                       view={view}
-                      onConfigChange={view.kind === "row_difference" ? setRowDifferenceConfig : undefined}
+                      onConfigChange={view.kind === "row_difference" || view.kind === "row_average" ? setRowDifferenceConfig : undefined}
                       onCreate={(config) => createDerivedOutputTile(selectedTile, view.kind, { config })}
                       onSaveDefinition={(config) => {
                         const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind, config);
@@ -258,7 +258,8 @@ function DerivedOutputCard({
   onCreate: (config?: DerivedOutputConfig) => string | null;
   onSaveDefinition: (config?: DerivedOutputConfig) => void;
 }) {
-  const currentConfig: DerivedOutputConfig | undefined = view.kind === "row_difference"
+  const isRowMetric = view.kind === "row_difference" || view.kind === "row_average";
+  const currentConfig: DerivedOutputConfig | undefined = isRowMetric
     ? {
         rowId: view.selectedRowId,
         comparedRowId: view.selectedComparedRowId,
@@ -281,7 +282,7 @@ function DerivedOutputCard({
           <small>{[view.rowLabel, view.valueLabel, view.baseLabel, view.rowCountLabel].filter(Boolean).join(" · ")}</small>
         )}
       </div>
-      {view.kind === "row_difference" && view.canCreate && (
+      {isRowMetric && view.canCreate && (
         <div className="row-difference-config">
           <label>
             Row
@@ -292,7 +293,7 @@ function DerivedOutputCard({
             </select>
           </label>
           <label>
-            Minus row
+            {view.kind === "row_average" ? "Averaged row" : "Minus row"}
             <select value={view.selectedComparedRowId ?? ""} onChange={(event) => updateConfig({ comparedRowId: event.target.value })}>
               {view.rowOptions?.map((option) => (
                 <option value={option.id} key={option.id} disabled={option.id === view.selectedRowId}>{option.label}</option>
@@ -309,7 +310,7 @@ function DerivedOutputCard({
           </label>
         </div>
       )}
-      {view.kind === "row_difference" && view.metricPreview && (
+      {isRowMetric && view.metricPreview && (
         <div className="row-difference-preview">
           <div>
             <span>Formula</span>
@@ -326,7 +327,7 @@ function DerivedOutputCard({
           </div>
           <div>
             <span>Result</span>
-            <strong>{view.metricPreview.differenceLabel}</strong>
+            <strong>{view.metricPreview.resultLabel}</strong>
           </div>
           <small>{view.metricPreview.baseContextLabel}</small>
           <small>{view.metricPreview.helper}</small>
@@ -338,12 +339,12 @@ function DerivedOutputCard({
             ? "Create top-N extract"
             : view.kind === "bottom_n_extract"
               ? "Create bottom-N extract"
-              : view.kind === "row_difference"
+              : isRowMetric
                 ? "Create metric output"
                 : "Create summary output"}
         </button>
         <button type="button" className="secondary" onClick={() => onSaveDefinition(currentConfig)} disabled={!view.canCreate}>
-          {view.kind === "row_difference" ? "Save metric definition" : "Save definition"}
+          {isRowMetric ? "Save metric definition" : "Save definition"}
         </button>
       </div>
     </div>
