@@ -1058,6 +1058,7 @@ function SegmentProfileLibrarySection(props: AnalysisAuthoringPanelProps) {
     applySegmentProfile,
     deleteSegmentProfile,
     addTileFromSegmentProfile,
+    recordSavedLibraryInsertionCue,
     activePage,
     layerItems,
     selectedTileId,
@@ -1100,6 +1101,14 @@ function SegmentProfileLibrarySection(props: AnalysisAuthoringPanelProps) {
   async function createSegmentOutput(segment: typeof savedSegmentProfiles[number]) {
     const createdTileId = await addTileFromSegmentProfile(segment);
     if (!createdTileId) return;
+    recordSavedLibraryInsertionCue({
+      tileId: createdTileId,
+      sourceKind: "segmentProfile",
+      sourceLabel: segment.label,
+      objectLabel: "analytical output",
+      sourceSummary: segment.summary.contextLabel,
+      segmentFilterLabel: segmentProfileFilterLabel(segment)
+    });
     setFeedback({
       itemId: segment.id,
       label: "Created from segment",

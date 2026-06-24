@@ -1018,6 +1018,7 @@ export default function BuilderApp() {
           savedFilters={savedFilters}
           savedVariableSets={savedVariableSets}
           savedWeights={savedWeights}
+          savedSegmentProfiles={savedSegmentProfiles}
           savedDerivedDefinitions={savedDerivedDefinitions}
           selectedTileQuestion={selectedTileQuestion}
           selectedTileFilterDimension={selectedTileFilterDimension}

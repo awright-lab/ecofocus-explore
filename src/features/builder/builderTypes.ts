@@ -54,10 +54,11 @@ export type ReportTreeSelectionCue = {
 } | null;
 export type SavedLibraryInsertionCue = {
   tileId: string;
-  sourceKind: "variableSet" | "analyticalTemplate";
+  sourceKind: "variableSet" | "analyticalTemplate" | "segmentProfile";
   sourceLabel: string;
   objectLabel: string;
   sourceSummary?: string;
+  segmentFilterLabel?: string;
   templateDifferenceLabels?: string[];
   createdAt: number;
 } | null;

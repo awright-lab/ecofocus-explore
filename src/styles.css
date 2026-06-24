@@ -1645,7 +1645,8 @@ h2 {
 
 .derived-output-creation-cue,
 .derived-definition-recreation-cue,
-.derived-definition-provenance-card {
+.derived-definition-provenance-card,
+.segment-profile-provenance-card {
   display: grid;
   gap: 3px;
   padding: 8px;
@@ -1655,7 +1656,9 @@ h2 {
 }
 
 .derived-definition-provenance-card.differs,
-.derived-definition-provenance-card.missing {
+.derived-definition-provenance-card.missing,
+.segment-profile-provenance-card.differs,
+.segment-profile-provenance-card.missing {
   border-color: #e4c6c2;
   background: #fff7f5;
 }
@@ -1680,14 +1683,17 @@ h2 {
 
 .derived-output-creation-cue strong,
 .derived-definition-recreation-cue strong,
-.derived-definition-provenance-card strong {
+.derived-definition-provenance-card strong,
+.segment-profile-provenance-card strong {
   color: #20342a;
   font-size: 0.78rem;
   font-weight: 800;
 }
 
 .derived-definition-provenance-card.differs strong,
-.derived-definition-provenance-card.missing strong {
+.derived-definition-provenance-card.missing strong,
+.segment-profile-provenance-card.differs strong,
+.segment-profile-provenance-card.missing strong {
   color: #8a3d34;
 }
 
@@ -1709,6 +1715,8 @@ h2 {
 .derived-definition-recreation-cue small,
 .derived-definition-provenance-card span,
 .derived-definition-provenance-card small,
+.segment-profile-provenance-card span,
+.segment-profile-provenance-card small,
 .derived-output-recreation-cue span,
 .derived-output-recreation-cue small,
 .derived-output-library-action-cue span,

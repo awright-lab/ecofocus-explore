@@ -131,6 +131,14 @@ export interface DashboardTile {
       sourceTileTitle: string;
     };
   };
+  segmentProfile?: {
+    id: string;
+    label: string;
+    filterField: FilterFieldId | null;
+    filterValue: string;
+    dimensionLabel: string;
+    valueLabel: string;
+  };
   locked: boolean;
   hidden: boolean;
   layout: CanvasLayout;

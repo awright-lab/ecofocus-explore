@@ -29,6 +29,7 @@ import type {
   SavedBanner,
   SavedDerivedDefinition,
   SavedFilterSet,
+  SavedSegmentProfile,
   SavedVariableSet,
   SavedWeightProfile,
   TextStylePreset,
@@ -56,6 +57,7 @@ export type BuilderInspectorProps = {
   savedFilters: SavedFilterSet[];
   savedVariableSets: SavedVariableSet[];
   savedWeights: SavedWeightProfile[];
+  savedSegmentProfiles: SavedSegmentProfile[];
   savedDerivedDefinitions: SavedDerivedDefinition[];
   selectedTileQuestion: typeof defaultDataset.questions[number] | null;
   selectedTileFilterDimension?: typeof filterDimensions[number];

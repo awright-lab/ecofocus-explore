@@ -67,6 +67,7 @@ import {
   buildSavedVariableSetFilterMismatch,
   buildSavedVariableSetWeightMismatch
 } from "./analysisWeightDiagnosticsModel";
+import { buildSegmentProfileProvenanceView, type SegmentProfileProvenanceView } from "./libraryReuseModel";
 import { buildAnalysisStatisticsContext, confidenceLevelLabel, supportedConfidenceLevels, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
@@ -99,6 +100,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const navigationCue = buildRelatedObjectNavigationCueView(relatedObjectNavigationCue, selectedTile);
   const reportTreeCue = buildReportTreeSelectionCueView(reportTreeSelectionCue, selectedTile, "tile");
   const savedLibraryCue = buildSavedLibraryInsertionCueView(savedLibraryInsertionCue, selectedTile);
+  const segmentProvenance = buildSegmentProfileProvenanceView(selectedTile, props.savedSegmentProfiles);
   const derivedOutputCue = buildDerivedOutputCreationCueView(derivedOutputCreationCue, selectedTile);
   const derivedOutputRecreation = buildDerivedOutputRecreationCueView(derivedOutputRecreationCue, selectedTile);
   const derivedDefinitionRecreation = buildDerivedDefinitionRecreationCueView(derivedDefinitionRecreationCue, selectedTile);
@@ -184,6 +186,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 </div>
                 <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
+                {segmentProvenance && <SegmentProfileProvenanceCard view={segmentProvenance} />}
                 {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
                 {derivedOutputRecreation && <DerivedOutputRecreationCueCard view={derivedOutputRecreation} />}
                 {derivedDefinitionRecreation && <DerivedDefinitionRecreationCueCard view={derivedDefinitionRecreation} />}
@@ -276,6 +279,23 @@ function SavedLibraryInsertionCueCard({ view }: { view: SavedLibraryInsertionCue
       <strong>{view.label}</strong>
       <span>{view.message}</span>
       <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function SegmentProfileProvenanceCard({ view }: { view: SegmentProfileProvenanceView }) {
+  return (
+    <div className={`segment-profile-provenance-card ${view.status}`}>
+      <strong>{view.label}</strong>
+      <span>{view.message}</span>
+      <small>{view.helper}</small>
+      <div className="explorer-chip-row">
+        {view.chips.map((chip) => (
+          <span className={view.status === "matches" ? "explorer-chip" : "explorer-chip warning-chip"} key={chip}>
+            {chip}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

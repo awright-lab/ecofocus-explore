@@ -134,7 +134,8 @@ export function useBuilderTileCommands({
     tileQuery: AnalyticsQueryRequest,
     sourceLabel: string,
     position?: { x: number; y: number },
-    source?: DashboardTile["source"]
+    source?: DashboardTile["source"],
+    options?: { segmentProfile?: DashboardTile["segmentProfile"] }
   ) {
     setIsLoading(true);
     setError(null);
@@ -149,6 +150,7 @@ export function useBuilderTileCommands({
         name: sourceLabel,
         title: sourceLabel,
         source,
+        segmentProfile: options?.segmentProfile,
         analysisLifecycle: {
           role: "canonical",
           canonicalTileId: tileId,
@@ -273,7 +275,17 @@ export function useBuilderTileCommands({
       undefined,
       selectedVariableSet
         ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
-        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
+        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel },
+      {
+        segmentProfile: {
+          id: segment.id,
+          label: segment.label,
+          filterField: segment.filterField,
+          filterValue: segment.filterValue,
+          dimensionLabel: segment.summary.dimensionLabel,
+          valueLabel: segment.summary.valueLabel
+        }
+      }
     );
   }
 

@@ -1,4 +1,4 @@
-import type { AnalyticsQueryRequest, ChartType } from "../../../../shared/types/analytics";
+import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { DashboardTile, SavedAnalyticalTemplate, SavedBanner, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile } from "../../../../shared/types/dashboard";
 import type { QuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import {
@@ -73,6 +73,14 @@ export interface SegmentProfileCompatibilityView {
   label: string;
   helper: string;
   currentLabel: string;
+}
+
+export interface SegmentProfileProvenanceView {
+  label: string;
+  message: string;
+  helper: string;
+  status: "matches" | "differs" | "missing";
+  chips: string[];
 }
 
 export function savedLibraryItemClass(active: boolean, recentlySaved: boolean) {
@@ -153,6 +161,47 @@ export function buildSegmentProfileCompatibilityView(
       helper: "Loading or creating from this profile uses the saved segment filter.",
       currentLabel
     };
+}
+
+export function buildSegmentProfileProvenanceView(
+  tile: DashboardTile,
+  profiles: SavedSegmentProfile[]
+): SegmentProfileProvenanceView | null {
+  const provenance = tile.segmentProfile;
+  if (!provenance) return null;
+
+  const profile = profiles.find((item) => item.id === provenance.id);
+  const currentFilter = tile.query.filters[0];
+  const currentField = (currentFilter?.field as FilterFieldId | undefined) ?? null;
+  const currentValue = currentFilter?.values[0] ?? "all";
+  const matchesStoredFilter = `${currentField ?? "none"}:${currentValue}` === `${provenance.filterField ?? "none"}:${provenance.filterValue}`;
+
+  if (!profile) {
+    return {
+      label: "Segment provenance",
+      message: `Created from saved segment "${provenance.label}".`,
+      helper: matchesStoredFilter
+        ? "The tile still matches the stored segment filter, but the saved profile is no longer in the library."
+        : "The saved profile is no longer in the library, and this tile's filter differs from the stored segment filter.",
+      status: "missing",
+      chips: [provenance.dimensionLabel, provenance.valueLabel, matchesStoredFilter ? "Matches stored filter" : "Filter changed"]
+    };
+  }
+
+  const compatibility = buildSegmentProfileCompatibilityView(profile, currentField, currentValue);
+  return {
+    label: "Segment provenance",
+    message: `Created from saved segment "${profile.label}".`,
+    helper: compatibility.status === "matches"
+      ? "This tile's current filter still matches the saved segment profile."
+      : "This tile's current filter differs from the saved segment profile.",
+    status: compatibility.status === "matches" ? "matches" : "differs",
+    chips: [
+      profile.summary.dimensionLabel,
+      profile.summary.valueLabel,
+      compatibility.status === "matches" ? "Matches saved segment" : "Segment filter changed"
+    ]
+  };
 }
 
 function queryBannerLabel(query: AnalyticsQueryRequest) {

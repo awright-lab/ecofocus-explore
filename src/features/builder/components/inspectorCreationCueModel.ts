@@ -40,6 +40,16 @@ export function buildSavedLibraryInsertionCueView(
     };
   }
 
+  if (cue.sourceKind === "segmentProfile") {
+    return {
+      label: "Created from saved segment",
+      message: `${tile.title || tile.name} was created from ${cue.sourceLabel}.`,
+      helper: cue.segmentFilterLabel
+        ? `${cue.segmentFilterLabel}. This tile is selected for inspector editing.`
+        : "Review the segment filter and analysis settings below."
+    };
+  }
+
   return {
     label: "Created from saved variable set",
     message: `${tile.title || tile.name} was created as a ${cue.objectLabel} from ${cue.sourceLabel}.`,
