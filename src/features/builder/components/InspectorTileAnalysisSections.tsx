@@ -309,6 +309,29 @@ function DerivedOutputCard({
           </label>
         </div>
       )}
+      {view.kind === "row_difference" && view.metricPreview && (
+        <div className="row-difference-preview">
+          <div>
+            <span>Formula</span>
+            <strong>{view.metricPreview.formulaLabel}</strong>
+          </div>
+          <div>
+            <span>Column</span>
+            <strong>{view.metricPreview.columnLabel}</strong>
+          </div>
+          <div>
+            <span>Source values</span>
+            <strong>{view.metricPreview.leftValueLabel}</strong>
+            <strong>{view.metricPreview.rightValueLabel}</strong>
+          </div>
+          <div>
+            <span>Result</span>
+            <strong>{view.metricPreview.differenceLabel}</strong>
+          </div>
+          <small>{view.metricPreview.baseContextLabel}</small>
+          <small>{view.metricPreview.helper}</small>
+        </div>
+      )}
       <div className="derived-output-card-actions">
         <button type="button" className="secondary" onClick={() => onCreate(currentConfig)} disabled={!view.canCreate}>
           {view.kind === "top_n_extract"

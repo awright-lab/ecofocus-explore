@@ -1657,6 +1657,41 @@ h2 {
   font-weight: 750;
 }
 
+.row-difference-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #cfe4d6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.row-difference-preview div {
+  display: grid;
+  gap: 2px;
+}
+
+.row-difference-preview span,
+.row-difference-preview small {
+  color: #4d6a5e;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.row-difference-preview strong {
+  color: #174f3d;
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.row-difference-preview > small {
+  grid-column: 1 / -1;
+}
+
 .derived-summary-output-card strong {
   color: #174f3d;
   font-size: 0.78rem;

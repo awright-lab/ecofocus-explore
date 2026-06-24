@@ -68,7 +68,15 @@ describe("derived output row-difference metric scaffold", () => {
       valueLabel: "6%",
       selectedRowId: "neutral",
       selectedComparedRowId: "distrust",
-      selectedColumnId: "millennial"
+      selectedColumnId: "millennial",
+      metricPreview: {
+        formulaLabel: "Neither trust nor distrust - Distrust",
+        columnLabel: "Millennial",
+        leftValueLabel: "Neither trust nor distrust: 18%",
+        rightValueLabel: "Distrust: 12%",
+        differenceLabel: "Difference: 6%",
+        baseContextLabel: "Bases: 428 vs 428 (metric uses 428)"
+      }
     });
     expect(rowDifferenceView?.rowOptions?.map((item) => item.id)).toEqual(["trust_a_lot", "trust_somewhat", "neutral", "distrust"]);
     expect(rowDifferenceView?.columnOptions?.map((item) => item.id)).toEqual(["gen_z", "millennial", "gen_x", "boomer_plus"]);
@@ -135,6 +143,7 @@ describe("derived output row-difference metric scaffold", () => {
     expect(items[0]).toMatchObject({
       label: "Row difference metric",
       structuralSummary: "Trust a lot minus Trust somewhat in Gen Z",
+      detailSummary: "Trust a lot - Trust somewhat · Gen Z",
       readinessStatus: "ready",
       canCreate: true,
       outputKind: "row_difference"

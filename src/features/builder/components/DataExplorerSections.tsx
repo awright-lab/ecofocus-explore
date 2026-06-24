@@ -968,6 +968,7 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
                   <span>{item.readinessHelper}</span>
                   <span>Source status: {item.sourceStatusLabel}</span>
                   <span>Definition: {item.structuralSummary}</span>
+                  <span>Detail: {item.detailSummary}</span>
                   <span>Query: {item.querySummary}</span>
                   {item.readinessReasons.map((reason) => (
                     <small key={reason}>{reason}</small>

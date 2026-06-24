@@ -15,6 +15,16 @@ export interface DerivedOutputOption {
   label: string;
 }
 
+export interface RowDifferenceMetricPreview {
+  formulaLabel: string;
+  columnLabel: string;
+  leftValueLabel: string;
+  rightValueLabel: string;
+  differenceLabel: string;
+  baseContextLabel: string;
+  helper: string;
+}
+
 export interface DerivedOutputView {
   kind: DerivedOutputKind;
   canCreate: boolean;
@@ -30,6 +40,7 @@ export interface DerivedOutputView {
   selectedRowId?: string;
   selectedComparedRowId?: string;
   selectedColumnId?: string;
+  metricPreview?: RowDifferenceMetricPreview;
 }
 
 export interface DerivedOutputDetailView {
@@ -103,6 +114,7 @@ export interface DerivedDefinitionLibraryItemView {
   readinessReasons: string[];
   canCreate: boolean;
   structuralSummary: string;
+  detailSummary: string;
   querySummary: string;
   outputKind: DerivedOutputKind;
   chips: string[];
@@ -211,6 +223,27 @@ function resolveRowDifferenceSpec(tile: DashboardTile, config: DerivedOutputConf
 
 function rowDifferenceLabel(left: AnalyticsTableRow, right: AnalyticsTableRow) {
   return `${left.label} minus ${right.label}`;
+}
+
+function buildRowDifferenceMetricPreview(
+  tile: DashboardTile,
+  spec: NonNullable<ReturnType<typeof resolveRowDifferenceSpec>>
+): RowDifferenceMetricPreview {
+  const leftValue = spec.leftRow.values[spec.column.id] ?? 0;
+  const rightValue = spec.rightRow.values[spec.column.id] ?? 0;
+  const difference = leftValue - rightValue;
+  const leftBase = spec.leftRow.bases[spec.column.id] ?? 0;
+  const rightBase = spec.rightRow.bases[spec.column.id] ?? 0;
+
+  return {
+    formulaLabel: `${spec.leftRow.label} - ${spec.rightRow.label}`,
+    columnLabel: spec.column.label,
+    leftValueLabel: `${spec.leftRow.label}: ${formatSummaryValue(leftValue, tile.result.metric.valueFormat)}`,
+    rightValueLabel: `${spec.rightRow.label}: ${formatSummaryValue(rightValue, tile.result.metric.valueFormat)}`,
+    differenceLabel: `Difference: ${formatSummaryValue(difference, tile.result.metric.valueFormat)}`,
+    baseContextLabel: `Bases: ${leftBase.toLocaleString()} vs ${rightBase.toLocaleString()} (metric uses ${Math.min(leftBase, rightBase).toLocaleString()})`,
+    helper: "Preview uses the current stored result and matches the derived metric output that will be created or saved."
+  };
 }
 
 function unavailableView(kind: DerivedOutputKind, label: string, helper: string): DerivedOutputView {
@@ -332,7 +365,8 @@ export function buildDerivedRowDifferenceOutputView(tile: DashboardTile, config:
     columnOptions: tile.result.columns.map((column) => ({ id: column.id, label: column.label })),
     selectedRowId: spec.leftRow.optionId,
     selectedComparedRowId: spec.rightRow.optionId,
-    selectedColumnId: spec.column.id
+    selectedColumnId: spec.column.id,
+    metricPreview: buildRowDifferenceMetricPreview(tile, spec)
   };
 }
 
@@ -496,7 +530,8 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
         ...(output.lastRecreatedAt ? ["Recreated"] : []),
         `${output.rowLabel ?? "Row"} - ${output.comparedRowLabel ?? "comparison row"}`,
         `${output.columnLabel}${output.valueLabel ? `: ${output.valueLabel}` : ""}`,
-        ...(output.baseLabel ? [output.baseLabel] : [])
+        ...(output.baseLabel ? [output.baseLabel] : []),
+        "Formula preview saved"
       ]
     };
   }
@@ -1118,6 +1153,9 @@ export function buildDerivedDefinitionLibraryItems(
   return definitions.map((definition) => {
     const readiness = buildDerivedDefinitionReadinessView(definition, activePage);
     const structuralSummary = definition.summary.structureLabel || derivedDefinitionStructureLabel(definition);
+    const detailSummary = definition.outputKind === "row_difference"
+      ? `${definition.spec.rowLabel ?? "Row"} - ${definition.spec.comparedRowLabel ?? "comparison row"} · ${definition.spec.columnLabel}`
+      : structuralSummary;
 
     return {
       id: definition.id,
@@ -1133,6 +1171,7 @@ export function buildDerivedDefinitionLibraryItems(
       readinessReasons: readiness.readinessReasons,
       canCreate: readiness.canCreate,
       structuralSummary,
+      detailSummary,
       querySummary: definition.summary.queryLabel,
       outputKind: definition.outputKind,
       sourceTileId: definition.sourceTileId,
