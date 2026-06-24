@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  executeColumnComparisonSignificance,
   runColumnComparisonSignificanceAdapter,
   shapeDeferredColumnComparisonResult,
   validateColumnComparisonExecutionInput
@@ -87,26 +88,29 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         ],
         summary: {
           testedComparisons: 0,
-          deferredComparisons: 1
+          deferredComparisons: 1,
+          significantComparisons: 0
         }
       }
     });
   });
 
-  it("returns a not-executed report when the provider is marked executable but no real engine is wired yet", () => {
+  it("executes valid percent column-comparison input when the provider can run the method", () => {
     const readyPlan: AnalyticsSignificanceExecutionPlan = {
       ...deferredColumnComparisonPlan,
       status: "ready",
       providerCanExecute: true,
-      reasonCodes: ["future_method"],
+      reasonCodes: [],
       unmetPrerequisites: []
     };
 
-    expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, readyPlan)).toEqual({
+    const report = runColumnComparisonSignificanceAdapter(columnComparisonInput, readyPlan);
+
+    expect(report).toMatchObject({
       method: "column_comparison",
-      status: "not_executed",
+      status: "executed",
       inputAccepted: true,
-      reasonCodes: ["future_method"],
+      reasonCodes: [],
       unmetPrerequisites: [],
       result: {
         method: "column_comparison",
@@ -120,20 +124,48 @@ describe("runColumnComparisonSignificanceAdapter", () => {
             rowId: "trust_a_lot",
             columnId: "gen_z",
             comparedColumnId: "millennial",
-            status: "deferred",
-            reasonCodes: ["future_method"],
+            status: "tested",
+            reasonCodes: [],
             statistics: {
-              pValue: null,
-              confidence: null,
-              direction: null
+              confidence: 0.95,
+              direction: "down"
             }
           }
         ],
         summary: {
-          testedComparisons: 0,
-          deferredComparisons: 1
+          testedComparisons: 1,
+          deferredComparisons: 0,
+          significantComparisons: 1
         }
       }
+    });
+    expect(report?.result?.outcomes[0].statistics.pValue).toBeGreaterThan(0);
+    expect(report?.result?.outcomes[0].statistics.pValue).toBeLessThan(1);
+  });
+
+  it("returns a not-executed report for executable plans outside the percent column-comparison path", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredColumnComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: ["future_method"],
+      unmetPrerequisites: []
+    };
+    const countInput: AnalyticsColumnComparisonExecutionInput = {
+      ...columnComparisonInput,
+      metric: {
+        id: "count",
+        valueFormat: "number"
+      }
+    };
+
+    expect(runColumnComparisonSignificanceAdapter(countInput, readyPlan)).toEqual({
+      method: "column_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["future_method"],
+      unmetPrerequisites: [],
+      result: shapeDeferredColumnComparisonResult(countInput, ["future_method"])
     });
   });
 
@@ -209,7 +241,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       outcomes: [],
       summary: {
         testedComparisons: 0,
-        deferredComparisons: 0
+        deferredComparisons: 0,
+        significantComparisons: 0
       }
     };
 
@@ -223,7 +256,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       outcomes: [],
       summary: {
         testedComparisons: 0,
-        deferredComparisons: 0
+        deferredComparisons: 0,
+        significantComparisons: 0
       }
     });
     expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, deferredColumnComparisonPlan)?.result).toBeTruthy();
@@ -253,8 +287,43 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       ],
       summary: {
         testedComparisons: 0,
-        deferredComparisons: 1
+        deferredComparisons: 1,
+        significantComparisons: 0
       }
     });
+  });
+
+  it("shapes real tested column-comparison outcomes without fabricating annotations", () => {
+    const executed = executeColumnComparisonSignificance({
+      ...columnComparisonInput,
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [
+            { columnId: "gen_z", value: 18, base: 312 },
+            { columnId: "millennial", value: 30, base: 428 }
+          ]
+        }
+      ]
+    });
+
+    expect(executed.summary).toEqual({
+      testedComparisons: 1,
+      deferredComparisons: 0,
+      significantComparisons: 1
+    });
+    expect(executed.outcomes[0]).toMatchObject({
+      rowId: "trust_a_lot",
+      columnId: "gen_z",
+      comparedColumnId: "millennial",
+      status: "tested",
+      reasonCodes: [],
+      statistics: {
+        confidence: 0.95,
+        direction: "down"
+      }
+    });
+    expect(executed.outcomes[0].statistics.pValue).toBeLessThan(0.05);
   });
 });

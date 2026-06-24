@@ -105,7 +105,7 @@ export function buildSignificanceExecutionPlan(
       queryShapeSupported: true,
       providerCanExecute,
       executionInputContract: readiness.method === "column_comparison" ? "column_comparison" : null,
-      reasonCodes: providerCanExecute ? readiness.reasonCodes : ["mock_provider_not_available", ...readiness.reasonCodes],
+      reasonCodes: providerCanExecute ? [] : ["mock_provider_not_available", ...readiness.reasonCodes],
       unmetPrerequisites: [
         providerSupportsMethod ? "" : "provider_method",
         capabilities.statisticalEngine ? "" : "statistical_engine"

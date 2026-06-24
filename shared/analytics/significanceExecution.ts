@@ -84,7 +84,85 @@ export function shapeDeferredColumnComparisonResult(
     outcomes,
     summary: {
       testedComparisons: 0,
-      deferredComparisons: outcomes.length
+      deferredComparisons: outcomes.length,
+      significantComparisons: 0
+    }
+  };
+}
+
+function normalCdf(value: number) {
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value) / Math.sqrt(2);
+  const t = 1 / (1 + 0.3275911 * abs);
+  const erf =
+    1
+    - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592)
+      * t
+      * Math.exp(-abs * abs);
+
+  return 0.5 * (1 + sign * erf);
+}
+
+function twoTailedColumnPercentPValue(value: number, comparedValue: number, base: number, comparedBase: number) {
+  if (base <= 0 || comparedBase <= 0) return null;
+
+  const proportion = value / 100;
+  const comparedProportion = comparedValue / 100;
+  const pooled = ((proportion * base) + (comparedProportion * comparedBase)) / (base + comparedBase);
+  const standardError = Math.sqrt(pooled * (1 - pooled) * ((1 / base) + (1 / comparedBase)));
+
+  if (!Number.isFinite(standardError) || standardError <= 0) return null;
+
+  const zScore = (proportion - comparedProportion) / standardError;
+  const pValue = 2 * (1 - normalCdf(Math.abs(zScore)));
+
+  return Number.isFinite(pValue) ? Math.max(0, Math.min(1, pValue)) : null;
+}
+
+export function executeColumnComparisonSignificance(
+  input: AnalyticsColumnComparisonExecutionInput
+): AnalyticsColumnComparisonExecutionResult {
+  const alpha = 1 - input.confidenceLevel;
+  const outcomes = input.rows.flatMap((row) =>
+    input.columns.flatMap((column, columnIndex) =>
+      input.columns.slice(columnIndex + 1).map((comparedColumn) => {
+        const cell = row.cells.find((item) => item.columnId === column.id);
+        const comparedCell = row.cells.find((item) => item.columnId === comparedColumn.id);
+        const pValue =
+          cell && comparedCell
+            ? twoTailedColumnPercentPValue(cell.value, comparedCell.value, cell.base, comparedCell.base)
+            : null;
+        const isSignificant = pValue !== null && pValue <= alpha;
+
+        return {
+          rowId: row.id,
+          columnId: column.id,
+          comparedColumnId: comparedColumn.id,
+          status: "tested" as const,
+          reasonCodes: [],
+          statistics: {
+            pValue,
+            confidence: input.confidenceLevel,
+            direction:
+              isSignificant && cell && comparedCell
+                ? cell.value > comparedCell.value
+                  ? "up" as const
+                  : "down" as const
+                : null
+          }
+        };
+      })
+    )
+  );
+
+  return {
+    method: "column_comparison",
+    comparisonScope: input.comparisonScope,
+    outcomes,
+    summary: {
+      testedComparisons: outcomes.length,
+      deferredComparisons: 0,
+      significantComparisons: outcomes.filter((outcome) => outcome.statistics.direction).length
     }
   };
 }
@@ -99,13 +177,14 @@ export function runColumnComparisonSignificanceAdapter(
   const validation = validateColumnComparisonExecutionInput(input);
   const reasonCodes = Array.from(new Set([...plan.reasonCodes, ...validation.reasonCodes]));
   const unmetPrerequisites = Array.from(new Set([...plan.unmetPrerequisites, ...validation.unmetPrerequisites]));
+  const canExecute = validation.valid && plan.providerCanExecute && input.metric.valueFormat === "percent";
 
   return {
     method: "column_comparison",
-    status: validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
+    status: canExecute ? "executed" : validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
     inputAccepted: validation.valid,
-    reasonCodes,
-    unmetPrerequisites,
-    result: validation.valid ? shapeDeferredColumnComparisonResult(input, reasonCodes) : null
+    reasonCodes: canExecute ? [] : reasonCodes,
+    unmetPrerequisites: canExecute ? [] : unmetPrerequisites,
+    result: validation.valid ? (canExecute ? executeColumnComparisonSignificance(input) : shapeDeferredColumnComparisonResult(input, reasonCodes)) : null
   };
 }

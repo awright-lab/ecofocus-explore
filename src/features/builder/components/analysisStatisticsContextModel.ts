@@ -39,7 +39,7 @@ export interface AnalysisSignificanceEligibilityView {
 }
 
 export interface AnalysisExecutionDiagnosticsView {
-  status: "deferred" | "invalid" | "unsupported" | "ready" | "unavailable";
+  status: "executed" | "deferred" | "invalid" | "unsupported" | "ready" | "unavailable";
   label: string;
   message: string;
   helper: string;
@@ -74,7 +74,7 @@ export function confidenceLevelLabel(value: number) {
 
 function significanceMethodLabel(method: SignificanceMethod) {
   if (method === "mock_placeholder") return "Placeholder annotations";
-  if (method === "column_comparison") return "Eligible column comparison";
+  if (method === "column_comparison") return "Column comparison";
   if (method === "wave_comparison") return "Eligible wave comparison";
   return "No significance testing";
 }
@@ -193,12 +193,17 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
   if (!isWaveComparison && !isSummaryOnly) {
     return {
       status: "candidate",
-      label: "Eligible for future significance logic",
+      label: significance.status === "tested" ? "Significance execution available" : "Eligible for future significance logic",
       message:
-        significance.status === "eligible"
+        significance.status === "tested"
+          ? "This result has real column-comparison execution output for the current mock provider path."
+          : significance.status === "eligible"
           ? "This result has a plausible comparison basis and is marked eligible, but it has not been tested."
           : "This result has table rows and breakout columns that could support real significance testing later.",
-      helper: "No p-values or real tests are calculated yet; eligibility only describes whether the current result has a plausible comparison structure.",
+      helper:
+        significance.status === "tested"
+          ? "The first narrow significance path is limited to valid percent breakout column comparisons; other contexts can still be deferred or unsupported."
+          : "No p-values or real tests are calculated yet; eligibility only describes whether the current result has a plausible comparison structure.",
       comparisonBasisLabel,
       chips: ["Future candidate", "Breakout basis", significance.hasPlaceholders ? "Placeholder only" : significance.status === "eligible" ? "Eligible, not tested" : significance.status === "tested" ? "Tested" : "No test performed"],
       limitations
@@ -317,6 +322,24 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
           : "This result does not have a comparison structure for significance execution.",
       helper: "The execution adapter stays inactive for unsupported or summary-only contexts.",
       chips: [plan.candidateMethod === "none" ? "No method" : plan.candidateMethod, plan.status === "blocked" ? "Unsupported" : "Not applicable", "No test performed"],
+      details
+    };
+  }
+
+  if (report?.status === "executed" && report.result) {
+    const testedComparisons = report.result.summary.testedComparisons;
+    const significantComparisons = report.result.summary.significantComparisons ?? 0;
+
+    return {
+      status: "executed",
+      label: "Significance executed",
+      message: `Column-comparison significance ran for ${testedComparisons.toLocaleString()} comparison ${testedComparisons === 1 ? "pair" : "pairs"}.`,
+      helper: "This is the first narrow provider path for valid percent breakout tables; summary and wave contexts remain outside this execution path.",
+      chips: [
+        plan.executionInputContract ?? "No input contract",
+        "Executed",
+        `${significantComparisons.toLocaleString()} significant ${significantComparisons === 1 ? "pair" : "pairs"}`
+      ],
       details
     };
   }
@@ -467,6 +490,29 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
         : `This result is eligible for future ${significanceLabel.toLowerCase()} logic at ${currentConfidenceLabel}, but no real test has been run.`,
       helper: "Eligibility is structural only. The current provider does not calculate p-values or significance decisions yet.",
       chips: [...confidenceChips, significanceLabel, "Eligible, not tested", "Advisory only"]
+    };
+  }
+
+  if (significance.status === "tested") {
+    const significantCount = significance.details.filter((detail) => detail.direction).length;
+
+    return {
+      status: "none",
+      label: "Statistical confidence scaffold",
+      currentConfidenceLabel,
+      resultConfidenceLabel,
+      confidenceChangedSinceRefresh,
+      refreshCue,
+      eligibility,
+      executionDiagnostics,
+      baseDiagnostics,
+      comparisonDiagnostics,
+      significanceLabel,
+      message: confidenceChangedSinceRefresh
+        ? `Current query is set to ${currentConfidenceLabel}; the displayed result still reflects ${resultConfidenceLabel} until refresh.`
+        : `Column-comparison significance ran at ${currentConfidenceLabel} for this breakout result.`,
+      helper: "Only the narrow valid percent breakout path is executed today; other contexts can still be deferred or unsupported.",
+      chips: [...confidenceChips, significanceLabel, "Executed", `${significantCount} significant ${significantCount === 1 ? "pair" : "pairs"}`]
     };
   }
 

@@ -137,7 +137,7 @@ export interface AnalyticsColumnComparisonExecutionInput {
 
 export type AnalyticsSignificanceExecutionInput = AnalyticsColumnComparisonExecutionInput;
 
-export type SignificanceExecutionReportStatus = "not_executed" | "deferred";
+export type SignificanceExecutionReportStatus = "not_executed" | "deferred" | "executed";
 
 export interface AnalyticsColumnComparisonExecutionResult {
   method: "column_comparison";
@@ -150,10 +150,10 @@ export interface AnalyticsColumnComparisonExecutionResult {
     rowId: string;
     columnId: string;
     comparedColumnId: string;
-    status: "deferred" | "not_tested" | "placeholder";
+    status: "deferred" | "not_tested" | "placeholder" | "tested";
     reasonCodes: SignificanceReasonCode[];
     statistics: {
-      pValue: null;
+      pValue: number | null;
       confidence: ConfidenceLevel | null;
       direction: "up" | "down" | null;
     };
@@ -161,6 +161,7 @@ export interface AnalyticsColumnComparisonExecutionResult {
   summary: {
     testedComparisons: number;
     deferredComparisons: number;
+    significantComparisons?: number;
   };
 }
 

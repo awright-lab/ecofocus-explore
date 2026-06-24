@@ -43,19 +43,18 @@ function tileFromResult(result: AnalyticsQueryResponse): DashboardTile {
 }
 
 describe("buildAnalysisStatisticsContext", () => {
-  it("explains provider-deferred column-comparison execution", () => {
+  it("explains executed column-comparison significance", () => {
     const result = runMockAnalyticsQuery(breakoutQuery);
     const view = buildAnalysisStatisticsContext(tileFromResult(result));
 
     expect(view.executionDiagnostics).toMatchObject({
-      status: "deferred",
-      label: "Execution deferred",
-      chips: ["column_comparison", "Input accepted", "Provider deferred"]
+      status: "executed",
+      label: "Significance executed",
+      chips: ["column_comparison", "Executed", expect.stringContaining("significant")]
     });
-    expect(view.executionDiagnostics.message).toContain("24 comparison pairs are shaped as deferred");
-    expect(view.executionDiagnostics.details).toEqual(expect.arrayContaining(["Mock provider does not calculate significance", "Provider method", "Statistical engine"]));
+    expect(view.executionDiagnostics.message).toContain("Column-comparison significance ran");
     expect(view.eligibility.status).toBe("candidate");
-    expect(view.chips).toEqual(expect.arrayContaining(["Eligible, not tested", "Advisory only"]));
+    expect(view.chips).toEqual(expect.arrayContaining(["Executed"]));
   });
 
   it("distinguishes malformed execution input from provider-deferred execution", () => {

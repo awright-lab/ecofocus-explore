@@ -129,7 +129,7 @@ describe("mockAnalyticsProvider", () => {
     });
   });
 
-  it("marks breakout results as eligible but not tested when no placeholder annotations exist", async () => {
+  it("executes the narrow column-comparison path for valid breakout results", async () => {
     const query: AnalyticsQueryRequest = {
       dataset: "ecofocus_2025",
       question: "Q_PACKAGING_TRUST",
@@ -145,17 +145,17 @@ describe("mockAnalyticsProvider", () => {
 
     expect(result.columns.map((column) => column.id)).toEqual(["gen_z", "millennial", "gen_x", "boomer_plus"]);
     expect(result.annotations).toEqual([]);
-    expect(result.statistics).toEqual({
+    expect(result.statistics).toMatchObject({
       confidenceLevel: 0.95,
       significanceMethod: "column_comparison",
       significanceExecutionPlan: {
-        status: "deferred",
+        status: "ready",
         candidateMethod: "column_comparison",
         queryShapeSupported: true,
-        providerCanExecute: false,
+        providerCanExecute: true,
         executionInputContract: "column_comparison",
-        reasonCodes: ["mock_provider_not_available", "future_method"],
-        unmetPrerequisites: ["provider_method", "statistical_engine"]
+        reasonCodes: [],
+        unmetPrerequisites: []
       },
       significanceExecutionInput: {
         method: "column_comparison",
@@ -190,10 +190,10 @@ describe("mockAnalyticsProvider", () => {
       },
       significanceExecutionReport: {
         method: "column_comparison",
-        status: "deferred",
+        status: "executed",
         inputAccepted: true,
-        reasonCodes: ["mock_provider_not_available", "future_method"],
-        unmetPrerequisites: ["provider_method", "statistical_engine"],
+        reasonCodes: [],
+        unmetPrerequisites: [],
         result: {
           method: "column_comparison",
           comparisonScope: {
@@ -201,28 +201,14 @@ describe("mockAnalyticsProvider", () => {
             rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
             columnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
           },
-          outcomes: expect.arrayContaining([
-            {
-              rowId: "trust_a_lot",
-              columnId: "gen_z",
-              comparedColumnId: "millennial",
-              status: "deferred",
-              reasonCodes: ["mock_provider_not_available", "future_method"],
-              statistics: {
-                pValue: null,
-                confidence: null,
-                direction: null
-              }
-            }
-          ]),
           summary: {
-            testedComparisons: 0,
-            deferredComparisons: 24
+            testedComparisons: 24,
+            deferredComparisons: 0
           }
         }
       },
       significance: {
-        status: "eligible",
+        status: "tested",
         method: "column_comparison",
         readiness: {
           status: "candidate",
@@ -230,12 +216,25 @@ describe("mockAnalyticsProvider", () => {
           reasonCodes: ["future_method"],
           comparisonBasis: "breakout"
         },
-        reasonCodes: ["future_method"],
+        reasonCodes: [],
         comparisonBasis: "breakout",
-        hasPlaceholders: false,
-        details: []
+        hasPlaceholders: false
       }
     });
+    expect(result.statistics.significanceExecutionReport?.result?.summary.significantComparisons).toBeGreaterThanOrEqual(0);
+    expect(result.statistics.significanceExecutionReport?.result?.outcomes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        rowId: "trust_a_lot",
+        columnId: "gen_z",
+        comparedColumnId: "millennial",
+        status: "tested",
+        reasonCodes: [],
+        statistics: expect.objectContaining({
+          direction: "down"
+        })
+      })
+    ]));
+    expect(result.statistics.significanceExecutionReport?.result?.outcomes[0].statistics.pValue).toEqual(expect.any(Number));
   });
 
   it("returns multi-wave trend output when multiple comparison datasets are selected", async () => {

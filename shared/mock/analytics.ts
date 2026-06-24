@@ -4,6 +4,7 @@ import { getDatasetMetadata, getMetricMetadata, getWeightMetadata } from "../met
 import type {
   AnalyticsAnnotation,
   AnalyticsColumnComparisonExecutionInput,
+  AnalyticsSignificanceExecutionReport,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
   AnalyticsSeries,
@@ -209,6 +210,12 @@ const mockAnnotations: Record<string, AnalyticsAnnotation[]> = {
   ]
 };
 
+const mockSignificanceExecutionCapabilities = {
+  columnComparison: true,
+  waveComparison: false,
+  statisticalEngine: true
+};
+
 function placeholderSignificance(annotations: AnalyticsAnnotation[], readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
   return {
     status: "placeholder",
@@ -262,6 +269,37 @@ function significanceFromReadiness(readiness: AnalyticsSignificanceReadiness, an
   }
 
   return inactiveSignificance(readiness);
+}
+
+function significanceFromExecutionReport(
+  readiness: AnalyticsSignificanceReadiness,
+  annotations: AnalyticsAnnotation[],
+  report: AnalyticsSignificanceExecutionReport | null
+): AnalyticsSignificanceResult {
+  if (report?.status !== "executed" || !report.result) {
+    return significanceFromReadiness(readiness, annotations);
+  }
+
+  const testedDetails = report.result.outcomes
+    .filter((outcome) => outcome.status === "tested")
+    .map((outcome) => ({
+      rowId: outcome.rowId,
+      columnId: outcome.columnId,
+      direction: outcome.statistics.direction ?? undefined,
+      confidence: outcome.statistics.confidence ?? 0.95,
+      status: "tested" as const,
+      reasonCodes: outcome.reasonCodes
+    }));
+
+  return {
+    status: "tested",
+    method: "column_comparison",
+    readiness,
+    reasonCodes: [],
+    comparisonBasis: readiness.comparisonBasis,
+    hasPlaceholders: false,
+    details: testedDetails
+  };
 }
 
 function unsupportedSignificance(readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
@@ -375,10 +413,10 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   }));
   const annotations = (mockAnnotations[query.question] ?? []).map((annotation) => ({ ...annotation, confidence: normalizedQuery.confidenceLevel }));
   const significanceReadiness = buildSignificanceReadiness(normalizedQuery);
-  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
+  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness, mockSignificanceExecutionCapabilities);
   const significanceExecutionInput = columnComparisonExecutionInput(normalizedQuery, metric, columns, table);
   const significanceExecutionReport = runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
-  const significance = significanceFromReadiness(significanceReadiness, annotations);
+  const significance = significanceFromExecutionReport(significanceReadiness, annotations, significanceExecutionReport);
 
   return {
     query: normalizedQuery,
