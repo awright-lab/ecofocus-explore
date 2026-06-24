@@ -4873,6 +4873,42 @@ code {
   color: #e01818;
 }
 
+.table-value.significance-up {
+  color: #145e3c;
+}
+
+.table-value.significance-down {
+  color: #8f2b1b;
+}
+
+.table-value.significance-mixed {
+  color: #514f97;
+}
+
+.table-significance-marker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: #eef7f2;
+  color: #145e3c;
+  font-size: 0.62rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.table-significance-marker.down {
+  background: #fff1ee;
+  color: #8f2b1b;
+}
+
+.table-significance-marker.mixed {
+  background: #f2f0ff;
+  color: #514f97;
+}
+
 .table-cell-stack small {
   color: #6d7c74;
   font-size: 0.68rem;
@@ -4880,7 +4916,8 @@ code {
 }
 
 .table-notes-row td,
-.table-warning-row td {
+.table-warning-row td,
+.table-significance-row td {
   padding-top: 10px;
   background: #fbfcfd;
 }
@@ -4891,6 +4928,10 @@ code {
   color: #5a6f64;
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.table-note-list.significance {
+  color: #315f48;
 }
 
 .table-note-list.warning {

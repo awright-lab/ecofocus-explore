@@ -18,6 +18,7 @@ import { datasets, defaultDataset, palettes } from "../builderConstants";
 import { backgroundStyle, effectShadow, gradientCss, normalizeGradientStops, svgLinearGradientVector } from "../builderHelpers";
 import type { AnalyticsAnnotation, AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, DatasetId, QuestionId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, GradientStop, TileAppearance } from "../../../../shared/types/dashboard";
+import { buildExecutedColumnComparisonPresentation, getExecutedSignificanceCell } from "./analysisSignificancePresentationModel";
 
 export function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
   const defaultGradientColor = appearance.barFillMode === "gradient" ? appearance.primaryColor : fallbackColor;
@@ -655,10 +656,16 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
 export function TableView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
   const visibleColumns = result.columns;
+  const executedSignificance = buildExecutedColumnComparisonPresentation(result);
 
   function tableCellAnnotation(rowId: string, columnId: string) {
     if (!appearance.showAnnotations) return null;
     return getAnnotation(result.annotations, rowId, columnId);
+  }
+
+  function tableCellSignificance(rowId: string, columnId: string) {
+    if (!appearance.showAnnotations) return null;
+    return getExecutedSignificanceCell(executedSignificance, rowId, columnId);
   }
 
   return (
@@ -695,13 +702,19 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                 </th>
                 {visibleColumns.map((column) => {
                   const annotation = tableCellAnnotation(row.optionId, column.id);
+                  const significanceCell = tableCellSignificance(row.optionId, column.id);
                   return (
                     <td key={column.id}>
                       <div className="table-cell-stack">
                         {appearance.showValueLabels && (
-                          <span className={annotation ? `table-value ${annotation.direction}` : "table-value"}>
+                          <span className={annotation ? `table-value ${annotation.direction}` : significanceCell ? `table-value significance-${significanceCell.direction}` : "table-value"}>
                             {formatValue(row.values[column.id], result.metric.valueFormat)}
                             {annotation && <span className={`direction direction-${annotation.direction}`}>{annotation.direction === "up" ? "↑" : "↓"}</span>}
+                          </span>
+                        )}
+                        {significanceCell && (
+                          <span className={`table-significance-marker ${significanceCell.direction}`} title={significanceCell.title}>
+                            {significanceCell.label}
                           </span>
                         )}
                         {appearance.showBases && <small>Base {row.bases[column.id].toLocaleString()}</small>}
@@ -711,6 +724,15 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                 })}
               </tr>
             ))}
+            {appearance.showAnnotations && executedSignificance.available && executedSignificance.significantComparisons > 0 && (
+              <tr className="table-significance-row">
+                <td colSpan={visibleColumns.length + 1}>
+                  <div className="table-note-list significance">
+                    <span>{executedSignificance.summaryLabel}</span>
+                  </div>
+                </td>
+              </tr>
+            )}
             {appearance.showNotes && result.notes.length > 0 && (
               <tr className="table-notes-row">
                 <td colSpan={visibleColumns.length + 1}>
