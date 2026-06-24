@@ -111,11 +111,13 @@ export interface DashboardTile {
     };
   };
   derivedOutput?: {
-    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract";
+    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference";
     sourceTileId: string;
     sourceTitle: string;
     rowId?: string;
     rowLabel?: string;
+    comparedRowId?: string;
+    comparedRowLabel?: string;
     columnId: string;
     columnLabel: string;
     valueLabel?: string;
@@ -126,7 +128,7 @@ export interface DashboardTile {
     savedDefinition?: {
       id: string;
       label: string;
-      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract";
+      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference";
       sourceTileId: string;
       sourceTileTitle: string;
     };
@@ -322,6 +324,7 @@ export interface SavedDerivedDefinition {
   datasetId: DatasetId;
   label: string;
   description: string;
+  definitionType?: "output" | "metric";
   source: {
     kind: "question" | "variableSet";
     id: string;
@@ -331,11 +334,14 @@ export interface SavedDerivedDefinition {
   sourceTileTitle: string;
   query: AnalyticsQueryRequest;
   outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
+  metricKind?: "row_difference";
   spec: {
     columnId: string;
     columnLabel: string;
     rowId?: string;
     rowLabel?: string;
+    comparedRowId?: string;
+    comparedRowLabel?: string;
     rowCount?: number;
   };
   summary: {

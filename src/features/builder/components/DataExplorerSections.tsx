@@ -916,7 +916,7 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
         <small>{derivedDefinitions.length} definitions · {derivedOutputs.length} in report · Current page: {activePage.title}</small>
       </div>
       <small className="library-reuse-helper">
-        Derived outputs are managed report artifacts. They are not live-linked; recreate from the inspector when a source result should be reflected.
+        Derived outputs and metric definitions are managed report artifacts. They are not live-linked; recreate from the inspector when a source result should be reflected.
       </small>
       {definitionFeedback?.itemId === null && (
         <div className="template-management-feedback deleted" role="status">
@@ -927,7 +927,7 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
       <div className="derived-library-subsection">
         <div className="explorer-section-header compact">
           <strong>Saved definitions</strong>
-          <small>Reusable derived-output specs</small>
+          <small>Reusable output and metric specs</small>
         </div>
         {derivedDefinitions.length === 0 ? (
           <div className="empty-state compact">No derived definitions saved yet.</div>
@@ -975,7 +975,7 @@ function DerivedOutputLibrarySection(props: AnalysisAuthoringPanelProps) {
                 </div>
                 <div className="library-reuse-actions">
                   <button type="button" className="secondary" onClick={() => createFromDefinition(item.id)} disabled={!item.canCreate}>
-                    Recreate from definition
+                    {item.outputKind === "row_difference" ? "Create metric output" : "Recreate from definition"}
                   </button>
                   <button type="button" className="secondary" onClick={() => updateDefinitionFromSelectedTile(item.id)} disabled={!selectedTile?.derivedOutput}>
                     Update from selected derived tile

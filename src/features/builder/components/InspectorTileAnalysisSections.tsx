@@ -264,10 +264,16 @@ function DerivedOutputCard({
       </div>
       <div className="derived-output-card-actions">
         <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
-          {view.kind === "top_n_extract" ? "Create top-N extract" : view.kind === "bottom_n_extract" ? "Create bottom-N extract" : "Create summary output"}
+          {view.kind === "top_n_extract"
+            ? "Create top-N extract"
+            : view.kind === "bottom_n_extract"
+              ? "Create bottom-N extract"
+              : view.kind === "row_difference"
+                ? "Create metric output"
+                : "Create summary output"}
         </button>
         <button type="button" className="secondary" onClick={onSaveDefinition} disabled={!view.canCreate}>
-          Save definition
+          {view.kind === "row_difference" ? "Save metric definition" : "Save definition"}
         </button>
       </div>
     </div>

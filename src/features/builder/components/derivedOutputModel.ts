@@ -120,6 +120,7 @@ function formatSummaryValue(value: number, format: AnalyticsQueryResponse["metri
 }
 
 function derivedOutputKindLabel(kind: DerivedOutputKind) {
+  if (kind === "row_difference") return "Row difference metric";
   if (kind === "top_n_extract") return "Top-N extract";
   if (kind === "bottom_n_extract") return "Bottom-N extract";
   return "Lead-row summary";
@@ -130,12 +131,20 @@ function derivedOutputKindSentenceLabel(kind: DerivedOutputKind) {
 }
 
 function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>) {
+  if (output.kind === "row_difference") {
+    return `${output.rowLabel ?? "Row"} vs ${output.comparedRowLabel ?? "comparison"} difference`;
+  }
+
   return output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.kind === "top_n_extract" ? "Top" : "Bottom"} ${output.rowCount ?? 0} ${output.columnLabel}`
     : `${output.rowLabel} summary`;
 }
 
 function derivedDefinitionStructureLabel(definition: SavedDerivedDefinition) {
+  if (definition.outputKind === "row_difference") {
+    return `${definition.spec.rowLabel ?? "Row"} minus ${definition.spec.comparedRowLabel ?? "comparison row"} in ${definition.spec.columnLabel}`;
+  }
+
   return definition.outputKind === "top_n_extract" || definition.outputKind === "bottom_n_extract"
     ? `${definition.spec.rowCount ?? 0} rows from ${definition.spec.columnLabel}`
     : `${definition.spec.rowLabel ?? "Lead row"} from ${definition.spec.columnLabel}`;
@@ -156,6 +165,16 @@ function derivedDefinitionSourceMatches(definition: SavedDerivedDefinition, sour
 
 function extractRows(tile: DashboardTile, columnId: string, kind: "top_n_extract" | "bottom_n_extract") {
   return kind === "top_n_extract" ? topRows(tile.result.table, columnId, topNCount) : bottomRows(tile.result.table, columnId, topNCount);
+}
+
+function rowDifferenceRows(tile: DashboardTile, columnId: string) {
+  return tile.result.table
+    .filter((row) => Number.isFinite(row.values[columnId]))
+    .slice(0, 2);
+}
+
+function rowDifferenceLabel(left: AnalyticsTableRow, right: AnalyticsTableRow) {
+  return `${left.label} minus ${right.label}`;
 }
 
 function unavailableView(kind: DerivedOutputKind, label: string, helper: string): DerivedOutputView {
@@ -248,11 +267,40 @@ export function buildDerivedBottomNOutputView(tile: DashboardTile): DerivedOutpu
   };
 }
 
+export function buildDerivedRowDifferenceOutputView(tile: DashboardTile): DerivedOutputView {
+  if (tile.derivedOutput) {
+    return unavailableView("row_difference", "Row-difference metric already derived", "This tile is already a derived output.");
+  }
+
+  const column = tile.result.columns[0];
+  if (!column) {
+    return unavailableView("row_difference", "Row-difference metric unavailable", "This result has no columns to compare.");
+  }
+
+  const rows = rowDifferenceRows(tile, column.id);
+  if (rows.length < 2) {
+    return unavailableView("row_difference", "Row-difference metric unavailable", "This result needs at least two rows with values.");
+  }
+
+  const difference = (rows[0].values[column.id] ?? 0) - (rows[1].values[column.id] ?? 0);
+
+  return {
+    kind: "row_difference",
+    canCreate: true,
+    label: "Row-difference metric",
+    helper: `Creates a reusable metric definition for the difference between ${rows[0].label} and ${rows[1].label} in ${column.label}.`,
+    rowLabel: rowDifferenceLabel(rows[0], rows[1]),
+    columnLabel: column.label,
+    valueLabel: formatSummaryValue(difference, tile.result.metric.valueFormat)
+  };
+}
+
 export function buildDerivedOutputViews(tile: DashboardTile): DerivedOutputView[] {
   return [
     buildDerivedSummaryOutputView(tile),
     buildDerivedTopNOutputView(tile),
-    buildDerivedBottomNOutputView(tile)
+    buildDerivedBottomNOutputView(tile),
+    buildDerivedRowDifferenceOutputView(tile)
   ];
 }
 
@@ -387,6 +435,27 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
         ...(output.lastRecreatedAt ? ["Recreated"] : []),
         `Column: ${output.columnLabel}`,
         `${output.rowCount ?? 0} rows`
+      ]
+    };
+  }
+
+  if (output.kind === "row_difference") {
+    return {
+      label: "Derived metric: row difference",
+      sourceLabel: output.sourceTitle,
+      description: `Read-only metric for ${output.rowLabel ?? "the first row"} minus ${output.comparedRowLabel ?? "the comparison row"} in ${output.columnLabel}.`,
+      managementHelper: "Use the title field above to rename this metric, duplicate it for a separate maintained copy, or save the definition for reuse.",
+      lastRecreatedLabel: lastRecreatedLabel(output),
+      ...relationship,
+      chips: [
+        "Pattern: Row difference metric",
+        `Source: ${output.sourceTitle}`,
+        sourceStatus.sourceStatusLabel,
+        readiness.readinessLabel,
+        ...(output.lastRecreatedAt ? ["Recreated"] : []),
+        `${output.rowLabel ?? "Row"} - ${output.comparedRowLabel ?? "comparison row"}`,
+        `${output.columnLabel}${output.valueLabel ? `: ${output.valueLabel}` : ""}`,
+        ...(output.baseLabel ? [output.baseLabel] : [])
       ]
     };
   }
@@ -537,6 +606,48 @@ export function buildDerivedBottomNResponse(tile: DashboardTile): AnalyticsQuery
   };
 }
 
+export function buildDerivedRowDifferenceResponse(tile: DashboardTile): AnalyticsQueryResponse | null {
+  const column = tile.result.columns[0];
+  if (!column) return null;
+  const rows = rowDifferenceRows(tile, column.id);
+  if (rows.length < 2) return null;
+
+  const [leftRow, rightRow] = rows;
+  const difference = (leftRow.values[column.id] ?? 0) - (rightRow.values[column.id] ?? 0);
+  const base = Math.min(leftRow.bases[column.id] ?? 0, rightRow.bases[column.id] ?? 0);
+  const metricRow: AnalyticsTableRow = {
+    optionId: "row_difference",
+    label: rowDifferenceLabel(leftRow, rightRow),
+    values: { [column.id]: difference },
+    bases: { [column.id]: base },
+    presentation: {
+      rowKind: "net",
+      emphasis: "summary"
+    }
+  };
+
+  return {
+    ...tile.result,
+    labels: [metricRow.label],
+    columns: [column],
+    series: [
+      {
+        id: metricRow.optionId,
+        label: metricRow.label,
+        values: [difference],
+        bases: [base]
+      }
+    ],
+    table: [metricRow],
+    annotations: [],
+    notes: [
+      `Derived row-difference metric from ${tile.title || tile.name}.`,
+      `${leftRow.label} minus ${rightRow.label} in ${column.label}.`,
+      ...tile.result.notes
+    ]
+  };
+}
+
 export function buildDerivedTopNMetadata(tile: DashboardTile): NonNullable<DashboardTile["derivedOutput"]> | null {
   const column = tile.result.columns[0];
   if (!column) return null;
@@ -571,13 +682,41 @@ export function buildDerivedBottomNMetadata(tile: DashboardTile): NonNullable<Da
   };
 }
 
+export function buildDerivedRowDifferenceMetadata(tile: DashboardTile): NonNullable<DashboardTile["derivedOutput"]> | null {
+  const column = tile.result.columns[0];
+  if (!column) return null;
+  const rows = rowDifferenceRows(tile, column.id);
+  if (rows.length < 2) return null;
+
+  const [leftRow, rightRow] = rows;
+  const difference = (leftRow.values[column.id] ?? 0) - (rightRow.values[column.id] ?? 0);
+
+  return {
+    kind: "row_difference",
+    sourceTileId: tile.id,
+    sourceTitle: tile.title || tile.name,
+    rowId: leftRow.optionId,
+    rowLabel: leftRow.label,
+    comparedRowId: rightRow.optionId,
+    comparedRowLabel: rightRow.label,
+    columnId: column.id,
+    columnLabel: column.label,
+    valueLabel: formatSummaryValue(difference, tile.result.metric.valueFormat),
+    baseLabel: `Min base ${Math.min(leftRow.bases[column.id] ?? 0, rightRow.bases[column.id] ?? 0).toLocaleString()}`,
+    rowCount: 2,
+    sourceResultSignature: buildDerivedSourceResultSignature(tile)
+  };
+}
+
 export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOutputKind): AnalyticsQueryResponse | null {
+  if (kind === "row_difference") return buildDerivedRowDifferenceResponse(tile);
   if (kind === "top_n_extract") return buildDerivedTopNResponse(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNResponse(tile);
   return buildDerivedSummaryResponse(tile);
 }
 
 export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOutputKind): NonNullable<DashboardTile["derivedOutput"]> | null {
+  if (kind === "row_difference") return buildDerivedRowDifferenceMetadata(tile);
   if (kind === "top_n_extract") return buildDerivedTopNMetadata(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNMetadata(tile);
   return buildDerivedSummaryMetadata(tile);
@@ -599,6 +738,8 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
   const outputLabel = derivedOutputKindLabel(kind);
   const structureLabel = kind === "top_n_extract" || kind === "bottom_n_extract"
     ? `${metadata.rowCount ?? 0} rows from ${metadata.columnLabel}`
+    : kind === "row_difference"
+      ? `${metadata.rowLabel ?? "Row"} minus ${metadata.comparedRowLabel ?? "comparison row"} in ${metadata.columnLabel}`
     : `${metadata.rowLabel ?? "Lead row"} from ${metadata.columnLabel}`;
   const confidenceLabel = `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
 
@@ -607,6 +748,7 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
     datasetId: tile.query.dataset,
     label: `${tile.title || tile.name} ${outputLabel.toLowerCase()}`,
     description: `Reusable ${outputLabel.toLowerCase()} definition from ${tile.title || tile.name}.`,
+    definitionType: kind === "row_difference" ? "metric" : "output",
     source,
     sourceTileId: tile.id,
     sourceTileTitle: tile.title || tile.name,
@@ -615,11 +757,14 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
       chartType: tile.visualization
     },
     outputKind: kind,
+    metricKind: kind === "row_difference" ? "row_difference" : undefined,
     spec: {
       columnId: metadata.columnId,
       columnLabel: metadata.columnLabel,
       rowId: metadata.rowId,
       rowLabel: metadata.rowLabel,
+      comparedRowId: metadata.comparedRowId,
+      comparedRowLabel: metadata.comparedRowLabel,
       rowCount: metadata.rowCount
     },
     summary: {
@@ -645,6 +790,8 @@ export function buildDerivedDefinitionFromDerivedTile(
   const outputLabel = derivedOutputKindLabel(output.kind);
   const structureLabel = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
+    : output.kind === "row_difference"
+      ? `${output.rowLabel ?? "Row"} minus ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
     : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
   const confidenceLabel = `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
 
@@ -653,6 +800,7 @@ export function buildDerivedDefinitionFromDerivedTile(
     datasetId: tile.query.dataset,
     label: options?.label ?? `${output.sourceTitle} ${outputLabel.toLowerCase()}`,
     description: options?.description ?? `Reusable ${outputLabel.toLowerCase()} definition from ${output.sourceTitle}.`,
+    definitionType: output.kind === "row_difference" ? "metric" : "output",
     source,
     sourceTileId: output.sourceTileId,
     sourceTileTitle: output.sourceTitle,
@@ -661,11 +809,14 @@ export function buildDerivedDefinitionFromDerivedTile(
       chartType: tile.visualization
     },
     outputKind: output.kind,
+    metricKind: output.kind === "row_difference" ? "row_difference" : undefined,
     spec: {
       columnId: output.columnId,
       columnLabel: output.columnLabel,
       rowId: output.rowId,
       rowLabel: output.rowLabel,
+      comparedRowId: output.comparedRowId,
+      comparedRowLabel: output.comparedRowLabel,
       rowCount: output.rowCount
     },
     summary: {
@@ -714,6 +865,7 @@ function derivedOutputMatchesDefinition(output: NonNullable<DashboardTile["deriv
     && output.sourceTileId === definition.sourceTileId
     && output.columnId === definition.spec.columnId
     && (output.rowId ?? "") === (definition.spec.rowId ?? "")
+    && (output.comparedRowId ?? "") === (definition.spec.comparedRowId ?? "")
     && (output.rowCount ?? 0) === (definition.spec.rowCount ?? 0);
 }
 
@@ -792,6 +944,8 @@ export function buildDerivedOutputLibraryItems(pages: DashboardPage[]): DerivedO
       const output = tile.derivedOutput!;
       const structuralSummary = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
         ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
+        : output.kind === "row_difference"
+          ? `${output.rowLabel ?? "Row"} minus ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
         : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
 
       return {
@@ -868,6 +1022,23 @@ export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefi
       readinessLabel: "Unavailable",
       readinessHelper: "The current source result cannot produce this derived output kind.",
       readinessReasons: ["The source result does not have the rows or columns needed for this definition."],
+      canCreate: false
+    };
+  }
+
+  if (definition.outputKind === "row_difference" && (
+    supportedMetadata.rowId !== definition.spec.rowId
+    || supportedMetadata.comparedRowId !== definition.spec.comparedRowId
+    || supportedMetadata.columnId !== definition.spec.columnId
+  )) {
+    return {
+      sourceTile,
+      sourceStatus: "available" as const,
+      sourceStatusLabel: "Source available on current page",
+      readinessStatus: "unresolved" as const,
+      readinessLabel: "Metric rows changed",
+      readinessHelper: "The source result is available, but the saved row-pair definition no longer matches the current metric scaffold.",
+      readinessReasons: ["The saved metric expects a specific first-row and comparison-row pair."],
       canCreate: false
     };
   }
