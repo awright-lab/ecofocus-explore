@@ -4,6 +4,16 @@ import type { DerivedDefinitionRecreationCue, DerivedOutputLibraryActionCue, Der
 import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type DerivedOutputKind = NonNullable<DashboardTile["derivedOutput"]>["kind"];
+export type DerivedOutputConfig = {
+  rowId?: string;
+  comparedRowId?: string;
+  columnId?: string;
+};
+
+export interface DerivedOutputOption {
+  id: string;
+  label: string;
+}
 
 export interface DerivedOutputView {
   kind: DerivedOutputKind;
@@ -15,6 +25,11 @@ export interface DerivedOutputView {
   valueLabel?: string;
   baseLabel?: string;
   rowCountLabel?: string;
+  rowOptions?: DerivedOutputOption[];
+  columnOptions?: DerivedOutputOption[];
+  selectedRowId?: string;
+  selectedComparedRowId?: string;
+  selectedColumnId?: string;
 }
 
 export interface DerivedOutputDetailView {
@@ -167,10 +182,31 @@ function extractRows(tile: DashboardTile, columnId: string, kind: "top_n_extract
   return kind === "top_n_extract" ? topRows(tile.result.table, columnId, topNCount) : bottomRows(tile.result.table, columnId, topNCount);
 }
 
-function rowDifferenceRows(tile: DashboardTile, columnId: string) {
-  return tile.result.table
-    .filter((row) => Number.isFinite(row.values[columnId]))
-    .slice(0, 2);
+function usableRowDifferenceRows(tile: DashboardTile, columnId: string) {
+  return tile.result.table.filter((row) => Number.isFinite(row.values[columnId]));
+}
+
+function resolveRowDifferenceSpec(tile: DashboardTile, config: DerivedOutputConfig = {}) {
+  const column = tile.result.columns.find((item) => item.id === config.columnId) ?? tile.result.columns[0];
+  if (!column) return null;
+
+  const rows = usableRowDifferenceRows(tile, column.id);
+  if (rows.length < 2) return null;
+
+  const leftRow = rows.find((row) => row.optionId === config.rowId) ?? rows[0];
+  const rightRow =
+    rows.find((row) => row.optionId === config.comparedRowId && row.optionId !== leftRow.optionId)
+    ?? rows.find((row) => row.optionId !== leftRow.optionId)
+    ?? null;
+
+  if (!rightRow) return null;
+
+  return {
+    column,
+    rows,
+    leftRow,
+    rightRow
+  };
 }
 
 function rowDifferenceLabel(left: AnalyticsTableRow, right: AnalyticsTableRow) {
@@ -267,40 +303,45 @@ export function buildDerivedBottomNOutputView(tile: DashboardTile): DerivedOutpu
   };
 }
 
-export function buildDerivedRowDifferenceOutputView(tile: DashboardTile): DerivedOutputView {
+export function buildDerivedRowDifferenceOutputView(tile: DashboardTile, config: DerivedOutputConfig = {}): DerivedOutputView {
   if (tile.derivedOutput) {
     return unavailableView("row_difference", "Row-difference metric already derived", "This tile is already a derived output.");
   }
 
-  const column = tile.result.columns[0];
-  if (!column) {
+  const selectedColumn = tile.result.columns.find((item) => item.id === config.columnId) ?? tile.result.columns[0];
+  if (!selectedColumn) {
     return unavailableView("row_difference", "Row-difference metric unavailable", "This result has no columns to compare.");
   }
 
-  const rows = rowDifferenceRows(tile, column.id);
-  if (rows.length < 2) {
+  const spec = resolveRowDifferenceSpec(tile, config);
+  if (!spec) {
     return unavailableView("row_difference", "Row-difference metric unavailable", "This result needs at least two rows with values.");
   }
 
-  const difference = (rows[0].values[column.id] ?? 0) - (rows[1].values[column.id] ?? 0);
+  const difference = (spec.leftRow.values[spec.column.id] ?? 0) - (spec.rightRow.values[spec.column.id] ?? 0);
 
   return {
     kind: "row_difference",
     canCreate: true,
     label: "Row-difference metric",
-    helper: `Creates a reusable metric definition for the difference between ${rows[0].label} and ${rows[1].label} in ${column.label}.`,
-    rowLabel: rowDifferenceLabel(rows[0], rows[1]),
-    columnLabel: column.label,
-    valueLabel: formatSummaryValue(difference, tile.result.metric.valueFormat)
+    helper: `Creates a reusable metric definition for the difference between ${spec.leftRow.label} and ${spec.rightRow.label} in ${spec.column.label}.`,
+    rowLabel: rowDifferenceLabel(spec.leftRow, spec.rightRow),
+    columnLabel: spec.column.label,
+    valueLabel: formatSummaryValue(difference, tile.result.metric.valueFormat),
+    rowOptions: spec.rows.map((row) => ({ id: row.optionId, label: row.label })),
+    columnOptions: tile.result.columns.map((column) => ({ id: column.id, label: column.label })),
+    selectedRowId: spec.leftRow.optionId,
+    selectedComparedRowId: spec.rightRow.optionId,
+    selectedColumnId: spec.column.id
   };
 }
 
-export function buildDerivedOutputViews(tile: DashboardTile): DerivedOutputView[] {
+export function buildDerivedOutputViews(tile: DashboardTile, config: DerivedOutputConfig = {}): DerivedOutputView[] {
   return [
     buildDerivedSummaryOutputView(tile),
     buildDerivedTopNOutputView(tile),
     buildDerivedBottomNOutputView(tile),
-    buildDerivedRowDifferenceOutputView(tile)
+    buildDerivedRowDifferenceOutputView(tile, config)
   ];
 }
 
@@ -606,13 +647,11 @@ export function buildDerivedBottomNResponse(tile: DashboardTile): AnalyticsQuery
   };
 }
 
-export function buildDerivedRowDifferenceResponse(tile: DashboardTile): AnalyticsQueryResponse | null {
-  const column = tile.result.columns[0];
-  if (!column) return null;
-  const rows = rowDifferenceRows(tile, column.id);
-  if (rows.length < 2) return null;
+export function buildDerivedRowDifferenceResponse(tile: DashboardTile, config: DerivedOutputConfig = {}): AnalyticsQueryResponse | null {
+  const spec = resolveRowDifferenceSpec(tile, config);
+  if (!spec) return null;
 
-  const [leftRow, rightRow] = rows;
+  const { column, leftRow, rightRow } = spec;
   const difference = (leftRow.values[column.id] ?? 0) - (rightRow.values[column.id] ?? 0);
   const base = Math.min(leftRow.bases[column.id] ?? 0, rightRow.bases[column.id] ?? 0);
   const metricRow: AnalyticsTableRow = {
@@ -682,13 +721,11 @@ export function buildDerivedBottomNMetadata(tile: DashboardTile): NonNullable<Da
   };
 }
 
-export function buildDerivedRowDifferenceMetadata(tile: DashboardTile): NonNullable<DashboardTile["derivedOutput"]> | null {
-  const column = tile.result.columns[0];
-  if (!column) return null;
-  const rows = rowDifferenceRows(tile, column.id);
-  if (rows.length < 2) return null;
+export function buildDerivedRowDifferenceMetadata(tile: DashboardTile, config: DerivedOutputConfig = {}): NonNullable<DashboardTile["derivedOutput"]> | null {
+  const spec = resolveRowDifferenceSpec(tile, config);
+  if (!spec) return null;
 
-  const [leftRow, rightRow] = rows;
+  const { column, leftRow, rightRow } = spec;
   const difference = (leftRow.values[column.id] ?? 0) - (rightRow.values[column.id] ?? 0);
 
   return {
@@ -708,15 +745,15 @@ export function buildDerivedRowDifferenceMetadata(tile: DashboardTile): NonNulla
   };
 }
 
-export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOutputKind): AnalyticsQueryResponse | null {
-  if (kind === "row_difference") return buildDerivedRowDifferenceResponse(tile);
+export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): AnalyticsQueryResponse | null {
+  if (kind === "row_difference") return buildDerivedRowDifferenceResponse(tile, config);
   if (kind === "top_n_extract") return buildDerivedTopNResponse(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNResponse(tile);
   return buildDerivedSummaryResponse(tile);
 }
 
-export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOutputKind): NonNullable<DashboardTile["derivedOutput"]> | null {
-  if (kind === "row_difference") return buildDerivedRowDifferenceMetadata(tile);
+export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): NonNullable<DashboardTile["derivedOutput"]> | null {
+  if (kind === "row_difference") return buildDerivedRowDifferenceMetadata(tile, config);
   if (kind === "top_n_extract") return buildDerivedTopNMetadata(tile);
   if (kind === "bottom_n_extract") return buildDerivedBottomNMetadata(tile);
   return buildDerivedSummaryMetadata(tile);
@@ -726,8 +763,8 @@ export function buildDerivedOutputTitle(output: NonNullable<DashboardTile["deriv
   return derivedOutputTitle(output);
 }
 
-export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: DerivedOutputKind): SavedDerivedDefinition | null {
-  const metadata = buildDerivedOutputMetadata(tile, kind);
+export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): SavedDerivedDefinition | null {
+  const metadata = buildDerivedOutputMetadata(tile, kind, config);
   if (!metadata) return null;
 
   const source = tile.source ?? {
@@ -1011,8 +1048,13 @@ export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefi
     };
   }
 
-  const supportedResult = buildDerivedOutputResponse(sourceTile, definition.outputKind);
-  const supportedMetadata = buildDerivedOutputMetadata(sourceTile, definition.outputKind);
+  const definitionConfig: DerivedOutputConfig = {
+    rowId: definition.spec.rowId,
+    comparedRowId: definition.spec.comparedRowId,
+    columnId: definition.spec.columnId
+  };
+  const supportedResult = buildDerivedOutputResponse(sourceTile, definition.outputKind, definitionConfig);
+  const supportedMetadata = buildDerivedOutputMetadata(sourceTile, definition.outputKind, definitionConfig);
   if (!supportedResult || !supportedMetadata) {
     return {
       sourceTile,

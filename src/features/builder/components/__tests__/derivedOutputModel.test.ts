@@ -50,24 +50,34 @@ function tileFromResult(result: AnalyticsQueryResponse): DashboardTile {
 describe("derived output row-difference metric scaffold", () => {
   it("builds a reusable row-difference metric view, response, metadata, and definition", () => {
     const sourceTile = tileFromResult(runMockAnalyticsQuery(breakoutQuery));
-    const rowDifferenceView = buildDerivedOutputViews(sourceTile).find((view) => view.kind === "row_difference");
-    const response = buildDerivedOutputResponse(sourceTile, "row_difference");
-    const metadata = buildDerivedOutputMetadata(sourceTile, "row_difference");
-    const definition = buildDerivedDefinitionFromTile(sourceTile, "row_difference");
+    const config = {
+      rowId: "neutral",
+      comparedRowId: "distrust",
+      columnId: "millennial"
+    };
+    const rowDifferenceView = buildDerivedOutputViews(sourceTile, config).find((view) => view.kind === "row_difference");
+    const response = buildDerivedOutputResponse(sourceTile, "row_difference", config);
+    const metadata = buildDerivedOutputMetadata(sourceTile, "row_difference", config);
+    const definition = buildDerivedDefinitionFromTile(sourceTile, "row_difference", config);
 
     expect(rowDifferenceView).toMatchObject({
       canCreate: true,
       label: "Row-difference metric",
-      rowLabel: "Trust a lot minus Trust somewhat",
-      columnLabel: "Gen Z",
-      valueLabel: "-26%"
+      rowLabel: "Neither trust nor distrust minus Distrust",
+      columnLabel: "Millennial",
+      valueLabel: "6%",
+      selectedRowId: "neutral",
+      selectedComparedRowId: "distrust",
+      selectedColumnId: "millennial"
     });
+    expect(rowDifferenceView?.rowOptions?.map((item) => item.id)).toEqual(["trust_a_lot", "trust_somewhat", "neutral", "distrust"]);
+    expect(rowDifferenceView?.columnOptions?.map((item) => item.id)).toEqual(["gen_z", "millennial", "gen_x", "boomer_plus"]);
     expect(response?.table).toEqual([
       expect.objectContaining({
         optionId: "row_difference",
-        label: "Trust a lot minus Trust somewhat",
-        values: { gen_z: -26 },
-        bases: { gen_z: 312 },
+        label: "Neither trust nor distrust minus Distrust",
+        values: { millennial: 6 },
+        bases: { millennial: 428 },
         presentation: {
           rowKind: "net",
           emphasis: "summary"
@@ -76,12 +86,12 @@ describe("derived output row-difference metric scaffold", () => {
     ]);
     expect(metadata).toMatchObject({
       kind: "row_difference",
-      rowId: "trust_a_lot",
-      rowLabel: "Trust a lot",
-      comparedRowId: "trust_somewhat",
-      comparedRowLabel: "Trust somewhat",
-      columnId: "gen_z",
-      valueLabel: "-26%"
+      rowId: "neutral",
+      rowLabel: "Neither trust nor distrust",
+      comparedRowId: "distrust",
+      comparedRowLabel: "Distrust",
+      columnId: "millennial",
+      valueLabel: "6%"
     });
     expect(definition).toMatchObject({
       definitionType: "metric",
@@ -89,12 +99,12 @@ describe("derived output row-difference metric scaffold", () => {
       metricKind: "row_difference",
       summary: {
         outputLabel: "Row difference metric",
-        structureLabel: "Trust a lot minus Trust somewhat in Gen Z"
+        structureLabel: "Neither trust nor distrust minus Distrust in Millennial"
       },
       spec: {
-        rowId: "trust_a_lot",
-        comparedRowId: "trust_somewhat",
-        columnId: "gen_z"
+        rowId: "neutral",
+        comparedRowId: "distrust",
+        columnId: "millennial"
       }
     });
   });

@@ -36,7 +36,7 @@ import type {
   TileAppearance
 } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
-import type { DerivedOutputKind } from "./derivedOutputModel";
+import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputModel";
 
 export type BuilderInspectorProps = {
   settingsView: SettingsView;
@@ -92,7 +92,7 @@ export type BuilderInspectorProps = {
   tileWithVisualization: (tile: DashboardTile, nextVisualization: ChartType) => Partial<DashboardTile>;
   duplicateTileAsVisualization: (tile: DashboardTile, nextVisualization: ChartType) => void;
   duplicateDerivedOutputTile: (tile: DashboardTile) => string | null;
-  createDerivedOutputTile: (tile: DashboardTile, kind: DerivedOutputKind) => string | null;
+  createDerivedOutputTile: (tile: DashboardTile, kind: DerivedOutputKind, options?: { config?: DerivedOutputConfig }) => string | null;
   recreateDerivedOutputTile: (tile: DashboardTile) => boolean;
   saveDerivedDefinition: (definition: SavedDerivedDefinition) => void;
   rerunTileAnalysis: (tile: DashboardTile, nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest) => Promise<boolean>;

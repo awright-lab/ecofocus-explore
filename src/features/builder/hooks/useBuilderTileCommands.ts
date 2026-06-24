@@ -7,7 +7,7 @@ import { makeTileId, nextZIndex } from "../../document/documentModel";
 import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputKind } from "../components/derivedOutputModel";
+import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
@@ -444,10 +444,10 @@ export function useBuilderTileCommands({
   function createDerivedOutputTile(
     tile: DashboardTile,
     kind: DerivedOutputKind,
-    options?: { savedDefinition?: NonNullable<DashboardTile["derivedOutput"]>["savedDefinition"] }
+    options?: { savedDefinition?: NonNullable<DashboardTile["derivedOutput"]>["savedDefinition"]; config?: DerivedOutputConfig }
   ) {
-    const outputResult = buildDerivedOutputResponse(tile, kind);
-    const derivedOutput = buildDerivedOutputMetadata(tile, kind);
+    const outputResult = buildDerivedOutputResponse(tile, kind, options?.config);
+    const derivedOutput = buildDerivedOutputMetadata(tile, kind, options?.config);
     if (!outputResult || !derivedOutput) {
       setError(kind === "top_n_extract" || kind === "bottom_n_extract"
         ? "This tile does not have result rows that can be extracted."
@@ -522,6 +522,11 @@ export function useBuilderTileCommands({
     }
 
     const createdTileId = createDerivedOutputTile(sourceTile, definition.outputKind, {
+      config: {
+        rowId: definition.spec.rowId,
+        comparedRowId: definition.spec.comparedRowId,
+        columnId: definition.spec.columnId
+      },
       savedDefinition: {
         id: definition.id,
         label: definition.label,
@@ -554,8 +559,13 @@ export function useBuilderTileCommands({
       return false;
     }
 
-    const outputResult = buildDerivedOutputResponse(sourceTile, tile.derivedOutput.kind);
-    const derivedOutput = buildDerivedOutputMetadata(sourceTile, tile.derivedOutput.kind);
+    const config: DerivedOutputConfig = {
+      rowId: tile.derivedOutput.rowId,
+      comparedRowId: tile.derivedOutput.comparedRowId,
+      columnId: tile.derivedOutput.columnId
+    };
+    const outputResult = buildDerivedOutputResponse(sourceTile, tile.derivedOutput.kind, config);
+    const derivedOutput = buildDerivedOutputMetadata(sourceTile, tile.derivedOutput.kind, config);
     if (!outputResult || !derivedOutput) {
       setError("The source tile no longer has result data that can recreate this derived output.");
       return false;

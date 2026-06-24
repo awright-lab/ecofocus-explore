@@ -32,6 +32,7 @@ import {
   buildDerivedOutputLibraryActionCueView,
   buildDerivedOutputRecreationCueView,
   buildDerivedOutputViews,
+  type DerivedOutputConfig,
   type DerivedOutputDetailView,
   type DerivedDefinitionProvenanceView,
   type DerivedDefinitionRecreationCueView,
@@ -92,6 +93,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
     onViewSavedSettingInLibrary,
     saveSelectedTileAnalyticalTemplate
   } = props;
+  const [rowDifferenceConfig, setRowDifferenceConfig] = useState<DerivedOutputConfig>({});
 
   if (!selectedTile) {
     return null;
@@ -108,7 +110,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const derivedOutputLibraryAction = buildDerivedOutputLibraryActionCueView(derivedOutputLibraryActionCue, selectedTile);
   const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, activePage.tiles);
   const derivedDefinitionProvenance = buildDerivedDefinitionProvenanceView(selectedTile, props.savedDerivedDefinitions);
-  const derivedOutputViews = buildDerivedOutputViews(selectedTile);
+  const derivedOutputViews = buildDerivedOutputViews(selectedTile, rowDifferenceConfig);
   const independentContractCue = buildIndependentDerivedContractView(selectedTile);
   const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
   const weightDiagnostics = buildAnalysisWeightDiagnostics(selectedTile.query.weight);
@@ -208,9 +210,10 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <DerivedOutputCard
                       key={view.kind}
                       view={view}
-                      onCreate={() => createDerivedOutputTile(selectedTile, view.kind)}
-                      onSaveDefinition={() => {
-                        const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind);
+                      onConfigChange={view.kind === "row_difference" ? setRowDifferenceConfig : undefined}
+                      onCreate={(config) => createDerivedOutputTile(selectedTile, view.kind, { config })}
+                      onSaveDefinition={(config) => {
+                        const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind, config);
                         if (!definition) return;
                         saveDerivedDefinition(definition);
                         onViewSavedSettingInLibrary("derivedOutputs", { action: "derivedDefinitionSaved", itemId: definition.id });
@@ -246,13 +249,29 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
 
 function DerivedOutputCard({
   view,
+  onConfigChange,
   onCreate,
   onSaveDefinition
 }: {
   view: DerivedOutputView;
-  onCreate: () => string | null;
-  onSaveDefinition: () => void;
+  onConfigChange?: (config: DerivedOutputConfig) => void;
+  onCreate: (config?: DerivedOutputConfig) => string | null;
+  onSaveDefinition: (config?: DerivedOutputConfig) => void;
 }) {
+  const currentConfig: DerivedOutputConfig | undefined = view.kind === "row_difference"
+    ? {
+        rowId: view.selectedRowId,
+        comparedRowId: view.selectedComparedRowId,
+        columnId: view.selectedColumnId
+      }
+    : undefined;
+  const updateConfig = (updates: DerivedOutputConfig) => {
+    onConfigChange?.({
+      ...currentConfig,
+      ...updates
+    });
+  };
+
   return (
     <div className={view.canCreate ? "derived-summary-output-card" : "derived-summary-output-card disabled"}>
       <div>
@@ -262,8 +281,36 @@ function DerivedOutputCard({
           <small>{[view.rowLabel, view.valueLabel, view.baseLabel, view.rowCountLabel].filter(Boolean).join(" · ")}</small>
         )}
       </div>
+      {view.kind === "row_difference" && view.canCreate && (
+        <div className="row-difference-config">
+          <label>
+            Row
+            <select value={view.selectedRowId ?? ""} onChange={(event) => updateConfig({ rowId: event.target.value })}>
+              {view.rowOptions?.map((option) => (
+                <option value={option.id} key={option.id}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Minus row
+            <select value={view.selectedComparedRowId ?? ""} onChange={(event) => updateConfig({ comparedRowId: event.target.value })}>
+              {view.rowOptions?.map((option) => (
+                <option value={option.id} key={option.id} disabled={option.id === view.selectedRowId}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Column
+            <select value={view.selectedColumnId ?? ""} onChange={(event) => updateConfig({ columnId: event.target.value })}>
+              {view.columnOptions?.map((option) => (
+                <option value={option.id} key={option.id}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
       <div className="derived-output-card-actions">
-        <button type="button" className="secondary" onClick={onCreate} disabled={!view.canCreate}>
+        <button type="button" className="secondary" onClick={() => onCreate(currentConfig)} disabled={!view.canCreate}>
           {view.kind === "top_n_extract"
             ? "Create top-N extract"
             : view.kind === "bottom_n_extract"
@@ -272,7 +319,7 @@ function DerivedOutputCard({
                 ? "Create metric output"
                 : "Create summary output"}
         </button>
-        <button type="button" className="secondary" onClick={onSaveDefinition} disabled={!view.canCreate}>
+        <button type="button" className="secondary" onClick={() => onSaveDefinition(currentConfig)} disabled={!view.canCreate}>
           {view.kind === "row_difference" ? "Save metric definition" : "Save definition"}
         </button>
       </div>
