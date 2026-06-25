@@ -84,6 +84,14 @@ export function CanvasWorkspace({
     () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
     [activePage, multiSelectedObjects]
   );
+  const selectedObjectLabel =
+    multiSelectionSummary.count > 1
+      ? `${multiSelectionSummary.count} objects selected`
+      : selectedTileId
+        ? activePage.tiles.find((tile) => tile.id === selectedTileId)?.title ?? "Tile selected"
+        : selectedElementId
+          ? activePage.elements.find((element) => element.id === selectedElementId)?.name ?? "Element selected"
+          : "Page canvas";
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
@@ -124,8 +132,12 @@ export function CanvasWorkspace({
         </div>
       </div>
       <div className={hasSelection ? "floating-format-bar has-selection" : "floating-format-bar"} aria-label="Quick actions">
+        <div className="floating-format-bar__context">
+          <span>{hasSelection ? "Editing" : "Canvas"}</span>
+          <strong>{selectedObjectLabel}</strong>
+        </div>
         <button type="button" onClick={onOpenPageDesign}>Page design</button>
-        <span />
+        <span className="floating-format-bar__divider" />
         {hasSelection ? (
           <div className="selection-action-group" aria-label="Selected object actions">
             <button type="button" onClick={onOpenLayout}>Position</button>
@@ -156,7 +168,15 @@ export function CanvasWorkspace({
             style={canvasStyle}
           >
             {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
-              <div className="empty-state">Add charts, tables, text, shapes, or images to start building this page.</div>
+              <div className="empty-canvas-state">
+                <span>Blank composition</span>
+                <strong>{activePage.title}</strong>
+                <p>Add charts, tables, text, shapes, or images from the left rail to start building this page.</p>
+                <div>
+                  <button type="button" className="secondary" onClick={onOpenPageDesign}>Page design</button>
+                  <button type="button" className="secondary" onClick={onAddPage}>New page</button>
+                </div>
+              </div>
             )}
             {activePage.elements.filter((element) => !element.hidden).map((element) => (
               <Rnd

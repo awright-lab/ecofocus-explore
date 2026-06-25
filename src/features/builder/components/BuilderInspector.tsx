@@ -174,6 +174,29 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   isLoading
   } = props;
   const multiSelectionSummary = buildMultiSelectionSummary(activePage, multiSelectedObjects);
+  const inspectorFocus = multiSelectionSummary.count
+    ? {
+        label: "Multi-selection",
+        title: `${multiSelectionSummary.count} objects selected`,
+        helper: `${multiSelectionSummary.tiles.length} tiles and ${multiSelectionSummary.elements.length} elements on ${activePage.title}.`
+      }
+    : selectedTile
+      ? {
+          label: "Selected tile",
+          title: selectedTile.title || selectedTile.name,
+          helper: "Analysis, chart style, layout, and reusable analytical workflows."
+        }
+      : selectedElement
+        ? {
+            label: "Selected element",
+            title: selectedElement.name,
+            helper: "Element styling, layout, layering, and canvas placement."
+          }
+        : {
+            label: "Page focus",
+            title: activePage.title,
+            helper: "Page design, grid, templates, master provenance, and canvas defaults."
+          };
 
   return (
 <BuilderPanel className="panel settings" label="Tile settings">
@@ -181,7 +204,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             <h2>Settings</h2>
           </div>
           {multiSelectionSummary.count > 0 && (
-            <div className="multi-selection-card">
+            <div className="multi-selection-card inspector-primary-card">
               <div className="explorer-section-header">
                 <strong>{multiSelectionSummary.count} selected</strong>
                 <small>{multiSelectionSummary.tiles.length} tiles · {multiSelectionSummary.elements.length} elements</small>
@@ -240,16 +263,21 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             </div>
           )}
           {settingsView === "home" ? (
-            <div className="settings-menu">
+            <div className="settings-menu inspector-home">
+              <div className="inspector-focus-card">
+                <span>{inspectorFocus.label}</span>
+                <strong>{inspectorFocus.title}</strong>
+                <small>{inspectorFocus.helper}</small>
+              </div>
               <button type="button" className="menu-card" onClick={() => setSettingsView("page")}>
                 <strong>Page</strong>
                 <span>Title, grid, snap, and background</span>
               </button>
-              <button type="button" className="menu-card" onClick={() => setSettingsView("layout")} disabled={!selectedTile && !selectedElement}>
+              <button type="button" className={selectedTile || selectedElement ? "menu-card primary" : "menu-card"} onClick={() => setSettingsView("layout")} disabled={!selectedTile && !selectedElement}>
                 <strong>Arrange</strong>
                 <span>Layer order, alignment, size, and position</span>
               </button>
-              <button type="button" className="menu-card" onClick={() => setSettingsView(selectedElement ? "element" : "chart")} disabled={!selectedTile && !selectedElement}>
+              <button type="button" className={selectedTile || selectedElement ? "menu-card primary" : "menu-card"} onClick={() => setSettingsView(selectedElement ? "element" : "chart")} disabled={!selectedTile && !selectedElement}>
                 <strong>{selectedElement ? "Element" : "Tile"}</strong>
                 <span>{selectedElement ? "Shape, image, and text styling" : "Chart design and visualization"}</span>
               </button>

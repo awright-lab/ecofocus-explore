@@ -278,23 +278,28 @@ export function ReportPageTree({
                       <button type="button" className="mini-button" onClick={() => toggleExpandedPage(page.id)}>
                         {isExpanded ? "Hide" : "Objects"}
                       </button>
-                      <button type="button" className="mini-button" onClick={() => startRename(page)}>
-                        Rename
-                      </button>
-                      <button type="button" className="mini-button" onClick={() => duplicatePageById(page.id)}>
-                        Copy
-                      </button>
-                      <button type="button" className="mini-button" disabled={sortedPages.length <= 1} onClick={() => deletePageById(page.id)}>
-                        Delete
-                      </button>
+                      <details className="page-action-menu">
+                        <summary aria-label={`More actions for ${page.title}`}>•••</summary>
+                        <div>
+                          <button type="button" onClick={() => startRename(page)}>
+                            Rename
+                          </button>
+                          <button type="button" onClick={() => duplicatePageById(page.id)}>
+                            Duplicate
+                          </button>
+                          <button type="button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
+                            Move up
+                          </button>
+                          <button type="button" disabled={isLastPage} onClick={() => movePage(page.id, "down")}>
+                            Move down
+                          </button>
+                          <button type="button" className="danger" disabled={sortedPages.length <= 1} onClick={() => deletePageById(page.id)}>
+                            Delete
+                          </button>
+                        </div>
+                      </details>
                     </>
                   )}
-                  <button type="button" className="mini-button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
-                    Up
-                  </button>
-                  <button type="button" className="mini-button" disabled={isLastPage} onClick={() => movePage(page.id, "down")}>
-                    Down
-                  </button>
                 </div>
               </div>
               {isExpanded && (
