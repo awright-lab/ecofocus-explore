@@ -333,6 +333,25 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             gradientStops: textBlock.style?.gradientStops ?? []
           }
         })) ?? seededDesignLibrary.textBlocks,
+      compositionStarters:
+        dashboard.designLibrary?.compositionStarters?.map((block, index) => ({
+          ...block,
+          id: block.id ?? `composition_starter_${index + 1}`,
+          label: block.label ?? `Composition starter ${index + 1}`,
+          description: block.description ?? "",
+          category: block.category ?? "custom",
+          createdAt: block.createdAt ?? 0,
+          updatedAt: block.updatedAt,
+          lastUsedAt: block.lastUsedAt,
+          summary: {
+            objectCount: block.summary?.objectCount ?? block.items?.length ?? 0,
+            tileCount: block.summary?.tileCount ?? block.items?.filter((item) => item.kind === "tile").length ?? 0,
+            elementCount: block.summary?.elementCount ?? block.items?.filter((item) => item.kind === "element").length ?? 0,
+            width: block.summary?.width ?? 0,
+            height: block.summary?.height ?? 0
+          },
+          items: block.items ?? []
+        })) ?? seededDesignLibrary.compositionStarters,
       compositionBlocks:
         dashboard.designLibrary?.compositionBlocks?.map((block, index) => ({
           ...block,

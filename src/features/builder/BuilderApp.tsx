@@ -169,6 +169,7 @@ export default function BuilderApp() {
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
+  const compositionStarters = dashboard.designLibrary.compositionStarters;
   const savedCompositionBlocks = dashboard.designLibrary.compositionBlocks;
   const designAssets = dashboard.designLibrary.assets;
   const pageThemes = dashboard.designLibrary.pageThemes;
@@ -457,6 +458,7 @@ export default function BuilderApp() {
     saveCompositionBlockFromSelection,
     updateCompositionBlockMetadata,
     insertCompositionBlock,
+    insertCompositionStarter,
     deleteCompositionBlock,
     insertDesignAsset,
     updateActivePage,
@@ -905,11 +907,13 @@ export default function BuilderApp() {
           applyTextStylePresetToSelection={applyTextStylePresetToSelection}
           textBlockPresets={textBlockPresets}
           addTextBlockPreset={addTextBlockPreset}
+          compositionStarters={compositionStarters}
           savedCompositionBlocks={savedCompositionBlocks}
           designAssets={designAssets}
           saveCompositionBlockFromSelection={saveCompositionBlockFromSelection}
           updateCompositionBlockMetadata={updateCompositionBlockMetadata}
           insertCompositionBlock={insertCompositionBlock}
+          insertCompositionStarter={insertCompositionStarter}
           deleteCompositionBlock={deleteCompositionBlock}
           insertDesignAsset={insertDesignAsset}
           applyPageTheme={applyPageTheme}

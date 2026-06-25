@@ -295,6 +295,405 @@ export function seedDesignAssets(): SavedDesignAsset[] {
   ];
 }
 
+function starterElement(args: {
+  id: string;
+  name: string;
+  type?: DashboardCanvasElementType;
+  content: string;
+  layout: DashboardCanvasElement["layout"];
+  style?: Partial<DashboardCanvasElement["style"]>;
+}): DashboardCanvasElement {
+  const type = args.type ?? "text";
+  return {
+    id: args.id,
+    name: args.name,
+    type,
+    locked: false,
+    hidden: false,
+    layout: args.layout,
+    content: args.content,
+    style: {
+      ...defaultElementStyle(type),
+      ...args.style,
+      gradientType: args.style?.gradientType ?? "linear",
+      gradientStops: args.style?.gradientStops ?? []
+    }
+  };
+}
+
+function starterItem(element: DashboardCanvasElement): SavedCompositionBlock["items"][number] {
+  return {
+    kind: "element",
+    element,
+    relativeLayout: element.layout
+  };
+}
+
+function seedCompositionStarter(args: {
+  id: string;
+  label: string;
+  description: string;
+  category: SavedCompositionBlock["category"];
+  width: number;
+  height: number;
+  items: DashboardCanvasElement[];
+}): SavedCompositionBlock {
+  return {
+    id: args.id,
+    label: args.label,
+    description: args.description,
+    category: args.category,
+    createdAt: 0,
+    summary: {
+      objectCount: args.items.length,
+      tileCount: 0,
+      elementCount: args.items.length,
+      width: args.width,
+      height: args.height
+    },
+    items: args.items.map(starterItem)
+  };
+}
+
+export function seedCompositionStarters(): SavedCompositionBlock[] {
+  const assets = seedDesignAssets();
+  const displayStyle = seedTextStyles().find((style) => style.id === "display_title");
+  const subheadStyle = seedTextStyles().find((style) => style.id === "editorial_subhead");
+  const captionStyle = seedTextStyles().find((style) => style.id === "caption");
+  const noteStyle = seedTextStyles().find((style) => style.id === "methodology_note");
+
+  return [
+    seedCompositionStarter({
+      id: "starter_title_intro_section",
+      label: "Title and intro section",
+      description: "A clean opener for framing the page story before charts or details enter.",
+      category: "title_section",
+      width: 760,
+      height: 230,
+      items: [
+        starterElement({
+          id: "starter_title_intro_accent",
+          name: "Intro accent",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 8, width: 8, height: 172, zIndex: 1 },
+          style: { fill: "#0fa87a", borderWidth: 0, borderRadius: 10 }
+        }),
+        starterElement({
+          id: "starter_title_intro_title",
+          name: "Section headline",
+          content: "What matters most in the next shopper decision?",
+          layout: { x: 32, y: 0, width: 680, height: 106, zIndex: 2 },
+          style: {
+            fill: "transparent",
+            textColor: displayStyle?.textColor ?? "#102332",
+            fontSize: displayStyle?.fontSize ?? 36,
+            fontWeight: displayStyle?.fontWeight ?? "800",
+            lineHeight: displayStyle?.lineHeight ?? 1.05,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_title_intro_support",
+          name: "Section support copy",
+          content: "Use this section to establish the narrative frame, audience, and decision context before moving into analysis.",
+          layout: { x: 34, y: 122, width: 520, height: 92, zIndex: 3 },
+          style: {
+            fill: "transparent",
+            textColor: subheadStyle?.textColor ?? "#365247",
+            fontSize: subheadStyle?.fontSize ?? 18,
+            fontWeight: subheadStyle?.fontWeight ?? "650",
+            lineHeight: subheadStyle?.lineHeight ?? 1.32,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_chart_commentary_section",
+      label: "Chart and commentary",
+      description: "A two-part analytical story section with a chart placeholder and explanatory narrative.",
+      category: "chart_commentary",
+      width: 780,
+      height: 360,
+      items: [
+        starterElement({
+          id: "starter_chart_commentary_chart",
+          name: "Chart placeholder",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 0, width: 470, height: 320, zIndex: 1 },
+          style: {
+            fill: "#f7fbf9",
+            borderColor: "#d4e6dc",
+            borderWidth: 1,
+            borderRadius: 22,
+            shadow: true,
+            shadowOpacity: 10,
+            shadowBlur: 20
+          }
+        }),
+        starterElement({
+          id: "starter_chart_commentary_title",
+          name: "Commentary heading",
+          content: "The chart should support one clear takeaway",
+          layout: { x: 510, y: 18, width: 250, height: 76, zIndex: 2 },
+          style: {
+            fill: "transparent",
+            textColor: "#17352a",
+            fontSize: 22,
+            fontWeight: "800",
+            lineHeight: 1.15,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_chart_commentary_body",
+          name: "Commentary copy",
+          content: "Describe the shift, segment, or contrast that matters. Keep the supporting text focused enough that the chart remains the evidence.",
+          layout: { x: 512, y: 112, width: 250, height: 148, zIndex: 3 },
+          style: {
+            fill: "transparent",
+            textColor: "#40584e",
+            fontSize: 15,
+            fontWeight: "600",
+            lineHeight: 1.42,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_chart_commentary_note",
+          name: "Source note",
+          content: "Source: EcoFocus 2025. Update base, filter, and weighting note.",
+          layout: { x: 512, y: 285, width: 240, height: 48, zIndex: 4 },
+          style: {
+            fill: "#f5faf7",
+            textColor: noteStyle?.textColor ?? "#6f7f77",
+            fontSize: noteStyle?.fontSize ?? 11,
+            fontWeight: noteStyle?.fontWeight ?? "650",
+            lineHeight: noteStyle?.lineHeight ?? 1.28,
+            padding: 10,
+            borderColor: "#e0ece6",
+            borderWidth: 1,
+            borderRadius: 12
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_kpi_highlight_section",
+      label: "Insight highlight KPI",
+      description: "A focused proof-point block for a headline number and concise interpretation.",
+      category: "quote_stat",
+      width: 540,
+      height: 220,
+      items: [
+        starterElement({
+          id: "starter_kpi_highlight_backdrop",
+          name: "KPI backdrop",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 0, width: 540, height: 210, zIndex: 1 },
+          style: { fill: "#102332", borderWidth: 0, borderRadius: 28, shadow: true, shadowOpacity: 18, shadowBlur: 26 }
+        }),
+        starterElement({
+          id: "starter_kpi_highlight_value",
+          name: "KPI value",
+          content: "58%",
+          layout: { x: 34, y: 28, width: 180, height: 86, zIndex: 2 },
+          style: {
+            fill: "transparent",
+            textColor: "#f6fffb",
+            fontSize: 54,
+            fontWeight: "900",
+            lineHeight: 1,
+            textAlign: "left",
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_kpi_highlight_copy",
+          name: "KPI interpretation",
+          content: "prioritize responsible sourcing when choosing brands and retailers.",
+          layout: { x: 230, y: 38, width: 250, height: 96, zIndex: 3 },
+          style: {
+            fill: "transparent",
+            textColor: "#e9fff7",
+            fontSize: 20,
+            fontWeight: "750",
+            lineHeight: 1.28,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_kpi_highlight_note",
+          name: "KPI note",
+          content: "Replace with a measured value or derived metric from the current analysis.",
+          layout: { x: 36, y: 150, width: 440, height: 42, zIndex: 4 },
+          style: {
+            fill: "rgba(255,255,255,0.08)",
+            textColor: "#bfe8dc",
+            fontSize: 12,
+            fontWeight: "700",
+            lineHeight: 1.25,
+            padding: 10,
+            borderColor: "rgba(255,255,255,0.16)",
+            borderWidth: 1,
+            borderRadius: 13
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_image_caption_section",
+      label: "Image and caption",
+      description: "An editorial image block with caption and narrative context for visual storytelling.",
+      category: "image_caption",
+      width: 620,
+      height: 390,
+      items: [
+        starterElement({
+          id: "starter_image_caption_image",
+          name: "Editorial image",
+          type: "image",
+          content: assets[1]?.url ?? "",
+          layout: { x: 0, y: 0, width: 360, height: 270, zIndex: 1 },
+          style: { fill: "transparent", borderStyle: "none", borderWidth: 0, borderRadius: 26, objectFit: "cover", shadow: true, shadowOpacity: 12 }
+        }),
+        starterElement({
+          id: "starter_image_caption_title",
+          name: "Image story title",
+          content: "Packaging cues shape the moment of choice",
+          layout: { x: 392, y: 28, width: 210, height: 96, zIndex: 2 },
+          style: {
+            fill: "transparent",
+            textColor: "#17352a",
+            fontSize: 22,
+            fontWeight: "800",
+            lineHeight: 1.18,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_image_caption_copy",
+          name: "Image caption",
+          content: "Use the caption to connect the visual moment to the analytical claim on the page.",
+          layout: { x: 392, y: 148, width: 210, height: 92, zIndex: 3 },
+          style: {
+            fill: "#ffffff",
+            textColor: captionStyle?.textColor ?? "#607267",
+            fontSize: captionStyle?.fontSize ?? 12,
+            fontWeight: captionStyle?.fontWeight ?? "600",
+            lineHeight: captionStyle?.lineHeight ?? 1.3,
+            padding: 14,
+            borderColor: "#dfe8ed",
+            borderWidth: 1,
+            borderRadius: 16
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_methodology_note_section",
+      label: "Methodology note",
+      description: "A compact source and caveat strip for analytical pages that need interpretation guardrails.",
+      category: "methodology",
+      width: 720,
+      height: 92,
+      items: [
+        starterElement({
+          id: "starter_methodology_note_strip",
+          name: "Methodology strip",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 0, width: 720, height: 86, zIndex: 1 },
+          style: { fill: "#f8fbfa", borderColor: "#dfe9e4", borderWidth: 1, borderRadius: 18 }
+        }),
+        starterElement({
+          id: "starter_methodology_note_copy",
+          name: "Methodology copy",
+          content: "Method note: Weighted respondent base. Interpret low-base segments directionally and update this note for each page.",
+          layout: { x: 22, y: 18, width: 650, height: 48, zIndex: 2 },
+          style: {
+            fill: "transparent",
+            textColor: noteStyle?.textColor ?? "#6f7f77",
+            fontSize: noteStyle?.fontSize ?? 11,
+            fontWeight: noteStyle?.fontWeight ?? "650",
+            lineHeight: noteStyle?.lineHeight ?? 1.28,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_section_divider",
+      label: "Section divider",
+      description: "A chapter-style divider for resetting the narrative between analytical sections.",
+      category: "title_section",
+      width: 760,
+      height: 260,
+      items: [
+        starterElement({
+          id: "starter_section_divider_number",
+          name: "Section number",
+          content: "02",
+          layout: { x: 0, y: 0, width: 132, height: 84, zIndex: 1 },
+          style: {
+            fill: "transparent",
+            textColor: "#0fa87a",
+            fontSize: 54,
+            fontWeight: "900",
+            lineHeight: 1,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_section_divider_title",
+          name: "Divider title",
+          content: "Where the opportunity is moving next",
+          layout: { x: 0, y: 96, width: 620, height: 104, zIndex: 2 },
+          style: {
+            fill: "transparent",
+            textColor: "#102332",
+            fontSize: 36,
+            fontWeight: "850",
+            lineHeight: 1.08,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_section_divider_line",
+          name: "Divider rule",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 224, width: 760, height: 4, zIndex: 3 },
+          style: { fill: "#0fa87a", borderWidth: 0, borderRadius: 4 }
+        })
+      ]
+    })
+  ];
+}
+
 export function seedPageThemes(): PageThemePreset[] {
   return [
     {
@@ -628,6 +1027,7 @@ export function seedDesignLibrary() {
     palettes: seedDesignPalettes(),
     textStyles: seedTextStyles(),
     textBlocks: seedTextBlocks(),
+    compositionStarters: seedCompositionStarters(),
     compositionBlocks: [] as SavedCompositionBlock[],
     assets: seedDesignAssets(),
     pageThemes: seedPageThemes(),

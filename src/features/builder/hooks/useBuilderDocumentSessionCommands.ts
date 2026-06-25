@@ -475,6 +475,36 @@ export function useBuilderDocumentSessionCommands({
     return true;
   }
 
+  function insertCompositionStarter(starter: SavedCompositionBlock) {
+    const { tiles, elements } = createObjectsFromCompositionBlock(starter, activePage, { sourceKind: "starter" });
+    if (tiles.length === 0 && elements.length === 0) return false;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      designLibrary: {
+        ...current.designLibrary,
+        compositionStarters: current.designLibrary.compositionStarters.map((candidate) =>
+          candidate.id === starter.id ? { ...candidate, lastUsedAt: Date.now() } : candidate
+        )
+      },
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: [...page.tiles, ...tiles],
+              elements: [...page.elements, ...elements]
+            }
+          : page
+      )
+    }));
+    setSelectedTileId(tiles[0]?.id ?? null);
+    setSelectedElementId(tiles[0] ? null : elements[0]?.id ?? null);
+    setSelectedChartPartId("all");
+    setSettingsView("home");
+    return true;
+  }
+
   function deleteCompositionBlock(blockId: string) {
     setDashboard((current) => ({
       ...current,
@@ -746,6 +776,7 @@ export function useBuilderDocumentSessionCommands({
     saveCompositionBlockFromSelection,
     updateCompositionBlockMetadata,
     insertCompositionBlock,
+    insertCompositionStarter,
     deleteCompositionBlock,
     insertDesignAsset,
     updateActivePage,

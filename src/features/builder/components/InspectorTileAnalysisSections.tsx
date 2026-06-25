@@ -198,7 +198,11 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 {selectedTile.compositionBlock && (
                   <CompositionBlockTileProvenanceCard
                     label={selectedTile.compositionBlock.label}
-                    helper="Inserted from a reusable composition block. This analytical tile is an editable copy, not a live-linked block instance."
+                    helper={
+                      selectedTile.compositionBlock.sourceKind === "starter"
+                        ? "Inserted from a curated section starter. This analytical tile is editable and not live-linked to the starter."
+                        : "Inserted from a reusable composition block. This analytical tile is an editable copy, not a live-linked block instance."
+                    }
                   />
                 )}
                 {derivedOutputDetail && (

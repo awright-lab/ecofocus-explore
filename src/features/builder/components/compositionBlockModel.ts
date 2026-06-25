@@ -176,7 +176,11 @@ export function buildCompositionBlockFromSelection(args: {
   };
 }
 
-export function createObjectsFromCompositionBlock(block: SavedCompositionBlock, page: DashboardPage) {
+export function createObjectsFromCompositionBlock(
+  block: SavedCompositionBlock,
+  page: DashboardPage,
+  options: { sourceKind?: "savedBlock" | "starter" } = {}
+) {
   const baseX = Math.max(24, Math.min(canvasWidth - block.summary.width - 24, 72));
   const baseY = Math.max(24, Math.min(canvasHeight - block.summary.height - 24, 72));
   const baseZ = nextZIndex(page);
@@ -204,7 +208,8 @@ export function createObjectsFromCompositionBlock(block: SavedCompositionBlock, 
         compositionBlock: {
           id: block.id,
           label: block.label,
-          insertedAt: Date.now()
+          insertedAt: Date.now(),
+          sourceKind: options.sourceKind ?? "savedBlock"
         }
       });
       return;
@@ -219,7 +224,8 @@ export function createObjectsFromCompositionBlock(block: SavedCompositionBlock, 
       compositionBlock: {
         id: block.id,
         label: block.label,
-        insertedAt: Date.now()
+        insertedAt: Date.now(),
+        sourceKind: options.sourceKind ?? "savedBlock"
       }
     });
   });
@@ -314,6 +320,15 @@ export function buildCompositionBlockLibraryView(block: SavedCompositionBlock) {
     recency,
     structureLabel: hasTile && hasElement ? "Mixed analytical + visual block" : hasTile ? "Analytical layout block" : "Visual composition block",
     previewTone: hasTile ? "analytical" : block.category === "image_caption" ? "image" : "editorial"
+  };
+}
+
+export function buildCompositionStarterLibraryView(block: SavedCompositionBlock) {
+  const view = buildCompositionBlockLibraryView(block);
+  return {
+    ...view,
+    actionLabel: "Insert section",
+    starterLabel: block.category === "chart_commentary" ? "Analysis story starter" : "Editorial section starter"
   };
 }
 

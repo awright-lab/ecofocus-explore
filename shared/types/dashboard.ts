@@ -145,6 +145,7 @@ export interface DashboardTile {
     id: string;
     label: string;
     insertedAt: number;
+    sourceKind?: "savedBlock" | "starter";
   };
   locked: boolean;
   hidden: boolean;
@@ -202,6 +203,7 @@ export interface DashboardCanvasElement {
     id: string;
     label: string;
     insertedAt: number;
+    sourceKind?: "savedBlock" | "starter";
   };
   assetSource?: {
     id: string;
@@ -521,6 +523,7 @@ export interface DesignLibrary {
   palettes: DesignColorPalette[];
   textStyles: TextStylePreset[];
   textBlocks: TextBlockPreset[];
+  compositionStarters: SavedCompositionBlock[];
   compositionBlocks: SavedCompositionBlock[];
   assets: SavedDesignAsset[];
   pageThemes: PageThemePreset[];

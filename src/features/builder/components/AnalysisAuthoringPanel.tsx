@@ -15,6 +15,7 @@ import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import {
   buildCompositionBlockLibraryView,
+  buildCompositionStarterLibraryView,
   compositionBlockCategoryOptions,
   editorialTextBlockRole,
   editorialTextStyleRole
@@ -63,11 +64,13 @@ export type AnalysisAuthoringPanelProps = {
   applyTextStylePresetToSelection: (preset: TextStylePreset) => void;
   textBlockPresets: TextBlockPreset[];
   addTextBlockPreset: (block: TextBlockPreset) => void;
+  compositionStarters: SavedCompositionBlock[];
   savedCompositionBlocks: SavedCompositionBlock[];
   designAssets: SavedDesignAsset[];
   saveCompositionBlockFromSelection: () => SavedCompositionBlock | null;
   updateCompositionBlockMetadata: (blockId: string, updates: Pick<SavedCompositionBlock, "label" | "description" | "category">) => void;
   insertCompositionBlock: (block: SavedCompositionBlock) => boolean;
+  insertCompositionStarter: (starter: SavedCompositionBlock) => boolean;
   deleteCompositionBlock: (blockId: string) => void;
   insertDesignAsset: (asset: SavedDesignAsset) => void;
   applyPageTheme: (theme: PageThemePreset) => void;
@@ -208,11 +211,13 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   applyTextStylePresetToSelection,
   textBlockPresets,
   addTextBlockPreset,
+  compositionStarters,
   savedCompositionBlocks,
   designAssets,
   saveCompositionBlockFromSelection,
   updateCompositionBlockMetadata,
   insertCompositionBlock,
+  insertCompositionStarter,
   deleteCompositionBlock,
   insertDesignAsset,
   applyPageTheme,
@@ -310,6 +315,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     label: string;
     action: "saved" | "updated" | "inserted" | "deleted";
   } | null>(null);
+  const [compositionStarterCue, setCompositionStarterCue] = useState<{ starterId: string; label: string } | null>(null);
 
   function startEditingCompositionBlock(block: SavedCompositionBlock) {
     setEditingCompositionBlockId(block.id);
@@ -336,6 +342,12 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   function insertSavedCompositionBlock(block: SavedCompositionBlock) {
     if (insertCompositionBlock(block)) {
       setCompositionBlockCue({ blockId: block.id, label: block.label, action: "inserted" });
+    }
+  }
+
+  function insertCuratedCompositionStarter(starter: SavedCompositionBlock) {
+    if (insertCompositionStarter(starter)) {
+      setCompositionStarterCue({ starterId: starter.id, label: starter.label });
     }
   }
 
@@ -482,6 +494,49 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   >
                     Save selection as block
                   </button>
+                </div>
+                <div className="explorer-section-card composition-starter-library-card">
+                  <div className="explorer-section-header">
+                    <strong>Start with a section</strong>
+                    <small>{compositionStarters.length} curated</small>
+                  </div>
+                  <small className="composition-library-helper">
+                    Insert a ready-made report section, then edit the text, visuals, and layout like normal page objects.
+                  </small>
+                  {compositionStarterCue && (
+                    <div className="composition-block-feedback starter">
+                      <strong>Starter inserted</strong>
+                      <small>{compositionStarterCue.label}</small>
+                    </div>
+                  )}
+                  <div className="composition-starter-list">
+                    {compositionStarters.map((starter) => {
+                      const starterView = buildCompositionStarterLibraryView(starter);
+                      const isRecent = compositionStarterCue?.starterId === starter.id;
+
+                      return (
+                        <button
+                          type="button"
+                          className={isRecent ? "composition-starter-card recent" : "composition-starter-card"}
+                          key={starter.id}
+                          onClick={() => insertCuratedCompositionStarter(starter)}
+                        >
+                          <span className={`composition-starter-preview ${starterView.previewTone}`}>
+                            <span>{starter.summary.objectCount}</span>
+                            <small>{starterView.categoryLabel}</small>
+                          </span>
+                          <span className="composition-starter-body">
+                            <span className="composition-starter-kicker">{starterView.starterLabel}</span>
+                            <strong>{starter.label}</strong>
+                            <small>{starter.description}</small>
+                            <span className="composition-starter-meta">
+                              {starterView.roleHelper} · {starterView.dimensions}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div className="explorer-section-card composition-library-card">
                   <div className="explorer-section-header">

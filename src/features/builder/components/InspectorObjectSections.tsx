@@ -35,7 +35,11 @@ export function ElementInspector(props: BuilderInspectorProps) {
               {selectedElement.compositionBlock && (
                 <CompositionProvenanceCard
                   label={selectedElement.compositionBlock.label}
-                  helper="Inserted from a reusable composition block. This element is an editable copy, not a live-linked instance."
+                  helper={
+                    selectedElement.compositionBlock.sourceKind === "starter"
+                      ? "Inserted from a curated section starter. This element is an editable page object, not a live-linked pattern."
+                      : "Inserted from a reusable composition block. This element is an editable copy, not a live-linked instance."
+                  }
                 />
               )}
               {selectedElement.assetSource && (
