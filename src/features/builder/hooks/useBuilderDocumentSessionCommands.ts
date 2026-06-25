@@ -120,6 +120,16 @@ export function useBuilderDocumentSessionCommands({
     setDashboard(nextDashboard, false);
   }
 
+  function renameDashboard(title: string) {
+    const nextTitle = title.trim() || dashboard.title || "Untitled report";
+    if (nextTitle === dashboard.title) return;
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      title: nextTitle
+    }));
+  }
+
   function updateSelectedTile(updates: Partial<DashboardTile>) {
     if (!selectedTileId) return;
 
@@ -609,6 +619,7 @@ export function useBuilderDocumentSessionCommands({
     setDashboard,
     undo,
     redo,
+    renameDashboard,
     updateSelectedTile,
     updateTile,
     updateTileLayout,

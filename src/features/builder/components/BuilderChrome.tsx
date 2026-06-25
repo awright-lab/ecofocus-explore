@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { DashboardDraft } from "../../../../shared/types/dashboard";
 import {
   buildExportPackageConfirmationView,
@@ -8,10 +8,12 @@ import {
   type ExportPackageConfirmationView,
   publishMetadataLabel
 } from "../builderPublishModel";
+import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
 
 export function BuilderHeader({
   dashboard,
   saveState,
+  onRenameDashboard,
   canUndo,
   canRedo,
   canUseSelection,
@@ -27,6 +29,7 @@ export function BuilderHeader({
 }: {
   dashboard: DashboardDraft;
   saveState: string;
+  onRenameDashboard: (title: string) => void;
   canUndo: boolean;
   canRedo: boolean;
   canUseSelection: boolean;
@@ -43,7 +46,16 @@ export function BuilderHeader({
   const readiness = buildPublishReadinessView(dashboard);
   const shareContext = buildPublishShareContextView(dashboard);
   const exportContext = buildExportPackageContextView(dashboard, readiness);
+  const saveStateView = buildDocumentSaveStateView(saveState);
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(dashboard.title);
+
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitleDraft(dashboard.title);
+    }
+  }, [dashboard.title, isEditingTitle]);
 
   useEffect(() => {
     if (!exportConfirmation) return undefined;
@@ -56,18 +68,64 @@ export function BuilderHeader({
     setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext));
   }
 
+  function commitTitle() {
+    const nextTitle = normalizeDocumentTitle(titleDraft, dashboard.title);
+    setIsEditingTitle(false);
+    setTitleDraft(nextTitle);
+    if (nextTitle !== dashboard.title) {
+      onRenameDashboard(nextTitle);
+    }
+  }
+
+  function cancelTitleEdit() {
+    setIsEditingTitle(false);
+    setTitleDraft(dashboard.title);
+  }
+
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitTitle();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelTitleEdit();
+    }
+  }
+
   return (
     <header className="builder-header">
       <div className="top-nav" aria-label="Workspace identity">
         <span className="app-mark">EF</span>
         <div className="document-title-block">
-          <h1>{dashboard.title}</h1>
-          <span>{publishMetadataLabel(dashboard)}</span>
+          {isEditingTitle ? (
+            <input
+              aria-label="Document title"
+              className="document-title-input"
+              value={titleDraft}
+              onBlur={commitTitle}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              autoFocus
+            />
+          ) : (
+            <button type="button" className="document-title-button" onClick={() => setIsEditingTitle(true)}>
+              <h1>{dashboard.title}</h1>
+              <span aria-hidden="true">Edit</span>
+            </button>
+          )}
+          <div className="document-identity-meta">
+            <span>{publishMetadataLabel(dashboard)}</span>
+            <span className={`save-state ${saveStateView.tone}`} aria-live="polite">
+              {saveStateView.showSpinner && <span className="save-state-spinner" aria-hidden="true" />}
+              <strong>{saveStateView.label}</strong>
+              <small>{saveStateView.helper}</small>
+            </span>
+          </div>
         </div>
       </div>
       <div className="publish-controls">
         <div className="quick-edit-controls" aria-label="Quick edit actions">
-          <span className="save-state">{saveState}</span>
           <button type="button" className="secondary" onClick={onUndo} disabled={!canUndo}>Undo</button>
           <button type="button" className="secondary" onClick={onRedo} disabled={!canRedo}>Redo</button>
           <button type="button" className="secondary" onClick={onDuplicate} disabled={!canUseSelection}>Duplicate</button>

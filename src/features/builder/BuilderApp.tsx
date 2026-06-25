@@ -398,9 +398,25 @@ export default function BuilderApp() {
   }
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
-    setSaveState("Saved locally");
-  }, [dashboard]);
+    setSaveState("Saving...");
+    let settleTimer: number | undefined;
+    const saveTimer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
+        setSaveState("Saved just now");
+        settleTimer = window.setTimeout(() => setSaveState("Saved locally"), 2200);
+      } catch {
+        setSaveState("Save error");
+      }
+    }, 220);
+
+    return () => {
+      window.clearTimeout(saveTimer);
+      if (settleTimer) {
+        window.clearTimeout(settleTimer);
+      }
+    };
+  }, [dashboard, setSaveState]);
 
   useEffect(() => {
     if (dashboard.status !== "published") {
@@ -417,6 +433,7 @@ export default function BuilderApp() {
     setDashboard,
     undo,
     redo,
+    renameDashboard,
     updateSelectedTile,
     updateTile,
     updateTileLayout,
@@ -819,6 +836,7 @@ export default function BuilderApp() {
       <BuilderHeader
         dashboard={dashboard}
         saveState={saveState}
+        onRenameDashboard={renameDashboard}
         canUndo={history.length > 0}
         canRedo={future.length > 0}
         canUseSelection={Boolean(selectedTile || selectedElement)}

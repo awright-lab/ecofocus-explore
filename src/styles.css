@@ -56,9 +56,9 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   flex: 0 0 auto;
-  min-height: 48px;
+  min-height: 56px;
   margin-bottom: 0;
-  padding: 0 14px;
+  padding: 0 16px;
   border-bottom: 1px solid #dde3e8;
   background: rgba(255, 255, 255, 0.96);
   color: #17221c;
@@ -125,7 +125,8 @@ h1 {
 .top-nav {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .app-mark {
@@ -143,11 +144,72 @@ h1 {
 
 .document-title-block {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
-.document-title-block span {
+.document-title-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 380px;
+  min-height: 25px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  padding: 0 4px 0 0;
+  text-align: left;
+}
+
+.document-title-button h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-title-button span {
+  opacity: 0;
+  color: #6a7b72;
+  font-size: 0.64rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  transition: opacity 120ms ease;
+}
+
+.document-title-button:hover,
+.document-title-button:focus-visible {
+  border-color: #dce5e8;
+  background: #f8fbfc;
+}
+
+.document-title-button:hover span,
+.document-title-button:focus-visible span {
+  opacity: 1;
+}
+
+.document-title-input {
+  width: min(380px, 44vw);
+  min-height: 28px;
+  border: 1px solid #b7dccb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #13231b;
+  padding: 0 8px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  box-shadow: 0 0 0 3px rgba(15, 168, 122, 0.12);
+}
+
+.document-identity-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.document-identity-meta > span:first-child {
   overflow: hidden;
   max-width: 280px;
   color: #6c7a72;
@@ -194,9 +256,62 @@ h2 {
 }
 
 .save-state {
-  color: #6a786f;
-  font-size: 0.76rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 19px;
+  border: 1px solid #e0e7ec;
+  border-radius: 999px;
+  background: #f8fafb;
+  color: #52645b;
+  padding: 0 7px;
+  font-size: 0.68rem;
   font-weight: 800;
+  white-space: nowrap;
+}
+
+.save-state strong {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 850;
+}
+
+.save-state small {
+  color: #74837c;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.save-state.saved {
+  border-color: #d9e8df;
+  background: #f6fbf8;
+  color: #23664f;
+}
+
+.save-state.saving {
+  border-color: #d7e4ea;
+  color: #53656f;
+}
+
+.save-state.error {
+  border-color: #f1c7b9;
+  background: #fff7f4;
+  color: #9d351a;
+}
+
+.save-state-spinner {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #c8d6dd;
+  border-top-color: #0fa87a;
+  border-radius: 999px;
+  animation: save-state-spin 780ms linear infinite;
+}
+
+@keyframes save-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .publish-version-cue {
