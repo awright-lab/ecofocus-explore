@@ -440,9 +440,20 @@ export interface SavedCompositionBlock {
   id: string;
   label: string;
   description: string;
-  category: "callout" | "narrative" | "chart_story" | "image_story" | "custom";
+  category:
+    | "title_section"
+    | "chart_commentary"
+    | "quote_stat"
+    | "methodology"
+    | "image_caption"
+    | "callout"
+    | "narrative"
+    | "chart_story"
+    | "image_story"
+    | "custom";
   createdAt: number;
   updatedAt?: number;
+  lastUsedAt?: number;
   summary: {
     objectCount: number;
     tileCount: number;

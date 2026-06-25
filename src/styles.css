@@ -1481,6 +1481,31 @@ h2 {
   line-height: 1.35;
 }
 
+.composition-block-feedback {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #cfe5d9;
+  border-radius: 12px;
+  background: #f5fbf7;
+}
+
+.composition-block-feedback strong {
+  color: #155d4d;
+  font-size: 0.76rem;
+}
+
+.composition-block-feedback small {
+  color: #61776c;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.composition-block-feedback.deleted {
+  border-color: #f1c7b9;
+  background: #fff7f4;
+}
+
 .composition-block-card {
   display: grid;
   grid-template-columns: 74px minmax(0, 1fr);
@@ -1490,6 +1515,11 @@ h2 {
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 1px 0 rgba(31, 42, 56, 0.035);
+}
+
+.composition-block-card.recent {
+  border-color: #b7dccb;
+  box-shadow: 0 12px 24px rgba(15, 95, 82, 0.08);
 }
 
 .composition-block-preview {
@@ -1504,6 +1534,20 @@ h2 {
     linear-gradient(90deg, #ecf3ef 1px, transparent 1px),
     linear-gradient(135deg, #f9fcfb, #edf8f2);
   background-size: 18px 18px, 18px 18px, auto;
+}
+
+.composition-block-preview.analytical {
+  background:
+    linear-gradient(90deg, rgba(15, 168, 122, 0.14) 28%, transparent 28%),
+    linear-gradient(#ecf3ef 1px, transparent 1px),
+    #fbfefd;
+  background-size: auto, 18px 18px, auto;
+}
+
+.composition-block-preview.image {
+  background:
+    radial-gradient(circle at 75% 24%, rgba(79, 142, 247, 0.22), transparent 26%),
+    linear-gradient(135deg, #eef4ff, #f8fcfb);
 }
 
 .composition-block-preview span {
@@ -1548,6 +1592,86 @@ h2 {
   margin: 0;
   color: #52675d;
   font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.composition-block-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.composition-block-heading span,
+.brand-block-card__header span {
+  color: #0f6956;
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.composition-block-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #e4ece8;
+  border-radius: 9px;
+  background: #f8fbfa;
+}
+
+.composition-block-meta-row span,
+.composition-block-meta-row small {
+  overflow: hidden;
+  color: #52675d;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composition-block-edit {
+  display: grid;
+  gap: 7px;
+}
+
+.composition-block-edit label {
+  gap: 4px;
+  font-size: 0.68rem;
+}
+
+.composition-block-edit input,
+.composition-block-edit select,
+.composition-block-edit textarea {
+  min-height: 30px;
+  border-radius: 9px;
+  font-size: 0.74rem;
+}
+
+.composition-block-edit textarea {
+  min-height: 66px;
+  resize: vertical;
+}
+
+.composition-block-empty {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px dashed #cddbd4;
+  border-radius: 13px;
+  background: #fbfdfc;
+}
+
+.composition-block-empty strong {
+  color: #1c3228;
+  font-size: 0.82rem;
+}
+
+.composition-block-empty small {
+  color: #61776c;
+  font-size: 0.74rem;
   font-weight: 650;
   line-height: 1.35;
 }

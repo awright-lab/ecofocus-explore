@@ -455,6 +455,7 @@ export default function BuilderApp() {
     addCanvasElement,
     addTextBlockPreset,
     saveCompositionBlockFromSelection,
+    updateCompositionBlockMetadata,
     insertCompositionBlock,
     deleteCompositionBlock,
     insertDesignAsset,
@@ -907,6 +908,7 @@ export default function BuilderApp() {
           savedCompositionBlocks={savedCompositionBlocks}
           designAssets={designAssets}
           saveCompositionBlockFromSelection={saveCompositionBlockFromSelection}
+          updateCompositionBlockMetadata={updateCompositionBlockMetadata}
           insertCompositionBlock={insertCompositionBlock}
           deleteCompositionBlock={deleteCompositionBlock}
           insertDesignAsset={insertDesignAsset}

@@ -341,6 +341,8 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           description: block.description ?? "",
           category: block.category ?? "custom",
           createdAt: block.createdAt ?? Date.now(),
+          updatedAt: block.updatedAt,
+          lastUsedAt: block.lastUsedAt,
           summary: {
             objectCount: block.summary?.objectCount ?? block.items?.length ?? 0,
             tileCount: block.summary?.tileCount ?? block.items?.filter((item) => item.kind === "tile").length ?? 0,

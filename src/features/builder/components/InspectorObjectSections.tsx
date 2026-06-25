@@ -10,6 +10,7 @@ import {
 } from "./InspectorTileAnalysisSections";
 import type { DashboardCanvasElement } from "../../../../shared/types/dashboard";
 import type { BuilderInspectorProps } from "./BuilderInspector";
+import { editorialTextStyleRole } from "./compositionBlockModel";
 import { buildReportTreeSelectionCueView, type ReportTreeSelectionCueView } from "./reportTreeSelectionCueModel";
 
 export function ElementInspector(props: BuilderInspectorProps) {
@@ -76,7 +77,7 @@ export function ElementInspector(props: BuilderInspectorProps) {
                   <div className="settings-menu">
                     {textStylePresets.map((preset) => (
                       <button type="button" key={preset.id} className="menu-card" onClick={() => applyTextStylePresetToSelection(preset)}>
-                        <strong>{preset.label}</strong>
+                        <strong>{editorialTextStyleRole(preset.id)} · {preset.label}</strong>
                         <span>{preset.description}</span>
                       </button>
                     ))}

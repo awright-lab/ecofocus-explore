@@ -407,7 +407,7 @@ export function useBuilderDocumentSessionCommands({
       selectedElement,
       multiSelectedObjects
     });
-    if (!block) return false;
+    if (!block) return null;
 
     setDashboard((current) => ({
       ...current,
@@ -418,7 +418,31 @@ export function useBuilderDocumentSessionCommands({
       }
     }));
     setLeftPanelView("brand");
-    return true;
+    return block;
+  }
+
+  function updateCompositionBlockMetadata(
+    blockId: string,
+    updates: Pick<SavedCompositionBlock, "label" | "description" | "category">
+  ) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      designLibrary: {
+        ...current.designLibrary,
+        compositionBlocks: current.designLibrary.compositionBlocks.map((block) =>
+          block.id === blockId
+            ? {
+                ...block,
+                ...updates,
+                label: updates.label.trim() || block.label,
+                description: updates.description.trim(),
+                updatedAt: Date.now()
+              }
+            : block
+        )
+      }
+    }));
   }
 
   function insertCompositionBlock(block: SavedCompositionBlock) {
@@ -428,6 +452,12 @@ export function useBuilderDocumentSessionCommands({
     setDashboard((current) => ({
       ...current,
       status: "draft",
+      designLibrary: {
+        ...current.designLibrary,
+        compositionBlocks: current.designLibrary.compositionBlocks.map((candidate) =>
+          candidate.id === block.id ? { ...candidate, lastUsedAt: Date.now() } : candidate
+        )
+      },
       pages: current.pages.map((page) =>
         page.id === activePage.id
           ? {
@@ -714,6 +744,7 @@ export function useBuilderDocumentSessionCommands({
     addCanvasElement,
     addTextBlockPreset,
     saveCompositionBlockFromSelection,
+    updateCompositionBlockMetadata,
     insertCompositionBlock,
     deleteCompositionBlock,
     insertDesignAsset,

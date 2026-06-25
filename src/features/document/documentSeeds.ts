@@ -74,6 +74,17 @@ export function seedTextStyles(): TextStylePreset[] {
       textColor: "#183528"
     },
     {
+      id: "editorial_subhead",
+      label: "Editorial subhead",
+      description: "Supporting headline for explaining why a page or block matters.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 18,
+      fontWeight: "650",
+      lineHeight: 1.32,
+      textAlign: "left",
+      textColor: "#365247"
+    },
+    {
       id: "body_copy",
       label: "Body copy",
       description: "Default readable paragraph style for editorial and annotation blocks.",
@@ -105,6 +116,17 @@ export function seedTextStyles(): TextStylePreset[] {
       lineHeight: 1.3,
       textAlign: "left",
       textColor: "#607267"
+    },
+    {
+      id: "methodology_note",
+      label: "Methodology note",
+      description: "Compact source, weighting, and sample-language style for analytical pages.",
+      fontFamily: fontFamilies[0].value,
+      fontSize: 11,
+      fontWeight: "650",
+      lineHeight: 1.28,
+      textAlign: "left",
+      textColor: "#6f7f77"
     }
   ];
 }
@@ -172,6 +194,51 @@ export function seedTextBlocks(): TextBlockPreset[] {
         borderColor: "#102332",
         borderWidth: 0,
         borderRadius: 24
+      }
+    },
+    {
+      id: "quote_pull_block",
+      label: "Pull quote",
+      description: "Editorial quote or respondent-language block for story pages.",
+      content: "“Sustainable choices feel easier when the package explains the impact clearly.”",
+      width: 420,
+      height: 150,
+      style: {
+        ...defaultElementStyle("text"),
+        fill: "#f4fbf7",
+        textColor: "#153329",
+        fontFamily: fontFamilies[0].value,
+        fontSize: 22,
+        fontWeight: "700",
+        fontStyle: "italic",
+        textAlign: "left",
+        lineHeight: 1.28,
+        padding: 22,
+        borderColor: "#cfe5d9",
+        borderWidth: 1,
+        borderRadius: 22
+      }
+    },
+    {
+      id: "image_caption_block",
+      label: "Image caption",
+      description: "Small caption block designed to pair with image or asset content.",
+      content: "Caption: Use this space to connect the visual cue to the analytical takeaway.",
+      width: 320,
+      height: 76,
+      style: {
+        ...defaultElementStyle("text"),
+        fill: "rgba(255,255,255,0.86)",
+        textColor: "#52675d",
+        fontFamily: fontFamilies[0].value,
+        fontSize: 12,
+        fontWeight: "650",
+        textAlign: "left",
+        lineHeight: 1.28,
+        padding: 12,
+        borderColor: "#dfe8ed",
+        borderWidth: 1,
+        borderRadius: 14
       }
     },
     {
