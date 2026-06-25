@@ -35,7 +35,7 @@ describe("mockAnalyticsProvider", () => {
         { rowId: "Q15r9", columnId: "summary", direction: "up", confidence: 0.95 }
       ])
     );
-    expect(result.statistics).toEqual({
+    expect(result.statistics).toMatchObject({
       confidenceLevel: 0.95,
       significanceMethod: "mock_placeholder",
       significanceExecutionPlan: {
@@ -98,35 +98,92 @@ describe("mockAnalyticsProvider", () => {
       comparisonMode: "wave",
       comparisonDatasets: ["ecofocus_2024"]
     });
-    expect(result.statistics).toEqual({
+    expect(result.statistics).toMatchObject({
       confidenceLevel: 0.95,
-      significanceMethod: "none",
+      significanceMethod: "wave_comparison",
       significanceExecutionPlan: {
-        status: "blocked",
+        status: "deferred",
         candidateMethod: "wave_comparison",
-        queryShapeSupported: false,
+        queryShapeSupported: true,
         providerCanExecute: false,
-        executionInputContract: null,
-        reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
-        unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
+        executionInputContract: "wave_comparison",
+        reasonCodes: ["wave_comparison_unsupported", "future_method"],
+        unmetPrerequisites: ["wave_support", "provider_method"]
       },
-      significanceExecutionInput: null,
-      significanceExecutionReport: null,
-      significance: {
-        status: "unsupported",
-        method: "none",
-        readiness: {
-          status: "unsupported",
+      significanceExecutionInput: {
+        method: "wave_comparison",
+        confidenceLevel: 0.95,
+        metric: {
+          id: "column_percent",
+          valueFormat: "percent"
+        },
+        comparisonScope: {
+          basis: "wave",
+          rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
+          waveIds: ["ecofocus_2025", "ecofocus_2024"],
+          primaryDatasetId: "ecofocus_2025",
+          comparisonDatasetIds: ["ecofocus_2024"]
+        },
+        waves: [
+          { id: "ecofocus_2025", label: "2025" },
+          { id: "ecofocus_2024", label: "2024" }
+        ],
+        rows: expect.arrayContaining([
+          {
+            id: "trust_a_lot",
+            label: "Trust a lot",
+            cells: [
+              { waveId: "ecofocus_2025", value: 20, base: 1495 },
+              { waveId: "ecofocus_2024", value: 17, base: 1410 }
+            ]
+          }
+        ])
+      },
+      significanceExecutionReport: {
+        method: "wave_comparison",
+        status: "deferred",
+        inputAccepted: true,
+        reasonCodes: ["wave_comparison_unsupported", "future_method"],
+        unmetPrerequisites: ["wave_support", "provider_method"],
+        result: {
           method: "wave_comparison",
-          reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+          comparisonScope: {
+            basis: "wave",
+            rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
+            waveIds: ["ecofocus_2025", "ecofocus_2024"],
+            primaryDatasetId: "ecofocus_2025",
+            comparisonDatasetIds: ["ecofocus_2024"]
+          },
+          summary: {
+            testedComparisons: 0,
+            deferredComparisons: 4,
+            significantComparisons: 0
+          }
+        }
+      },
+      significance: {
+        status: "eligible",
+        method: "wave_comparison",
+        readiness: {
+          status: "candidate",
+          method: "wave_comparison",
+          reasonCodes: ["future_method"],
           comparisonBasis: "wave"
         },
-        reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+        reasonCodes: ["future_method"],
         comparisonBasis: "wave",
         hasPlaceholders: false,
         details: []
       }
     });
+    expect(result.statistics.significanceExecutionReport?.result?.outcomes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        rowId: "trust_a_lot",
+        waveId: "ecofocus_2025",
+        comparedWaveId: "ecofocus_2024",
+        status: "deferred"
+      })
+    ]));
   });
 
   it("executes the narrow column-comparison path for valid breakout results", async () => {

@@ -89,7 +89,7 @@ describe("buildAnalysisStatisticsContext", () => {
     expect(view.executionDiagnostics.message).toContain("malformed or incomplete");
   });
 
-  it("explains unsupported wave comparison execution separately", () => {
+  it("explains deferred wave comparison execution separately", () => {
     const result = runMockAnalyticsQuery({
       ...summaryQuery,
       chartType: "line_chart",
@@ -99,12 +99,14 @@ describe("buildAnalysisStatisticsContext", () => {
     const view = buildAnalysisStatisticsContext(tileFromResult(result));
 
     expect(view.executionDiagnostics).toMatchObject({
-      status: "unsupported",
-      label: "Execution unsupported",
-      chips: ["wave_comparison", "Unsupported", "No test performed"]
+      status: "deferred",
+      label: "Execution deferred",
+      chips: ["wave_comparison", "Input accepted", "Provider deferred"]
     });
+    expect(view.executionDiagnostics.message).toContain("Wave-comparison input was accepted");
+    expect(view.executionDiagnostics.helper).toContain("typed for future trend significance");
     expect(view.executionDiagnostics.details).toEqual(expect.arrayContaining(["Wave comparison significance unsupported", "Wave support"]));
-    expect(view.eligibility.status).toBe("limited");
+    expect(view.eligibility.status).toBe("candidate");
   });
 
   it("explains ready structure that is still not executed", () => {

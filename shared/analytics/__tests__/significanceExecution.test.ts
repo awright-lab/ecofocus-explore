@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   executeColumnComparisonSignificance,
   runColumnComparisonSignificanceAdapter,
+  runWaveComparisonSignificanceAdapter,
   shapeDeferredColumnComparisonResult,
-  validateColumnComparisonExecutionInput
+  shapeDeferredWaveComparisonResult,
+  validateColumnComparisonExecutionInput,
+  validateWaveComparisonExecutionInput
 } from "../significanceExecution";
 import type {
   AnalyticsColumnComparisonExecutionInput,
   AnalyticsColumnComparisonExecutionResult,
-  AnalyticsSignificanceExecutionPlan
+  AnalyticsSignificanceExecutionPlan,
+  AnalyticsWaveComparisonExecutionInput
 } from "../../types/analytics";
 
 const columnComparisonInput: AnalyticsColumnComparisonExecutionInput = {
@@ -47,6 +51,46 @@ const deferredColumnComparisonPlan: AnalyticsSignificanceExecutionPlan = {
   executionInputContract: "column_comparison",
   reasonCodes: ["mock_provider_not_available", "future_method"],
   unmetPrerequisites: ["provider_method", "statistical_engine"]
+};
+
+const waveComparisonInput: AnalyticsWaveComparisonExecutionInput = {
+  method: "wave_comparison",
+  confidenceLevel: 0.95,
+  metric: {
+    id: "column_percent",
+    valueFormat: "percent"
+  },
+  comparisonScope: {
+    basis: "wave",
+    rowIds: ["trust_a_lot"],
+    waveIds: ["ecofocus_2025", "ecofocus_2024"],
+    primaryDatasetId: "ecofocus_2025",
+    comparisonDatasetIds: ["ecofocus_2024"]
+  },
+  waves: [
+    { id: "ecofocus_2025", label: "2025" },
+    { id: "ecofocus_2024", label: "2024" }
+  ],
+  rows: [
+    {
+      id: "trust_a_lot",
+      label: "Trust a lot",
+      cells: [
+        { waveId: "ecofocus_2025", value: 20, base: 1495 },
+        { waveId: "ecofocus_2024", value: 17, base: 1410 }
+      ]
+    }
+  ]
+};
+
+const deferredWaveComparisonPlan: AnalyticsSignificanceExecutionPlan = {
+  status: "deferred",
+  candidateMethod: "wave_comparison",
+  queryShapeSupported: true,
+  providerCanExecute: false,
+  executionInputContract: "wave_comparison",
+  reasonCodes: ["wave_comparison_unsupported", "future_method"],
+  unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"]
 };
 
 describe("runColumnComparisonSignificanceAdapter", () => {
@@ -325,5 +369,109 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       }
     });
     expect(executed.outcomes[0].statistics.pValue).toBeLessThan(0.05);
+  });
+
+  it("validates structurally usable wave-comparison input", () => {
+    expect(validateWaveComparisonExecutionInput(waveComparisonInput)).toEqual({
+      valid: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    });
+  });
+
+  it("returns a deferred report for valid wave-comparison input", () => {
+    expect(runWaveComparisonSignificanceAdapter(waveComparisonInput, deferredWaveComparisonPlan)).toEqual({
+      method: "wave_comparison",
+      status: "deferred",
+      inputAccepted: true,
+      reasonCodes: ["wave_comparison_unsupported", "future_method"],
+      unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine"],
+      result: {
+        method: "wave_comparison",
+        comparisonScope: {
+          basis: "wave",
+          rowIds: ["trust_a_lot"],
+          waveIds: ["ecofocus_2025", "ecofocus_2024"],
+          primaryDatasetId: "ecofocus_2025",
+          comparisonDatasetIds: ["ecofocus_2024"]
+        },
+        outcomes: [
+          {
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "deferred",
+            reasonCodes: ["wave_comparison_unsupported", "future_method"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          }
+        ],
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: 1,
+          significantComparisons: 0
+        }
+      }
+    });
+  });
+
+  it("shapes deferred wave comparison outcomes from accepted input", () => {
+    expect(shapeDeferredWaveComparisonResult(waveComparisonInput, ["future_method"])).toEqual({
+      method: "wave_comparison",
+      comparisonScope: waveComparisonInput.comparisonScope,
+      outcomes: [
+        {
+          rowId: "trust_a_lot",
+          waveId: "ecofocus_2025",
+          comparedWaveId: "ecofocus_2024",
+          status: "deferred",
+          reasonCodes: ["future_method"],
+          statistics: {
+            pValue: null,
+            confidence: null,
+            direction: null
+          }
+        }
+      ],
+      summary: {
+        testedComparisons: 0,
+        deferredComparisons: 1,
+        significantComparisons: 0
+      }
+    });
+  });
+
+  it("returns a structured deferred report when wave input is malformed", () => {
+    const malformedInput: AnalyticsWaveComparisonExecutionInput = {
+      ...waveComparisonInput,
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [{ waveId: "ecofocus_2025", value: 20, base: 1495 }]
+        }
+      ]
+    };
+
+    expect(validateWaveComparisonExecutionInput(malformedInput)).toEqual({
+      valid: false,
+      reasonCodes: ["invalid_execution_input"],
+      unmetPrerequisites: ["execution_input"]
+    });
+    expect(runWaveComparisonSignificanceAdapter(malformedInput, deferredWaveComparisonPlan)).toEqual({
+      method: "wave_comparison",
+      status: "deferred",
+      inputAccepted: false,
+      reasonCodes: ["wave_comparison_unsupported", "future_method", "invalid_execution_input"],
+      unmetPrerequisites: ["wave_support", "provider_method", "statistical_engine", "execution_input"],
+      result: null
+    });
+  });
+
+  it("keeps wave-comparison input outside the column-comparison adapter", () => {
+    expect(runColumnComparisonSignificanceAdapter(columnComparisonInput, deferredWaveComparisonPlan)).toBeNull();
   });
 });

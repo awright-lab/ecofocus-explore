@@ -3,6 +3,8 @@ import type {
   AnalyticsColumnComparisonExecutionResult,
   AnalyticsSignificanceExecutionPlan,
   AnalyticsSignificanceExecutionReport,
+  AnalyticsWaveComparisonExecutionInput,
+  AnalyticsWaveComparisonExecutionResult,
   SignificanceExecutionPrerequisite,
   SignificanceReasonCode
 } from "../types/analytics";
@@ -80,6 +82,91 @@ export function shapeDeferredColumnComparisonResult(
 
   return {
     method: "column_comparison",
+    comparisonScope: input.comparisonScope,
+    outcomes,
+    summary: {
+      testedComparisons: 0,
+      deferredComparisons: outcomes.length,
+      significantComparisons: 0
+    }
+  };
+}
+
+export function validateWaveComparisonExecutionInput(input: AnalyticsWaveComparisonExecutionInput): ColumnComparisonInputValidation {
+  const reasonCodes: SignificanceReasonCode[] = [];
+  const unmetPrerequisites: SignificanceExecutionPrerequisite[] = [];
+  const addInvalidInput = () => {
+    if (!reasonCodes.includes("invalid_execution_input")) reasonCodes.push("invalid_execution_input");
+    if (!unmetPrerequisites.includes("execution_input")) unmetPrerequisites.push("execution_input");
+  };
+  const waveIds = new Set(input.waves.map((wave) => wave.id));
+  const rowIds = new Set(input.rows.map((row) => row.id));
+
+  if (
+    input.comparisonScope.basis !== "wave"
+    || input.waves.length < 2
+    || input.rows.length === 0
+    || input.comparisonScope.comparisonDatasetIds.length === 0
+  ) {
+    addInvalidInput();
+  }
+
+  if (
+    input.waves.some((wave) => !wave.id.trim())
+    || input.rows.some((row) => !row.id.trim())
+    || !waveIds.has(input.comparisonScope.primaryDatasetId)
+    || input.comparisonScope.comparisonDatasetIds.some((datasetId) => !waveIds.has(datasetId))
+  ) {
+    addInvalidInput();
+  }
+
+  if (
+    input.comparisonScope.waveIds.length !== input.waves.length
+    || input.comparisonScope.rowIds.length !== input.rows.length
+    || input.comparisonScope.waveIds.some((waveId) => !waveIds.has(waveId))
+    || input.comparisonScope.rowIds.some((rowId) => !rowIds.has(rowId))
+  ) {
+    addInvalidInput();
+  }
+
+  if (
+    input.rows.some((row) => {
+      const cellWaveIds = new Set(row.cells.map((cell) => cell.waveId));
+      return input.comparisonScope.waveIds.some((waveId) => !cellWaveIds.has(waveId))
+        || row.cells.some((cell) => !waveIds.has(cell.waveId) || !Number.isFinite(cell.value) || !Number.isFinite(cell.base));
+    })
+  ) {
+    addInvalidInput();
+  }
+
+  return {
+    valid: reasonCodes.length === 0,
+    reasonCodes,
+    unmetPrerequisites
+  };
+}
+
+export function shapeDeferredWaveComparisonResult(
+  input: AnalyticsWaveComparisonExecutionInput,
+  reasonCodes: SignificanceReasonCode[]
+): AnalyticsWaveComparisonExecutionResult {
+  const outcomes = input.rows.flatMap((row) =>
+    input.comparisonScope.comparisonDatasetIds.map((comparedWaveId) => ({
+      rowId: row.id,
+      waveId: input.comparisonScope.primaryDatasetId,
+      comparedWaveId,
+      status: "deferred" as const,
+      reasonCodes,
+      statistics: {
+        pValue: null,
+        confidence: null,
+        direction: null
+      }
+    }))
+  );
+
+  return {
+    method: "wave_comparison",
     comparisonScope: input.comparisonScope,
     outcomes,
     summary: {
@@ -186,5 +273,30 @@ export function runColumnComparisonSignificanceAdapter(
     reasonCodes: canExecute ? [] : reasonCodes,
     unmetPrerequisites: canExecute ? [] : unmetPrerequisites,
     result: validation.valid ? (canExecute ? executeColumnComparisonSignificance(input) : shapeDeferredColumnComparisonResult(input, reasonCodes)) : null
+  };
+}
+
+export function runWaveComparisonSignificanceAdapter(
+  input: AnalyticsWaveComparisonExecutionInput | null,
+  plan: AnalyticsSignificanceExecutionPlan
+): AnalyticsSignificanceExecutionReport | null {
+  if (!input || plan.executionInputContract !== "wave_comparison") {
+    return null;
+  }
+  const validation = validateWaveComparisonExecutionInput(input);
+  const reasonCodes = Array.from(new Set([
+    ...plan.reasonCodes,
+    ...validation.reasonCodes,
+    plan.providerCanExecute ? "future_method" as const : undefined
+  ].filter(Boolean) as SignificanceReasonCode[]));
+  const unmetPrerequisites = Array.from(new Set([...plan.unmetPrerequisites, ...validation.unmetPrerequisites]));
+
+  return {
+    method: "wave_comparison",
+    status: validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
+    inputAccepted: validation.valid,
+    reasonCodes,
+    unmetPrerequisites,
+    result: validation.valid ? shapeDeferredWaveComparisonResult(input, reasonCodes) : null
   };
 }

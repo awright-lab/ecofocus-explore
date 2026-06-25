@@ -75,7 +75,7 @@ export function confidenceLevelLabel(value: number) {
 function significanceMethodLabel(method: SignificanceMethod) {
   if (method === "mock_placeholder") return "Placeholder annotations";
   if (method === "column_comparison") return "Column comparison";
-  if (method === "wave_comparison") return "Eligible wave comparison";
+  if (method === "wave_comparison") return "Wave comparison";
   return "No significance testing";
 }
 
@@ -93,9 +93,9 @@ function fallbackSignificance(tile: DashboardTile): AnalyticsSignificanceResult 
   const readiness: AnalyticsSignificanceResult["readiness"] =
     comparisonBasis === "wave"
       ? {
-          status: "unsupported",
+          status: (tile.result.query.comparisonDatasets ?? tile.query.comparisonDatasets ?? []).length > 0 ? "candidate" : "not_applicable",
           method: "wave_comparison",
-          reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+          reasonCodes: (tile.result.query.comparisonDatasets ?? tile.query.comparisonDatasets ?? []).length > 0 ? ["future_method"] : ["no_comparison_basis"],
           comparisonBasis
         }
       : comparisonBasis === "breakout"
@@ -186,7 +186,7 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
     significance.status === "eligible" ? "The result is structurally eligible, but no real significance test has been run." : "",
     significance.status === "none" ? "No significance method is active for this result." : "",
     ...significanceReasonLabels,
-    isWaveComparison ? "Wave comparison significance is not implemented in the mock provider." : "",
+    isWaveComparison ? "Wave comparison significance has a typed execution bridge, but the mock provider still defers real trend tests." : "",
     isSummaryOnly ? "Summary-only results do not provide comparison columns for column significance." : ""
   ].filter(Boolean);
 
@@ -206,6 +206,21 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
           : "No p-values or real tests are calculated yet; eligibility only describes whether the current result has a plausible comparison structure.",
       comparisonBasisLabel,
       chips: ["Future candidate", "Breakout basis", significance.hasPlaceholders ? "Placeholder only" : significance.status === "eligible" ? "Eligible, not tested" : significance.status === "tested" ? "Tested" : "No test performed"],
+      limitations
+    };
+  }
+
+  if (isWaveComparison && readiness.status === "candidate") {
+    return {
+      status: "candidate",
+      label: "Wave significance bridge available",
+      message:
+        significance.status === "eligible"
+          ? "This result has a structured wave comparison basis, but no real trend significance test has been run."
+          : "This wave result has a typed readiness bridge for future trend significance logic.",
+      helper: "The current provider can pass wave rows and wave labels into the significance boundary, but execution remains deferred.",
+      comparisonBasisLabel,
+      chips: ["Future candidate", "Wave basis", significance.status === "eligible" ? "Eligible, not tested" : "No test performed"],
       limitations
     };
   }
@@ -329,12 +344,13 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
   if (report?.status === "executed" && report.result) {
     const testedComparisons = report.result.summary.testedComparisons;
     const significantComparisons = report.result.summary.significantComparisons ?? 0;
+    const methodLabel = report.method === "wave_comparison" ? "Wave-comparison" : "Column-comparison";
 
     return {
       status: "executed",
       label: "Significance executed",
-      message: `Column-comparison significance ran for ${testedComparisons.toLocaleString()} comparison ${testedComparisons === 1 ? "pair" : "pairs"}.`,
-      helper: "This is the first narrow provider path for valid percent breakout tables; summary and wave contexts remain outside this execution path.",
+      message: `${methodLabel} significance ran for ${testedComparisons.toLocaleString()} comparison ${testedComparisons === 1 ? "pair" : "pairs"}.`,
+      helper: "This is the first narrow provider path for valid percent breakout tables; summary contexts and wave trend tests can still be deferred or unsupported.",
       chips: [
         plan.executionInputContract ?? "No input contract",
         "Executed",
@@ -357,14 +373,17 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
 
   const deferredComparisons = report?.result?.summary.deferredComparisons ?? 0;
   const hasInput = Boolean(input);
+  const isWaveExecution = report?.method === "wave_comparison" || plan.candidateMethod === "wave_comparison";
 
   return {
     status: "deferred",
     label: "Execution deferred",
     message: hasInput
-      ? `Column-comparison input was accepted and ${deferredComparisons.toLocaleString()} comparison ${deferredComparisons === 1 ? "pair is" : "pairs are"} shaped as deferred.`
+      ? `${isWaveExecution ? "Wave-comparison" : "Column-comparison"} input was accepted and ${deferredComparisons.toLocaleString()} comparison ${deferredComparisons === 1 ? "pair is" : "pairs are"} shaped as deferred.`
       : "The provider has a candidate method, but no execution input payload is attached.",
-    helper: "No p-values, directions, or significance flags are calculated yet.",
+    helper: isWaveExecution
+      ? "Wave rows, wave labels, and comparison scope are now typed for future trend significance, but no wave p-values or flags are calculated yet."
+      : "No p-values, directions, or significance flags are calculated yet.",
     chips: [plan.executionInputContract ?? "No input contract", hasInput ? "Input accepted" : "No input", "Provider deferred"],
     details
   };

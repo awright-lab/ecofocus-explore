@@ -103,7 +103,7 @@ export interface AnalyticsSignificanceExecutionPlan {
   candidateMethod: SignificanceMethod;
   queryShapeSupported: boolean;
   providerCanExecute: boolean;
-  executionInputContract: "column_comparison" | null;
+  executionInputContract: "column_comparison" | "wave_comparison" | null;
   reasonCodes: SignificanceReasonCode[];
   unmetPrerequisites: SignificanceExecutionPrerequisite[];
 }
@@ -135,7 +135,36 @@ export interface AnalyticsColumnComparisonExecutionInput {
   }>;
 }
 
-export type AnalyticsSignificanceExecutionInput = AnalyticsColumnComparisonExecutionInput;
+export interface AnalyticsWaveComparisonExecutionInput {
+  method: "wave_comparison";
+  confidenceLevel: ConfidenceLevel;
+  metric: {
+    id: Metric;
+    valueFormat: "percent" | "number";
+  };
+  comparisonScope: {
+    basis: "wave";
+    rowIds: string[];
+    waveIds: DatasetId[];
+    primaryDatasetId: DatasetId;
+    comparisonDatasetIds: DatasetId[];
+  };
+  waves: Array<{
+    id: DatasetId;
+    label: string;
+  }>;
+  rows: Array<{
+    id: string;
+    label: string;
+    cells: Array<{
+      waveId: DatasetId;
+      value: number;
+      base: number;
+    }>;
+  }>;
+}
+
+export type AnalyticsSignificanceExecutionInput = AnalyticsColumnComparisonExecutionInput | AnalyticsWaveComparisonExecutionInput;
 
 export type SignificanceExecutionReportStatus = "not_executed" | "deferred" | "executed";
 
@@ -174,7 +203,44 @@ export interface AnalyticsColumnComparisonExecutionReport {
   result: AnalyticsColumnComparisonExecutionResult | null;
 }
 
-export type AnalyticsSignificanceExecutionReport = AnalyticsColumnComparisonExecutionReport;
+export interface AnalyticsWaveComparisonExecutionResult {
+  method: "wave_comparison";
+  comparisonScope: {
+    basis: "wave";
+    rowIds: string[];
+    waveIds: DatasetId[];
+    primaryDatasetId: DatasetId;
+    comparisonDatasetIds: DatasetId[];
+  };
+  outcomes: Array<{
+    rowId: string;
+    waveId: DatasetId;
+    comparedWaveId: DatasetId;
+    status: "deferred" | "not_tested" | "placeholder" | "tested";
+    reasonCodes: SignificanceReasonCode[];
+    statistics: {
+      pValue: number | null;
+      confidence: ConfidenceLevel | null;
+      direction: "up" | "down" | null;
+    };
+  }>;
+  summary: {
+    testedComparisons: number;
+    deferredComparisons: number;
+    significantComparisons?: number;
+  };
+}
+
+export interface AnalyticsWaveComparisonExecutionReport {
+  method: "wave_comparison";
+  status: SignificanceExecutionReportStatus;
+  inputAccepted: boolean;
+  reasonCodes: SignificanceReasonCode[];
+  unmetPrerequisites: SignificanceExecutionPrerequisite[];
+  result: AnalyticsWaveComparisonExecutionResult | null;
+}
+
+export type AnalyticsSignificanceExecutionReport = AnalyticsColumnComparisonExecutionReport | AnalyticsWaveComparisonExecutionReport;
 
 export interface AnalyticsSignificanceResult {
   status: SignificanceStatus;

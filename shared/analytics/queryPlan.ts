@@ -61,10 +61,19 @@ const defaultSignificanceExecutionCapabilities: SignificanceExecutionCapabilitie
 
 export function buildSignificanceReadiness(query: AnalyticsQueryRequest): AnalyticsSignificanceReadiness {
   if ((query.comparisonMode ?? "none") === "wave") {
+    if ((query.comparisonDatasets ?? []).length === 0) {
+      return {
+        status: "not_applicable",
+        method: "wave_comparison",
+        reasonCodes: ["no_comparison_basis"],
+        comparisonBasis: "wave"
+      };
+    }
+
     return {
-      status: "unsupported",
+      status: "candidate",
       method: "wave_comparison",
-      reasonCodes: ["wave_comparison_unsupported", "mock_provider_not_available"],
+      reasonCodes: ["future_method"],
       comparisonBasis: "wave"
     };
   }
@@ -98,15 +107,25 @@ export function buildSignificanceExecutionPlan(
           ? capabilities.waveComparison
           : false;
     const providerCanExecute = providerSupportsMethod && capabilities.statisticalEngine;
+    const methodUnavailableReason =
+      readiness.method === "wave_comparison" && !providerSupportsMethod
+        ? "wave_comparison_unsupported" as const
+        : "mock_provider_not_available" as const;
 
     return {
       status: providerCanExecute ? "ready" : "deferred",
       candidateMethod: readiness.method,
       queryShapeSupported: true,
       providerCanExecute,
-      executionInputContract: readiness.method === "column_comparison" ? "column_comparison" : null,
-      reasonCodes: providerCanExecute ? [] : ["mock_provider_not_available", ...readiness.reasonCodes],
+      executionInputContract:
+        readiness.method === "column_comparison"
+          ? "column_comparison"
+          : readiness.method === "wave_comparison"
+            ? "wave_comparison"
+            : null,
+      reasonCodes: providerCanExecute ? [] : Array.from(new Set([methodUnavailableReason, ...readiness.reasonCodes])),
       unmetPrerequisites: [
+        readiness.method === "wave_comparison" && !providerSupportsMethod ? "wave_support" : "",
         providerSupportsMethod ? "" : "provider_method",
         capabilities.statisticalEngine ? "" : "statistical_engine"
       ].filter(Boolean) as AnalyticsSignificanceExecutionPlan["unmetPrerequisites"]

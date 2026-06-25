@@ -1,5 +1,5 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../analytics/queryPlan";
-import { runColumnComparisonSignificanceAdapter } from "../analytics/significanceExecution";
+import { runColumnComparisonSignificanceAdapter, runWaveComparisonSignificanceAdapter } from "../analytics/significanceExecution";
 import { getDatasetMetadata, getMetricMetadata, getWeightMetadata } from "../metadata/ecofocus2025";
 import type {
   AnalyticsAnnotation,
@@ -12,6 +12,7 @@ import type {
   AnalyticsSignificanceResult,
   AnalyticsTableColumn,
   AnalyticsTableRow,
+  AnalyticsWaveComparisonExecutionInput,
   ConfidenceLevel,
   DatasetId
 } from "../types/analytics";
@@ -276,7 +277,7 @@ function significanceFromExecutionReport(
   annotations: AnalyticsAnnotation[],
   report: AnalyticsSignificanceExecutionReport | null
 ): AnalyticsSignificanceResult {
-  if (report?.status !== "executed" || !report.result) {
+  if (report?.status !== "executed" || report.method !== "column_comparison" || !report.result) {
     return significanceFromReadiness(readiness, annotations);
   }
 
@@ -345,6 +346,49 @@ function columnComparisonExecutionInput(
       label: row.label,
       cells: columns.map((column) => ({
         columnId: column.id,
+        value: row.values[column.id] ?? 0,
+        base: row.bases[column.id] ?? 0
+      }))
+    }))
+  };
+}
+
+function waveComparisonExecutionInput(
+  query: AnalyticsQueryRequest,
+  metric: AnalyticsQueryResponse["metric"],
+  columns: AnalyticsQueryResponse["columns"],
+  table: AnalyticsQueryResponse["table"]
+): AnalyticsWaveComparisonExecutionInput | null {
+  const comparisonDatasets = query.comparisonDatasets ?? [];
+  if ((query.comparisonMode ?? "none") !== "wave" || comparisonDatasets.length === 0 || columns.length <= 1 || table.length === 0) {
+    return null;
+  }
+
+  const waveIds = columns.map((column) => column.id as DatasetId);
+
+  return {
+    method: "wave_comparison",
+    confidenceLevel: query.confidenceLevel,
+    metric: {
+      id: metric.id,
+      valueFormat: metric.valueFormat
+    },
+    comparisonScope: {
+      basis: "wave",
+      rowIds: table.map((row) => row.optionId),
+      waveIds,
+      primaryDatasetId: query.dataset,
+      comparisonDatasetIds: comparisonDatasets
+    },
+    waves: columns.map((column) => ({
+      id: column.id as DatasetId,
+      label: column.label
+    })),
+    rows: table.map((row) => ({
+      id: row.optionId,
+      label: row.label,
+      cells: columns.map((column) => ({
+        waveId: column.id as DatasetId,
         value: row.values[column.id] ?? 0,
         base: row.bases[column.id] ?? 0
       }))
@@ -505,10 +549,10 @@ function runMockWaveComparisonQuery(
     }
   }));
   const significanceReadiness = buildSignificanceReadiness(query);
-  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness);
-  const significanceExecutionInput = columnComparisonExecutionInput(query, metric, columns, table);
-  const significanceExecutionReport = runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
-  const significance = unsupportedSignificance(significanceReadiness);
+  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness, mockSignificanceExecutionCapabilities);
+  const significanceExecutionInput = waveComparisonExecutionInput(query, metric, columns, table);
+  const significanceExecutionReport = runWaveComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
+  const significance = significanceFromExecutionReport(significanceReadiness, [], significanceExecutionReport);
 
   return {
     query,
