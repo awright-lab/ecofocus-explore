@@ -888,8 +888,8 @@ h2 {
 
 .multi-selection-card {
   display: grid;
-  gap: 8px;
-  padding: 8px;
+  gap: 10px;
+  padding: 10px;
   border: 1px solid #c9decf;
   border-radius: 10px;
   background: #f3fbf5;
@@ -906,7 +906,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  padding: 7px;
+  padding: 8px;
   border: 1px solid #d8e8dd;
   border-radius: 8px;
   background: #ffffff;
@@ -938,6 +938,34 @@ h2 {
 .multi-selection-bounds small {
   grid-column: 1 / -1;
   color: #517062;
+}
+
+.multi-selection-action-group {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #d8e8dd;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.multi-selection-action-group > strong {
+  color: #20342a;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.layout-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.layout-action-grid button,
+.multi-selection-action-group .brand-card-actions button {
+  min-width: 0;
+  padding-inline: 6px;
+  font-size: 0.7rem;
 }
 
 .multi-selection-row {
@@ -3432,6 +3460,80 @@ h2 {
     linear-gradient(90deg, #eef3eb 1px, transparent 1px),
     #ffffff;
   background-size: 40px 40px;
+}
+
+.composition-guide {
+  position: absolute;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.composition-guide.vertical {
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid #0aa88a;
+  box-shadow: 0 0 0 1px rgba(10, 168, 138, 0.12);
+}
+
+.composition-guide.horizontal {
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid #0aa88a;
+  box-shadow: 0 0 0 1px rgba(10, 168, 138, 0.12);
+}
+
+.composition-guide span {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid rgba(10, 168, 138, 0.32);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #066b59;
+  font-size: 0.66rem;
+  font-weight: 850;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(16, 35, 45, 0.12);
+}
+
+.composition-guide.vertical span {
+  top: 10px;
+  left: 6px;
+}
+
+.composition-guide.horizontal span {
+  top: 6px;
+  left: 10px;
+}
+
+.multi-selection-canvas-bounds {
+  position: absolute;
+  z-index: 9990;
+  border: 1px dashed #0d8f78;
+  background: rgba(14, 143, 120, 0.05);
+  pointer-events: none;
+}
+
+.multi-selection-canvas-bounds span {
+  position: absolute;
+  top: -26px;
+  left: 0;
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(13, 143, 120, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0d6657;
+  font-size: 0.68rem;
+  font-weight: 850;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(16, 35, 45, 0.1);
 }
 
 .page-header {

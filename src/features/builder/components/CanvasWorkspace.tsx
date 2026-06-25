@@ -1,6 +1,9 @@
-import type { CSSProperties, DragEvent, ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { Rnd } from "react-rnd";
 import { canvasHeight, canvasWidth } from "../builderConstants";
+import { buildCompositionGuideObjects, buildCompositionGuideState, type CompositionGuideObject, type CompositionGuideState } from "./compositionGuidesModel";
+import { buildMultiSelectionSummary } from "./multiSelectionModel";
+import type { MultiSelectedObject } from "../builderTypes";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile } from "../../../../shared/types/dashboard";
 
 function rangeFill(value: number | string, min: number, max: number) {
@@ -16,6 +19,7 @@ export function CanvasWorkspace({
   canvasZoom,
   selectedTileId,
   selectedElementId,
+  multiSelectedObjects,
   hasSelection,
   canvasBackground,
   canvasBackgroundSize,
@@ -44,6 +48,7 @@ export function CanvasWorkspace({
   canvasZoom: number;
   selectedTileId: string | null;
   selectedElementId: string | null;
+  multiSelectedObjects: MultiSelectedObject[];
   hasSelection: boolean;
   canvasBackground: (page: DashboardPage) => string;
   canvasBackgroundSize: (page: DashboardPage) => string;
@@ -66,6 +71,19 @@ export function CanvasWorkspace({
   renderTile: (tile: DashboardTile, selected: boolean, onSelect: () => void) => ReactNode;
   renderElement: (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => ReactNode;
 }) {
+  const [activeGuideState, setActiveGuideState] = useState<CompositionGuideState | null>(null);
+  const compositionObjects = useMemo(
+    () =>
+      buildCompositionGuideObjects([
+        ...activePage.tiles.filter((tile) => !tile.hidden).map((tile) => ({ id: tile.id, type: "tile" as const, layout: tile.layout })),
+        ...activePage.elements.filter((element) => !element.hidden).map((element) => ({ id: element.id, type: "element" as const, layout: element.layout }))
+      ]),
+    [activePage.tiles, activePage.elements]
+  );
+  const multiSelectionSummary = useMemo(
+    () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
+    [activePage, multiSelectedObjects]
+  );
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
@@ -75,6 +93,10 @@ export function CanvasWorkspace({
     backgroundPosition: canvasBackgroundPosition(activePage),
     transform: `scale(${canvasScale})`
   };
+  const updateGuideState = (movingObject: CompositionGuideObject) => {
+    setActiveGuideState(buildCompositionGuideState({ movingObject, objects: compositionObjects }));
+  };
+  const clearGuideState = () => setActiveGuideState(null);
 
   return (
     <section className="canvas" aria-label="Dashboard canvas">
@@ -150,8 +172,17 @@ export function CanvasWorkspace({
                 enableResizing={!element.locked}
                 onDragStart={() => {
                   onSelectElement(element.id);
+                  updateGuideState({ id: element.id, type: "element", layout: element.layout });
                 }}
-                onDragStop={(_, data) => onUpdateElementLayout(element.id, { x: data.x, y: data.y })}
+                onDrag={(_, data) => updateGuideState({ id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } })}
+                onDragStop={(_, data) => {
+                  const guideState = buildCompositionGuideState({
+                    movingObject: { id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } },
+                    objects: compositionObjects
+                  });
+                  onUpdateElementLayout(element.id, { x: guideState.snappedX, y: guideState.snappedY });
+                  clearGuideState();
+                }}
                 onResizeStop={(_, __, ref, ___, position) =>
                   onUpdateElementLayout(element.id, {
                     width: ref.offsetWidth,
@@ -181,8 +212,17 @@ export function CanvasWorkspace({
                 enableResizing={!tile.locked}
                 onDragStart={() => {
                   onSelectTile(tile.id);
+                  updateGuideState({ id: tile.id, type: "tile", layout: tile.layout });
                 }}
-                onDragStop={(_, data) => onUpdateTileLayout(tile.id, { x: data.x, y: data.y })}
+                onDrag={(_, data) => updateGuideState({ id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } })}
+                onDragStop={(_, data) => {
+                  const guideState = buildCompositionGuideState({
+                    movingObject: { id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } },
+                    objects: compositionObjects
+                  });
+                  onUpdateTileLayout(tile.id, { x: guideState.snappedX, y: guideState.snappedY });
+                  clearGuideState();
+                }}
                 onResizeStop={(_, __, ref, ___, position) =>
                   onUpdateTileLayout(tile.id, {
                     width: ref.offsetWidth,
@@ -194,6 +234,28 @@ export function CanvasWorkspace({
               >
                 {renderTile(tile, tile.id === selectedTileId, () => onSelectTile(tile.id))}
               </Rnd>
+            ))}
+            {multiSelectionSummary.bounds && multiSelectionSummary.count > 1 && (
+              <div
+                className="multi-selection-canvas-bounds"
+                style={{
+                  left: multiSelectionSummary.bounds.x,
+                  top: multiSelectionSummary.bounds.y,
+                  width: multiSelectionSummary.bounds.width,
+                  height: multiSelectionSummary.bounds.height
+                }}
+              >
+                <span>{multiSelectionSummary.count} selected · {multiSelectionSummary.bounds.width} x {multiSelectionSummary.bounds.height}</span>
+              </div>
+            )}
+            {activeGuideState && activeGuideState.guides.map((guide) => (
+              <div
+                className={`composition-guide ${guide.orientation}`}
+                key={`${guide.orientation}-${guide.position}-${guide.label}`}
+                style={guide.orientation === "vertical" ? { left: guide.position } : { top: guide.position }}
+              >
+                <span>{guide.label}</span>
+              </div>
             ))}
           </div>
         </div>

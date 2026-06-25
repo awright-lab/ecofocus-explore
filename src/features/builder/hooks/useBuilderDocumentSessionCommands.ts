@@ -13,6 +13,7 @@ import {
 } from "../builderDocumentCommands";
 import { initialDashboard } from "../../document/documentSeeds";
 import { clampZIndex, nextZIndex } from "../../document/documentModel";
+import { buildMultiSelectionLayoutUpdates, type MultiSelectionLayoutAction } from "../components/multiSelectionModel";
 import type { LayerItem, LeftPanelView, SettingsView } from "../builderTypes";
 import type { MultiSelectedObject } from "../builderTypes";
 import type {
@@ -292,16 +293,12 @@ export function useBuilderDocumentSessionCommands({
     }));
   }
 
-  function alignMultiSelected(edge: "left" | "top") {
+  function alignMultiSelected(action: MultiSelectionLayoutAction) {
     if (multiSelectedObjects.length < 2) return;
     const selectedTileIds = new Set(multiSelectedObjects.filter((item) => item.type === "tile").map((item) => item.id));
     const selectedElementIds = new Set(multiSelectedObjects.filter((item) => item.type === "element").map((item) => item.id));
-    const selectedLayouts = [
-      ...activePage.tiles.filter((tile) => selectedTileIds.has(tile.id)).map((tile) => tile.layout),
-      ...activePage.elements.filter((element) => selectedElementIds.has(element.id)).map((element) => element.layout)
-    ];
-    if (selectedLayouts.length < 2) return;
-    const targetValue = Math.min(...selectedLayouts.map((layout) => (edge === "left" ? layout.x : layout.y)));
+    const layoutUpdates = buildMultiSelectionLayoutUpdates(activePage, multiSelectedObjects, action);
+    if (layoutUpdates.size === 0) return;
 
     setDashboard((current) => ({
       ...current,
@@ -312,12 +309,12 @@ export function useBuilderDocumentSessionCommands({
               ...page,
               tiles: page.tiles.map((tile) =>
                 selectedTileIds.has(tile.id)
-                  ? { ...tile, layout: { ...tile.layout, [edge === "left" ? "x" : "y"]: targetValue } }
+                  ? { ...tile, layout: { ...tile.layout, ...layoutUpdates.get(`tile:${tile.id}`) } }
                   : tile
               ),
               elements: page.elements.map((element) =>
                 selectedElementIds.has(element.id)
-                  ? { ...element, layout: { ...element.layout, [edge === "left" ? "x" : "y"]: targetValue } }
+                  ? { ...element, layout: { ...element.layout, ...layoutUpdates.get(`element:${element.id}`) } }
                   : element
               )
             }

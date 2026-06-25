@@ -1,6 +1,7 @@
 import { BuilderPanel } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
+import type { MultiSelectionLayoutAction } from "./multiSelectionModel";
 import { BarColorField, ColorField, PageBackgroundField, rangeFill } from "../../design-system/DesignControls";
 import {
   axisRotationPresets,
@@ -51,7 +52,7 @@ export type BuilderInspectorProps = {
   multiSelectedObjects: MultiSelectedObject[];
   setMultiSelectedHidden: (hidden: boolean) => void;
   setMultiSelectedLocked: (locked: boolean) => void;
-  alignMultiSelected: (edge: "left" | "top") => void;
+  alignMultiSelected: (action: MultiSelectionLayoutAction) => void;
   clearMultiSelection: () => void;
   savedBanners: SavedBanner[];
   savedFilters: SavedFilterSet[];
@@ -188,14 +189,16 @@ export function BuilderInspector(props: BuilderInspectorProps) {
               {multiSelectionSummary.bounds && (
                 <div className="multi-selection-bounds" aria-label="Selection bounds">
                   <div>
-                    <span>X/Y</span>
+                    <span>Origin</span>
                     <strong>{multiSelectionSummary.bounds.x}, {multiSelectionSummary.bounds.y}</strong>
                   </div>
                   <div>
-                    <span>Size</span>
-                    <strong>{multiSelectionSummary.bounds.width}x{multiSelectionSummary.bounds.height}</strong>
+                    <span>Footprint</span>
+                    <strong>{multiSelectionSummary.bounds.width} x {multiSelectionSummary.bounds.height}</strong>
                   </div>
-                  <small>{multiSelectionSummary.spreadLabel}</small>
+                  <small>{multiSelectionSummary.footprintLabel}</small>
+                  <small>{multiSelectionSummary.horizontalGapLabel}</small>
+                  <small>{multiSelectionSummary.verticalGapLabel}</small>
                 </div>
               )}
               <div className="multi-selection-list">
@@ -206,15 +209,32 @@ export function BuilderInspector(props: BuilderInspectorProps) {
                   </div>
                 ))}
               </div>
-              <div className="brand-card-actions">
+              <div className="multi-selection-action-group">
+                <strong>Visibility</strong>
+                <div className="brand-card-actions">
                 <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(true)}>Hide</button>
                 <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(false)}>Show</button>
                 <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(true)}>Lock</button>
                 <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(false)}>Unlock</button>
+                </div>
               </div>
-              <div className="brand-card-actions">
-                <button type="button" className="secondary" onClick={() => alignMultiSelected("left")} disabled={multiSelectionSummary.count < 2}>Align left</button>
-                <button type="button" className="secondary" onClick={() => alignMultiSelected("top")} disabled={multiSelectionSummary.count < 2}>Align top</button>
+              <div className="multi-selection-action-group">
+                <strong>Align</strong>
+                <div className="layout-action-grid">
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("left")} disabled={multiSelectionSummary.count < 2}>Left</button>
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("center")} disabled={multiSelectionSummary.count < 2}>Center</button>
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("right")} disabled={multiSelectionSummary.count < 2}>Right</button>
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("top")} disabled={multiSelectionSummary.count < 2}>Top</button>
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("middle")} disabled={multiSelectionSummary.count < 2}>Middle</button>
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("bottom")} disabled={multiSelectionSummary.count < 2}>Bottom</button>
+                </div>
+              </div>
+              <div className="multi-selection-action-group">
+                <strong>Distribute</strong>
+                <div className="brand-card-actions">
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("distributeHorizontal")} disabled={multiSelectionSummary.count < 3}>Horizontal</button>
+                  <button type="button" className="secondary" onClick={() => alignMultiSelected("distributeVertical")} disabled={multiSelectionSummary.count < 3}>Vertical</button>
+                </div>
               </div>
               <button type="button" className="secondary" onClick={clearMultiSelection}>Clear selection</button>
             </div>

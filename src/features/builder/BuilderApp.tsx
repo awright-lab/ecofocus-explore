@@ -987,6 +987,7 @@ export default function BuilderApp() {
           canvasZoom={canvasZoom}
           selectedTileId={selectedTileId}
           selectedElementId={selectedElementId}
+          multiSelectedObjects={activeMultiSelectedObjects}
           hasSelection={Boolean(selectedTile || selectedElement)}
           canvasBackground={canvasBackground}
           canvasBackgroundSize={canvasBackgroundSize}
