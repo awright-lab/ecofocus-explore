@@ -31,6 +31,18 @@ export function ElementInspector(props: BuilderInspectorProps) {
   return (
             <>
               {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
+              {selectedElement.compositionBlock && (
+                <CompositionProvenanceCard
+                  label={selectedElement.compositionBlock.label}
+                  helper="Inserted from a reusable composition block. This element is an editable copy, not a live-linked instance."
+                />
+              )}
+              {selectedElement.assetSource && (
+                <CompositionProvenanceCard
+                  label={selectedElement.assetSource.label}
+                  helper="Inserted from the local image asset library. This image element can be edited independently."
+                />
+              )}
               <label>
                 Layer name
                 <input value={selectedElement.name} onChange={(event) => updateSelectedElement({ name: event.target.value })} />
@@ -274,6 +286,16 @@ function ReportTreeSelectionCueCard({ view }: { view: ReportTreeSelectionCueView
       <strong>{view.label}</strong>
       <span>{view.message}</span>
       <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function CompositionProvenanceCard({ label, helper }: { label: string; helper: string }) {
+  return (
+    <div className="composition-provenance-card">
+      <span>Reusable content</span>
+      <strong>{label}</strong>
+      <small>{helper}</small>
     </div>
   );
 }

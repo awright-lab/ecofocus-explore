@@ -169,6 +169,8 @@ export default function BuilderApp() {
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
+  const savedCompositionBlocks = dashboard.designLibrary.compositionBlocks;
+  const designAssets = dashboard.designLibrary.assets;
   const pageThemes = dashboard.designLibrary.pageThemes;
   const pageTemplates = dashboard.designLibrary.pageTemplates;
   const pageMasters = dashboard.designLibrary.pageMasters;
@@ -452,6 +454,10 @@ export default function BuilderApp() {
     changeSelectedLayer,
     addCanvasElement,
     addTextBlockPreset,
+    saveCompositionBlockFromSelection,
+    insertCompositionBlock,
+    deleteCompositionBlock,
+    insertDesignAsset,
     updateActivePage,
     renamePage,
     addPage,
@@ -898,6 +904,12 @@ export default function BuilderApp() {
           applyTextStylePresetToSelection={applyTextStylePresetToSelection}
           textBlockPresets={textBlockPresets}
           addTextBlockPreset={addTextBlockPreset}
+          savedCompositionBlocks={savedCompositionBlocks}
+          designAssets={designAssets}
+          saveCompositionBlockFromSelection={saveCompositionBlockFromSelection}
+          insertCompositionBlock={insertCompositionBlock}
+          deleteCompositionBlock={deleteCompositionBlock}
+          insertDesignAsset={insertDesignAsset}
           applyPageTheme={applyPageTheme}
           exploreView={exploreView}
           setExploreView={setExploreView}

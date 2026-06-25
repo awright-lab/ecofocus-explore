@@ -17,12 +17,20 @@ import type {
   PageThemePreset,
   SavedAnalyticalTemplate,
   SavedBanner,
+  SavedCompositionBlock,
+  SavedDesignAsset,
   SavedFilterSet,
   SavedVariableSet,
   SavedWeightProfile,
   TextBlockPreset,
   TextStylePreset
 } from "../../../shared/types/dashboard";
+
+function encodedSvgAsset(label: string, from: string, to: string, accent: string) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="1200" height="800" fill="url(#g)"/><circle cx="920" cy="180" r="180" fill="${accent}" opacity=".22"/><circle cx="240" cy="620" r="240" fill="#ffffff" opacity=".2"/><path d="M150 510c160-150 298-169 413-58s245 98 487-38v238H150z" fill="#ffffff" opacity=".24"/><text x="92" y="120" fill="#102332" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="700">${label}</text></svg>`
+  )}`;
+}
 
 export function seedDesignPalettes(): DesignColorPalette[] {
   return [
@@ -187,6 +195,35 @@ export function seedTextBlocks(): TextBlockPreset[] {
         borderWidth: 1,
         borderRadius: 14
       }
+    }
+  ];
+}
+
+export function seedDesignAssets(): SavedDesignAsset[] {
+  return [
+    {
+      id: "asset_market_moment",
+      label: "Market moment",
+      description: "Soft editorial image placeholder for section openers and quote pages.",
+      kind: "image",
+      category: "Editorial",
+      url: encodedSvgAsset("Market moment", "#e9f8f4", "#bcefd6", "#0fa87a")
+    },
+    {
+      id: "asset_packaging_detail",
+      label: "Packaging detail",
+      description: "Warm product-story visual for packaging, claims, and in-store context.",
+      kind: "image",
+      category: "Product story",
+      url: encodedSvgAsset("Packaging detail", "#fff7e8", "#d8efe5", "#ffd166")
+    },
+    {
+      id: "asset_consumer_scene",
+      label: "Consumer scene",
+      description: "Clean lifestyle visual placeholder for audience and behavior narratives.",
+      kind: "image",
+      category: "Lifestyle",
+      url: encodedSvgAsset("Consumer scene", "#eef4ff", "#dff7ed", "#4f8ef7")
     }
   ];
 }
@@ -524,6 +561,8 @@ export function seedDesignLibrary() {
     palettes: seedDesignPalettes(),
     textStyles: seedTextStyles(),
     textBlocks: seedTextBlocks(),
+    compositionBlocks: [] as SavedCompositionBlock[],
+    assets: seedDesignAssets(),
     pageThemes: seedPageThemes(),
     pageTemplates: seedPageTemplates(),
     pageMasters: seedPageMasters()

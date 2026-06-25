@@ -333,6 +333,33 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             gradientStops: textBlock.style?.gradientStops ?? []
           }
         })) ?? seededDesignLibrary.textBlocks,
+      compositionBlocks:
+        dashboard.designLibrary?.compositionBlocks?.map((block, index) => ({
+          ...block,
+          id: block.id ?? `composition_block_${index + 1}`,
+          label: block.label ?? `Composition block ${index + 1}`,
+          description: block.description ?? "",
+          category: block.category ?? "custom",
+          createdAt: block.createdAt ?? Date.now(),
+          summary: {
+            objectCount: block.summary?.objectCount ?? block.items?.length ?? 0,
+            tileCount: block.summary?.tileCount ?? block.items?.filter((item) => item.kind === "tile").length ?? 0,
+            elementCount: block.summary?.elementCount ?? block.items?.filter((item) => item.kind === "element").length ?? 0,
+            width: block.summary?.width ?? 0,
+            height: block.summary?.height ?? 0
+          },
+          items: block.items ?? []
+        })) ?? seededDesignLibrary.compositionBlocks,
+      assets:
+        dashboard.designLibrary?.assets?.map((asset, index) => ({
+          ...asset,
+          id: asset.id ?? `design_asset_${index + 1}`,
+          label: asset.label ?? `Asset ${index + 1}`,
+          description: asset.description ?? "",
+          kind: asset.kind ?? "image",
+          category: asset.category ?? "Image",
+          url: asset.url ?? ""
+        })) ?? seededDesignLibrary.assets,
       pageTemplates:
         dashboard.designLibrary?.pageTemplates?.map((pageTemplate, index) => ({
           ...pageTemplate,

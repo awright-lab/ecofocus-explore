@@ -14,6 +14,11 @@ import {
 import { initialDashboard } from "../../document/documentSeeds";
 import { clampZIndex, nextZIndex } from "../../document/documentModel";
 import { buildMultiSelectionLayoutUpdates, type MultiSelectionLayoutAction } from "../components/multiSelectionModel";
+import {
+  buildCompositionBlockFromSelection,
+  createImageElementFromAsset,
+  createObjectsFromCompositionBlock
+} from "../components/compositionBlockModel";
 import type { LayerItem, LeftPanelView, SettingsView } from "../builderTypes";
 import type { MultiSelectedObject } from "../builderTypes";
 import type {
@@ -26,6 +31,8 @@ import type {
   PageMasterPreset,
   PageTemplatePreset,
   PageThemePreset,
+  SavedCompositionBlock,
+  SavedDesignAsset,
   TextBlockPreset
 } from "../../../../shared/types/dashboard";
 
@@ -393,6 +400,74 @@ export function useBuilderDocumentSessionCommands({
     setSettingsView("element");
   }
 
+  function saveCompositionBlockFromSelection() {
+    const block = buildCompositionBlockFromSelection({
+      page: activePage,
+      selectedTile,
+      selectedElement,
+      multiSelectedObjects
+    });
+    if (!block) return false;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      designLibrary: {
+        ...current.designLibrary,
+        compositionBlocks: [block, ...(current.designLibrary.compositionBlocks ?? [])]
+      }
+    }));
+    setLeftPanelView("brand");
+    return true;
+  }
+
+  function insertCompositionBlock(block: SavedCompositionBlock) {
+    const { tiles, elements } = createObjectsFromCompositionBlock(block, activePage);
+    if (tiles.length === 0 && elements.length === 0) return false;
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) =>
+        page.id === activePage.id
+          ? {
+              ...page,
+              tiles: [...page.tiles, ...tiles],
+              elements: [...page.elements, ...elements]
+            }
+          : page
+      )
+    }));
+    setSelectedTileId(tiles[0]?.id ?? null);
+    setSelectedElementId(tiles[0] ? null : elements[0]?.id ?? null);
+    setSelectedChartPartId("all");
+    setSettingsView("home");
+    return true;
+  }
+
+  function deleteCompositionBlock(blockId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      designLibrary: {
+        ...current.designLibrary,
+        compositionBlocks: current.designLibrary.compositionBlocks.filter((block) => block.id !== blockId)
+      }
+    }));
+  }
+
+  function insertDesignAsset(asset: SavedDesignAsset) {
+    const element = createImageElementFromAsset(asset, activePage);
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, elements: [...page.elements, element] } : page))
+    }));
+    selectElement(element.id);
+    setSettingsView("element");
+  }
+
   function updateActivePage(updates: Partial<DashboardPage>) {
     setDashboard((current) => ({
       ...current,
@@ -638,6 +713,10 @@ export function useBuilderDocumentSessionCommands({
     changeSelectedLayer,
     addCanvasElement,
     addTextBlockPreset,
+    saveCompositionBlockFromSelection,
+    insertCompositionBlock,
+    deleteCompositionBlock,
+    insertDesignAsset,
     updateActivePage,
     renamePage,
     addPage,

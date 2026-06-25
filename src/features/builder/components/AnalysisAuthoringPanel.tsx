@@ -13,7 +13,7 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
-import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedDerivedDefinition, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
+import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
@@ -56,6 +56,12 @@ export type AnalysisAuthoringPanelProps = {
   applyTextStylePresetToSelection: (preset: TextStylePreset) => void;
   textBlockPresets: TextBlockPreset[];
   addTextBlockPreset: (block: TextBlockPreset) => void;
+  savedCompositionBlocks: SavedCompositionBlock[];
+  designAssets: SavedDesignAsset[];
+  saveCompositionBlockFromSelection: () => boolean;
+  insertCompositionBlock: (block: SavedCompositionBlock) => boolean;
+  deleteCompositionBlock: (blockId: string) => void;
+  insertDesignAsset: (asset: SavedDesignAsset) => void;
   applyPageTheme: (theme: PageThemePreset) => void;
   exploreView: ExploreView;
   setExploreView: (view: ExploreView) => void;
@@ -194,6 +200,12 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   applyTextStylePresetToSelection,
   textBlockPresets,
   addTextBlockPreset,
+  savedCompositionBlocks,
+  designAssets,
+  saveCompositionBlockFromSelection,
+  insertCompositionBlock,
+  deleteCompositionBlock,
+  insertDesignAsset,
   applyPageTheme,
   exploreView,
   setExploreView,
@@ -409,6 +421,63 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                       ? "Apply a palette to the selected chart tile or across all chart tiles."
                       : "Apply page themes to the active canvas while you build."}
                   </small>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    onClick={saveCompositionBlockFromSelection}
+                    disabled={!selectedTile && !selectedTextElement && !selectedElementId && multiSelectedObjects.length === 0}
+                  >
+                    Save selection as block
+                  </button>
+                </div>
+                <div className="explorer-section-card composition-library-card">
+                  <div className="explorer-section-header">
+                    <strong>Composition blocks</strong>
+                    <small>{savedCompositionBlocks.length} saved</small>
+                  </div>
+                  <small className="composition-library-helper">
+                    Save selected objects as reusable, editable page-building blocks. Inserted blocks are copies, not live-linked instances.
+                  </small>
+                  <div className="composition-block-list">
+                    {savedCompositionBlocks.length === 0 ? (
+                      <div className="empty-state compact">Select one or more canvas objects and save a reusable block.</div>
+                    ) : (
+                      savedCompositionBlocks.map((block) => (
+                        <div className="composition-block-card" key={block.id}>
+                          <div className="composition-block-preview">
+                            <span>{block.summary.objectCount}</span>
+                            <small>{block.category.replace("_", " ")}</small>
+                          </div>
+                          <div className="composition-block-body">
+                            <strong>{block.label}</strong>
+                            <small>{block.summary.tileCount} tiles · {block.summary.elementCount} elements · {block.summary.width} x {block.summary.height}</small>
+                            <p>{block.description}</p>
+                            <div className="brand-card-actions">
+                              <button type="button" className="secondary" onClick={() => insertCompositionBlock(block)}>Insert block</button>
+                              <button type="button" className="secondary" onClick={() => deleteCompositionBlock(block.id)}>Delete</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="explorer-section-card">
+                  <div className="explorer-section-header">
+                    <strong>Image assets</strong>
+                    <small>{designAssets.length} local assets</small>
+                  </div>
+                  <div className="design-asset-list">
+                    {designAssets.map((asset) => (
+                      <button type="button" className="design-asset-card" key={asset.id} onClick={() => insertDesignAsset(asset)}>
+                        <span className="design-asset-preview" style={{ backgroundImage: `url("${asset.url}")` }} />
+                        <div>
+                          <strong>{asset.label}</strong>
+                          <small>{asset.category} · {asset.description}</small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="explorer-section-card">
                   <div className="explorer-section-header">

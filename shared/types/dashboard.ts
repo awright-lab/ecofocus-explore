@@ -141,6 +141,11 @@ export interface DashboardTile {
     dimensionLabel: string;
     valueLabel: string;
   };
+  compositionBlock?: {
+    id: string;
+    label: string;
+    insertedAt: number;
+  };
   locked: boolean;
   hidden: boolean;
   layout: CanvasLayout;
@@ -192,6 +197,16 @@ export interface DashboardCanvasElement {
     textAlign: "left" | "center" | "right";
     lineHeight: number;
     padding: number;
+  };
+  compositionBlock?: {
+    id: string;
+    label: string;
+    insertedAt: number;
+  };
+  assetSource?: {
+    id: string;
+    label: string;
+    kind: "image";
   };
 }
 
@@ -412,6 +427,43 @@ export interface TextBlockPreset {
   };
 }
 
+export interface SavedDesignAsset {
+  id: string;
+  label: string;
+  description: string;
+  kind: "image";
+  category: string;
+  url: string;
+}
+
+export interface SavedCompositionBlock {
+  id: string;
+  label: string;
+  description: string;
+  category: "callout" | "narrative" | "chart_story" | "image_story" | "custom";
+  createdAt: number;
+  updatedAt?: number;
+  summary: {
+    objectCount: number;
+    tileCount: number;
+    elementCount: number;
+    width: number;
+    height: number;
+  };
+  items: Array<
+    | {
+        kind: "tile";
+        tile: DashboardTile;
+        relativeLayout: CanvasLayout;
+      }
+    | {
+        kind: "element";
+        element: DashboardCanvasElement;
+        relativeLayout: CanvasLayout;
+      }
+  >;
+}
+
 export interface PageTemplatePreset {
   id: string;
   label: string;
@@ -458,6 +510,8 @@ export interface DesignLibrary {
   palettes: DesignColorPalette[];
   textStyles: TextStylePreset[];
   textBlocks: TextBlockPreset[];
+  compositionBlocks: SavedCompositionBlock[];
+  assets: SavedDesignAsset[];
   pageThemes: PageThemePreset[];
   pageTemplates: PageTemplatePreset[];
   pageMasters: PageMasterPreset[];

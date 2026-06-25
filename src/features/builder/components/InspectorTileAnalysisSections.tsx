@@ -195,6 +195,12 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 {derivedDefinitionRecreation && <DerivedDefinitionRecreationCueCard view={derivedDefinitionRecreation} />}
                 {derivedOutputLibraryAction && <DerivedOutputLibraryActionCueCard view={derivedOutputLibraryAction} />}
                 {derivedDefinitionProvenance && <DerivedDefinitionProvenanceCard view={derivedDefinitionProvenance} />}
+                {selectedTile.compositionBlock && (
+                  <CompositionBlockTileProvenanceCard
+                    label={selectedTile.compositionBlock.label}
+                    helper="Inserted from a reusable composition block. This analytical tile is an editable copy, not a live-linked block instance."
+                  />
+                )}
                 {derivedOutputDetail && (
                   <DerivedOutputDetailCard
                     view={derivedOutputDetail}
@@ -506,6 +512,16 @@ function ReportTreeSelectionCueCard({ view }: { view: ReturnType<typeof buildRep
       <strong>{view.label}</strong>
       <span>{view.message}</span>
       <small>{view.helper}</small>
+    </div>
+  );
+}
+
+function CompositionBlockTileProvenanceCard({ label, helper }: { label: string; helper: string }) {
+  return (
+    <div className="composition-provenance-card">
+      <span>Reusable content</span>
+      <strong>{label}</strong>
+      <small>{helper}</small>
     </div>
   );
 }
