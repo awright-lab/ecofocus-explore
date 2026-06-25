@@ -205,22 +205,28 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   />
                 )}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
-                <div className="derived-output-actions">
-                  {derivedOutputViews.map((view) => (
-                    <DerivedOutputCard
-                      key={view.kind}
-                      view={view}
-                      onConfigChange={view.kind === "row_difference" || view.kind === "row_average" ? setRowDifferenceConfig : undefined}
-                      onCreate={(config) => createDerivedOutputTile(selectedTile, view.kind, { config })}
-                      onSaveDefinition={(config) => {
-                        const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind, config);
-                        if (!definition) return;
-                        saveDerivedDefinition(definition);
-                        onViewSavedSettingInLibrary("derivedOutputs", { action: "derivedDefinitionSaved", itemId: definition.id });
-                      }}
-                    />
-                  ))}
-                </div>
+                <details className="inspector-disclosure">
+                  <summary>
+                    <span>Derived outputs</span>
+                    <small>{derivedOutputViews.filter((view) => view.canCreate).length} available</small>
+                  </summary>
+                  <div className="derived-output-actions">
+                    {derivedOutputViews.map((view) => (
+                      <DerivedOutputCard
+                        key={view.kind}
+                        view={view}
+                        onConfigChange={view.kind === "row_difference" || view.kind === "row_average" ? setRowDifferenceConfig : undefined}
+                        onCreate={(config) => createDerivedOutputTile(selectedTile, view.kind, { config })}
+                        onSaveDefinition={(config) => {
+                          const definition = buildDerivedDefinitionFromTile(selectedTile, view.kind, config);
+                          if (!definition) return;
+                          saveDerivedDefinition(definition);
+                          onViewSavedSettingInLibrary("derivedOutputs", { action: "derivedDefinitionSaved", itemId: definition.id });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </details>
                 <div className="explorer-chip-row">
                   {summary.lifecycleChips.map((chip) => (
                     <span className="explorer-chip" key={chip}>{chip}</span>
@@ -240,7 +246,13 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                     <span className="explorer-chip" key={chip}>{chip}</span>
                   ))}
                 </div>
-                <RelatedAnalyticalObjectsCard view={relatedObjects} onSelectRelatedObject={selectRelatedObject} />
+                <details className="inspector-disclosure subtle">
+                  <summary>
+                    <span>Related analytical objects</span>
+                    <small>{relatedObjects.rows.length} relationships</small>
+                  </summary>
+                  <RelatedAnalyticalObjectsCard view={relatedObjects} onSelectRelatedObject={selectRelatedObject} />
+                </details>
                 <small className="tile-handoff-cue">{summary.editCue}</small>
               </div>
     </>
@@ -768,7 +780,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           </button>
         </div>
       )}
-      <div className="tile-query-group">
+      <div className="tile-query-group primary">
         <div className="explorer-section-header">
           <strong>Source settings</strong>
           <small>{queryStatus.sourceLabel}</small>
@@ -779,40 +791,40 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         </div>
         <TileQuestionConfigSection {...props} />
       </div>
-      <div className="tile-query-group">
-        <div className="explorer-section-header">
+      <details className="tile-query-group disclosure">
+        <summary>
           <strong>Comparison settings</strong>
           <small>Trend or compare waves</small>
-        </div>
+        </summary>
         <TileComparisonControls {...props} />
-      </div>
-      <div className="tile-query-group">
-        <div className="explorer-section-header">
+      </details>
+      <details className="tile-query-group disclosure">
+        <summary>
           <strong>Filters and weights</strong>
           <small>Analysis base</small>
-        </div>
+        </summary>
         <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
         <TileFilterWeightControls {...props} />
-      </div>
-      <div className="tile-query-group">
-        <div className="explorer-section-header">
+      </details>
+      <details className="tile-query-group disclosure">
+        <summary>
           <strong>Statistical context</strong>
           <small>Confidence and significance status</small>
-        </div>
+        </summary>
         <AnalysisStatisticsContextCard
           view={statisticsContext}
           confidenceLevel={tile.query.confidenceLevel ?? 0.95}
           onChangeConfidenceLevel={updateConfidenceLevel}
         />
         <ExecutedSignificanceExplanationCard view={significanceExplanation} visualization={tile.visualization} />
-      </div>
-      <div className="tile-query-group">
-        <div className="explorer-section-header">
+      </details>
+      <details className="tile-query-group disclosure" open={queryStatus.hasPendingChanges}>
+        <summary>
           <strong>Apply and save</strong>
           <small>{queryStatus.hasPendingChanges ? "Refresh to update result" : "Reusable settings"}</small>
-        </div>
+        </summary>
         <TileQueryActions {...props} />
-      </div>
+      </details>
     </div>
   );
 }

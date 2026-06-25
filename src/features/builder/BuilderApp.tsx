@@ -14,7 +14,7 @@ import {
   storageKey
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
-import { BuilderHeader, BuilderPanel, ToolRail } from "./components/BuilderChrome";
+import { BuilderHeader, BuilderPanel, ToolRail, WorkspaceModeStrip } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
@@ -182,6 +182,14 @@ export default function BuilderApp() {
       : activePage.elements.some((element) => element.id === item.id)
   );
   const selectedTextElement = selectedElement?.type === "text" ? selectedElement : null;
+  const workspaceSelectionLabel =
+    activeMultiSelectedObjects.length > 0
+      ? `${activeMultiSelectedObjects.length} objects selected`
+      : selectedTile
+        ? `Editing analytical tile: ${selectedTile.title || selectedTile.name}`
+        : selectedElement
+          ? `Editing ${selectedElement.type} element: ${selectedElement.name}`
+          : "No object selected";
   const selectedTileQuestion = selectedTile
     ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion
     : null;
@@ -826,6 +834,11 @@ export default function BuilderApp() {
       />
 
       <section className="builder-workspace">
+        <WorkspaceModeStrip
+          activeView={leftPanelView}
+          pageTitle={activePage.title}
+          selectionLabel={workspaceSelectionLabel}
+        />
         <ToolRail activeView={leftPanelView} onChange={setLeftPanelView} />
         <AnalysisAuthoringPanel
           leftPanelView={leftPanelView}

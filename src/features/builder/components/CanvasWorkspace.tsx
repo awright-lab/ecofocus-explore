@@ -101,13 +101,19 @@ export function CanvasWorkspace({
           </div>
         </div>
       </div>
-      <div className="floating-format-bar" aria-label="Quick actions">
-        <button type="button" onClick={onOpenPageDesign}>Design</button>
+      <div className={hasSelection ? "floating-format-bar has-selection" : "floating-format-bar"} aria-label="Quick actions">
+        <button type="button" onClick={onOpenPageDesign}>Page design</button>
         <span />
-        <button type="button" onClick={onOpenLayout} disabled={!hasSelection}>Position</button>
-        <button type="button" onClick={onBringForward} disabled={!hasSelection}>Front</button>
-        <button type="button" onClick={onDuplicateSelection} disabled={!hasSelection}>Duplicate</button>
-        <button type="button" onClick={onDeleteSelection} disabled={!hasSelection}>Delete</button>
+        {hasSelection ? (
+          <div className="selection-action-group" aria-label="Selected object actions">
+            <button type="button" onClick={onOpenLayout}>Position</button>
+            <button type="button" onClick={onBringForward}>Front</button>
+            <button type="button" onClick={onDuplicateSelection}>Duplicate</button>
+            <button type="button" onClick={onDeleteSelection}>Delete</button>
+          </div>
+        ) : (
+          <small>Select an object for quick actions</small>
+        )}
       </div>
       <div className="canvas-viewport">
         <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>

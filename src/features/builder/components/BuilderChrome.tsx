@@ -58,38 +58,20 @@ export function BuilderHeader({
 
   return (
     <header className="builder-header">
-      <div className="top-nav">
+      <div className="top-nav" aria-label="Workspace identity">
         <span className="app-mark">EF</span>
-        <button type="button">File</button>
-        <button type="button">Resize</button>
-        <button type="button">Editing</button>
+        <div className="document-title-block">
+          <h1>{dashboard.title}</h1>
+          <span>{publishMetadataLabel(dashboard)}</span>
+        </div>
       </div>
-      <h1>{dashboard.title}</h1>
       <div className="publish-controls">
-        <span className="save-state">{saveState}</span>
-        <button type="button" className="secondary" onClick={onUndo} disabled={!canUndo}>
-          Undo
-        </button>
-        <button type="button" className="secondary" onClick={onRedo} disabled={!canRedo}>
-          Redo
-        </button>
-        <button type="button" className="secondary" onClick={onDuplicate} disabled={!canUseSelection}>
-          Duplicate
-        </button>
-        <button type="button" className="secondary" onClick={onDelete} disabled={!canUseSelection}>
-          Delete
-        </button>
-        <button type="button" className="secondary" onClick={onReset}>
-          Reset
-        </button>
-        <button type="button" className="secondary" onClick={handleExport}>
-          Export package
-        </button>
-        <div className={`export-package-context ${exportContext.status}`} aria-label="Export package context">
-          <strong>{exportContext.label}</strong>
-          <span>{exportContext.packageLabel}</span>
-          <small>{exportContext.readinessLabel}</small>
-          <small>{exportContext.helper}</small>
+        <div className="quick-edit-controls" aria-label="Quick edit actions">
+          <span className="save-state">{saveState}</span>
+          <button type="button" className="secondary" onClick={onUndo} disabled={!canUndo}>Undo</button>
+          <button type="button" className="secondary" onClick={onRedo} disabled={!canRedo}>Redo</button>
+          <button type="button" className="secondary" onClick={onDuplicate} disabled={!canUseSelection}>Duplicate</button>
+          <button type="button" className="secondary" onClick={onDelete} disabled={!canUseSelection}>Delete</button>
         </div>
         {exportConfirmation && (
           <div className={`export-package-confirmation ${exportConfirmation.status}`} role="status">
@@ -97,35 +79,72 @@ export function BuilderHeader({
             <small>{exportConfirmation.helper}</small>
           </div>
         )}
-        <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
-        <span className="publish-version-cue">{publishMetadataLabel(dashboard)}</span>
-        <div className={`publish-readiness-cue ${readiness.status}`} aria-label="Publish readiness">
-          <strong>{readiness.label}</strong>
-          <span>{readiness.passedCount}/{readiness.totalCount} checks</span>
-          <small>{readiness.helper}</small>
-        </div>
-        <div className={`publish-share-context ${shareContext.status}`} aria-label="Publish and share context">
-          <strong>{shareContext.label}</strong>
-          <span>{shareContext.helper}</span>
-          <small>{shareContext.viewerLabel}</small>
-          <small>{shareContext.exportLabel}</small>
-        </div>
+        <details className="delivery-status-menu">
+          <summary>
+            <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
+            <strong>{readiness.passedCount}/{readiness.totalCount} ready</strong>
+          </summary>
+          <div className="delivery-status-popover">
+            <div className={`publish-readiness-cue ${readiness.status}`} aria-label="Publish readiness">
+              <strong>{readiness.label}</strong>
+              <span>{readiness.passedCount}/{readiness.totalCount} checks</span>
+              <small>{readiness.helper}</small>
+            </div>
+            <div className={`publish-share-context ${shareContext.status}`} aria-label="Publish and share context">
+              <strong>{shareContext.label}</strong>
+              <span>{shareContext.helper}</span>
+              <small>{shareContext.viewerLabel}</small>
+              <small>{shareContext.exportLabel}</small>
+            </div>
+            <div className={`export-package-context ${exportContext.status}`} aria-label="Export package context">
+              <strong>{exportContext.label}</strong>
+              <span>{exportContext.packageLabel}</span>
+              <small>{exportContext.readinessLabel}</small>
+              <small>{exportContext.helper}</small>
+            </div>
+          </div>
+        </details>
+        <button type="button" className="secondary" onClick={onReset}>Reset</button>
+        <button type="button" className="secondary" onClick={handleExport}>Export</button>
         {dashboard.status === "published" ? (
           <>
-            <button type="button" className="secondary" onClick={onOpenPublished}>
-              Open report
-            </button>
-            <button type="button" onClick={onUnpublish}>
-              Unpublish
-            </button>
+            <button type="button" className="secondary" onClick={onOpenPublished}>Open</button>
+            <button type="button" onClick={onUnpublish}>Unpublish</button>
           </>
         ) : (
-          <button type="button" onClick={onPublish}>
-            Publish
-          </button>
+          <button type="button" onClick={onPublish}>Publish</button>
         )}
       </div>
     </header>
+  );
+}
+
+export function WorkspaceModeStrip({
+  activeView,
+  pageTitle,
+  selectionLabel
+}: {
+  activeView: "pages" | "layers" | "insert" | "data" | "brand";
+  pageTitle: string;
+  selectionLabel: string;
+}) {
+  const modeLabel =
+    activeView === "data"
+      ? "Explore"
+      : activeView === "pages" || activeView === "layers"
+        ? "Navigate"
+        : activeView === "brand"
+          ? "Brand"
+          : "Compose";
+
+  return (
+    <div className="workspace-mode-strip" aria-label="Workspace mode">
+      <div>
+        <span>{modeLabel}</span>
+        <strong>{pageTitle}</strong>
+      </div>
+      <small>{selectionLabel}</small>
+    </div>
   );
 }
 
