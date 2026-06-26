@@ -634,6 +634,7 @@ export default function BuilderApp() {
     addTileFromVariableSet,
     addTileFromAnalyticalTemplate,
     addTileFromSegmentProfile,
+    createSourceDrivenSmartStarter,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
@@ -995,6 +996,7 @@ export default function BuilderApp() {
           addTileFromQuery={addTileFromQuery}
           addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
           addTileFromVariableSet={addTileFromVariableSet}
+          createSourceDrivenSmartStarter={createSourceDrivenSmartStarter}
           addTileFromAnalyticalTemplate={addTileFromAnalyticalTemplate}
           addTileFromSegmentProfile={addTileFromSegmentProfile}
           isLoading={isLoading}

@@ -475,8 +475,11 @@ export function useBuilderDocumentSessionCommands({
     return true;
   }
 
-  function insertCompositionStarter(starter: SavedCompositionBlock) {
-    const { tiles, elements } = createObjectsFromCompositionBlock(starter, activePage, { sourceKind: "starter" });
+  function insertCompositionStarter(starter: SavedCompositionBlock, options: { anchorLayout?: CanvasLayout } = {}) {
+    const { tiles, elements } = createObjectsFromCompositionBlock(starter, activePage, {
+      sourceKind: "starter",
+      anchorLayout: options.anchorLayout
+    });
     if (tiles.length === 0 && elements.length === 0) return false;
 
     setDashboard((current) => ({

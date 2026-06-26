@@ -73,7 +73,7 @@ export type AnalysisAuthoringPanelProps = {
   saveCompositionBlockFromSelection: () => SavedCompositionBlock | null;
   updateCompositionBlockMetadata: (blockId: string, updates: Pick<SavedCompositionBlock, "label" | "description" | "category">) => void;
   insertCompositionBlock: (block: SavedCompositionBlock) => boolean;
-  insertCompositionStarter: (starter: SavedCompositionBlock) => boolean;
+  insertCompositionStarter: (starter: SavedCompositionBlock, options?: { anchorLayout?: DashboardTile["layout"] }) => boolean;
   deleteCompositionBlock: (blockId: string) => void;
   insertDesignAsset: (asset: SavedDesignAsset) => void;
   applyPageTheme: (theme: PageThemePreset) => void;
@@ -153,6 +153,7 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromQuery: () => void;
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
+  createSourceDrivenSmartStarter: (starterId: SmartCompositionStarterId) => Promise<{ tileId: string | null; label: string; contextLabel: string } | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
   addTileFromSegmentProfile: (segment: SavedSegmentProfile) => Promise<string | null>;
   duplicateDerivedOutputFromLibrary: (pageId: string, tileId: string) => string | null;
@@ -285,12 +286,14 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   toggleComparisonDataset,
   selectedFilterDimension,
   selectedChartTypes,
+  query,
   setVariableSetRows,
   setVariableSetOptionSelection,
   addCanvasElement,
   addTileFromQuery,
   addTileFromSourceWithVisualization,
   addTileFromVariableSet,
+  createSourceDrivenSmartStarter,
   isLoading,
   applySavedBanner,
   bannerDraftName,
@@ -319,7 +322,11 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     action: "saved" | "updated" | "inserted" | "deleted";
   } | null>(null);
   const [compositionStarterCue, setCompositionStarterCue] = useState<{ starterId: string; label: string } | null>(null);
-  const smartCompositionStarters = buildSmartCompositionStarterViews({ selectedTile });
+  const smartCompositionStarters = buildSmartCompositionStarterViews({
+    selectedTile,
+    hasSourceContext: Boolean(selectedVariableSet || selectedQuestion),
+    hasComparisonQuery: query.comparisonMode !== "none" || query.breakBy !== "SUMMARY"
+  });
 
   function startEditingCompositionBlock(block: SavedCompositionBlock) {
     setEditingCompositionBlockId(block.id);
@@ -356,11 +363,20 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   }
 
   function insertSmartCompositionStarter(starterId: SmartCompositionStarterId) {
+    const starterView = smartCompositionStarters.find((starter) => starter.id === starterId);
+    if (starterView?.tags.includes("source")) {
+      void createSourceDrivenSmartStarter(starterId).then((result) => {
+        if (result) {
+          setCompositionStarterCue({ starterId, label: `${result.label} · Created from ${result.contextLabel}` });
+        }
+      });
+      return;
+    }
     if (!selectedTile) return;
     const block = buildSmartCompositionBlockFromTile(starterId, selectedTile);
     if (!block) return;
-    if (insertCompositionStarter(block)) {
-      setCompositionStarterCue({ starterId, label: block.label });
+    if (insertCompositionStarter(block, { anchorLayout: selectedTile.layout })) {
+      setCompositionStarterCue({ starterId, label: `${block.label} · Created from selected tile` });
     }
   }
 
@@ -525,7 +541,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   <div className="smart-starter-group">
                     <div className="smart-starter-group__header">
                       <span>Smart analysis starters</span>
-                      <small>Use selected analytical context</small>
+                      <small>Use tile or source context</small>
                     </div>
                     <div className="composition-starter-list smart">
                       {smartCompositionStarters.map((starter) => (
@@ -540,7 +556,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                           ].filter(Boolean).join(" ")}
                           key={starter.id}
                           onClick={() => insertSmartCompositionStarter(starter.id)}
-                          disabled={!starter.ready}
+                          disabled={!starter.ready || isLoading}
                         >
                           <span className="composition-starter-preview analytical smart">
                             <span>{starter.ready ? "Use" : "Need"}</span>

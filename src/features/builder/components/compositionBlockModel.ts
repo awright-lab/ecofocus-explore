@@ -14,7 +14,13 @@ type SelectedCompositionObject =
   | { kind: "tile"; tile: DashboardTile; layout: CanvasLayout }
   | { kind: "element"; element: DashboardCanvasElement; layout: CanvasLayout };
 
-export type SmartCompositionStarterId = "selected_tile_story" | "comparison_insight" | "methodology_chart_section";
+export type SmartCompositionStarterId =
+  | "selected_tile_story"
+  | "comparison_insight"
+  | "methodology_chart_section"
+  | "source_chart_story"
+  | "source_table_insight"
+  | "source_comparison_section";
 
 export type SmartCompositionStarterView = {
   id: SmartCompositionStarterId;
@@ -34,6 +40,7 @@ type SmartStarterDefinition = {
   description: string;
   requirementLabel: string;
   tags: string[];
+  context: "tile" | "source";
 };
 
 const smartStarterDefinitions: SmartStarterDefinition[] = [
@@ -42,21 +49,48 @@ const smartStarterDefinitions: SmartStarterDefinition[] = [
     label: "Selected chart story",
     description: "Build a chart plus commentary section from the analytical tile you already selected.",
     requirementLabel: "Needs an analytical tile",
-    tags: ["tile", "insight"]
+    tags: ["tile", "insight"],
+    context: "tile"
   },
   {
     id: "comparison_insight",
     label: "Comparison insight section",
     description: "Frame a breakout or wave comparison with a focused interpretation block and source note.",
     requirementLabel: "Best for comparison analyses",
-    tags: ["tile", "comparison"]
+    tags: ["tile", "comparison"],
+    context: "tile"
   },
   {
     id: "methodology_chart_section",
     label: "Chart with methodology note",
     description: "Pair the current analysis with a compact base, filter, weight, and confidence note.",
     requirementLabel: "Needs an analytical tile",
-    tags: ["tile", "methodology"]
+    tags: ["tile", "methodology"],
+    context: "tile"
+  },
+  {
+    id: "source_chart_story",
+    label: "Source chart story",
+    description: "Create a fresh chart plus commentary section from the active source and query settings.",
+    requirementLabel: "Ready from active source",
+    tags: ["source", "chart"],
+    context: "source"
+  },
+  {
+    id: "source_table_insight",
+    label: "Source table insight",
+    description: "Create a table-led section from the active source for rows, bases, and commentary.",
+    requirementLabel: "Ready from active source",
+    tags: ["source", "table"],
+    context: "source"
+  },
+  {
+    id: "source_comparison_section",
+    label: "Source comparison section",
+    description: "Create a comparison-aware section from the active query when a banner or wave setup is present.",
+    requirementLabel: "Needs comparison query",
+    tags: ["source", "comparison"],
+    context: "source"
   }
 ];
 
@@ -215,19 +249,26 @@ function isComparisonTile(tile: DashboardTile | null) {
   return (tile.query.comparisonMode ?? "none") !== "none" || tile.result.columns.length > 1 || tile.query.breakBy !== "SUMMARY";
 }
 
+export function isComparisonQuery(query: DashboardTile["query"]) {
+  return (query.comparisonMode ?? "none") !== "none" || query.breakBy !== "SUMMARY";
+}
+
 function smartStarterSummaryText(starterId: SmartCompositionStarterId, tile: DashboardTile) {
-  if (starterId === "comparison_insight") {
+  if (starterId === "comparison_insight" || starterId === "source_comparison_section") {
     return `Use this space to explain the strongest contrast in ${comparisonContextLabel(tile).toLowerCase()}. Replace this copy with the comparison that matters most.`;
   }
   if (starterId === "methodology_chart_section") {
     return "Keep the analytical claim close to the chart, then use the methodology note to clarify filter, weight, base, or confidence context.";
+  }
+  if (starterId === "source_table_insight") {
+    return "Use this table-led view to inspect rows, bases, and the shape of the current source before writing the takeaway.";
   }
   return "Lead with the chart, then write the one-sentence interpretation a reader should remember from this analysis.";
 }
 
 function smartStarterSourceNote(starterId: SmartCompositionStarterId, tile: DashboardTile) {
   if (starterId === "methodology_chart_section") return `Method note: ${tileMethodologyLabel(tile)}`;
-  if (starterId === "comparison_insight") return `Comparison context: ${comparisonContextLabel(tile)}. Update with base and method notes before publishing.`;
+  if (starterId === "comparison_insight" || starterId === "source_comparison_section") return `Comparison context: ${comparisonContextLabel(tile)}. Update with base and method notes before publishing.`;
   return `Source: ${tile.source?.label ?? tile.title}. ${tileMethodologyLabel(tile)}`;
 }
 
@@ -348,10 +389,29 @@ export function buildCompositionBlockFromSelection(args: {
 export function createObjectsFromCompositionBlock(
   block: SavedCompositionBlock,
   page: DashboardPage,
-  options: { sourceKind?: "savedBlock" | "starter" } = {}
+  options: { sourceKind?: "savedBlock" | "starter"; anchorLayout?: CanvasLayout } = {}
 ) {
-  const baseX = Math.max(24, Math.min(canvasWidth - block.summary.width - 24, 72));
-  const baseY = Math.max(24, Math.min(canvasHeight - block.summary.height - 24, 72));
+  const anchorBelow = options.anchorLayout
+    ? {
+        x: options.anchorLayout.x,
+        y: options.anchorLayout.y + options.anchorLayout.height + 32
+      }
+    : null;
+  const anchorRight = options.anchorLayout
+    ? {
+        x: options.anchorLayout.x + options.anchorLayout.width + 32,
+        y: options.anchorLayout.y
+      }
+    : null;
+  const defaultPosition = { x: 72, y: 72 };
+  const preferredPosition =
+    anchorBelow && anchorBelow.y + block.summary.height <= canvasHeight - 24
+      ? anchorBelow
+      : anchorRight && anchorRight.x + block.summary.width <= canvasWidth - 24
+        ? anchorRight
+        : defaultPosition;
+  const baseX = Math.max(24, Math.min(canvasWidth - block.summary.width - 24, preferredPosition.x));
+  const baseY = Math.max(24, Math.min(canvasHeight - block.summary.height - 24, preferredPosition.y));
   const baseZ = nextZIndex(page);
   const tiles: DashboardTile[] = [];
   const elements: DashboardCanvasElement[] = [];
@@ -366,11 +426,28 @@ export function createObjectsFromCompositionBlock(
 
     if (item.kind === "tile") {
       const nextTileId = makeTileId();
+      const clonedTile = cloneTile(item.tile);
       tiles.push({
-        ...cloneTile(item.tile),
+        ...clonedTile,
         id: nextTileId,
         name: item.tile.name,
         title: item.tile.title,
+        analysisLifecycle: clonedTile.analysisLifecycle
+          ? {
+              ...clonedTile.analysisLifecycle,
+              canonicalTileId:
+                clonedTile.analysisLifecycle.canonicalTileId === item.tile.id
+                  ? nextTileId
+                  : clonedTile.analysisLifecycle.canonicalTileId,
+              derivedFrom: clonedTile.analysisLifecycle.derivedFrom
+                ? { ...clonedTile.analysisLifecycle.derivedFrom }
+                : clonedTile.analysisLifecycle.derivedFrom
+            }
+          : {
+              role: "canonical",
+              canonicalTileId: nextTileId,
+              canonicalLabel: item.tile.title || item.tile.name
+            },
         locked: false,
         hidden: false,
         layout,
@@ -501,41 +578,69 @@ export function buildCompositionStarterLibraryView(block: SavedCompositionBlock)
   };
 }
 
-export function buildSmartCompositionStarterViews(args: { selectedTile: DashboardTile | null }): SmartCompositionStarterView[] {
+export function buildSmartCompositionStarterViews(args: {
+  selectedTile: DashboardTile | null;
+  hasSourceContext: boolean;
+  hasComparisonQuery: boolean;
+}): SmartCompositionStarterView[] {
   const hasTile = Boolean(args.selectedTile);
   const hasComparison = isComparisonTile(args.selectedTile);
 
   return smartStarterDefinitions.map((definition) => {
     const isComparisonStarter = definition.id === "comparison_insight";
-    const ready = isComparisonStarter ? hasTile && hasComparison : hasTile;
-    const recommended = definition.id === "selected_tile_story"
-      ? hasTile
-      : definition.id === "comparison_insight"
-        ? hasComparison
-        : hasTile && !hasComparison;
+    const isSourceStarter = definition.context === "source";
+    const isSourceComparisonStarter = definition.id === "source_comparison_section";
+    const ready = isSourceStarter
+      ? isSourceComparisonStarter
+        ? args.hasSourceContext && args.hasComparisonQuery
+        : args.hasSourceContext
+      : isComparisonStarter
+        ? hasTile && hasComparison
+        : hasTile;
+    const recommended = isSourceStarter
+      ? !hasTile && ready
+      : definition.id === "selected_tile_story"
+        ? hasTile
+        : definition.id === "comparison_insight"
+          ? hasComparison
+          : hasTile && !hasComparison;
 
     return {
       ...definition,
       ready,
       recommended,
       readinessLabel: ready
-        ? isComparisonStarter
-          ? "Ready for comparison tile"
-          : "Ready for selected tile"
-        : isComparisonStarter && hasTile
-          ? "Needs comparison context"
-          : "Needs an analytical tile",
+        ? isSourceStarter
+          ? isSourceComparisonStarter
+            ? "Ready from comparison query"
+            : "Ready from active source"
+          : isComparisonStarter
+            ? "Ready for comparison tile"
+            : "Ready for selected tile"
+        : isSourceStarter
+          ? isSourceComparisonStarter && args.hasSourceContext
+            ? "Needs comparison query"
+            : "Needs active source"
+          : isComparisonStarter && hasTile
+            ? "Needs comparison context"
+            : "Needs an analytical tile",
       helperText: ready
-        ? "Creates normal editable objects from the selected analysis."
-        : isComparisonStarter && hasTile
-          ? "Select a tile with a breakout, banner, or wave comparison to use this starter."
-          : "Select an analytical tile on the page to unlock this starter."
+        ? isSourceStarter
+          ? "Creates a fresh analytical tile and editable section from the current query."
+          : "Creates normal editable objects from the selected analysis."
+        : isSourceStarter
+          ? isSourceComparisonStarter && args.hasSourceContext
+            ? "Choose a banner or wave comparison in the query before using this starter."
+            : "Choose a question or saved variable set in the source workflow first."
+          : isComparisonStarter && hasTile
+            ? "Select a tile with a breakout, banner, or wave comparison to use this starter."
+            : "Select an analytical tile on the page to unlock this starter."
     };
   });
 }
 
 export function buildSmartCompositionBlockFromTile(starterId: SmartCompositionStarterId, tile: DashboardTile): SavedCompositionBlock | null {
-  if (starterId === "comparison_insight" && !isComparisonTile(tile)) return null;
+  if ((starterId === "comparison_insight" || starterId === "source_comparison_section") && !isComparisonTile(tile)) return null;
 
   const definition = smartStarterDefinitions.find((item) => item.id === starterId);
   if (!definition) return null;
@@ -556,10 +661,12 @@ export function buildSmartCompositionBlockFromTile(starterId: SmartCompositionSt
     relativeLayout: tileLayout
   };
 
-  const label = starterId === "comparison_insight"
+  const label = starterId === "comparison_insight" || starterId === "source_comparison_section"
     ? `${tile.title || tile.name} comparison section`
     : starterId === "methodology_chart_section"
       ? `${tile.title || tile.name} method section`
+      : starterId === "source_table_insight"
+        ? `${tile.title || tile.name} table insight section`
       : `${tile.title || tile.name} story section`;
 
   const elements: DashboardCanvasElement[] =
@@ -590,7 +697,10 @@ export function buildSmartCompositionBlockFromTile(starterId: SmartCompositionSt
           smartStarterTextElement({
             id: "smart_story_title",
             name: "Analysis story title",
-            content: starterId === "comparison_insight" ? `What changes across ${comparisonContextLabel(tile).toLowerCase()}?` : tile.title || tile.name,
+            content:
+              starterId === "comparison_insight" || starterId === "source_comparison_section"
+                ? `What changes across ${comparisonContextLabel(tile).toLowerCase()}?`
+                : tile.title || tile.name,
             layout: { x: 28, y: 18, width: 720, height: 62, zIndex: 1 },
             style: { textColor: "#102332", fontSize: 28, fontWeight: "850", lineHeight: 1.1 }
           }),
@@ -620,7 +730,7 @@ export function buildSmartCompositionBlockFromTile(starterId: SmartCompositionSt
     id: `smart_starter_${starterId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
     label,
     description: definition.description,
-    category: starterId === "methodology_chart_section" ? "methodology" : "chart_commentary",
+      category: starterId === "methodology_chart_section" ? "methodology" : "chart_commentary",
     createdAt: Date.now(),
     summary: {
       objectCount: elements.length + 1,

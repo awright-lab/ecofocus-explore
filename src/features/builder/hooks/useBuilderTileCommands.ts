@@ -9,6 +9,7 @@ import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } fro
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
+import { buildSmartCompositionBlockFromTile, createObjectsFromCompositionBlock, isComparisonQuery, type SmartCompositionStarterId } from "../components/compositionBlockModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
@@ -287,6 +288,96 @@ export function useBuilderTileCommands({
         }
       }
     );
+  }
+
+  async function createSourceDrivenSmartStarter(starterId: SmartCompositionStarterId) {
+    if (starterId === "source_comparison_section" && !isComparisonQuery(query)) {
+      setError("Choose a banner or wave comparison before creating a comparison starter from the active source.");
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const starterQuery: AnalyticsQueryRequest = {
+        ...query,
+        chartType: starterId === "source_table_insight" ? "table" : query.chartType
+      };
+      const sourceLabel = selectedVariableSet?.label ?? selectedQuestion.shortLabel;
+      const source = selectedVariableSet
+        ? { kind: "variableSet" as const, id: selectedVariableSet.id, label: selectedVariableSet.label }
+        : { kind: "question" as const, id: selectedQuestion.id, label: selectedQuestion.shortLabel };
+      const response = await runAnalyticsQuery(starterQuery);
+      const resolvedResponse = resolveVariableSetResult(response, starterQuery, source, savedVariableSets);
+      const seedTileId = makeTileId();
+      const seedTile: DashboardTile = {
+        id: seedTileId,
+        name: sourceLabel,
+        title: sourceLabel,
+        source,
+        analysisLifecycle: {
+          role: "canonical",
+          canonicalTileId: seedTileId,
+          canonicalLabel: sourceLabel
+        },
+        locked: false,
+        hidden: false,
+        layout: {
+          x: 0,
+          y: 0,
+          width: starterId === "methodology_chart_section" ? 756 : 520,
+          height: starterId === "methodology_chart_section" ? 300 : 350,
+          zIndex: 1
+        },
+        query: starterQuery,
+        visualization: starterQuery.chartType,
+        appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
+        result: resolvedResponse
+      };
+      const starterBlock = buildSmartCompositionBlockFromTile(
+        starterId,
+        seedTile
+      );
+      if (!starterBlock) {
+        setError("The active source does not have enough context for that starter.");
+        return null;
+      }
+
+      const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
+      const { tiles, elements } = createObjectsFromCompositionBlock(starterBlock, activePage, {
+        sourceKind: "starter",
+        anchorLayout: selectedLayout
+      });
+      if (tiles.length === 0 && elements.length === 0) return null;
+
+      setDashboard((current) => ({
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) =>
+          page.id === activePage.id
+            ? {
+                ...page,
+                tiles: [...page.tiles, ...tiles],
+                elements: [...page.elements, ...elements]
+              }
+            : page
+        )
+      }));
+      if (tiles[0]) {
+        selectTile(tiles[0].id);
+      }
+      return {
+        tileId: tiles[0]?.id ?? null,
+        label: starterBlock.label,
+        contextLabel: starterId === "source_comparison_section" ? "active comparison query" : "active source"
+      };
+    } catch (queryError) {
+      setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this analytical starter.");
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
@@ -614,6 +705,7 @@ export function useBuilderTileCommands({
     addTileFromVariableSet,
     addTileFromAnalyticalTemplate,
     addTileFromSegmentProfile,
+    createSourceDrivenSmartStarter,
     rerunTileAnalysis,
     tileWithVisualization,
     duplicateTileAsVisualization,
