@@ -1525,6 +1525,40 @@ h2 {
   grid-template-columns: 1fr;
 }
 
+.composition-starter-list.smart {
+  gap: 8px;
+}
+
+.smart-starter-group {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.smart-starter-group + .smart-starter-group {
+  padding-top: 10px;
+  border-top: 1px solid #e3eee8;
+}
+
+.smart-starter-group__header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.smart-starter-group__header span {
+  color: #17382c;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.smart-starter-group__header small {
+  color: #6a7d72;
+  font-size: 0.67rem;
+  font-weight: 750;
+}
+
 .composition-starter-card {
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr);
@@ -1538,6 +1572,21 @@ h2 {
   color: #1d3329;
   text-align: left;
   box-shadow: 0 1px 0 rgba(31, 42, 56, 0.035);
+}
+
+.composition-starter-card.smart {
+  border-color: #d4e7ef;
+  background: linear-gradient(180deg, #ffffff, #f8fcff);
+}
+
+.composition-starter-card.smart.recommended {
+  border-color: #9bd2bd;
+  background: linear-gradient(180deg, #ffffff, #f5fbf8);
+}
+
+.composition-starter-card.smart.disabled {
+  cursor: default;
+  opacity: 0.68;
 }
 
 .composition-starter-card:hover:not(:disabled),
@@ -1568,6 +1617,15 @@ h2 {
     linear-gradient(#eef5f1 1px, transparent 1px),
     #fbfefd;
   background-size: auto, 20px 20px, auto;
+}
+
+.composition-starter-preview.smart {
+  background:
+    linear-gradient(135deg, rgba(79, 142, 247, 0.14), transparent 44%),
+    linear-gradient(90deg, rgba(15, 168, 122, 0.14) 34%, transparent 34%),
+    linear-gradient(#edf6f3 1px, transparent 1px),
+    #fbfefd;
+  background-size: auto, auto, 18px 18px, auto;
 }
 
 .composition-starter-preview.image {

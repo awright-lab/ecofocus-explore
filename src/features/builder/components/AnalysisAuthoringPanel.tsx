@@ -14,12 +14,15 @@ import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analyt
 import { gradientCss } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import {
+  buildSmartCompositionBlockFromTile,
+  buildSmartCompositionStarterViews,
   buildCompositionBlockLibraryView,
   buildCompositionStarterLibraryView,
   compositionBlockCategoryOptions,
   editorialTextBlockRole,
   editorialTextStyleRole
 } from "./compositionBlockModel";
+import type { SmartCompositionStarterId } from "./compositionBlockModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
@@ -316,6 +319,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     action: "saved" | "updated" | "inserted" | "deleted";
   } | null>(null);
   const [compositionStarterCue, setCompositionStarterCue] = useState<{ starterId: string; label: string } | null>(null);
+  const smartCompositionStarters = buildSmartCompositionStarterViews({ selectedTile });
 
   function startEditingCompositionBlock(block: SavedCompositionBlock) {
     setEditingCompositionBlockId(block.id);
@@ -348,6 +352,15 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   function insertCuratedCompositionStarter(starter: SavedCompositionBlock) {
     if (insertCompositionStarter(starter)) {
       setCompositionStarterCue({ starterId: starter.id, label: starter.label });
+    }
+  }
+
+  function insertSmartCompositionStarter(starterId: SmartCompositionStarterId) {
+    if (!selectedTile) return;
+    const block = buildSmartCompositionBlockFromTile(starterId, selectedTile);
+    if (!block) return;
+    if (insertCompositionStarter(block)) {
+      setCompositionStarterCue({ starterId, label: block.label });
     }
   }
 
@@ -509,6 +522,47 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                       <small>{compositionStarterCue.label}</small>
                     </div>
                   )}
+                  <div className="smart-starter-group">
+                    <div className="smart-starter-group__header">
+                      <span>Smart analysis starters</span>
+                      <small>Use selected analytical context</small>
+                    </div>
+                    <div className="composition-starter-list smart">
+                      {smartCompositionStarters.map((starter) => (
+                        <button
+                          type="button"
+                          className={[
+                            "composition-starter-card",
+                            "smart",
+                            starter.ready ? "ready" : "disabled",
+                            starter.recommended ? "recommended" : "",
+                            compositionStarterCue?.starterId === starter.id ? "recent" : ""
+                          ].filter(Boolean).join(" ")}
+                          key={starter.id}
+                          onClick={() => insertSmartCompositionStarter(starter.id)}
+                          disabled={!starter.ready}
+                        >
+                          <span className="composition-starter-preview analytical smart">
+                            <span>{starter.ready ? "Use" : "Need"}</span>
+                            <small>{starter.tags.join(" · ")}</small>
+                          </span>
+                          <span className="composition-starter-body">
+                            <span className="composition-starter-kicker">{starter.readinessLabel}</span>
+                            <strong>{starter.label}</strong>
+                            <small>{starter.description}</small>
+                            <span className="composition-starter-meta">
+                              {starter.helperText}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="smart-starter-group">
+                    <div className="smart-starter-group__header">
+                      <span>General starters</span>
+                      <small>Blank-page section patterns</small>
+                    </div>
                   <div className="composition-starter-list">
                     {compositionStarters.map((starter) => {
                       const starterView = buildCompositionStarterLibraryView(starter);
@@ -536,6 +590,7 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                         </button>
                       );
                     })}
+                  </div>
                   </div>
                 </div>
                 <div className="explorer-section-card composition-library-card">
