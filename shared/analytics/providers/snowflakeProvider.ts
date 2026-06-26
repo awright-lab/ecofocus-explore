@@ -135,6 +135,7 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
   const question = getQuestionMetadata(query.dataset, query.question);
   const metric = getMetricMetadata(query.dataset, query.metric);
   const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  const questionFilters = query.filters.filter((filter) => getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"]));
   const reasons: string[] = [];
 
   if (!dataset || !question || !metric || !dimension) {
@@ -145,8 +146,27 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
     reasons.push("wave_comparison_not_live");
   }
 
-  if (query.filters.some((filter) => !getDimensionMetadata(query.dataset, filter.field as DimensionId))) {
-    reasons.push("question_filter_not_live");
+  if (
+    query.filters.some(
+      (filter) =>
+        !getDimensionMetadata(query.dataset, filter.field as DimensionId)
+        && !getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"])
+    )
+  ) {
+    reasons.push("filter_field_not_live");
+  }
+
+  if (questionFilters.length > 1) {
+    reasons.push("multiple_question_filters_not_live");
+  }
+
+  if (
+    questionFilters.some((filter) => {
+      const filterQuestion = getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"]);
+      return filterQuestion?.type !== "single_select" && filterQuestion?.type !== "multi_binary_set";
+    })
+  ) {
+    reasons.push("question_filter_type_not_live");
   }
 
   if (query.metric !== "column_percent" && query.metric !== "percent_selected" && query.metric !== "count") {
@@ -219,12 +239,34 @@ function datasetWhereClause(query: AnalyticsQueryRequest) {
   return `LOWER(TO_VARCHAR(${sourceIdentifier("survey_wave")})) = ${sqlString(dataset?.wave.toLowerCase() ?? query.dataset)}`;
 }
 
+function questionFilterWhereClause(query: AnalyticsQueryRequest, filter: AnalyticsQueryRequest["filters"][number]) {
+  const filterQuestion = getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"]);
+
+  if (!filterQuestion) return null;
+
+  if (filterQuestion.type === "multi_binary_set") {
+    const allowedVariables = new Set(filterQuestion.sourceVariables ?? []);
+    const selectedVariables = filter.values.filter((value) => allowedVariables.has(value));
+
+    if (selectedVariables.length === 0) return null;
+
+    return `(${selectedVariables.map((value) => truthyMultiBinaryExpression(value)).join(" OR ")})`;
+  }
+
+  const values = filter.values.map((value) => sqlString(value.toLowerCase())).join(", ");
+  return `LOWER(TO_VARCHAR(${sourceIdentifier(filterQuestion.sourceColumn)})) IN (${values})`;
+}
+
 function filtersWhereClause(query: AnalyticsQueryRequest) {
   return query.filters.flatMap((filter) => {
     const dimension = getDimensionMetadata(query.dataset, filter.field as DimensionId);
-    if (!dimension) return [];
-    const values = filter.values.map((value) => sqlString(value.toLowerCase())).join(", ");
-    return [`LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)})) IN (${values})`];
+    if (dimension) {
+      const values = filter.values.map((value) => sqlString(value.toLowerCase())).join(", ");
+      return [`LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)})) IN (${values})`];
+    }
+
+    const questionFilter = questionFilterWhereClause(query, filter);
+    return questionFilter ? [questionFilter] : [];
   });
 }
 

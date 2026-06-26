@@ -96,6 +96,7 @@ The first live provider path supports:
 - table-first multi-binary variable-set questions
 - summary and banner cuts represented by the current metadata
 - dimension filters such as generation, region, and shopper segment
+- one validated metadata-backed question filter per query
 - weighted and unweighted `column_percent`, `percent_selected`, and `count` metrics
 - normalized response parity with the frontend `AnalyticsQueryResponse` contract
 
@@ -118,7 +119,7 @@ The live Snowflake provider will need to support:
 
 - broader saved/authored variable-set row execution
 - wave comparison queries
-- question-filtered live queries
+- multiple simultaneous question filters
 - production parity checks for weighted output conventions
 
 ## What Is Still Intentionally Not Implemented
@@ -127,7 +128,7 @@ The live Snowflake provider will need to support:
 - secure secret-management guidance for deployment environments
 - connection pooling beyond per-query SDK execution
 - Snowflake-backed wave comparison execution
-- full production filter execution parity for question filters
+- full production filter execution parity for multiple question filters
 - broad statistical testing beyond the current narrow column-comparison path
 
 ## Recommended Next Integration Steps

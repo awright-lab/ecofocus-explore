@@ -34,6 +34,11 @@ const breakoutQuery: AnalyticsQueryRequest = {
   confidenceLevel: 0.95
 };
 
+const questionFilteredQuery: AnalyticsQueryRequest = {
+  ...breakoutQuery,
+  filters: [{ field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] }]
+};
+
 describe("snowflakeProvider", () => {
   it("reports live readiness when Snowflake configuration exists", () => {
     expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).getReadiness?.()).toEqual({
@@ -50,6 +55,30 @@ describe("snowflakeProvider", () => {
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2025'");
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(shopper_segment)) IN ('eco_engaged')");
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) = 'trust_a_lot'");
+  });
+
+  it("builds a Snowflake SQL plan for supported single-select question filters", () => {
+    const plan = buildSnowflakeSqlPlan(questionFilteredQuery, requireSnowflakeConfig(env));
+
+    expect(getSnowflakeQuerySupport(questionFilteredQuery)).toMatchObject({
+      supported: true,
+      reasons: []
+    });
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) = 'trust_somewhat'");
+  });
+
+  it("builds a Snowflake SQL plan for one supported multi-binary question filter", () => {
+    const plan = buildSnowflakeSqlPlan(
+      {
+        ...breakoutQuery,
+        filters: [{ field: "Q15_TOP2_BRAND_PRIORITIES", values: ["Q15r1", "Q15r8"] }]
+      },
+      requireSnowflakeConfig(env)
+    );
+
+    expect(plan.sqlText).toContain("(TRY_TO_NUMBER(Q15r1) = 1 OR LOWER(TO_VARCHAR(Q15r1)) IN ('true', 'yes', 'selected'))");
+    expect(plan.sqlText).toContain("(TRY_TO_NUMBER(Q15r8) = 1 OR LOWER(TO_VARCHAR(Q15r8)) IN ('true', 'yes', 'selected'))");
   });
 
   it("guards generated execution against non-read-only SQL", () => {
@@ -176,6 +205,35 @@ describe("snowflakeProvider", () => {
     });
   });
 
+  it("executes a supported question-filtered live query through the injected provider executor", async () => {
+    let executedSql = "";
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "gen_z", VALUE: 71, BASE: 120 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "millennial", VALUE: 69, BASE: 146 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(questionFilteredQuery);
+
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
+    expect(result.query.filters).toEqual([{ field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] }]);
+    expect(result.table.find((row) => row.optionId === "trust_somewhat")).toMatchObject({
+      values: {
+        gen_z: 71,
+        millennial: 69
+      },
+      bases: {
+        gen_z: 120,
+        millennial: 146
+      }
+    });
+    expect(result.notes).toEqual(expect.arrayContaining(["Filters were applied by the Snowflake provider."]));
+  });
+
   it("wraps executor failures with structured Snowflake provider diagnostics", async () => {
     const provider = createSnowflakeAnalyticsProvider(
       {
@@ -233,16 +291,19 @@ describe("snowflakeProvider", () => {
     });
   });
 
-  it("does not claim live support for question-filtered queries yet", () => {
+  it("does not claim live support for multiple question filters yet", () => {
     const support = getSnowflakeQuerySupport({
       ...breakoutQuery,
-      filters: [{ field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] }]
+      filters: [
+        { field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] },
+        { field: "Q_SUSTAINABILITY_IMPORTANCE", values: ["very_important"] }
+      ]
     });
 
     expect(support).toEqual({
       supported: false,
-      summary: "Snowflake live execution does not yet support this query shape: question_filter_not_live.",
-      reasons: ["question_filter_not_live"]
+      summary: "Snowflake live execution does not yet support this query shape: multiple_question_filters_not_live.",
+      reasons: ["multiple_question_filters_not_live"]
     });
   });
 });
