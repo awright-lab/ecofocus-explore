@@ -97,10 +97,11 @@ The first live provider path supports:
 - summary and banner cuts represented by the current metadata
 - dimension filters such as generation, region, and shopper segment
 - one validated metadata-backed question filter per query
+- summary-level wave comparisons across metadata-aligned datasets
 - weighted and unweighted `column_percent`, `percent_selected`, and `count` metrics
 - normalized response parity with the frontend `AnalyticsQueryResponse` contract
 
-The provider also preserves the existing significance metadata contract. Column-comparison significance can run for supported breakout percent results after Snowflake rows are normalized; wave significance remains a structured deferred/unsupported path.
+The provider also preserves the existing significance metadata contract. Column-comparison significance can run for supported breakout percent results after Snowflake rows are normalized; wave significance remains a structured deferred/not-executed path.
 
 ## Operational Safety
 
@@ -118,7 +119,7 @@ The Snowflake path is intentionally read-only and constrained:
 The live Snowflake provider will need to support:
 
 - broader saved/authored variable-set row execution
-- wave comparison queries
+- breakout-by-banner wave comparison queries
 - multiple simultaneous question filters
 - production parity checks for weighted output conventions
 
@@ -127,7 +128,7 @@ The live Snowflake provider will need to support:
 - read-only role verification
 - secure secret-management guidance for deployment environments
 - connection pooling beyond per-query SDK execution
-- Snowflake-backed wave comparison execution
+- Snowflake-backed wave significance execution
 - full production filter execution parity for multiple question filters
 - broad statistical testing beyond the current narrow column-comparison path
 
@@ -136,5 +137,5 @@ The live Snowflake provider will need to support:
 1. Verify the configured Snowflake table/view exposes the expected metadata-backed columns.
 2. Add provider-level integration tests against a safe non-production Snowflake target.
 3. Verify weighted output conventions with EcoFocus stakeholders.
-4. Expand live support for wave comparisons and question-filtered queries.
+4. Expand live support for breakout wave comparisons and multiple question filters.
 5. Add read-only role and warehouse/timeout hardening for production deployment.

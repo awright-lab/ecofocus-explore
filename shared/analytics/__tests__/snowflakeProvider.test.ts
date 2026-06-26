@@ -39,6 +39,19 @@ const questionFilteredQuery: AnalyticsQueryRequest = {
   filters: [{ field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] }]
 };
 
+const waveQuery: AnalyticsQueryRequest = {
+  dataset: "ecofocus_2025",
+  question: "Q_PACKAGING_TRUST",
+  breakBy: "SUMMARY",
+  filters: [],
+  weight: "weightvar",
+  metric: "column_percent",
+  chartType: "line_chart",
+  confidenceLevel: 0.95,
+  comparisonMode: "wave",
+  comparisonDatasets: ["ecofocus_2024"]
+};
+
 describe("snowflakeProvider", () => {
   it("reports live readiness when Snowflake configuration exists", () => {
     expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).getReadiness?.()).toEqual({
@@ -66,6 +79,20 @@ describe("snowflakeProvider", () => {
     });
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) = 'trust_somewhat'");
+  });
+
+  it("builds a Snowflake SQL plan for supported live wave comparison queries", () => {
+    const plan = buildSnowflakeSqlPlan(waveQuery, requireSnowflakeConfig(env));
+
+    expect(getSnowflakeQuerySupport(waveQuery)).toMatchObject({
+      supported: true,
+      reasons: []
+    });
+    expect(plan.summary).toBe("Snowflake wave SQL plan for ecofocus_2025/Q_PACKAGING_TRUST across ecofocus_2025, ecofocus_2024.");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2025'");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2024'");
+    expect(plan.sqlText).toContain("'ecofocus_2025' AS column_id");
+    expect(plan.sqlText).toContain("'ecofocus_2024' AS column_id");
   });
 
   it("builds a Snowflake SQL plan for one supported multi-binary question filter", () => {
@@ -234,6 +261,53 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining(["Filters were applied by the Snowflake provider."]));
   });
 
+  it("executes a supported live wave query through the injected provider executor", async () => {
+    let executedSql = "";
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2025", VALUE: 20, BASE: 1495 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2024", VALUE: 17, BASE: 1410 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2025", VALUE: 42, BASE: 1495 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2024", VALUE: 39, BASE: 1410 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(waveQuery);
+
+    expect(executedSql).toContain("'ecofocus_2024' AS column_id");
+    expect(result.columns).toEqual([
+      { id: "ecofocus_2025", label: "2025" },
+      { id: "ecofocus_2024", label: "2024" }
+    ]);
+    expect(result.table[0]).toMatchObject({
+      optionId: "trust_a_lot",
+      values: {
+        ecofocus_2025: 20,
+        ecofocus_2024: 17
+      },
+      bases: {
+        ecofocus_2025: 1495,
+        ecofocus_2024: 1410
+      }
+    });
+    expect(result.metadataRefs).toMatchObject({
+      comparisonMode: "wave",
+      comparisonDatasets: ["ecofocus_2024"]
+    });
+    expect(result.statistics.significanceExecutionInput).toMatchObject({
+      method: "wave_comparison",
+      comparisonScope: {
+        waveIds: ["ecofocus_2025", "ecofocus_2024"],
+        primaryDatasetId: "ecofocus_2025",
+        comparisonDatasetIds: ["ecofocus_2024"]
+      }
+    });
+    expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 live wave comparison."]));
+  });
+
   it("wraps executor failures with structured Snowflake provider diagnostics", async () => {
     const provider = createSnowflakeAnalyticsProvider(
       {
@@ -270,24 +344,31 @@ describe("snowflakeProvider", () => {
     });
   });
 
-  it("keeps unsupported live query shapes explicit", async () => {
-    const waveQuery: AnalyticsQueryRequest = {
-      ...breakoutQuery,
-      breakBy: "SUMMARY",
-      chartType: "line_chart",
-      comparisonMode: "wave",
-      comparisonDatasets: ["ecofocus_2024"]
+  it("keeps unsupported wave breakout shapes explicit", async () => {
+    const unsupportedWaveQuery: AnalyticsQueryRequest = {
+      ...waveQuery,
+      breakBy: "GENERATION"
     };
 
-    expect(getSnowflakeQuerySupport(waveQuery)).toMatchObject({
+    expect(getSnowflakeQuerySupport(unsupportedWaveQuery)).toMatchObject({
       supported: false,
-      reasons: ["wave_comparison_not_live"]
+      reasons: ["wave_breakout_not_live"]
     });
-    await expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).runQuery(waveQuery)).rejects.toMatchObject({
+    await expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).runQuery(unsupportedWaveQuery)).rejects.toMatchObject({
       name: "SnowflakeProviderError",
       code: "snowflake_unsupported_query",
-      reasons: ["wave_comparison_not_live"],
-      message: "Snowflake live execution does not yet support this query shape: wave_comparison_not_live."
+      reasons: ["wave_breakout_not_live"],
+      message: "Snowflake live execution does not yet support this query shape: wave_breakout_not_live."
+    });
+  });
+
+  it("keeps duplicate wave comparison selections explicit", () => {
+    expect(getSnowflakeQuerySupport({
+      ...waveQuery,
+      comparisonDatasets: ["ecofocus_2024", "ecofocus_2025"]
+    })).toMatchObject({
+      supported: false,
+      reasons: ["duplicate_wave_dataset_not_live"]
     });
   });
 
