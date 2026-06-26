@@ -47,6 +47,7 @@ Optional:
 
 - `SNOWFLAKE_AUTHENTICATOR`
 - `SNOWFLAKE_ANALYTICS_TABLE` defaults to `SURVEY_RESPONSES`
+- `SNOWFLAKE_QUERY_TIMEOUT_MS` defaults to `30000`
 
 If required variables are missing, the backend now fails early with a clear message listing the missing env vars.
 
@@ -99,6 +100,17 @@ The first live provider path supports:
 - normalized response parity with the frontend `AnalyticsQueryResponse` contract
 
 The provider also preserves the existing significance metadata contract. Column-comparison significance can run for supported breakout percent results after Snowflake rows are normalized; wave significance remains a structured deferred/unsupported path.
+
+## Operational Safety
+
+The Snowflake path is intentionally read-only and constrained:
+
+- generated SQL is `SELECT`-only and refused if it contains statement separators, comments, or mutating operation keywords
+- configured database/schema/table/warehouse/role names are validated before SQL generation
+- unsupported query shapes return explicit Snowflake provider errors rather than falling back to mock data
+- query execution is wrapped in a provider timeout
+- SDK execution failures are surfaced as structured Snowflake provider errors
+- empty, duplicate, or unrecognized Snowflake result rows produce normalized warnings instead of silently disappearing
 
 ## Analytical Features The Provider Must Continue To Expand
 

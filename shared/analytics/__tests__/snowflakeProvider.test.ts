@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  SnowflakeProviderError,
+  assertSnowflakeSqlIsReadOnly,
   buildSnowflakeSqlPlan,
   createSnowflakeAnalyticsProvider,
   getSnowflakeQuerySupport,
@@ -17,7 +19,8 @@ const env = {
   SNOWFLAKE_DATABASE: "ECOFOCUS",
   SNOWFLAKE_SCHEMA: "EXPLORE",
   SNOWFLAKE_ROLE: "EXPLORE_READONLY",
-  SNOWFLAKE_ANALYTICS_TABLE: "ANALYTICS_RESPONSES"
+  SNOWFLAKE_ANALYTICS_TABLE: "ANALYTICS_RESPONSES",
+  SNOWFLAKE_QUERY_TIMEOUT_MS: "50"
 };
 
 const breakoutQuery: AnalyticsQueryRequest = {
@@ -47,6 +50,23 @@ describe("snowflakeProvider", () => {
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2025'");
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(shopper_segment)) IN ('eco_engaged')");
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) = 'trust_a_lot'");
+  });
+
+  it("guards generated execution against non-read-only SQL", () => {
+    expect(() => assertSnowflakeSqlIsReadOnly("SELECT * FROM ANALYTICS_RESPONSES")).not.toThrow();
+    expect(() => assertSnowflakeSqlIsReadOnly("DELETE FROM ANALYTICS_RESPONSES")).toThrow(SnowflakeProviderError);
+    expect(() => assertSnowflakeSqlIsReadOnly("SELECT * FROM ANALYTICS_RESPONSES; DROP TABLE USERS")).toThrow(
+      "Snowflake provider refused to execute SQL containing statement separators."
+    );
+  });
+
+  it("rejects unsafe configured Snowflake object names before SQL execution", () => {
+    expect(() =>
+      buildSnowflakeSqlPlan(breakoutQuery, {
+        ...requireSnowflakeConfig(env),
+        analyticsTable: "RESPONSES; DROP TABLE USERS"
+      })
+    ).toThrow("Unsafe Snowflake analytics table: RESPONSES; DROP TABLE USERS.");
   });
 
   it("normalizes Snowflake rows into the same table-first response contract", () => {
@@ -104,6 +124,29 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining(["Live Snowflake analytics output.", "Filters were applied by the Snowflake provider."]));
   });
 
+  it("keeps empty and ambiguous Snowflake results visible as warnings while preserving the normalized contract", () => {
+    const emptyResult = normalizeSnowflakeRows(breakoutQuery, []);
+    expect(emptyResult.warnings).toEqual(expect.arrayContaining([
+      "Snowflake returned no rows for this query; the normalized result contains zero-filled expected rows and columns."
+    ]));
+    expect(emptyResult.table[0].values).toMatchObject({
+      gen_z: 0,
+      millennial: 0
+    });
+
+    const ambiguousResult = normalizeSnowflakeRows(breakoutQuery, [
+      { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 18, BASE: 312 },
+      { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 19, BASE: 313 },
+      { OPTION_ID: "unknown_option", COLUMN_ID: "missing_column", VALUE: 1, BASE: 10 }
+    ]);
+    expect(ambiguousResult.warnings).toEqual(expect.arrayContaining([
+      "Snowflake returned unrecognized option ids: unknown_option.",
+      "Snowflake returned unrecognized column ids: missing_column.",
+      "Snowflake returned duplicate option/column cells: trust_a_lot/gen_z. The first matching cell was used."
+    ]));
+    expect(ambiguousResult.table[0].values.gen_z).toBe(18);
+  });
+
   it("executes a supported live query through the injected provider executor", async () => {
     let executedSql = "";
     const executor: SnowflakeQueryExecutor = {
@@ -133,6 +176,42 @@ describe("snowflakeProvider", () => {
     });
   });
 
+  it("wraps executor failures with structured Snowflake provider diagnostics", async () => {
+    const provider = createSnowflakeAnalyticsProvider(
+      {
+        async execute() {
+          throw new Error("warehouse is suspended");
+        }
+      },
+      env
+    );
+
+    await expect(provider.runQuery(breakoutQuery)).rejects.toMatchObject({
+      name: "SnowflakeProviderError",
+      code: "snowflake_execution_failed",
+      reasons: ["execution_failed"],
+      message: "Snowflake query execution failed: warehouse is suspended"
+    });
+  });
+
+  it("times out slow executor calls with structured Snowflake provider diagnostics", async () => {
+    const provider = createSnowflakeAnalyticsProvider(
+      {
+        async execute() {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return [];
+        }
+      },
+      env
+    );
+
+    await expect(provider.runQuery(breakoutQuery)).rejects.toMatchObject({
+      name: "SnowflakeProviderError",
+      code: "snowflake_execution_timeout",
+      reasons: ["execution_timeout"]
+    });
+  });
+
   it("keeps unsupported live query shapes explicit", async () => {
     const waveQuery: AnalyticsQueryRequest = {
       ...breakoutQuery,
@@ -146,9 +225,12 @@ describe("snowflakeProvider", () => {
       supported: false,
       reasons: ["wave_comparison_not_live"]
     });
-    await expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).runQuery(waveQuery)).rejects.toThrow(
-      "Snowflake live execution does not yet support this query shape: wave_comparison_not_live."
-    );
+    await expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).runQuery(waveQuery)).rejects.toMatchObject({
+      name: "SnowflakeProviderError",
+      code: "snowflake_unsupported_query",
+      reasons: ["wave_comparison_not_live"],
+      message: "Snowflake live execution does not yet support this query shape: wave_comparison_not_live."
+    });
   });
 
   it("does not claim live support for question-filtered queries yet", () => {

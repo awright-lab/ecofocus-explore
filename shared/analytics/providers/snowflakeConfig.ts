@@ -7,6 +7,7 @@ export interface SnowflakeConfig {
   schema: string;
   role: string;
   analyticsTable: string;
+  queryTimeoutMs: number;
   authenticator?: string;
 }
 
@@ -28,6 +29,13 @@ const requiredSnowflakeEnvVars = [
 
 function readEnv(name: string, env: Record<string, string | undefined>) {
   return env[name]?.trim() ?? "";
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number, env: Record<string, string | undefined>) {
+  const rawValue = readEnv(name, env);
+  const value = Number(rawValue);
+
+  return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
 export function getSnowflakeReadiness(env: Record<string, string | undefined> = process.env): SnowflakeReadiness {
@@ -52,6 +60,7 @@ export function getSnowflakeReadiness(env: Record<string, string | undefined> = 
       schema: readEnv("SNOWFLAKE_SCHEMA", env),
       role: readEnv("SNOWFLAKE_ROLE", env),
       analyticsTable: readEnv("SNOWFLAKE_ANALYTICS_TABLE", env) || "SURVEY_RESPONSES",
+      queryTimeoutMs: readPositiveIntegerEnv("SNOWFLAKE_QUERY_TIMEOUT_MS", 30000, env),
       authenticator: readEnv("SNOWFLAKE_AUTHENTICATOR", env) || undefined
     }
   };

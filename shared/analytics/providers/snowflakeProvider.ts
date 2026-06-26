@@ -43,6 +43,28 @@ export interface SnowflakeQuerySupport {
   reasons: string[];
 }
 
+export type SnowflakeProviderErrorCode =
+  | "snowflake_config_error"
+  | "snowflake_unsupported_query"
+  | "snowflake_unsafe_sql"
+  | "snowflake_execution_timeout"
+  | "snowflake_execution_failed"
+  | "snowflake_normalization_failed";
+
+export class SnowflakeProviderError extends Error {
+  code: SnowflakeProviderErrorCode;
+  reasons: string[];
+  details?: Record<string, unknown>;
+
+  constructor(code: SnowflakeProviderErrorCode, message: string, reasons: string[] = [], details?: Record<string, unknown>) {
+    super(message);
+    this.name = "SnowflakeProviderError";
+    this.code = code;
+    this.reasons = reasons;
+    this.details = details;
+  }
+}
+
 export interface SnowflakeQueryExecutor {
   execute(sqlText: string, config: SnowflakeConfig): Promise<SnowflakeResultRow[]>;
 }
@@ -67,7 +89,9 @@ function sourceIdentifier(sourceColumn: string) {
     .split(".")
     .map((part) => {
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(part)) {
-        throw new Error(`Unsupported Snowflake source column: ${sourceColumn}.`);
+        throw new SnowflakeProviderError("snowflake_config_error", `Unsupported Snowflake source column: ${sourceColumn}.`, [
+          "unsafe_identifier"
+        ]);
       }
       return part;
     })
@@ -76,6 +100,25 @@ function sourceIdentifier(sourceColumn: string) {
 
 function tableIdentifier(config: SnowflakeConfig) {
   return [config.database, config.schema, config.analyticsTable].map(quoteIdentifier).join(".");
+}
+
+function enforceSafeSnowflakeIdentifier(value: string, label: string) {
+  if (!/^[A-Za-z_][A-Za-z0-9_$]*$/.test(value)) {
+    throw new SnowflakeProviderError("snowflake_config_error", `Unsafe Snowflake ${label}: ${value}.`, ["unsafe_identifier"], {
+      label,
+      value
+    });
+  }
+}
+
+function validateSnowflakeConfigSafety(config: SnowflakeConfig) {
+  [
+    ["database", config.database],
+    ["schema", config.schema],
+    ["analytics table", config.analyticsTable],
+    ["warehouse", config.warehouse],
+    ["role", config.role]
+  ].forEach(([label, value]) => enforceSafeSnowflakeIdentifier(value, label));
 }
 
 function normalizedQuery(query: AnalyticsQueryRequest): AnalyticsQueryRequest {
@@ -122,6 +165,31 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
         : `Snowflake live execution does not yet support this query shape: ${reasons.join(", ")}.`,
     reasons
   };
+}
+
+export function assertSnowflakeSqlIsReadOnly(sqlText: string) {
+  const normalized = sqlText.trim();
+  const unsafePattern = /\b(insert|update|delete|merge|drop|alter|create|truncate|copy|put|get|call|grant|revoke|use|begin|commit|rollback)\b/i;
+
+  if (!normalized.toLowerCase().startsWith("select")) {
+    throw new SnowflakeProviderError("snowflake_unsafe_sql", "Snowflake provider refused to execute non-SELECT SQL.", ["non_select_sql"]);
+  }
+
+  if (normalized.includes(";")) {
+    throw new SnowflakeProviderError("snowflake_unsafe_sql", "Snowflake provider refused to execute SQL containing statement separators.", [
+      "statement_separator"
+    ]);
+  }
+
+  if (normalized.includes("--") || normalized.includes("/*") || normalized.includes("*/")) {
+    throw new SnowflakeProviderError("snowflake_unsafe_sql", "Snowflake provider refused to execute SQL containing comments.", ["sql_comment"]);
+  }
+
+  if (unsafePattern.test(normalized)) {
+    throw new SnowflakeProviderError("snowflake_unsafe_sql", "Snowflake provider refused to execute SQL containing unsupported operation keywords.", [
+      "unsafe_keyword"
+    ]);
+  }
 }
 
 function columnIdExpression(query: AnalyticsQueryRequest) {
@@ -201,13 +269,19 @@ function baseExpression(query: AnalyticsQueryRequest) {
 
 export function buildSnowflakeSqlPlan(queryInput: AnalyticsQueryRequest, config: SnowflakeConfig): SnowflakeSqlPlan {
   const query = normalizedQuery(queryInput);
+  validateSnowflakeConfigSafety(config);
   const support = getSnowflakeQuerySupport(query);
   const dataset = getDatasetMetadata(query.dataset);
   const question = getQuestionMetadata(query.dataset, query.question);
   const dimension = getDimensionMetadata(query.dataset, query.breakBy);
 
   if (!support.supported || !dataset || !question || !dimension) {
-    throw new Error(support.summary);
+    throw new SnowflakeProviderError("snowflake_unsupported_query", support.summary, support.reasons, {
+      dataset: query.dataset,
+      question: query.question,
+      breakBy: query.breakBy,
+      comparisonMode: query.comparisonMode
+    });
   }
 
   const where = [datasetWhereClause(query), ...filtersWhereClause(query)].join(" AND ");
@@ -231,8 +305,11 @@ export function buildSnowflakeSqlPlan(queryInput: AnalyticsQueryRequest, config:
     ].join(" ");
   });
 
+  const sqlText = `${optionSelects.join(" UNION ALL ")} ORDER BY option_sort, column_sort`;
+  assertSnowflakeSqlIsReadOnly(sqlText);
+
   return {
-    sqlText: `${optionSelects.join(" UNION ALL ")} ORDER BY option_sort, column_sort`,
+    sqlText,
     supported: true,
     summary: `Snowflake SQL plan for ${dataset.id}/${question.id} by ${dimension.id}.`
   };
@@ -262,6 +339,52 @@ function collectBaseWarnings(series: AnalyticsSeries[], minBase: number) {
   }
 
   return [`Some cells have a base below ${minBase}; interpret those comparisons cautiously.`];
+}
+
+function collectSnowflakeNormalizationWarnings(
+  rows: SnowflakeResultRow[],
+  expectedOptionIds: string[],
+  expectedColumnIds: string[]
+) {
+  const warnings: string[] = [];
+  const expectedOptions = new Set(expectedOptionIds.map((id) => id.toLowerCase()));
+  const expectedColumns = new Set(expectedColumnIds.map((id) => id.toLowerCase()));
+  const seenCells = new Set<string>();
+  const duplicateCells = new Set<string>();
+  const unknownOptions = new Set<string>();
+  const unknownColumns = new Set<string>();
+
+  if (rows.length === 0) {
+    warnings.push("Snowflake returned no rows for this query; the normalized result contains zero-filled expected rows and columns.");
+  }
+
+  rows.forEach((row) => {
+    const optionId = readString(row, "option_id").toLowerCase();
+    const columnId = readString(row, "column_id").toLowerCase();
+
+    if (optionId && !expectedOptions.has(optionId)) unknownOptions.add(optionId);
+    if (columnId && !expectedColumns.has(columnId)) unknownColumns.add(columnId);
+
+    if (optionId && columnId) {
+      const cellKey = `${optionId}/${columnId}`;
+      if (seenCells.has(cellKey)) duplicateCells.add(cellKey);
+      seenCells.add(cellKey);
+    }
+  });
+
+  if (unknownOptions.size > 0) {
+    warnings.push(`Snowflake returned unrecognized option ids: ${Array.from(unknownOptions).join(", ")}.`);
+  }
+
+  if (unknownColumns.size > 0) {
+    warnings.push(`Snowflake returned unrecognized column ids: ${Array.from(unknownColumns).join(", ")}.`);
+  }
+
+  if (duplicateCells.size > 0) {
+    warnings.push(`Snowflake returned duplicate option/column cells: ${Array.from(duplicateCells).join(", ")}. The first matching cell was used.`);
+  }
+
+  return warnings;
 }
 
 function columnComparisonExecutionInput(
@@ -440,11 +563,18 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
   const weight = getWeightMetadata(query.dataset, query.weight);
 
   if (!dataset || !question || !dimension || !metric) {
-    throw new Error("Cannot normalize Snowflake response for unsupported metadata.");
+    throw new SnowflakeProviderError("snowflake_normalization_failed", "Cannot normalize Snowflake response for unsupported metadata.", [
+      "metadata_not_supported"
+    ]);
   }
 
   const columns: AnalyticsTableColumn[] = dimension.values.map((value) => ({ id: value.id, label: value.label }));
   const labels = columns.map((column) => column.label);
+  const normalizationWarnings = collectSnowflakeNormalizationWarnings(
+    rows,
+    question.options.map((option) => option.id),
+    columns.map((column) => column.id)
+  );
   const rowLookup = new Map<string, SnowflakeResultRow[]>();
 
   rows.forEach((row) => {
@@ -517,7 +647,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
       significanceExecutionReport,
       significance
     },
-    warnings: collectBaseWarnings(series, dataset.minBaseWarning),
+    warnings: [...normalizationWarnings, ...collectBaseWarnings(series, dataset.minBaseWarning)],
     notes: [
       "Live Snowflake analytics output.",
       query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted Snowflake output.",
@@ -534,8 +664,43 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
   };
 }
 
+async function withSnowflakeTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(
+        new SnowflakeProviderError(
+          "snowflake_execution_timeout",
+          `Snowflake query execution exceeded ${timeoutMs}ms.`,
+          ["execution_timeout"],
+          { timeoutMs }
+        )
+      );
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
+function normalizeProviderExecutionError(error: unknown) {
+  if (error instanceof SnowflakeProviderError) {
+    return error;
+  }
+
+  return new SnowflakeProviderError(
+    "snowflake_execution_failed",
+    error instanceof Error ? `Snowflake query execution failed: ${error.message}` : "Snowflake query execution failed.",
+    ["execution_failed"]
+  );
+}
+
 export const snowflakeSdkQueryExecutor: SnowflakeQueryExecutor = {
   async execute(sqlText, config) {
+    assertSnowflakeSqlIsReadOnly(sqlText);
     const connection = snowflake.createConnection({
       account: config.account,
       username: config.username,
@@ -544,26 +709,35 @@ export const snowflakeSdkQueryExecutor: SnowflakeQueryExecutor = {
       database: config.database,
       schema: config.schema,
       role: config.role,
-      authenticator: config.authenticator
+      authenticator: config.authenticator,
+      timeout: config.queryTimeoutMs
     });
 
-    await new Promise<void>((resolve, reject) => {
-      connection.connect((error) => {
-        if (error) reject(error);
-        else resolve();
-      });
-    });
+    await withSnowflakeTimeout(
+      new Promise<void>((resolve, reject) => {
+        connection.connect((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      }),
+      config.queryTimeoutMs
+    );
 
     try {
-      return await new Promise<SnowflakeResultRow[]>((resolve, reject) => {
-        connection.execute({
-          sqlText,
-          complete(error, _statement, resultRows) {
-            if (error) reject(error);
-            else resolve((resultRows ?? []) as SnowflakeResultRow[]);
-          }
-        });
-      });
+      return await withSnowflakeTimeout(
+        new Promise<SnowflakeResultRow[]>((resolve, reject) => {
+          connection.execute({
+            sqlText,
+            complete(error, _statement, resultRows) {
+              if (error) reject(error);
+              else resolve((resultRows ?? []) as SnowflakeResultRow[]);
+            }
+          });
+        }),
+        config.queryTimeoutMs
+      );
+    } catch (error) {
+      throw normalizeProviderExecutionError(error);
     } finally {
       await new Promise<void>((resolve) => {
         connection.destroy(() => resolve());
@@ -571,6 +745,16 @@ export const snowflakeSdkQueryExecutor: SnowflakeQueryExecutor = {
     }
   }
 };
+
+async function executeSnowflakePlan(executor: SnowflakeQueryExecutor, sqlText: string, config: SnowflakeConfig) {
+  assertSnowflakeSqlIsReadOnly(sqlText);
+
+  try {
+    return await withSnowflakeTimeout(executor.execute(sqlText, config), config.queryTimeoutMs);
+  } catch (error) {
+    throw normalizeProviderExecutionError(error);
+  }
+}
 
 export function createSnowflakeAnalyticsProvider(
   executor: SnowflakeQueryExecutor = snowflakeSdkQueryExecutor,
@@ -593,18 +777,42 @@ export function createSnowflakeAnalyticsProvider(
           };
     },
     async runQuery(queryInput) {
-      const config = requireSnowflakeConfig(env);
+      let config: SnowflakeConfig;
+      try {
+        config = requireSnowflakeConfig(env);
+      } catch (error) {
+        throw new SnowflakeProviderError(
+          "snowflake_config_error",
+          error instanceof Error ? error.message : "Snowflake provider is not configured.",
+          ["missing_configuration"]
+        );
+      }
       const query = normalizedQuery(queryInput);
       const support = getSnowflakeQuerySupport(query);
 
       if (!support.supported) {
-        throw new Error(support.summary);
+        throw new SnowflakeProviderError("snowflake_unsupported_query", support.summary, support.reasons, {
+          dataset: query.dataset,
+          question: query.question,
+          breakBy: query.breakBy,
+          comparisonMode: query.comparisonMode
+        });
       }
 
       createAnalyticsQueryPlan(query);
       const sqlPlan = buildSnowflakeSqlPlan(query, config);
-      const rows = await executor.execute(sqlPlan.sqlText, config);
-      return normalizeSnowflakeRows(query, rows);
+      const rows = await executeSnowflakePlan(executor, sqlPlan.sqlText, config);
+
+      try {
+        return normalizeSnowflakeRows(query, rows);
+      } catch (error) {
+        if (error instanceof SnowflakeProviderError) throw error;
+        throw new SnowflakeProviderError(
+          "snowflake_normalization_failed",
+          error instanceof Error ? `Snowflake response normalization failed: ${error.message}` : "Snowflake response normalization failed.",
+          ["normalization_failed"]
+        );
+      }
     }
   };
 }

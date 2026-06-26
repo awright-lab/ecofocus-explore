@@ -38,6 +38,7 @@ describe("snowflakeConfig", () => {
       schema: "EXPLORE",
       role: "EXPLORE_READONLY",
       analyticsTable: "SURVEY_RESPONSES",
+      queryTimeoutMs: 30000,
       authenticator: "externalbrowser"
     });
   });
@@ -51,9 +52,13 @@ describe("snowflakeConfig", () => {
       SNOWFLAKE_DATABASE: "ECOFOCUS",
       SNOWFLAKE_SCHEMA: "EXPLORE",
       SNOWFLAKE_ROLE: "EXPLORE_READONLY",
-      SNOWFLAKE_ANALYTICS_TABLE: "ANALYTICS_RESPONSES"
+      SNOWFLAKE_ANALYTICS_TABLE: "ANALYTICS_RESPONSES",
+      SNOWFLAKE_QUERY_TIMEOUT_MS: "45000"
     };
 
-    expect(requireSnowflakeConfig(env).analyticsTable).toBe("ANALYTICS_RESPONSES");
+    expect(requireSnowflakeConfig(env)).toMatchObject({
+      analyticsTable: "ANALYTICS_RESPONSES",
+      queryTimeoutMs: 45000
+    });
   });
 });
