@@ -114,6 +114,34 @@ The Snowflake path is intentionally read-only and constrained:
 - SDK execution failures are surfaced as structured Snowflake provider errors
 - empty, duplicate, or unrecognized Snowflake result rows produce normalized warnings instead of silently disappearing
 
+## Non-Production Verification
+
+The provider includes an opt-in verification path for safe non-production Snowflake environments. Default test runs use fake executors only; real Snowflake verification is skipped unless explicitly enabled.
+
+Run fake-executor verification tests:
+
+```bash
+npm test -- shared/analytics/__tests__/snowflakeVerification.test.ts
+```
+
+Run real non-production verification:
+
+```bash
+SNOWFLAKE_VERIFY_INTEGRATION=1 npm test -- shared/analytics/__tests__/snowflakeIntegration.test.ts
+```
+
+The live verification report checks:
+
+- required configuration is present
+- the read-only SQL guard is active
+- connection context can be queried
+- the configured analytics table/view is accessible
+- metadata-backed provider columns can be selected
+- a default supported query can be planned
+- a default supported query can execute and normalize through the provider
+
+Verification is intentionally bounded and read-only. It does not prove production row-level correctness, weighted-output conventions, or unsupported query shapes.
+
 ## Analytical Features The Provider Must Continue To Expand
 
 The live Snowflake provider will need to support:
@@ -135,7 +163,7 @@ The live Snowflake provider will need to support:
 ## Recommended Next Integration Steps
 
 1. Verify the configured Snowflake table/view exposes the expected metadata-backed columns.
-2. Add provider-level integration tests against a safe non-production Snowflake target.
+2. Run opt-in provider-level integration tests against a safe non-production Snowflake target.
 3. Verify weighted output conventions with EcoFocus stakeholders.
 4. Expand live support for breakout wave comparisons and multiple question filters.
 5. Add read-only role and warehouse/timeout hardening for production deployment.
