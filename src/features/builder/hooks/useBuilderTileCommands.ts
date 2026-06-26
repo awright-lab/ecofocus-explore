@@ -9,7 +9,13 @@ import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } fro
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
-import { buildSmartCompositionBlockFromTile, createObjectsFromCompositionBlock, isComparisonQuery, type SmartCompositionStarterId } from "../components/compositionBlockModel";
+import {
+  buildSmartCompositionBlockFromTile,
+  createObjectsFromCompositionBlock,
+  isComparisonQuery,
+  type CompositionStarterContext,
+  type SmartCompositionStarterId
+} from "../components/compositionBlockModel";
 import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
@@ -345,9 +351,18 @@ export function useBuilderTileCommands({
       }
 
       const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
-      const { tiles, elements } = createObjectsFromCompositionBlock(starterBlock, activePage, {
+      const starterContext: CompositionStarterContext = {
+        kind: starterId === "source_comparison_section" ? "activeComparisonQuery" : "activeSource",
+        label: sourceLabel,
+        nextEditHint:
+          starterId === "source_table_insight"
+            ? "Check the table rows and bases, then write the key interpretation."
+            : "Review the generated analysis, then edit the commentary and context note."
+      };
+      const { tiles, elements, placement } = createObjectsFromCompositionBlock(starterBlock, activePage, {
         sourceKind: "starter",
-        anchorLayout: selectedLayout
+        anchorLayout: selectedLayout,
+        starterContext
       });
       if (tiles.length === 0 && elements.length === 0) return null;
 
@@ -370,7 +385,8 @@ export function useBuilderTileCommands({
       return {
         tileId: tiles[0]?.id ?? null,
         label: starterBlock.label,
-        contextLabel: starterId === "source_comparison_section" ? "active comparison query" : "active source"
+        contextLabel: starterId === "source_comparison_section" ? "active comparison query" : "active source",
+        placement
       };
     } catch (queryError) {
       setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this analytical starter.");

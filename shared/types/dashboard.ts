@@ -146,6 +146,12 @@ export interface DashboardTile {
     label: string;
     insertedAt: number;
     sourceKind?: "savedBlock" | "starter";
+    starterContext?: {
+      kind: "curated" | "selectedTile" | "activeSource" | "activeComparisonQuery";
+      label: string;
+      placementLabel?: string;
+      nextEditHint?: string;
+    };
   };
   locked: boolean;
   hidden: boolean;
@@ -204,6 +210,12 @@ export interface DashboardCanvasElement {
     label: string;
     insertedAt: number;
     sourceKind?: "savedBlock" | "starter";
+    starterContext?: {
+      kind: "curated" | "selectedTile" | "activeSource" | "activeComparisonQuery";
+      label: string;
+      placementLabel?: string;
+      nextEditHint?: string;
+    };
   };
   assetSource?: {
     id: string;

@@ -1502,6 +1502,24 @@ h2 {
   font-weight: 700;
 }
 
+.starter-feedback-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.starter-feedback-chips span {
+  padding: 4px 7px;
+  border: 1px solid #d8e9e2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #52675d;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
 .composition-block-feedback.deleted {
   border-color: #f1c7b9;
   background: #fff7f4;

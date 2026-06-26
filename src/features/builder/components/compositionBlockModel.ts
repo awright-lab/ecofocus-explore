@@ -34,6 +34,16 @@ export type SmartCompositionStarterView = {
   tags: string[];
 };
 
+export type CompositionStarterContext = NonNullable<DashboardTile["compositionBlock"]>["starterContext"];
+
+export type CompositionPlacementSummary = {
+  x: number;
+  y: number;
+  label: string;
+  detail: string;
+  strategy: "below-anchor" | "right-of-anchor" | "left-of-anchor" | "above-anchor" | "open-canvas" | "least-overlap";
+};
+
 type SmartStarterDefinition = {
   id: SmartCompositionStarterId;
   label: string;
@@ -319,6 +329,88 @@ function boundsForObjects(objects: SelectedCompositionObject[]) {
   };
 }
 
+function clampPlacement(block: SavedCompositionBlock, position: { x: number; y: number }) {
+  return {
+    x: Math.max(24, Math.min(canvasWidth - block.summary.width - 24, position.x)),
+    y: Math.max(24, Math.min(canvasHeight - block.summary.height - 24, position.y))
+  };
+}
+
+function rectOverlapArea(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }
+) {
+  const xOverlap = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+  const yOverlap = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+  return xOverlap * yOverlap;
+}
+
+function placementOverlapScore(page: DashboardPage, block: SavedCompositionBlock, position: { x: number; y: number }) {
+  const placedRect = { ...position, width: block.summary.width, height: block.summary.height };
+  const existingRects = [
+    ...page.tiles.filter((tile) => !tile.hidden).map((tile) => tile.layout),
+    ...page.elements.filter((element) => !element.hidden).map((element) => element.layout)
+  ];
+  return existingRects.reduce((total, rect) => total + rectOverlapArea(placedRect, rect), 0);
+}
+
+function placementLabel(strategy: CompositionPlacementSummary["strategy"]) {
+  if (strategy === "below-anchor") return "Placed below the current selection";
+  if (strategy === "right-of-anchor") return "Placed beside the current selection";
+  if (strategy === "left-of-anchor") return "Placed to the left of the current selection";
+  if (strategy === "above-anchor") return "Placed above the current selection";
+  if (strategy === "least-overlap") return "Placed in the clearest available area";
+  return "Placed on the open canvas";
+}
+
+export function buildCompositionPlacementSummary(
+  page: DashboardPage,
+  block: SavedCompositionBlock,
+  anchorLayout?: CanvasLayout
+): CompositionPlacementSummary {
+  const anchorCandidates = anchorLayout
+    ? [
+        { strategy: "below-anchor" as const, ...clampPlacement(block, { x: anchorLayout.x, y: anchorLayout.y + anchorLayout.height + 32 }) },
+        { strategy: "right-of-anchor" as const, ...clampPlacement(block, { x: anchorLayout.x + anchorLayout.width + 32, y: anchorLayout.y }) },
+        { strategy: "left-of-anchor" as const, ...clampPlacement(block, { x: anchorLayout.x - block.summary.width - 32, y: anchorLayout.y }) },
+        { strategy: "above-anchor" as const, ...clampPlacement(block, { x: anchorLayout.x, y: anchorLayout.y - block.summary.height - 32 }) }
+      ]
+    : [];
+  const openCanvasCandidates = [
+    { strategy: "open-canvas" as const, ...clampPlacement(block, { x: 72, y: 72 }) },
+    { strategy: "open-canvas" as const, ...clampPlacement(block, { x: 72, y: 360 }) },
+    { strategy: "open-canvas" as const, ...clampPlacement(block, { x: 420, y: 72 }) },
+    { strategy: "open-canvas" as const, ...clampPlacement(block, { x: 420, y: 360 }) },
+    { strategy: "open-canvas" as const, ...clampPlacement(block, { x: Math.round((canvasWidth - block.summary.width) / 2), y: 96 }) }
+  ];
+  const candidates = [...anchorCandidates, ...openCanvasCandidates].map((candidate, index) => ({
+    ...candidate,
+    index,
+    overlapScore: placementOverlapScore(page, block, candidate)
+  }));
+  const firstClear = candidates.find((candidate) => candidate.overlapScore === 0);
+  const selected =
+    firstClear ??
+    candidates
+      .slice()
+      .sort((a, b) => a.overlapScore - b.overlapScore || a.index - b.index)[0] ??
+    { strategy: "open-canvas" as const, x: 72, y: 72, overlapScore: 0 };
+  const strategy = firstClear ? selected.strategy : selected.overlapScore > 0 ? "least-overlap" : selected.strategy;
+
+  return {
+    x: selected.x,
+    y: selected.y,
+    strategy,
+    label: placementLabel(strategy),
+    detail:
+      strategy === "least-overlap"
+        ? "No fully open starter-sized area was available, so the section used the lowest-overlap candidate."
+        : anchorLayout
+          ? "The section used the current selection as its placement anchor."
+          : "The section used the first clear starter-sized canvas area."
+  };
+}
+
 function blockCategory(objects: SelectedCompositionObject[]): SavedCompositionBlock["category"] {
   const hasTile = objects.some((item) => item.kind === "tile");
   const hasImage = objects.some((item) => item.kind === "element" && item.element.type === "image");
@@ -389,32 +481,20 @@ export function buildCompositionBlockFromSelection(args: {
 export function createObjectsFromCompositionBlock(
   block: SavedCompositionBlock,
   page: DashboardPage,
-  options: { sourceKind?: "savedBlock" | "starter"; anchorLayout?: CanvasLayout } = {}
+  options: { sourceKind?: "savedBlock" | "starter"; anchorLayout?: CanvasLayout; starterContext?: CompositionStarterContext } = {}
 ) {
-  const anchorBelow = options.anchorLayout
-    ? {
-        x: options.anchorLayout.x,
-        y: options.anchorLayout.y + options.anchorLayout.height + 32
-      }
-    : null;
-  const anchorRight = options.anchorLayout
-    ? {
-        x: options.anchorLayout.x + options.anchorLayout.width + 32,
-        y: options.anchorLayout.y
-      }
-    : null;
-  const defaultPosition = { x: 72, y: 72 };
-  const preferredPosition =
-    anchorBelow && anchorBelow.y + block.summary.height <= canvasHeight - 24
-      ? anchorBelow
-      : anchorRight && anchorRight.x + block.summary.width <= canvasWidth - 24
-        ? anchorRight
-        : defaultPosition;
-  const baseX = Math.max(24, Math.min(canvasWidth - block.summary.width - 24, preferredPosition.x));
-  const baseY = Math.max(24, Math.min(canvasHeight - block.summary.height - 24, preferredPosition.y));
+  const placement = buildCompositionPlacementSummary(page, block, options.anchorLayout);
+  const baseX = placement.x;
+  const baseY = placement.y;
   const baseZ = nextZIndex(page);
   const tiles: DashboardTile[] = [];
   const elements: DashboardCanvasElement[] = [];
+  const starterContext = options.starterContext
+    ? {
+        ...options.starterContext,
+        placementLabel: options.starterContext.placementLabel ?? placement.label
+      }
+    : undefined;
 
   block.items.forEach((item, index) => {
     const layout = {
@@ -455,7 +535,8 @@ export function createObjectsFromCompositionBlock(
           id: block.id,
           label: block.label,
           insertedAt: Date.now(),
-          sourceKind: options.sourceKind ?? "savedBlock"
+          sourceKind: options.sourceKind ?? "savedBlock",
+          starterContext
         }
       });
       return;
@@ -471,12 +552,13 @@ export function createObjectsFromCompositionBlock(
         id: block.id,
         label: block.label,
         insertedAt: Date.now(),
-        sourceKind: options.sourceKind ?? "savedBlock"
+        sourceKind: options.sourceKind ?? "savedBlock",
+        starterContext
       }
     });
   });
 
-  return { tiles, elements };
+  return { tiles, elements, placement };
 }
 
 export function createImageElementFromAsset(asset: SavedDesignAsset, page: DashboardPage): DashboardCanvasElement {
@@ -576,6 +658,37 @@ export function buildCompositionStarterLibraryView(block: SavedCompositionBlock)
     actionLabel: "Insert section",
     starterLabel: block.category === "chart_commentary" ? "Analysis story starter" : "Editorial section starter"
   };
+}
+
+export function buildCompositionStarterProvenanceHelper(
+  compositionBlock: NonNullable<DashboardTile["compositionBlock"]>,
+  objectKind: "tile" | "element"
+) {
+  if (compositionBlock.sourceKind !== "starter") {
+    return objectKind === "tile"
+      ? "Inserted from a reusable composition block. This analytical tile is an editable copy, not a live-linked block instance."
+      : "Inserted from a reusable composition block. This element is an editable copy, not a live-linked instance.";
+  }
+
+  const context = compositionBlock.starterContext;
+  const origin =
+    context?.kind === "selectedTile"
+      ? `Created from selected tile: ${context.label}.`
+      : context?.kind === "activeSource"
+        ? `Created from active source: ${context.label}.`
+        : context?.kind === "activeComparisonQuery"
+          ? `Created from active comparison query: ${context.label}.`
+          : context?.kind === "curated"
+            ? `Created from curated starter: ${context.label}.`
+            : "Created from a curated section starter.";
+  const placement = context?.placementLabel ? ` ${context.placementLabel}.` : "";
+  const editHint =
+    context?.nextEditHint ??
+    (objectKind === "tile"
+      ? "Review the analysis and edit the surrounding section objects as needed."
+      : "Edit the section copy, styling, and layout like normal page content.");
+
+  return `${origin}${placement} ${editHint}`;
 }
 
 export function buildSmartCompositionStarterViews(args: {

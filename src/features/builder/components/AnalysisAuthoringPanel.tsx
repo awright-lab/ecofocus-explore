@@ -20,7 +20,9 @@ import {
   buildCompositionStarterLibraryView,
   compositionBlockCategoryOptions,
   editorialTextBlockRole,
-  editorialTextStyleRole
+  editorialTextStyleRole,
+  type CompositionPlacementSummary,
+  type CompositionStarterContext
 } from "./compositionBlockModel";
 import type { SmartCompositionStarterId } from "./compositionBlockModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
@@ -73,7 +75,10 @@ export type AnalysisAuthoringPanelProps = {
   saveCompositionBlockFromSelection: () => SavedCompositionBlock | null;
   updateCompositionBlockMetadata: (blockId: string, updates: Pick<SavedCompositionBlock, "label" | "description" | "category">) => void;
   insertCompositionBlock: (block: SavedCompositionBlock) => boolean;
-  insertCompositionStarter: (starter: SavedCompositionBlock, options?: { anchorLayout?: DashboardTile["layout"] }) => boolean;
+  insertCompositionStarter: (
+    starter: SavedCompositionBlock,
+    options?: { anchorLayout?: DashboardTile["layout"]; starterContext?: CompositionStarterContext }
+  ) => { placement: CompositionPlacementSummary; selectedKind: "tile" | "element"; selectedId: string | null } | null;
   deleteCompositionBlock: (blockId: string) => void;
   insertDesignAsset: (asset: SavedDesignAsset) => void;
   applyPageTheme: (theme: PageThemePreset) => void;
@@ -153,7 +158,7 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromQuery: () => void;
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
-  createSourceDrivenSmartStarter: (starterId: SmartCompositionStarterId) => Promise<{ tileId: string | null; label: string; contextLabel: string } | null>;
+  createSourceDrivenSmartStarter: (starterId: SmartCompositionStarterId) => Promise<{ tileId: string | null; label: string; contextLabel: string; placement: CompositionPlacementSummary } | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
   addTileFromSegmentProfile: (segment: SavedSegmentProfile) => Promise<string | null>;
   duplicateDerivedOutputFromLibrary: (pageId: string, tileId: string) => string | null;
@@ -321,7 +326,13 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     label: string;
     action: "saved" | "updated" | "inserted" | "deleted";
   } | null>(null);
-  const [compositionStarterCue, setCompositionStarterCue] = useState<{ starterId: string; label: string } | null>(null);
+  const [compositionStarterCue, setCompositionStarterCue] = useState<{
+    starterId: string;
+    label: string;
+    originLabel: string;
+    placementLabel: string;
+    helper: string;
+  } | null>(null);
   const smartCompositionStarters = buildSmartCompositionStarterViews({
     selectedTile,
     hasSourceContext: Boolean(selectedVariableSet || selectedQuestion),
@@ -357,8 +368,21 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   }
 
   function insertCuratedCompositionStarter(starter: SavedCompositionBlock) {
-    if (insertCompositionStarter(starter)) {
-      setCompositionStarterCue({ starterId: starter.id, label: starter.label });
+    const result = insertCompositionStarter(starter, {
+      starterContext: {
+        kind: "curated",
+        label: starter.label,
+        nextEditHint: "Edit the placeholder copy and arrange the section around your page story."
+      }
+    });
+    if (result) {
+      setCompositionStarterCue({
+        starterId: starter.id,
+        label: starter.label,
+        originLabel: "Created from curated starter",
+        placementLabel: result.placement.label,
+        helper: "Edit the inserted text, visuals, and spacing like normal page objects."
+      });
     }
   }
 
@@ -367,7 +391,13 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     if (starterView?.tags.includes("source")) {
       void createSourceDrivenSmartStarter(starterId).then((result) => {
         if (result) {
-          setCompositionStarterCue({ starterId, label: `${result.label} · Created from ${result.contextLabel}` });
+          setCompositionStarterCue({
+            starterId,
+            label: result.label,
+            originLabel: `Created from ${result.contextLabel}`,
+            placementLabel: result.placement.label,
+            helper: "Review the generated chart/table, then edit the commentary and context note."
+          });
         }
       });
       return;
@@ -375,8 +405,22 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     if (!selectedTile) return;
     const block = buildSmartCompositionBlockFromTile(starterId, selectedTile);
     if (!block) return;
-    if (insertCompositionStarter(block, { anchorLayout: selectedTile.layout })) {
-      setCompositionStarterCue({ starterId, label: `${block.label} · Created from selected tile` });
+    const result = insertCompositionStarter(block, {
+      anchorLayout: selectedTile.layout,
+      starterContext: {
+        kind: "selectedTile",
+        label: selectedTile.title || selectedTile.name,
+        nextEditHint: "Keep the cloned analysis if it is right, then rewrite the commentary and context note."
+      }
+    });
+    if (result) {
+      setCompositionStarterCue({
+        starterId,
+        label: block.label,
+        originLabel: "Created from selected tile",
+        placementLabel: result.placement.label,
+        helper: "The section cloned the selected analysis and added editable storytelling objects."
+      });
     }
   }
 
@@ -534,8 +578,12 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                   </small>
                   {compositionStarterCue && (
                     <div className="composition-block-feedback starter">
-                      <strong>Starter inserted</strong>
+                      <strong>{compositionStarterCue.originLabel}</strong>
                       <small>{compositionStarterCue.label}</small>
+                      <div className="starter-feedback-chips">
+                        <span>{compositionStarterCue.placementLabel}</span>
+                        <span>{compositionStarterCue.helper}</span>
+                      </div>
                     </div>
                   )}
                   <div className="smart-starter-group">

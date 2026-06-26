@@ -17,7 +17,8 @@ import { buildMultiSelectionLayoutUpdates, type MultiSelectionLayoutAction } fro
 import {
   buildCompositionBlockFromSelection,
   createImageElementFromAsset,
-  createObjectsFromCompositionBlock
+  createObjectsFromCompositionBlock,
+  type CompositionStarterContext
 } from "../components/compositionBlockModel";
 import type { LayerItem, LeftPanelView, SettingsView } from "../builderTypes";
 import type { MultiSelectedObject } from "../builderTypes";
@@ -475,12 +476,16 @@ export function useBuilderDocumentSessionCommands({
     return true;
   }
 
-  function insertCompositionStarter(starter: SavedCompositionBlock, options: { anchorLayout?: CanvasLayout } = {}) {
-    const { tiles, elements } = createObjectsFromCompositionBlock(starter, activePage, {
+  function insertCompositionStarter(
+    starter: SavedCompositionBlock,
+    options: { anchorLayout?: CanvasLayout; starterContext?: CompositionStarterContext } = {}
+  ) {
+    const { tiles, elements, placement } = createObjectsFromCompositionBlock(starter, activePage, {
       sourceKind: "starter",
-      anchorLayout: options.anchorLayout
+      anchorLayout: options.anchorLayout,
+      starterContext: options.starterContext
     });
-    if (tiles.length === 0 && elements.length === 0) return false;
+    if (tiles.length === 0 && elements.length === 0) return null;
 
     setDashboard((current) => ({
       ...current,
@@ -505,7 +510,11 @@ export function useBuilderDocumentSessionCommands({
     setSelectedElementId(tiles[0] ? null : elements[0]?.id ?? null);
     setSelectedChartPartId("all");
     setSettingsView("home");
-    return true;
+    return {
+      placement,
+      selectedKind: tiles[0] ? "tile" as const : "element" as const,
+      selectedId: tiles[0]?.id ?? elements[0]?.id ?? null
+    };
   }
 
   function deleteCompositionBlock(blockId: string) {
