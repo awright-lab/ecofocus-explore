@@ -26,9 +26,10 @@ Supported providers:
 Current behavior:
 
 - `mock` is fully functional for local MVP work
-- `snowflake` validates configuration, exposes readiness status, and throws a deliberate not-implemented error instead of pretending to run
+- `snowflake` validates configuration, exposes readiness status, and can execute the first live table-first query shapes against a configured Snowflake table/view
+- unsupported Snowflake query shapes fail explicitly instead of silently falling back to mock data
 
-That means the app is safe to configure for Snowflake readiness work without implying that live execution is already finished.
+That means the app is safe to configure for Snowflake readiness work while keeping live coverage honest and intentionally narrow.
 
 ## Required Environment Variables
 
@@ -45,6 +46,7 @@ When `ANALYTICS_DATA_PROVIDER=snowflake`, the provider expects:
 Optional:
 
 - `SNOWFLAKE_AUTHENTICATOR`
+- `SNOWFLAKE_ANALYTICS_TABLE` defaults to `SURVEY_RESPONSES`
 
 If required variables are missing, the backend now fails early with a clear message listing the missing env vars.
 
@@ -85,31 +87,41 @@ Q15r9
 
 The exact physical names can differ, but the metadata layer must keep mapping app IDs to Snowflake source columns.
 
-## Current Analytical Features The Provider Must Support
+## Current Live Snowflake Support
+
+The first live provider path supports:
+
+- table-first single-select questions
+- table-first multi-binary variable-set questions
+- summary and banner cuts represented by the current metadata
+- dimension filters such as generation, region, and shopper segment
+- weighted and unweighted `column_percent`, `percent_selected`, and `count` metrics
+- normalized response parity with the frontend `AnalyticsQueryResponse` contract
+
+The provider also preserves the existing significance metadata contract. Column-comparison significance can run for supported breakout percent results after Snowflake rows are normalized; wave significance remains a structured deferred/unsupported path.
+
+## Analytical Features The Provider Must Continue To Expand
 
 The live Snowflake provider will need to support:
 
-- single-select summary and banner cuts
-- multi-binary variable-set style questions
-- saved/authored variable-set rows
-- weighted and unweighted metrics
+- broader saved/authored variable-set row execution
 - wave comparison queries
-- normalized table-first responses for the frontend
+- question-filtered live queries
+- production parity checks for weighted output conventions
 
 ## What Is Still Intentionally Not Implemented
 
-- Snowflake driver dependency
-- connection lifecycle / pooling
-- SQL generation from query plans
 - read-only role verification
 - secure secret-management guidance for deployment environments
-- real statistical testing
-- full production filter execution parity
+- connection pooling beyond per-query SDK execution
+- Snowflake-backed wave comparison execution
+- full production filter execution parity for question filters
+- broad statistical testing beyond the current narrow column-comparison path
 
 ## Recommended Next Integration Steps
 
-1. Add the Snowflake SDK dependency and connection utility.
-2. Translate `AnalyticsQueryPlan` into read-only SQL.
-3. Return the same normalized `AnalyticsQueryResponse` shape as the mock provider.
-4. Verify weighted output conventions with EcoFocus stakeholders.
-5. Add provider-level integration tests against a safe non-production Snowflake target.
+1. Verify the configured Snowflake table/view exposes the expected metadata-backed columns.
+2. Add provider-level integration tests against a safe non-production Snowflake target.
+3. Verify weighted output conventions with EcoFocus stakeholders.
+4. Expand live support for wave comparisons and question-filtered queries.
+5. Add read-only role and warehouse/timeout hardening for production deployment.

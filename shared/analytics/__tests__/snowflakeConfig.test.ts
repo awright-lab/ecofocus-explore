@@ -37,7 +37,23 @@ describe("snowflakeConfig", () => {
       database: "ECOFOCUS",
       schema: "EXPLORE",
       role: "EXPLORE_READONLY",
+      analyticsTable: "SURVEY_RESPONSES",
       authenticator: "externalbrowser"
     });
+  });
+
+  it("allows the analytics table/view target to be configured", () => {
+    const env = {
+      SNOWFLAKE_ACCOUNT: "ecofocus-account",
+      SNOWFLAKE_USERNAME: "readonly_user",
+      SNOWFLAKE_PASSWORD: "secret",
+      SNOWFLAKE_WAREHOUSE: "ANALYTICS_WH",
+      SNOWFLAKE_DATABASE: "ECOFOCUS",
+      SNOWFLAKE_SCHEMA: "EXPLORE",
+      SNOWFLAKE_ROLE: "EXPLORE_READONLY",
+      SNOWFLAKE_ANALYTICS_TABLE: "ANALYTICS_RESPONSES"
+    };
+
+    expect(requireSnowflakeConfig(env).analyticsTable).toBe("ANALYTICS_RESPONSES");
   });
 });

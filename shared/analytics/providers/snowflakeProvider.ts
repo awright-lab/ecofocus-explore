@@ -1,33 +1,612 @@
+import snowflake from "snowflake-sdk";
 import type { AnalyticsProvider } from "./types";
-import { createAnalyticsQueryPlan } from "../queryPlan";
-import { getSnowflakeReadiness, requireSnowflakeConfig } from "./snowflakeConfig";
+import { getSnowflakeReadiness, requireSnowflakeConfig, type SnowflakeConfig } from "./snowflakeConfig";
+import { buildSignificanceExecutionPlan, buildSignificanceReadiness, createAnalyticsQueryPlan } from "../queryPlan";
+import { runColumnComparisonSignificanceAdapter, runWaveComparisonSignificanceAdapter } from "../significanceExecution";
+import {
+  getDatasetMetadata,
+  getDimensionMetadata,
+  getMetricMetadata,
+  getQuestionMetadata,
+  getWeightMetadata
+} from "../../metadata/ecofocus2025";
+import type {
+  AnalyticsAnnotation,
+  AnalyticsColumnComparisonExecutionInput,
+  AnalyticsQueryRequest,
+  AnalyticsQueryResponse,
+  AnalyticsSeries,
+  AnalyticsSignificanceExecutionReport,
+  AnalyticsSignificanceReadiness,
+  AnalyticsSignificanceResult,
+  AnalyticsTableColumn,
+  AnalyticsTableRow,
+  AnalyticsWaveComparisonExecutionInput,
+  ConfidenceLevel,
+  DatasetId,
+  DimensionId
+} from "../../types/analytics";
 
-export const snowflakeAnalyticsProvider: AnalyticsProvider = {
-  id: "snowflake",
-  label: "Snowflake provider",
-  getReadiness() {
-    const readiness = getSnowflakeReadiness();
-    return readiness.configured
-      ? {
-          configured: true,
-          summary: "Snowflake provider is configured, but query execution is still stubbed."
-        }
-      : {
-          configured: false,
-          summary: "Snowflake provider is not configured.",
-          missingEnvVars: readiness.missingEnvVars
-        };
-  },
-  async runQuery(query) {
-    const config = requireSnowflakeConfig();
-    const plan = createAnalyticsQueryPlan(query);
+export interface SnowflakeResultRow {
+  [key: string]: unknown;
+}
 
-    throw new Error(
-      [
-        "Snowflake analytics provider boundary is ready, but query execution is not implemented yet.",
-        `Configured database target: ${config.database}.${config.schema}.`,
-        `Prepared query plan for dataset ${plan.dataset.id}, question ${plan.rows.id}, breakout ${plan.columns.id}.`
-      ].join(" ")
-    );
+export interface SnowflakeSqlPlan {
+  sqlText: string;
+  supported: true;
+  summary: string;
+}
+
+export interface SnowflakeQuerySupport {
+  supported: boolean;
+  summary: string;
+  reasons: string[];
+}
+
+export interface SnowflakeQueryExecutor {
+  execute(sqlText: string, config: SnowflakeConfig): Promise<SnowflakeResultRow[]>;
+}
+
+const liveSnowflakeSignificanceCapabilities = {
+  columnComparison: true,
+  waveComparison: false,
+  statisticalEngine: true
+};
+
+function quoteIdentifier(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function sqlString(value: string) {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function sourceIdentifier(sourceColumn: string) {
+  if (sourceColumn === "__summary") return "'summary'";
+  return sourceColumn
+    .split(".")
+    .map((part) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(part)) {
+        throw new Error(`Unsupported Snowflake source column: ${sourceColumn}.`);
+      }
+      return part;
+    })
+    .join(".");
+}
+
+function tableIdentifier(config: SnowflakeConfig) {
+  return [config.database, config.schema, config.analyticsTable].map(quoteIdentifier).join(".");
+}
+
+function normalizedQuery(query: AnalyticsQueryRequest): AnalyticsQueryRequest {
+  return {
+    ...query,
+    confidenceLevel: query.confidenceLevel ?? 0.95,
+    comparisonMode: query.comparisonMode ?? "none",
+    comparisonDatasets: query.comparisonDatasets ?? []
+  };
+}
+
+export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): SnowflakeQuerySupport {
+  const dataset = getDatasetMetadata(query.dataset);
+  const question = getQuestionMetadata(query.dataset, query.question);
+  const metric = getMetricMetadata(query.dataset, query.metric);
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  const reasons: string[] = [];
+
+  if (!dataset || !question || !metric || !dimension) {
+    reasons.push("metadata_not_supported");
+  }
+
+  if ((query.comparisonMode ?? "none") === "wave") {
+    reasons.push("wave_comparison_not_live");
+  }
+
+  if (query.filters.some((filter) => !getDimensionMetadata(query.dataset, filter.field as DimensionId))) {
+    reasons.push("question_filter_not_live");
+  }
+
+  if (query.metric !== "column_percent" && query.metric !== "percent_selected" && query.metric !== "count") {
+    reasons.push("metric_not_live");
+  }
+
+  if (question?.type !== "single_select" && question?.type !== "multi_binary_set") {
+    reasons.push("question_type_not_live");
+  }
+
+  return {
+    supported: reasons.length === 0,
+    summary:
+      reasons.length === 0
+        ? "Snowflake live execution supports this table-first query shape."
+        : `Snowflake live execution does not yet support this query shape: ${reasons.join(", ")}.`,
+    reasons
+  };
+}
+
+function columnIdExpression(query: AnalyticsQueryRequest) {
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  if (!dimension || query.breakBy === "SUMMARY") return sqlString("summary");
+  return `LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}))`;
+}
+
+function columnLabelExpression(query: AnalyticsQueryRequest) {
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  if (!dimension || query.breakBy === "SUMMARY") return sqlString("Summary");
+  const source = `LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}))`;
+  const cases = dimension.values.map((value) => `WHEN ${sqlString(value.id)} THEN ${sqlString(value.label)}`).join(" ");
+  return `CASE ${source} ${cases} ELSE TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}) END`;
+}
+
+function columnSortExpression(query: AnalyticsQueryRequest) {
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  if (!dimension || query.breakBy === "SUMMARY") return "1";
+  const source = `LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}))`;
+  const cases = dimension.values.map((value) => `WHEN ${sqlString(value.id)} THEN ${value.sortOrder}`).join(" ");
+  return `CASE ${source} ${cases} ELSE 999 END`;
+}
+
+function datasetWhereClause(query: AnalyticsQueryRequest) {
+  const dataset = getDatasetMetadata(query.dataset);
+  return `LOWER(TO_VARCHAR(${sourceIdentifier("survey_wave")})) = ${sqlString(dataset?.wave.toLowerCase() ?? query.dataset)}`;
+}
+
+function filtersWhereClause(query: AnalyticsQueryRequest) {
+  return query.filters.flatMap((filter) => {
+    const dimension = getDimensionMetadata(query.dataset, filter.field as DimensionId);
+    if (!dimension) return [];
+    const values = filter.values.map((value) => sqlString(value.toLowerCase())).join(", ");
+    return [`LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)})) IN (${values})`];
+  });
+}
+
+function truthyMultiBinaryExpression(sourceColumn: string) {
+  const source = sourceIdentifier(sourceColumn);
+  return `(TRY_TO_NUMBER(${source}) = 1 OR LOWER(TO_VARCHAR(${source})) IN ('true', 'yes', 'selected'))`;
+}
+
+function optionMatchExpression(query: AnalyticsQueryRequest, optionId: string) {
+  const question = getQuestionMetadata(query.dataset, query.question);
+  if (!question) return "FALSE";
+
+  if (question.type === "multi_binary_set") {
+    const variable = question.sourceVariables?.find((sourceVariable) => sourceVariable === optionId) ?? optionId;
+    return truthyMultiBinaryExpression(variable);
+  }
+
+  return `LOWER(TO_VARCHAR(${sourceIdentifier(question.sourceColumn)})) = ${sqlString(optionId.toLowerCase())}`;
+}
+
+function weightExpression(query: AnalyticsQueryRequest) {
+  const weight = getWeightMetadata(query.dataset, query.weight);
+  return weight ? `COALESCE(TRY_TO_DOUBLE(${sourceIdentifier(weight.sourceColumn)}), 0)` : "1";
+}
+
+function valueExpression(query: AnalyticsQueryRequest, optionId: string) {
+  const optionMatch = optionMatchExpression(query, optionId);
+  const weight = weightExpression(query);
+  const numerator = `SUM(CASE WHEN ${optionMatch} THEN ${weight} ELSE 0 END)`;
+  const denominator = `NULLIF(SUM(${weight}), 0)`;
+
+  if (query.metric === "count") {
+    return `ROUND(${numerator}, 0)`;
+  }
+
+  return `ROUND(100 * ${numerator} / ${denominator}, 1)`;
+}
+
+function baseExpression(query: AnalyticsQueryRequest) {
+  return query.weight ? `ROUND(SUM(${weightExpression(query)}), 0)` : "COUNT(*)";
+}
+
+export function buildSnowflakeSqlPlan(queryInput: AnalyticsQueryRequest, config: SnowflakeConfig): SnowflakeSqlPlan {
+  const query = normalizedQuery(queryInput);
+  const support = getSnowflakeQuerySupport(query);
+  const dataset = getDatasetMetadata(query.dataset);
+  const question = getQuestionMetadata(query.dataset, query.question);
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+
+  if (!support.supported || !dataset || !question || !dimension) {
+    throw new Error(support.summary);
+  }
+
+  const where = [datasetWhereClause(query), ...filtersWhereClause(query)].join(" AND ");
+  const columnId = columnIdExpression(query);
+  const columnLabel = columnLabelExpression(query);
+  const columnSort = columnSortExpression(query);
+  const optionSelects = question.options.map((option) => {
+    return [
+      "SELECT",
+      `${option.sortOrder} AS option_sort,`,
+      `${columnSort} AS column_sort,`,
+      `${sqlString(option.id)} AS option_id,`,
+      `${sqlString(option.label)} AS option_label,`,
+      `${columnId} AS column_id,`,
+      `${columnLabel} AS column_label,`,
+      `${valueExpression(query, option.id)} AS value,`,
+      `${baseExpression(query)} AS base`,
+      `FROM ${tableIdentifier(config)}`,
+      `WHERE ${where}`,
+      "GROUP BY column_id, column_label, column_sort"
+    ].join(" ");
+  });
+
+  return {
+    sqlText: `${optionSelects.join(" UNION ALL ")} ORDER BY option_sort, column_sort`,
+    supported: true,
+    summary: `Snowflake SQL plan for ${dataset.id}/${question.id} by ${dimension.id}.`
+  };
+}
+
+function readRowValue(row: SnowflakeResultRow, key: string) {
+  const match = Object.keys(row).find((rowKey) => rowKey.toLowerCase() === key.toLowerCase());
+  return match ? row[match] : undefined;
+}
+
+function readString(row: SnowflakeResultRow, key: string, fallback = "") {
+  const value = readRowValue(row, key);
+  return value === null || value === undefined ? fallback : String(value);
+}
+
+function readNumber(row: SnowflakeResultRow, key: string) {
+  const value = readRowValue(row, key);
+  const numberValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function collectBaseWarnings(series: AnalyticsSeries[], minBase: number) {
+  const lowBases = series.flatMap((item) => item.bases).filter((base) => base > 0 && base < minBase);
+
+  if (lowBases.length === 0) {
+    return [];
+  }
+
+  return [`Some cells have a base below ${minBase}; interpret those comparisons cautiously.`];
+}
+
+function columnComparisonExecutionInput(
+  query: AnalyticsQueryRequest,
+  metric: AnalyticsQueryResponse["metric"],
+  columns: AnalyticsQueryResponse["columns"],
+  table: AnalyticsQueryResponse["table"]
+): AnalyticsColumnComparisonExecutionInput | null {
+  if ((query.comparisonMode ?? "none") === "wave" || query.breakBy === "SUMMARY" || columns.length <= 1 || table.length === 0) {
+    return null;
+  }
+
+  return {
+    method: "column_comparison",
+    confidenceLevel: query.confidenceLevel,
+    metric: {
+      id: metric.id,
+      valueFormat: metric.valueFormat
+    },
+    comparisonScope: {
+      basis: "breakout",
+      rowIds: table.map((row) => row.optionId),
+      columnIds: columns.map((column) => column.id)
+    },
+    columns: columns.map((column) => ({
+      id: column.id,
+      label: column.label
+    })),
+    rows: table.map((row) => ({
+      id: row.optionId,
+      label: row.label,
+      cells: columns.map((column) => ({
+        columnId: column.id,
+        value: row.values[column.id] ?? 0,
+        base: row.bases[column.id] ?? 0
+      }))
+    }))
+  };
+}
+
+function waveComparisonExecutionInput(
+  query: AnalyticsQueryRequest,
+  metric: AnalyticsQueryResponse["metric"],
+  columns: AnalyticsQueryResponse["columns"],
+  table: AnalyticsQueryResponse["table"]
+): AnalyticsWaveComparisonExecutionInput | null {
+  const comparisonDatasets = query.comparisonDatasets ?? [];
+  if ((query.comparisonMode ?? "none") !== "wave" || comparisonDatasets.length === 0 || columns.length <= 1 || table.length === 0) {
+    return null;
+  }
+
+  const waveIds = columns.map((column) => column.id as DatasetId);
+
+  return {
+    method: "wave_comparison",
+    confidenceLevel: query.confidenceLevel,
+    metric: {
+      id: metric.id,
+      valueFormat: metric.valueFormat
+    },
+    comparisonScope: {
+      basis: "wave",
+      rowIds: table.map((row) => row.optionId),
+      waveIds,
+      primaryDatasetId: query.dataset,
+      comparisonDatasetIds: comparisonDatasets
+    },
+    waves: columns.map((column) => ({
+      id: column.id as DatasetId,
+      label: column.label
+    })),
+    rows: table.map((row) => ({
+      id: row.optionId,
+      label: row.label,
+      cells: columns.map((column) => ({
+        waveId: column.id as DatasetId,
+        value: row.values[column.id] ?? 0,
+        base: row.bases[column.id] ?? 0
+      }))
+    }))
+  };
+}
+
+function placeholderSignificance(annotations: AnalyticsAnnotation[], readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
+  return {
+    status: "placeholder",
+    method: "mock_placeholder",
+    readiness,
+    reasonCodes: ["mock_provider_placeholder"],
+    comparisonBasis: readiness.comparisonBasis,
+    hasPlaceholders: true,
+    details: annotations.map((annotation) => ({
+      rowId: annotation.rowId,
+      columnId: annotation.columnId,
+      direction: annotation.direction,
+      confidence: annotation.confidence as ConfidenceLevel,
+      status: "placeholder",
+      reasonCodes: ["mock_provider_placeholder"]
+    }))
+  };
+}
+
+function eligibleSignificance(readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
+  return {
+    status: "eligible",
+    method: readiness.method,
+    readiness,
+    reasonCodes: readiness.reasonCodes,
+    comparisonBasis: readiness.comparisonBasis,
+    hasPlaceholders: false,
+    details: []
+  };
+}
+
+function inactiveSignificance(readiness: AnalyticsSignificanceReadiness): AnalyticsSignificanceResult {
+  return {
+    status: readiness.status === "unsupported" ? "unsupported" : "none",
+    method: "none",
+    readiness,
+    reasonCodes: readiness.reasonCodes,
+    comparisonBasis: readiness.comparisonBasis,
+    hasPlaceholders: false,
+    details: []
+  };
+}
+
+function significanceFromReadiness(readiness: AnalyticsSignificanceReadiness, annotations: AnalyticsAnnotation[]): AnalyticsSignificanceResult {
+  if (annotations.length > 0) {
+    return placeholderSignificance(annotations, readiness);
+  }
+
+  if (readiness.status === "candidate") {
+    return eligibleSignificance(readiness);
+  }
+
+  return inactiveSignificance(readiness);
+}
+
+function significanceFromExecutionReport(
+  readiness: AnalyticsSignificanceReadiness,
+  annotations: AnalyticsAnnotation[],
+  report: AnalyticsSignificanceExecutionReport | null
+): AnalyticsSignificanceResult {
+  if (report?.status !== "executed" || report.method !== "column_comparison" || !report.result) {
+    return significanceFromReadiness(readiness, annotations);
+  }
+
+  const testedDetails = report.result.outcomes
+    .filter((outcome) => outcome.status === "tested")
+    .map((outcome) => ({
+      rowId: outcome.rowId,
+      columnId: outcome.columnId,
+      direction: outcome.statistics.direction ?? undefined,
+      confidence: outcome.statistics.confidence ?? 0.95,
+      status: "tested" as const,
+      reasonCodes: outcome.reasonCodes
+    }));
+
+  return {
+    status: "tested",
+    method: "column_comparison",
+    readiness,
+    reasonCodes: [],
+    comparisonBasis: readiness.comparisonBasis,
+    hasPlaceholders: false,
+    details: testedDetails
+  };
+}
+
+export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: SnowflakeResultRow[]): AnalyticsQueryResponse {
+  const query = normalizedQuery(queryInput);
+  const dataset = getDatasetMetadata(query.dataset);
+  const question = getQuestionMetadata(query.dataset, query.question);
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  const metric = getMetricMetadata(query.dataset, query.metric);
+  const weight = getWeightMetadata(query.dataset, query.weight);
+
+  if (!dataset || !question || !dimension || !metric) {
+    throw new Error("Cannot normalize Snowflake response for unsupported metadata.");
+  }
+
+  const columns: AnalyticsTableColumn[] = dimension.values.map((value) => ({ id: value.id, label: value.label }));
+  const labels = columns.map((column) => column.label);
+  const rowLookup = new Map<string, SnowflakeResultRow[]>();
+
+  rows.forEach((row) => {
+    const optionId = readString(row, "option_id");
+    if (!optionId) return;
+    rowLookup.set(optionId, [...(rowLookup.get(optionId) ?? []), row]);
+  });
+
+  const series: AnalyticsSeries[] = question.options.map((option) => {
+    const optionRows = rowLookup.get(option.id) ?? [];
+    const values = columns.map((column) => {
+      const row = optionRows.find((item) => readString(item, "column_id").toLowerCase() === column.id.toLowerCase());
+      return row ? readNumber(row, "value") : 0;
+    });
+    const bases = columns.map((column) => {
+      const row = optionRows.find((item) => readString(item, "column_id").toLowerCase() === column.id.toLowerCase());
+      return row ? readNumber(row, "base") : 0;
+    });
+
+    return {
+      id: option.id,
+      label: option.label,
+      values,
+      bases
+    };
+  });
+
+  const table: AnalyticsTableRow[] = series.map((item) => ({
+    optionId: item.id,
+    label: item.label,
+    values: Object.fromEntries(columns.map((column, index) => [column.id, item.values[index]])),
+    bases: Object.fromEntries(columns.map((column, index) => [column.id, item.bases[index]])),
+    presentation: {
+      rowKind: "option",
+      emphasis: "detail"
+    }
+  }));
+  const significanceReadiness = buildSignificanceReadiness(query);
+  const significanceExecutionPlan = buildSignificanceExecutionPlan(significanceReadiness, liveSnowflakeSignificanceCapabilities);
+  const significanceExecutionInput =
+    significanceExecutionPlan.executionInputContract === "column_comparison"
+      ? columnComparisonExecutionInput(query, metric, columns, table)
+      : waveComparisonExecutionInput(query, metric, columns, table);
+  const significanceExecutionReport =
+    significanceExecutionInput?.method === "column_comparison"
+      ? runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan)
+      : significanceExecutionInput?.method === "wave_comparison"
+        ? runWaveComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan)
+        : null;
+  const significance = significanceFromExecutionReport(significanceReadiness, [], significanceExecutionReport);
+
+  return {
+    query,
+    labels,
+    series,
+    columns,
+    table,
+    metric,
+    weighting: {
+      applied: Boolean(query.weight),
+      id: query.weight,
+      label: weight?.label ?? "Unweighted"
+    },
+    annotations: [],
+    statistics: {
+      confidenceLevel: query.confidenceLevel,
+      significanceMethod: significance.method,
+      significanceExecutionPlan,
+      significanceExecutionInput,
+      significanceExecutionReport,
+      significance
+    },
+    warnings: collectBaseWarnings(series, dataset.minBaseWarning),
+    notes: [
+      "Live Snowflake analytics output.",
+      query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted Snowflake output.",
+      query.filters.length > 0 ? "Filters were applied by the Snowflake provider." : "No filters applied.",
+      `${Math.round(query.confidenceLevel * 100)}% confidence level for significance context.`
+    ],
+    metadataRefs: {
+      dataset: query.dataset,
+      question: query.question,
+      breakBy: query.breakBy,
+      comparisonMode: query.comparisonMode,
+      comparisonDatasets: query.comparisonDatasets
+    }
+  };
+}
+
+export const snowflakeSdkQueryExecutor: SnowflakeQueryExecutor = {
+  async execute(sqlText, config) {
+    const connection = snowflake.createConnection({
+      account: config.account,
+      username: config.username,
+      password: config.password,
+      warehouse: config.warehouse,
+      database: config.database,
+      schema: config.schema,
+      role: config.role,
+      authenticator: config.authenticator
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      connection.connect((error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+
+    try {
+      return await new Promise<SnowflakeResultRow[]>((resolve, reject) => {
+        connection.execute({
+          sqlText,
+          complete(error, _statement, resultRows) {
+            if (error) reject(error);
+            else resolve((resultRows ?? []) as SnowflakeResultRow[]);
+          }
+        });
+      });
+    } finally {
+      await new Promise<void>((resolve) => {
+        connection.destroy(() => resolve());
+      });
+    }
   }
 };
+
+export function createSnowflakeAnalyticsProvider(
+  executor: SnowflakeQueryExecutor = snowflakeSdkQueryExecutor,
+  env: Record<string, string | undefined> = process.env
+): AnalyticsProvider {
+  return {
+    id: "snowflake",
+    label: "Snowflake provider",
+    getReadiness() {
+      const readiness = getSnowflakeReadiness(env);
+      return readiness.configured
+        ? {
+            configured: true,
+            summary: `Snowflake provider is configured for live execution against ${readiness.config?.database}.${readiness.config?.schema}.${readiness.config?.analyticsTable}.`
+          }
+        : {
+            configured: false,
+            summary: "Snowflake provider is not configured.",
+            missingEnvVars: readiness.missingEnvVars
+          };
+    },
+    async runQuery(queryInput) {
+      const config = requireSnowflakeConfig(env);
+      const query = normalizedQuery(queryInput);
+      const support = getSnowflakeQuerySupport(query);
+
+      if (!support.supported) {
+        throw new Error(support.summary);
+      }
+
+      createAnalyticsQueryPlan(query);
+      const sqlPlan = buildSnowflakeSqlPlan(query, config);
+      const rows = await executor.execute(sqlPlan.sqlText, config);
+      return normalizeSnowflakeRows(query, rows);
+    }
+  };
+}
+
+export const snowflakeAnalyticsProvider = createSnowflakeAnalyticsProvider();

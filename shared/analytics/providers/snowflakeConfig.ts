@@ -6,6 +6,7 @@ export interface SnowflakeConfig {
   database: string;
   schema: string;
   role: string;
+  analyticsTable: string;
   authenticator?: string;
 }
 
@@ -50,6 +51,7 @@ export function getSnowflakeReadiness(env: Record<string, string | undefined> = 
       database: readEnv("SNOWFLAKE_DATABASE", env),
       schema: readEnv("SNOWFLAKE_SCHEMA", env),
       role: readEnv("SNOWFLAKE_ROLE", env),
+      analyticsTable: readEnv("SNOWFLAKE_ANALYTICS_TABLE", env) || "SURVEY_RESPONSES",
       authenticator: readEnv("SNOWFLAKE_AUTHENTICATOR", env) || undefined
     }
   };
