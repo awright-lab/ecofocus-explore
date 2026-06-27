@@ -857,7 +857,6 @@ export default function BuilderApp() {
 
       <section className="builder-workspace">
         <WorkspaceModeStrip
-          activeView={leftPanelView}
           pageTitle={dashboard.title}
           saveState={saveState}
           onRenameDashboard={renameDashboard}

@@ -45,7 +45,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   return (
     <>
       <div className="panel-title data-library-title">
-        <span>Navigation + sources</span>
         <h2>Data Library</h2>
       </div>
       <div className="data-explorer">

@@ -163,13 +163,11 @@ export function BuilderHeader({
 }
 
 export function WorkspaceModeStrip({
-  activeView,
   pageTitle,
   saveState,
   onRenameDashboard,
   selectionLabel
 }: {
-  activeView: "pages" | "layers" | "insert" | "data" | "brand";
   pageTitle: string;
   saveState: string;
   onRenameDashboard: (title: string) => void;
@@ -178,14 +176,6 @@ export function WorkspaceModeStrip({
   const saveStateView = buildDocumentSaveStateView(saveState);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(pageTitle);
-  const modeLabel =
-    activeView === "data"
-      ? "Explore"
-      : activeView === "pages" || activeView === "layers"
-        ? "Navigate"
-        : activeView === "brand"
-          ? "Brand"
-          : "Compose";
 
   useEffect(() => {
     if (!isEditingTitle) {
@@ -239,7 +229,6 @@ export function WorkspaceModeStrip({
               <span className="workspace-title-edit" aria-hidden="true"><ChromeIcon icon="pencil" /></span>
             </button>
           )}
-          <span>{modeLabel} workspace</span>
         </div>
       </div>
       <div className="workspace-strip-status">
