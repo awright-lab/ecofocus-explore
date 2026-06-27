@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { BuilderPanel } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
 import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
@@ -19,7 +19,7 @@ import {
 } from "../builderConstants";
 import { effectShadow, gradientCss } from "../builderHelpers";
 import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, tileSourceKindLabel } from "./CanvasRenderers";
-import { getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../../analytics/analyticsDisplay";
+import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type {
   CanvasLayout,
@@ -212,6 +212,75 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         columns: selectedTile.result.columns.length
       }
     : null;
+  const chartTypeOptions = selectedTile
+    ? defaultDataset.chartTypes
+        .filter((chartTypeOption) => chartTypeOption.supportedMetrics.includes(selectedTile.query.metric))
+        .filter((chartTypeOption) => !chartTypeOption.minSeries || selectedTile.result.columns.length >= chartTypeOption.minSeries)
+        .map((chartTypeOption) => chartTypeOption.id)
+    : [];
+  const styleQuickCard = selectedTile ? (
+    <div className="assistant-style-card">
+      <div className="assistant-section-label">Chart</div>
+      <label>
+        Chart type
+        <select
+          value={selectedTile.visualization}
+          onChange={(event) => updateSelectedTile(tileWithVisualization(selectedTile, event.target.value as ChartType))}
+        >
+          {chartTypeOptions.map((type) => (
+            <option key={type} value={type}>{getChartTypeLabel(type)}</option>
+          ))}
+        </select>
+      </label>
+      <label className="toggle-row">
+        <span>Show significance markers</span>
+        <input
+          type="checkbox"
+          checked={selectedTile.appearance.showAnnotations}
+          onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })}
+        />
+      </label>
+      <label className="toggle-row">
+        <span>Show sample size</span>
+        <input
+          type="checkbox"
+          checked={selectedTile.appearance.showBases}
+          onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })}
+        />
+      </label>
+      <div className="assistant-section-label">Style</div>
+      <div className="assistant-palette-row" aria-label="Color theme">
+        {designPalettes.slice(0, 5).map((palette) => (
+          <button
+            type="button"
+            key={palette.id}
+            className={getPaletteId(selectedTile.appearance.palette) === palette.id ? "active" : ""}
+            title={palette.label}
+            onClick={() => applyPalettePresetToBars(palette.colors)}
+            style={{ "--swatch-color": palette.colors[0] } as CSSProperties}
+          />
+        ))}
+      </div>
+      <div className="layout-suggestion-list">
+        <div className="assistant-section-header">
+          <strong>Layout suggestions</strong>
+          <small>See all</small>
+        </div>
+        <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
+          <strong>Balanced two-column</strong>
+          <small>Keep charts side by side</small>
+        </button>
+        <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
+          <strong>KPI strip on top</strong>
+          <small>Emphasize key numbers above charts</small>
+        </button>
+        <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("footer")}>
+          <strong>Full-width story note</strong>
+          <small>Reserve space for insight copy</small>
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   const multiSelectionCard = multiSelectionSummary.count > 0 && (
             <div className="multi-selection-card inspector-primary-card">
@@ -275,6 +344,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
 
   const styleSurface = (
     <>
+          {styleQuickCard}
           {multiSelectionCard}
           {settingsView === "home" ? (
             <div className="settings-menu inspector-home">
@@ -382,6 +452,16 @@ export function BuilderInspector(props: BuilderInspectorProps) {
 
   return (
 <BuilderPanel className="panel settings story-inspector" label="Design and insight inspector">
+          <div className="assistant-side-rail" aria-label="Assistant tools">
+            <button type="button" className="active">Templates</button>
+            <button type="button">Themes</button>
+            <button type="button">Layout</button>
+            <button type="button">Widgets</button>
+            <button type="button">Text</button>
+            <button type="button">Images</button>
+            <button type="button">Elements</button>
+            <button type="button">Data</button>
+          </div>
           <div className="inspector-shell-title">
             <div>
               <span>Design + Insight</span>

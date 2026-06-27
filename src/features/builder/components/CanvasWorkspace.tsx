@@ -92,6 +92,9 @@ export function CanvasWorkspace({
         : selectedElementId
           ? activePage.elements.find((element) => element.id === selectedElementId)?.name ?? "Element selected"
           : "Page canvas";
+  const activePageIndex = sortedPages.findIndex((page) => page.id === activePage.id);
+  const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
+  const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
@@ -281,25 +284,29 @@ export function CanvasWorkspace({
           </div>
         </div>
       </div>
-      <div className="page-strip" aria-label="Dashboard pages">
-        {sortedPages.map((page) => (
-          <button
-            type="button"
-            key={page.id}
-            className={page.id === activePage.id ? "page-thumb active" : "page-thumb"}
-            onClick={() => {
-              onSetActivePage(page.id);
-              onSelectPage();
-            }}
-          >
-            <span>{page.order}</span>
-            <div>
-              <strong>{page.title}</strong>
-              <small>{page.tiles.length + page.elements.length} items</small>
-            </div>
-          </button>
-        ))}
-        <button type="button" className="page-thumb add" onClick={onAddPage}>+</button>
+      <div className="story-arc-pill" role="status">
+        <strong>Suggested story arc:</strong>
+        <span>Demand is rising → Opportunity → Implications</span>
+        <button type="button" aria-label="Dismiss story suggestion">×</button>
+      </div>
+      <div className="canvas-bottom-bar" aria-label="Story page actions">
+        <div className="slide-nav-controls">
+          <button type="button" className="icon-button" disabled={!previousPage} onClick={() => previousPage && onSetActivePage(previousPage.id)}>‹</button>
+          <strong>Slide {activePage.order} of {sortedPages.length}</strong>
+          <button type="button" className="icon-button" disabled={!nextPage} onClick={() => nextPage && onSetActivePage(nextPage.id)}>›</button>
+        </div>
+        <div className="canvas-insert-actions">
+          <button type="button" onClick={onAddPage}>＋ Add slide</button>
+          <button type="button">▤ Add data</button>
+          <button type="button">T Add text</button>
+          <button type="button">□ Add shape</button>
+          <button type="button">▧ Add image</button>
+          <button type="button">○ Comment</button>
+        </div>
+        <div className="canvas-bottom-tools">
+          <button type="button">Notes</button>
+          <button type="button" aria-label="Fit to screen">⤢</button>
+        </div>
       </div>
     </section>
   );

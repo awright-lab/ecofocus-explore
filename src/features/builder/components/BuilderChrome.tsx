@@ -15,14 +15,15 @@ type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report"
 const workspaceProductModes: Array<{
   id: WorkspaceProductMode;
   label: string;
+  icon: string;
   helper: string;
 }> = [
-  { id: "data", label: "Data", helper: "Library and source setup" },
-  { id: "design", label: "Design", helper: "Brand and composition tools" },
-  { id: "story", label: "Story", helper: "Active authoring workspace" },
-  { id: "dashboard", label: "Dashboard", helper: "Structured view scaffold" },
-  { id: "report", label: "Report", helper: "Report assembly scaffold" },
-  { id: "present", label: "Present", helper: "Presentation scaffold" }
+  { id: "data", label: "Data", icon: "▤", helper: "Library and source setup" },
+  { id: "design", label: "Design", icon: "◈", helper: "Brand and composition tools" },
+  { id: "story", label: "Story", icon: "▧", helper: "Active authoring workspace" },
+  { id: "dashboard", label: "Dashboard", icon: "▦", helper: "Structured view scaffold" },
+  { id: "report", label: "Report", icon: "▣", helper: "Report assembly scaffold" },
+  { id: "present", label: "Present", icon: "▷", helper: "Presentation scaffold" }
 ];
 
 export function BuilderHeader({
@@ -124,6 +125,7 @@ export function BuilderHeader({
               title={mode.helper}
               onClick={() => setActiveProductMode(mode.id)}
             >
+              <span aria-hidden="true">{mode.icon}</span>
               {mode.label}
             </button>
           ))}
@@ -160,10 +162,10 @@ export function BuilderHeader({
       </div>
       <div className="publish-controls">
         <div className="quick-edit-controls" aria-label="Quick edit actions">
-          <button type="button" className="secondary" onClick={onUndo} disabled={!canUndo}>Undo</button>
-          <button type="button" className="secondary" onClick={onRedo} disabled={!canRedo}>Redo</button>
-          <button type="button" className="secondary" onClick={onDuplicate} disabled={!canUseSelection}>Duplicate</button>
-          <button type="button" className="secondary" onClick={onDelete} disabled={!canUseSelection}>Delete</button>
+          <button type="button" className="icon-button" aria-label="Undo" title="Undo" onClick={onUndo} disabled={!canUndo}>↶</button>
+          <button type="button" className="icon-button" aria-label="Redo" title="Redo" onClick={onRedo} disabled={!canRedo}>↷</button>
+          <button type="button" className="icon-button" aria-label="Duplicate selection" title="Duplicate" onClick={onDuplicate} disabled={!canUseSelection}>□</button>
+          <button type="button" className="icon-button" aria-label="Delete selection" title="Delete" onClick={onDelete} disabled={!canUseSelection}>⌫</button>
         </div>
         {exportConfirmation && (
           <div className={`export-package-confirmation ${exportConfirmation.status}`} role="status">
@@ -196,15 +198,18 @@ export function BuilderHeader({
             </div>
           </div>
         </details>
-        <button type="button" className="secondary" onClick={onReset}>Reset</button>
-        <button type="button" className="secondary" onClick={handleExport}>Export</button>
+        <button type="button" className="icon-button" aria-label="Help" title="Help">?</button>
+        <button type="button" className="icon-button" aria-label="Notifications" title="Notifications">○</button>
+        <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
+        <button type="button" className="secondary quiet-header-action" onClick={onReset}>Reset</button>
+        <button type="button" className="export-action" onClick={handleExport}>Export ▾</button>
         {dashboard.status === "published" ? (
           <>
             <button type="button" className="secondary" onClick={onOpenPublished}>Open</button>
-            <button type="button" onClick={onUnpublish}>Unpublish</button>
+            <button type="button" className="share-action" onClick={onUnpublish}>Unshare</button>
           </>
         ) : (
-          <button type="button" onClick={onPublish}>Publish</button>
+          <button type="button" className="share-action" onClick={onPublish}>Share</button>
         )}
       </div>
     </header>
@@ -231,11 +236,24 @@ export function WorkspaceModeStrip({
 
   return (
     <div className="workspace-mode-strip" aria-label="Workspace mode">
-      <div>
-        <span>{modeLabel}</span>
-        <strong>{pageTitle}</strong>
+      <div className="workspace-strip-document">
+        <button type="button" className="workspace-back-button" aria-label="Back to story overview">‹</button>
+        <div>
+          <strong>{pageTitle}</strong>
+          <span>{modeLabel} workspace</span>
+        </div>
       </div>
-      <small>{selectionLabel}</small>
+      <div className="workspace-strip-status">
+        <span>Draft</span>
+        <small>{selectionLabel}</small>
+      </div>
+      <div className="workspace-strip-tools" aria-label="Canvas view controls">
+        <button type="button" title="Desktop preview">▭</button>
+        <button type="button" title="Mobile preview">▯</button>
+        <button type="button" title="Zoom out">−</button>
+        <button type="button" title="Zoom in">+</button>
+        <button type="button" title="Grid">▦</button>
+      </div>
     </div>
   );
 }
