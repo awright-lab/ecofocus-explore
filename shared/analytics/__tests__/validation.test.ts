@@ -60,6 +60,89 @@ describe("validateAnalyticsQuery", () => {
     ).toEqual([]);
   });
 
+  it("accepts non-overlapping authored variable-set rows", () => {
+    expect(
+      validateAnalyticsQuery({
+        dataset: "ecofocus_2025",
+        question: "Q_PACKAGING_TRUST",
+        breakBy: "SUMMARY",
+        filters: [],
+        weight: "weightvar",
+        metric: "column_percent",
+        chartType: "grouped_bar",
+        confidenceLevel: 0.95,
+        authoredVariableSet: {
+          id: "packaging_trust_recode",
+          label: "Packaging trust recode",
+          rowMode: "authored",
+          rows: [
+            {
+              id: "trust_net",
+              label: "Trust",
+              kind: "net",
+              sourceOptionIds: ["trust_a_lot", "trust_somewhat"],
+              rowOrder: 1,
+              visible: true,
+              emphasis: "summary"
+            },
+            {
+              id: "distrust",
+              label: "Distrust",
+              kind: "bottombox",
+              sourceOptionIds: ["distrust"],
+              rowOrder: 2,
+              visible: true,
+              emphasis: "summary"
+            }
+          ]
+        }
+      })
+    ).toEqual([]);
+  });
+
+  it("rejects unsupported authored variable-set source options and overlap", () => {
+    const errors = validateAnalyticsQuery({
+      dataset: "ecofocus_2025",
+      question: "Q_PACKAGING_TRUST",
+      breakBy: "SUMMARY",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "grouped_bar",
+      confidenceLevel: 0.95,
+      authoredVariableSet: {
+        id: "bad_recode",
+        label: "Bad recode",
+        rowMode: "authored",
+        rows: [
+          {
+            id: "trust_net",
+            label: "Trust",
+            kind: "net",
+            sourceOptionIds: ["trust_a_lot", "missing_option"],
+            rowOrder: 1,
+            visible: true,
+            emphasis: "summary"
+          },
+          {
+            id: "topbox",
+            label: "Top box",
+            kind: "topbox",
+            sourceOptionIds: ["trust_a_lot"],
+            rowOrder: 2,
+            visible: true,
+            emphasis: "summary"
+          }
+        ]
+      }
+    });
+
+    expect(errors).toEqual(expect.arrayContaining([
+      "Authored row Trust contains unsupported source options: missing_option.",
+      "Authored variable-set rows contain overlapping source options: trust_a_lot (Trust, Top box)."
+    ]));
+  });
+
   it("rejects wave comparison without a comparison dataset", () => {
     expect(
       validateAnalyticsQuery({

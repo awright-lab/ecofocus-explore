@@ -54,6 +54,56 @@ describe("createAnalyticsQueryPlan", () => {
     });
   });
 
+  it("includes authored variable-set row intent in the provider-neutral query plan", () => {
+    const query: AnalyticsQueryRequest = {
+      dataset: "ecofocus_2025",
+      question: "Q_PACKAGING_TRUST",
+      breakBy: "SUMMARY",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "grouped_bar",
+      confidenceLevel: 0.95,
+      authoredVariableSet: {
+        id: "packaging_trust_recode",
+        label: "Packaging trust recode",
+        rowMode: "authored",
+        rows: [
+          {
+            id: "top_trust",
+            label: "Trust",
+            kind: "net",
+            sourceOptionIds: ["trust_a_lot", "trust_somewhat"],
+            rowOrder: 1,
+            visible: true,
+            emphasis: "summary"
+          },
+          {
+            id: "neutral_hidden",
+            label: "Neutral",
+            kind: "option",
+            sourceOptionIds: ["neutral"],
+            rowOrder: 2,
+            visible: false,
+            emphasis: "detail"
+          }
+        ]
+      }
+    };
+
+    expect(createAnalyticsQueryPlan(query)).toMatchObject({
+      rows: {
+        id: "Q_PACKAGING_TRUST",
+        authoredVariableSet: {
+          id: "packaging_trust_recode",
+          label: "Packaging trust recode",
+          rowCount: 2,
+          visibleRowCount: 1
+        }
+      }
+    });
+  });
+
   it("includes comparison metadata for wave queries", () => {
     const query: AnalyticsQueryRequest = {
       dataset: "ecofocus_2025",

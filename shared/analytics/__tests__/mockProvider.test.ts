@@ -69,6 +69,67 @@ describe("mockAnalyticsProvider", () => {
     });
   });
 
+  it("applies authored variable-set rows when the query carries authored row definitions", async () => {
+    const result = await mockAnalyticsProvider.runQuery({
+      dataset: "ecofocus_2025",
+      question: "Q_SUSTAINABILITY_IMPORTANCE",
+      breakBy: "SUMMARY",
+      filters: [],
+      weight: "weightvar",
+      metric: "column_percent",
+      chartType: "grouped_bar",
+      confidenceLevel: 0.95,
+      authoredVariableSet: {
+        id: "sustainability_importance_recode",
+        label: "Sustainability importance recode",
+        rowMode: "authored",
+        rows: [
+          {
+            id: "high_importance",
+            label: "High importance",
+            kind: "topbox",
+            sourceOptionIds: ["very_important"],
+            rowOrder: 1,
+            visible: true,
+            emphasis: "summary"
+          },
+          {
+            id: "middle_importance",
+            label: "Middle importance",
+            kind: "net",
+            sourceOptionIds: ["somewhat_important", "not_very_important"],
+            rowOrder: 2,
+            visible: true,
+            emphasis: "detail"
+          }
+        ]
+      }
+    });
+
+    expect(result.table.map((row) => row.optionId)).toEqual(["high_importance", "middle_importance"]);
+    expect(result.table[0]).toMatchObject({
+      label: "High importance",
+      values: { summary: 31 },
+      presentation: {
+        rowKind: "topbox",
+        emphasis: "summary"
+      }
+    });
+    expect(result.table[1]).toMatchObject({
+      label: "Middle importance",
+      values: { summary: 60 },
+      presentation: {
+        rowKind: "net",
+        emphasis: "detail"
+      }
+    });
+    expect(result.metadataRefs.authoredVariableSet).toEqual({
+      id: "sustainability_importance_recode",
+      label: "Sustainability importance recode",
+      applied: true
+    });
+  });
+
   it("returns wave comparison output across datasets", async () => {
     const query: AnalyticsQueryRequest = {
       dataset: "ecofocus_2025",

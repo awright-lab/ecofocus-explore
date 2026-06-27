@@ -1,5 +1,6 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../analytics/queryPlan";
 import { runColumnComparisonSignificanceAdapter, runWaveComparisonSignificanceAdapter } from "../analytics/significanceExecution";
+import { applyVariableSetRows } from "../analytics/variableSets";
 import { getDatasetMetadata, getMetricMetadata, getWeightMetadata } from "../metadata/ecofocus2025";
 import type {
   AnalyticsAnnotation,
@@ -414,11 +415,11 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   }
 
   if (normalizedQuery.comparisonMode === "wave") {
-    return runMockWaveComparisonQuery(normalizedQuery, question.options, question.type, metric, weight?.label);
+    return applyAuthoredRowsIfPresent(runMockWaveComparisonQuery(normalizedQuery, question.options, question.type, metric, weight?.label));
   }
 
   if (question.type === "multi_binary_set") {
-    return runMockMultiBinarySetQuery(normalizedQuery, question.options, metric, weight?.label);
+    return applyAuthoredRowsIfPresent(runMockMultiBinarySetQuery(normalizedQuery, question.options, metric, weight?.label));
   }
 
   const questionData = mockPercentData[query.dataset]?.[query.question]?.[query.breakBy];
@@ -462,7 +463,7 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
   const significanceExecutionReport = runColumnComparisonSignificanceAdapter(significanceExecutionInput, significanceExecutionPlan);
   const significance = significanceFromExecutionReport(significanceReadiness, annotations, significanceExecutionReport);
 
-  return {
+  return applyAuthoredRowsIfPresent({
     query: normalizedQuery,
     labels,
     series,
@@ -497,7 +498,11 @@ export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQu
       comparisonMode: normalizedQuery.comparisonMode,
       comparisonDatasets: normalizedQuery.comparisonDatasets
     }
-  };
+  });
+}
+
+function applyAuthoredRowsIfPresent(response: AnalyticsQueryResponse) {
+  return response.query.authoredVariableSet ? applyVariableSetRows(response, response.query.authoredVariableSet) : response;
 }
 
 function runMockWaveComparisonQuery(

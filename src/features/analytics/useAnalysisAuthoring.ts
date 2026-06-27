@@ -72,7 +72,16 @@ export function queryForVariableSet(variableSet: SavedVariableSet): AnalyticsQue
           : defaultVisualizationForQuestion(nextQuestion),
     confidenceLevel: 0.95,
     comparisonMode: nextComparisonMode,
-    comparisonDatasets: variableSet.comparisonDatasets ?? []
+    comparisonDatasets: variableSet.comparisonDatasets ?? [],
+    authoredVariableSet:
+      variableSet.rowMode === "authored"
+        ? {
+            id: variableSet.id,
+            label: variableSet.label,
+            rowMode: "authored",
+            rows: variableSet.rows
+          }
+        : undefined
   };
 }
 

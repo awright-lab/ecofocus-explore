@@ -12,6 +12,7 @@ import {
 } from "../../metadata/ecofocus2025";
 import type {
   AnalyticsAnnotation,
+  AnalyticsAuthoredVariableSetRow,
   AnalyticsColumnComparisonExecutionInput,
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
@@ -217,6 +218,58 @@ function weightMetadataAligned(query: AnalyticsQueryRequest, datasetId: DatasetI
   return Boolean(primaryWeight && comparisonWeight && primaryWeight.sourceColumn === comparisonWeight.sourceColumn);
 }
 
+function visibleAuthoredRows(query: AnalyticsQueryRequest): AnalyticsAuthoredVariableSetRow[] {
+  return (query.authoredVariableSet?.rows ?? [])
+    .filter((row) => row.visible)
+    .slice()
+    .sort((a, b) => a.rowOrder - b.rowOrder);
+}
+
+function authoredVariableSetSupportReasons(query: AnalyticsQueryRequest) {
+  const authored = query.authoredVariableSet;
+  if (!authored) return [];
+
+  const question = getQuestionMetadata(query.dataset, query.question);
+  const allowedOptionIds = new Set(question?.options.map((option) => option.id) ?? []);
+  const visibleRows = visibleAuthoredRows(query);
+  const reasons: string[] = [];
+  const visibleUsage = new Map<string, string[]>();
+
+  if (authored.rowMode !== "authored") {
+    reasons.push("authored_variable_set_mode_not_live");
+  }
+
+  if (visibleRows.length === 0) {
+    reasons.push("authored_variable_set_visible_rows_missing");
+  }
+
+  authored.rows.forEach((row) => {
+    if (!["option", "net", "topbox", "bottombox"].includes(row.kind)) {
+      reasons.push("authored_variable_set_row_kind_not_live");
+    }
+
+    if (row.sourceOptionIds.length === 0) {
+      reasons.push("authored_variable_set_empty_row_not_live");
+    }
+
+    if (row.sourceOptionIds.some((optionId) => !allowedOptionIds.has(optionId))) {
+      reasons.push("authored_variable_set_source_option_not_live");
+    }
+
+    if (row.visible) {
+      row.sourceOptionIds.forEach((optionId) => {
+        visibleUsage.set(optionId, [...(visibleUsage.get(optionId) ?? []), row.label]);
+      });
+    }
+  });
+
+  if (Array.from(visibleUsage.values()).some((rowLabels) => rowLabels.length > 1)) {
+    reasons.push("authored_variable_set_overlap_not_live");
+  }
+
+  return Array.from(new Set(reasons));
+}
+
 export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): SnowflakeQuerySupport {
   const dataset = getDatasetMetadata(query.dataset);
   const question = getQuestionMetadata(query.dataset, query.question);
@@ -292,6 +345,8 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
   if (question?.type !== "single_select" && question?.type !== "multi_binary_set") {
     reasons.push("question_type_not_live");
   }
+
+  reasons.push(...authoredVariableSetSupportReasons(query));
 
   return {
     supported: reasons.length === 0,
@@ -408,6 +463,26 @@ function expectedColumnsForQuery(query: AnalyticsQueryRequest): AnalyticsTableCo
   return dimension?.values.map((value) => ({ id: value.id, label: value.label })) ?? [];
 }
 
+function expectedRowsForQuery(query: AnalyticsQueryRequest, question: NonNullable<ReturnType<typeof getQuestionMetadata>>) {
+  const authoredRows = visibleAuthoredRows(query);
+
+  if (authoredRows.length > 0) {
+    return authoredRows.map((row) => ({
+      optionId: row.id,
+      label: row.label,
+      rowKind: row.kind,
+      emphasis: row.emphasis
+    }));
+  }
+
+  return question.options.map((option) => ({
+    optionId: option.id,
+    label: option.label,
+    rowKind: "option" as const,
+    emphasis: "detail" as const
+  }));
+}
+
 function datasetWhereClause(query: AnalyticsQueryRequest, datasetId: DatasetId = query.dataset) {
   const dataset = getDatasetMetadata(datasetId);
   return `LOWER(TO_VARCHAR(${sourceIdentifier("survey_wave")})) = ${sqlString(dataset?.wave.toLowerCase() ?? datasetId)}`;
@@ -461,22 +536,46 @@ function optionMatchExpression(query: AnalyticsQueryRequest, optionId: string) {
   return `LOWER(TO_VARCHAR(${sourceIdentifier(question.sourceColumn)})) = ${sqlString(optionId.toLowerCase())}`;
 }
 
+function rowDefinitionsForQuery(query: AnalyticsQueryRequest, question: NonNullable<ReturnType<typeof getQuestionMetadata>>) {
+  const authoredRows = visibleAuthoredRows(query);
+
+  if (authoredRows.length > 0) {
+    return authoredRows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      sourceOptionIds: row.sourceOptionIds,
+      sortOrder: row.rowOrder
+    }));
+  }
+
+  return question.options.map((option) => ({
+    id: option.id,
+    label: option.label,
+    sourceOptionIds: [option.id],
+    sortOrder: option.sortOrder
+  }));
+}
+
 function weightExpression(query: AnalyticsQueryRequest) {
   const weight = getWeightMetadata(query.dataset, query.weight);
   return weight ? `COALESCE(TRY_TO_DOUBLE(${sourceIdentifier(weight.sourceColumn)}), 0)` : "1";
 }
 
-function valueExpression(query: AnalyticsQueryRequest, optionId: string) {
-  const optionMatch = optionMatchExpression(query, optionId);
+function numeratorExpression(query: AnalyticsQueryRequest, sourceOptionIds: string[]) {
   const weight = weightExpression(query);
-  const numerator = `SUM(CASE WHEN ${optionMatch} THEN ${weight} ELSE 0 END)`;
+  return sourceOptionIds.map((optionId) => `SUM(CASE WHEN ${optionMatchExpression(query, optionId)} THEN ${weight} ELSE 0 END)`).join(" + ");
+}
+
+function valueExpression(query: AnalyticsQueryRequest, sourceOptionIds: string[]) {
+  const numerator = numeratorExpression(query, sourceOptionIds);
+  const weight = weightExpression(query);
   const denominator = `NULLIF(SUM(${weight}), 0)`;
 
   if (query.metric === "count") {
     return `ROUND(${numerator}, 0)`;
   }
 
-  return `ROUND(100 * ${numerator} / ${denominator}, 1)`;
+  return `LEAST(100, ROUND(100 * (${numerator}) / ${denominator}, 1))`;
 }
 
 function baseExpression(query: AnalyticsQueryRequest) {
@@ -488,17 +587,18 @@ function buildSnowflakeStandardSqlPlan(query: AnalyticsQueryRequest, config: Sno
   const columnId = columnIdExpression(query);
   const columnLabel = columnLabelExpression(query);
   const columnSort = columnSortExpression(query);
+  const rows = rowDefinitionsForQuery(query, question);
 
-  return question.options.map((option) => {
+  return rows.map((row) => {
     return [
       "SELECT",
-      `${option.sortOrder} AS option_sort,`,
+      `${row.sortOrder} AS option_sort,`,
       `${columnSort} AS column_sort,`,
-      `${sqlString(option.id)} AS option_id,`,
-      `${sqlString(option.label)} AS option_label,`,
+      `${sqlString(row.id)} AS option_id,`,
+      `${sqlString(row.label)} AS option_label,`,
       `${columnId} AS column_id,`,
       `${columnLabel} AS column_label,`,
-      `${valueExpression(query, option.id)} AS value,`,
+      `${valueExpression(query, row.sourceOptionIds)} AS value,`,
       `${baseExpression(query)} AS base`,
       `FROM ${tableIdentifier(config)}`,
       `WHERE ${where}`,
@@ -508,7 +608,9 @@ function buildSnowflakeStandardSqlPlan(query: AnalyticsQueryRequest, config: Sno
 }
 
 function buildSnowflakeWaveSqlPlan(query: AnalyticsQueryRequest, config: SnowflakeConfig, question: NonNullable<ReturnType<typeof getQuestionMetadata>>) {
-  return question.options.flatMap((option) =>
+  const rows = rowDefinitionsForQuery(query, question);
+
+  return rows.flatMap((row) =>
     waveDatasetIds(query).map((datasetId, datasetIndex) => {
       const where = [datasetWhereClause(query, datasetId), ...filtersWhereClause(query)].join(" AND ");
       const columnId = waveColumnIdExpression(query, datasetId);
@@ -517,13 +619,13 @@ function buildSnowflakeWaveSqlPlan(query: AnalyticsQueryRequest, config: Snowfla
 
       return [
         "SELECT",
-        `${option.sortOrder} AS option_sort,`,
+        `${row.sortOrder} AS option_sort,`,
         `${columnSort} AS column_sort,`,
-        `${sqlString(option.id)} AS option_id,`,
-        `${sqlString(option.label)} AS option_label,`,
+        `${sqlString(row.id)} AS option_id,`,
+        `${sqlString(row.label)} AS option_label,`,
         `${columnId} AS column_id,`,
         `${columnLabel} AS column_label,`,
-        `${valueExpression(query, option.id)} AS value,`,
+        `${valueExpression(query, row.sourceOptionIds)} AS value,`,
         `${baseExpression(query)} AS base`,
         `FROM ${tableIdentifier(config)}`,
         `WHERE ${where}`,
@@ -844,9 +946,10 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
 
   const columns = expectedColumnsForQuery(query);
   const labels = columns.map((column) => column.label);
+  const expectedRows = expectedRowsForQuery(query, question);
   const normalizationWarnings = collectSnowflakeNormalizationWarnings(
     rows,
-    question.options.map((option) => option.id),
+    expectedRows.map((row) => row.optionId),
     columns.map((column) => column.id)
   );
   const rowLookup = new Map<string, SnowflakeResultRow[]>();
@@ -857,8 +960,8 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     rowLookup.set(optionId, [...(rowLookup.get(optionId) ?? []), row]);
   });
 
-  const series: AnalyticsSeries[] = question.options.map((option) => {
-    const optionRows = rowLookup.get(option.id) ?? [];
+  const series: AnalyticsSeries[] = expectedRows.map((expectedRow) => {
+    const optionRows = rowLookup.get(expectedRow.optionId) ?? [];
     const values = columns.map((column) => {
       const row = optionRows.find((item) => readString(item, "column_id").toLowerCase() === column.id.toLowerCase());
       return row ? readNumber(row, "value") : 0;
@@ -869,21 +972,21 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     });
 
     return {
-      id: option.id,
-      label: option.label,
+      id: expectedRow.optionId,
+      label: expectedRow.label,
       values,
       bases
     };
   });
 
-  const table: AnalyticsTableRow[] = series.map((item) => ({
+  const table: AnalyticsTableRow[] = series.map((item, rowIndex) => ({
     optionId: item.id,
     label: item.label,
     values: Object.fromEntries(columns.map((column, index) => [column.id, item.values[index]])),
     bases: Object.fromEntries(columns.map((column, index) => [column.id, item.bases[index]])),
     presentation: {
-      rowKind: "option",
-      emphasis: "detail"
+      rowKind: expectedRows[rowIndex]?.rowKind ?? "option",
+      emphasis: expectedRows[rowIndex]?.emphasis ?? "detail"
     }
   }));
   const significanceReadiness = buildSignificanceReadiness(query);
@@ -924,6 +1027,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     warnings: [...normalizationWarnings, ...collectBaseWarnings(series, dataset.minBaseWarning)],
     notes: [
       "Live Snowflake analytics output.",
+      query.authoredVariableSet ? `Authored variable set rows executed by Snowflake from ${query.authoredVariableSet.label}.` : "",
       waveComparisonNote(query, columns),
       query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted Snowflake output.",
       query.filters.length > 0 ? "Filters were applied by the Snowflake provider." : "No filters applied.",
@@ -934,7 +1038,14 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
       question: query.question,
       breakBy: query.breakBy,
       comparisonMode: query.comparisonMode,
-      comparisonDatasets: query.comparisonDatasets
+      comparisonDatasets: query.comparisonDatasets,
+      authoredVariableSet: query.authoredVariableSet
+        ? {
+            id: query.authoredVariableSet.id,
+            label: query.authoredVariableSet.label,
+            applied: true
+          }
+        : undefined
     }
   };
 }

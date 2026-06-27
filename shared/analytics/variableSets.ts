@@ -1,5 +1,7 @@
-import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../types/analytics";
+import type { AnalyticsAuthoredVariableSet, AnalyticsQueryResponse, AnalyticsTableRow } from "../types/analytics";
 import type { SavedVariableSet } from "../types/dashboard";
+
+type VariableSetRowSource = Pick<SavedVariableSet, "id" | "label" | "rows"> | AnalyticsAuthoredVariableSet;
 
 function aggregateRowValues(
   response: AnalyticsQueryResponse,
@@ -26,7 +28,7 @@ function aggregateRowValues(
   return { values, bases };
 }
 
-function variableSetRowNote(variableSet: SavedVariableSet) {
+function variableSetRowNote(variableSet: VariableSetRowSource) {
   const summaryRows = variableSet.rows.filter((row) => row.visible && row.emphasis === "summary");
   const hiddenRows = variableSet.rows.filter((row) => !row.visible);
   const parts = [`Variable set logic applied from ${variableSet.label}.`];
@@ -42,7 +44,7 @@ function variableSetRowNote(variableSet: SavedVariableSet) {
   return parts.join(" ");
 }
 
-export function applyVariableSetRows(response: AnalyticsQueryResponse, variableSet: SavedVariableSet): AnalyticsQueryResponse {
+export function applyVariableSetRows(response: AnalyticsQueryResponse, variableSet: VariableSetRowSource): AnalyticsQueryResponse {
   if (!variableSet.rows.length) return response;
 
   const orderedRows = variableSet.rows
@@ -82,8 +84,25 @@ export function applyVariableSetRows(response: AnalyticsQueryResponse, variableS
 
   return {
     ...response,
+    query: {
+      ...response.query,
+      authoredVariableSet: {
+        id: variableSet.id,
+        label: variableSet.label,
+        rowMode: "authored",
+        rows: variableSet.rows
+      }
+    },
     series: nextSeries,
     table: nextTable,
-    notes: [...response.notes, variableSetRowNote(variableSet)]
+    notes: [...response.notes, variableSetRowNote(variableSet)],
+    metadataRefs: {
+      ...response.metadataRefs,
+      authoredVariableSet: {
+        id: variableSet.id,
+        label: variableSet.label,
+        applied: true
+      }
+    }
   };
 }

@@ -17,6 +17,7 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
   const chartType = input.dataset && input.chartType ? getChartTypeMetadata(input.dataset, input.chartType) : undefined;
   const weight = input.dataset && input.weight ? getWeightMetadata(input.dataset, input.weight) : undefined;
   const comparisonDatasets = input.comparisonDatasets ?? [];
+  const authoredVariableSet = input.authoredVariableSet;
 
   if (!dataset) errors.push("Unknown dataset.");
   if (!question) errors.push("Unknown or unsupported question.");
@@ -65,6 +66,51 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
 
       if (unknownValues.length > 0) {
         errors.push(`Filter ${filter.field} contains unsupported values: ${unknownValues.join(", ")}.`);
+      }
+    }
+  }
+
+  if (authoredVariableSet) {
+    if (authoredVariableSet.rowMode !== "authored") errors.push("Unsupported authored variable-set row mode.");
+    if (!Array.isArray(authoredVariableSet.rows)) {
+      errors.push("Authored variable set rows must be an array.");
+    } else if (question) {
+      const allowedOptionIds = new Set(question.options.map((option) => option.id));
+      const visibleUsage = new Map<string, string[]>();
+
+      authoredVariableSet.rows.forEach((row) => {
+        if (!["option", "net", "topbox", "bottombox"].includes(row.kind)) {
+          errors.push(`Unsupported authored row kind: ${row.kind}.`);
+        }
+
+        if (!row.id || !row.label) {
+          errors.push("Authored rows must include an id and label.");
+        }
+
+        if (!Array.isArray(row.sourceOptionIds) || row.sourceOptionIds.length === 0) {
+          errors.push(`Authored row ${row.label || row.id} must include at least one source option.`);
+          return;
+        }
+
+        const unknownOptions = row.sourceOptionIds.filter((optionId) => !allowedOptionIds.has(optionId));
+        if (unknownOptions.length > 0) {
+          errors.push(`Authored row ${row.label || row.id} contains unsupported source options: ${unknownOptions.join(", ")}.`);
+        }
+
+        if (row.visible) {
+          row.sourceOptionIds.forEach((optionId) => {
+            visibleUsage.set(optionId, [...(visibleUsage.get(optionId) ?? []), row.label || row.id]);
+          });
+        }
+      });
+
+      const overlappingRows = Array.from(visibleUsage.entries()).filter(([, rowLabels]) => rowLabels.length > 1);
+      if (overlappingRows.length > 0) {
+        errors.push(
+          `Authored variable-set rows contain overlapping source options: ${overlappingRows
+            .map(([optionId, rowLabels]) => `${optionId} (${rowLabels.join(", ")})`)
+            .join("; ")}.`
+        );
       }
     }
   }

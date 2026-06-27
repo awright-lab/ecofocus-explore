@@ -22,6 +22,12 @@ export interface AnalyticsQueryPlan {
     type: string;
     sourceColumn: string;
     sourceVariables: string[];
+    authoredVariableSet?: {
+      id: string;
+      label: string;
+      rowCount: number;
+      visibleRowCount: number;
+    };
   };
   columns: {
     id: string;
@@ -178,7 +184,15 @@ export function createAnalyticsQueryPlan(query: AnalyticsQueryRequest): Analytic
       id: question.id,
       type: question.type,
       sourceColumn: question.sourceColumn,
-      sourceVariables: question.sourceVariables ?? [question.sourceColumn]
+      sourceVariables: question.sourceVariables ?? [question.sourceColumn],
+      authoredVariableSet: query.authoredVariableSet
+        ? {
+            id: query.authoredVariableSet.id,
+            label: query.authoredVariableSet.label,
+            rowCount: query.authoredVariableSet.rows.length,
+            visibleRowCount: query.authoredVariableSet.rows.filter((row) => row.visible).length
+          }
+        : undefined
     },
     columns: {
       id: dimension.id,

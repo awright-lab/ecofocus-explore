@@ -70,6 +70,10 @@ function resolveVariableSetResult(
   source: DashboardTile["source"] | undefined,
   savedVariableSets: SavedVariableSet[]
 ) {
+  if (response.metadataRefs.authoredVariableSet?.applied) {
+    return response;
+  }
+
   return source?.kind === "variableSet"
     ? applyVariableSetRows(response, savedVariableSets.find((item) => item.id === source.id) ?? fallbackVariableSet(source, query))
     : response;

@@ -99,6 +99,7 @@ The first live provider path supports:
 - one validated metadata-backed question filter per query
 - summary-level wave comparisons across metadata-aligned datasets
 - breakout wave comparisons for metadata-backed banner dimensions that align across selected datasets
+- explicit authored variable-set rows built from known, non-overlapping source options
 - weighted and unweighted `column_percent`, `percent_selected`, and `count` metrics
 - normalized response parity with the frontend `AnalyticsQueryResponse` contract
 
@@ -148,6 +149,7 @@ Verification is intentionally bounded and read-only. It does not prove productio
 The live Snowflake provider will need to support:
 
 - broader saved/authored variable-set row execution
+- advanced authored recode behavior beyond explicit source-option composition
 - broader breakout wave comparison coverage beyond the current metadata-aligned banner subset
 - multiple simultaneous question filters
 - production parity checks for weighted output conventions

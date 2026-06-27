@@ -23,6 +23,25 @@ export interface AnalyticsFilter {
   values: string[];
 }
 
+export type AnalyticsAuthoredRowKind = "option" | "net" | "topbox" | "bottombox";
+
+export interface AnalyticsAuthoredVariableSetRow {
+  id: string;
+  label: string;
+  kind: AnalyticsAuthoredRowKind;
+  sourceOptionIds: string[];
+  rowOrder: number;
+  visible: boolean;
+  emphasis: "detail" | "summary";
+}
+
+export interface AnalyticsAuthoredVariableSet {
+  id: string;
+  label: string;
+  rowMode: "authored";
+  rows: AnalyticsAuthoredVariableSetRow[];
+}
+
 export interface AnalyticsQueryRequest {
   dataset: DatasetId;
   question: QuestionId;
@@ -34,6 +53,7 @@ export interface AnalyticsQueryRequest {
   confidenceLevel: ConfidenceLevel;
   comparisonMode?: ComparisonMode;
   comparisonDatasets?: DatasetId[];
+  authoredVariableSet?: AnalyticsAuthoredVariableSet;
 }
 
 export interface AnalyticsSeries {
@@ -292,6 +312,11 @@ export interface AnalyticsQueryResponse {
     breakBy: BreakById;
     comparisonMode?: ComparisonMode;
     comparisonDatasets?: DatasetId[];
+    authoredVariableSet?: {
+      id: string;
+      label: string;
+      applied: boolean;
+    };
   };
 }
 

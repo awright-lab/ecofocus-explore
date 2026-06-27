@@ -57,6 +57,60 @@ const breakoutWaveQuery: AnalyticsQueryRequest = {
   breakBy: "GENERATION"
 };
 
+const authoredVariableSetQuery: AnalyticsQueryRequest = {
+  dataset: "ecofocus_2025",
+  question: "Q_SUSTAINABILITY_IMPORTANCE",
+  breakBy: "SUMMARY",
+  filters: [],
+  weight: "weightvar",
+  metric: "column_percent",
+  chartType: "grouped_bar",
+  confidenceLevel: 0.95,
+  authoredVariableSet: {
+    id: "sustainability_importance_recode",
+    label: "Sustainability importance recode",
+    rowMode: "authored",
+    rows: [
+      {
+        id: "high_importance",
+        label: "High importance",
+        kind: "topbox",
+        sourceOptionIds: ["very_important"],
+        rowOrder: 1,
+        visible: true,
+        emphasis: "summary"
+      },
+      {
+        id: "middle_importance",
+        label: "Middle importance",
+        kind: "net",
+        sourceOptionIds: ["somewhat_important", "not_very_important"],
+        rowOrder: 2,
+        visible: true,
+        emphasis: "detail"
+      },
+      {
+        id: "low_importance",
+        label: "Low importance",
+        kind: "bottombox",
+        sourceOptionIds: ["not_at_all_important"],
+        rowOrder: 3,
+        visible: true,
+        emphasis: "summary"
+      },
+      {
+        id: "hidden_source",
+        label: "Hidden source option",
+        kind: "option",
+        sourceOptionIds: ["very_important"],
+        rowOrder: 4,
+        visible: false,
+        emphasis: "detail"
+      }
+    ]
+  }
+};
+
 describe("snowflakeProvider", () => {
   it("reports live readiness when Snowflake configuration exists", () => {
     expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).getReadiness?.()).toEqual({
@@ -126,6 +180,20 @@ describe("snowflakeProvider", () => {
 
     expect(plan.sqlText).toContain("(TRY_TO_NUMBER(Q15r1) = 1 OR LOWER(TO_VARCHAR(Q15r1)) IN ('true', 'yes', 'selected'))");
     expect(plan.sqlText).toContain("(TRY_TO_NUMBER(Q15r8) = 1 OR LOWER(TO_VARCHAR(Q15r8)) IN ('true', 'yes', 'selected'))");
+  });
+
+  it("builds a Snowflake SQL plan for supported authored variable-set rows", () => {
+    const plan = buildSnowflakeSqlPlan(authoredVariableSetQuery, requireSnowflakeConfig(env));
+
+    expect(getSnowflakeQuerySupport(authoredVariableSetQuery)).toMatchObject({
+      supported: true,
+      reasons: []
+    });
+    expect(plan.sqlText).toContain("'high_importance' AS option_id");
+    expect(plan.sqlText).toContain("'Middle importance' AS option_label");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_sustainability_importance)) = 'somewhat_important'");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_sustainability_importance)) = 'not_very_important'");
+    expect(plan.sqlText).not.toContain("'hidden_source' AS option_id");
   });
 
   it("guards generated execution against non-read-only SQL", () => {
@@ -378,6 +446,121 @@ describe("snowflakeProvider", () => {
       comparisonDatasets: ["ecofocus_2024"]
     });
     expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 by Generation live wave comparison."]));
+  });
+
+  it("executes supported authored variable-set rows through the injected provider executor", async () => {
+    let executedSql = "";
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "high_importance", COLUMN_ID: "summary", VALUE: 31, BASE: 1495 },
+          { OPTION_ID: "middle_importance", COLUMN_ID: "summary", VALUE: 60, BASE: 1495 },
+          { OPTION_ID: "low_importance", COLUMN_ID: "summary", VALUE: 9, BASE: 1495 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(authoredVariableSetQuery);
+
+    expect(executedSql).toContain("'middle_importance' AS option_id");
+    expect(result.table.map((row) => row.optionId)).toEqual(["high_importance", "middle_importance", "low_importance"]);
+    expect(result.table[0]).toMatchObject({
+      label: "High importance",
+      values: { summary: 31 },
+      bases: { summary: 1495 },
+      presentation: {
+        rowKind: "topbox",
+        emphasis: "summary"
+      }
+    });
+    expect(result.table[1]).toMatchObject({
+      label: "Middle importance",
+      values: { summary: 60 },
+      presentation: {
+        rowKind: "net",
+        emphasis: "detail"
+      }
+    });
+    expect(result.table[2]).toMatchObject({
+      presentation: {
+        rowKind: "bottombox",
+        emphasis: "summary"
+      }
+    });
+    expect(result.series.map((series) => series.id)).toEqual(["high_importance", "middle_importance", "low_importance"]);
+    expect(result.metadataRefs.authoredVariableSet).toEqual({
+      id: "sustainability_importance_recode",
+      label: "Sustainability importance recode",
+      applied: true
+    });
+    expect(result.notes).toEqual(expect.arrayContaining([
+      "Authored variable set rows executed by Snowflake from Sustainability importance recode."
+    ]));
+  });
+
+  it("keeps unsupported authored variable-set row references explicit", async () => {
+    const unsupportedQuery: AnalyticsQueryRequest = {
+      ...authoredVariableSetQuery,
+      authoredVariableSet: {
+        ...authoredVariableSetQuery.authoredVariableSet!,
+        rows: [
+          {
+            id: "bad_row",
+            label: "Bad row",
+            kind: "net",
+            sourceOptionIds: ["missing_option"],
+            rowOrder: 1,
+            visible: true,
+            emphasis: "summary"
+          }
+        ]
+      }
+    };
+
+    expect(getSnowflakeQuerySupport(unsupportedQuery)).toMatchObject({
+      supported: false,
+      reasons: ["authored_variable_set_source_option_not_live"]
+    });
+    await expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).runQuery(unsupportedQuery)).rejects.toMatchObject({
+      name: "SnowflakeProviderError",
+      code: "snowflake_unsupported_query",
+      reasons: ["authored_variable_set_source_option_not_live"]
+    });
+  });
+
+  it("keeps overlapping authored variable-set rows explicit", () => {
+    const unsupportedQuery: AnalyticsQueryRequest = {
+      ...authoredVariableSetQuery,
+      authoredVariableSet: {
+        ...authoredVariableSetQuery.authoredVariableSet!,
+        rows: [
+          {
+            id: "topbox",
+            label: "Top box",
+            kind: "topbox",
+            sourceOptionIds: ["very_important"],
+            rowOrder: 1,
+            visible: true,
+            emphasis: "summary"
+          },
+          {
+            id: "net",
+            label: "Net",
+            kind: "net",
+            sourceOptionIds: ["very_important", "somewhat_important"],
+            rowOrder: 2,
+            visible: true,
+            emphasis: "summary"
+          }
+        ]
+      }
+    };
+
+    expect(getSnowflakeQuerySupport(unsupportedQuery)).toMatchObject({
+      supported: false,
+      reasons: ["authored_variable_set_overlap_not_live"]
+    });
   });
 
   it("wraps executor failures with structured Snowflake provider diagnostics", async () => {
