@@ -845,8 +845,6 @@ export default function BuilderApp() {
     <main className="builder-shell">
       <BuilderHeader
         dashboard={dashboard}
-        saveState={saveState}
-        onRenameDashboard={renameDashboard}
         canUndo={history.length > 0}
         canRedo={future.length > 0}
         canUseSelection={Boolean(selectedTile || selectedElement)}
@@ -866,6 +864,7 @@ export default function BuilderApp() {
           activeView={leftPanelView}
           pageTitle={dashboard.title}
           saveState={saveState}
+          onRenameDashboard={renameDashboard}
           selectionLabel={workspaceSelectionLabel}
         />
         <AnalysisAuthoringPanel

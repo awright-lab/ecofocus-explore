@@ -5,8 +5,7 @@ import {
   buildExportPackageContextView,
   buildPublishReadinessView,
   buildPublishShareContextView,
-  type ExportPackageConfirmationView,
-  publishMetadataLabel
+  type ExportPackageConfirmationView
 } from "../builderPublishModel";
 import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
 
@@ -18,7 +17,14 @@ type ChromeIconName =
   | "duplicate"
   | "delete"
   | "help"
-  | "bell";
+  | "bell"
+  | "back"
+  | "pencil"
+  | "desktop"
+  | "mobile"
+  | "zoomOut"
+  | "zoomIn"
+  | "grid";
 
 const workspaceProductModes: Array<{
   id: WorkspaceProductMode;
@@ -46,7 +52,14 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
     duplicate: <><rect x="8" y="8" width="10" height="10" rx="2" /><path d="M6 14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1" /></>,
     delete: <><path d="M5 7h14M10 11v6M14 11v6M8 7l1-3h6l1 3M7 7l1 13h8l1-13" /></>,
     help: <><circle cx="12" cy="12" r="9" /><path d="M9.7 9a2.5 2.5 0 1 1 4.3 1.8c-.8.8-1.7 1.2-1.8 2.5" /><path d="M12 17h.01" /></>,
-    bell: <><path d="M18 16H6c1.3-1.4 1.7-3 1.7-5a4.3 4.3 0 1 1 8.6 0c0 2 .4 3.6 1.7 5Z" /><path d="M10 19a2.2 2.2 0 0 0 4 0" /></>
+    bell: <><path d="M18 16H6c1.3-1.4 1.7-3 1.7-5a4.3 4.3 0 1 1 8.6 0c0 2 .4 3.6 1.7 5Z" /><path d="M10 19a2.2 2.2 0 0 0 4 0" /></>,
+    back: <path d="m15 18-6-6 6-6" />,
+    pencil: <><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z" /><path d="m14 7 3 3" /></>,
+    desktop: <><rect x="4" y="5" width="16" height="12" rx="2" /><path d="M9 20h6M12 17v3" /></>,
+    mobile: <><rect x="8" y="3" width="8" height="18" rx="2" /><path d="M11.5 18h1" /></>,
+    zoomOut: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="M15 15l5 5M8 10.5h5" /></>,
+    zoomIn: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="M15 15l5 5M8 10.5h5M10.5 8v5" /></>,
+    grid: <><path d="M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z" /></>
   };
 
   return (
@@ -60,8 +73,6 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
 
 export function BuilderHeader({
   dashboard,
-  saveState,
-  onRenameDashboard,
   canUndo,
   canRedo,
   canUseSelection,
@@ -76,8 +87,6 @@ export function BuilderHeader({
   onUnpublish
 }: {
   dashboard: DashboardDraft;
-  saveState: string;
-  onRenameDashboard: (title: string) => void;
   canUndo: boolean;
   canRedo: boolean;
   canUseSelection: boolean;
@@ -94,17 +103,8 @@ export function BuilderHeader({
   const readiness = buildPublishReadinessView(dashboard);
   const shareContext = buildPublishShareContextView(dashboard);
   const exportContext = buildExportPackageContextView(dashboard, readiness);
-  const saveStateView = buildDocumentSaveStateView(saveState);
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(dashboard.title);
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
-
-  useEffect(() => {
-    if (!isEditingTitle) {
-      setTitleDraft(dashboard.title);
-    }
-  }, [dashboard.title, isEditingTitle]);
 
   useEffect(() => {
     if (!exportConfirmation) return undefined;
@@ -115,31 +115,6 @@ export function BuilderHeader({
   function handleExport() {
     onExport();
     setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext));
-  }
-
-  function commitTitle() {
-    const nextTitle = normalizeDocumentTitle(titleDraft, dashboard.title);
-    setIsEditingTitle(false);
-    setTitleDraft(nextTitle);
-    if (nextTitle !== dashboard.title) {
-      onRenameDashboard(nextTitle);
-    }
-  }
-
-  function cancelTitleEdit() {
-    setIsEditingTitle(false);
-    setTitleDraft(dashboard.title);
-  }
-
-  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commitTitle();
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      cancelTitleEdit();
-    }
   }
 
   return (
@@ -162,35 +137,6 @@ export function BuilderHeader({
             </button>
           ))}
         </nav>
-      </div>
-      <div className="document-identity-shell" aria-label="Document identity">
-        <div className="document-title-block">
-          {isEditingTitle ? (
-            <input
-              aria-label="Document title"
-              className="document-title-input"
-              value={titleDraft}
-              onBlur={commitTitle}
-              onChange={(event) => setTitleDraft(event.target.value)}
-              onKeyDown={handleTitleKeyDown}
-              autoFocus
-            />
-          ) : (
-            <button type="button" className="document-title-button" onClick={() => setIsEditingTitle(true)}>
-              <h1>{dashboard.title}</h1>
-              <span aria-hidden="true">Edit</span>
-            </button>
-          )}
-          <div className="document-identity-meta">
-            <span>{publishMetadataLabel(dashboard)}</span>
-            {activeProductMode !== "story" && <span>{workspaceProductModes.find((mode) => mode.id === activeProductMode)?.helper}</span>}
-            <span className={`save-state ${saveStateView.tone}`} aria-live="polite">
-              {saveStateView.showSpinner && <span className="save-state-spinner" aria-hidden="true" />}
-              <strong>{saveStateView.label}</strong>
-              <small>{saveStateView.helper}</small>
-            </span>
-          </div>
-        </div>
       </div>
       <div className="publish-controls">
         <div className="quick-edit-controls" aria-label="Quick edit actions">
@@ -252,14 +198,18 @@ export function WorkspaceModeStrip({
   activeView,
   pageTitle,
   saveState,
+  onRenameDashboard,
   selectionLabel
 }: {
   activeView: "pages" | "layers" | "insert" | "data" | "brand";
   pageTitle: string;
   saveState: string;
+  onRenameDashboard: (title: string) => void;
   selectionLabel: string;
 }) {
   const saveStateView = buildDocumentSaveStateView(saveState);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(pageTitle);
   const modeLabel =
     activeView === "data"
       ? "Explore"
@@ -269,12 +219,58 @@ export function WorkspaceModeStrip({
           ? "Brand"
           : "Compose";
 
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitleDraft(pageTitle);
+    }
+  }, [pageTitle, isEditingTitle]);
+
+  function commitTitle() {
+    const nextTitle = normalizeDocumentTitle(titleDraft, pageTitle);
+    setIsEditingTitle(false);
+    setTitleDraft(nextTitle);
+    if (nextTitle !== pageTitle) {
+      onRenameDashboard(nextTitle);
+    }
+  }
+
+  function cancelTitleEdit() {
+    setIsEditingTitle(false);
+    setTitleDraft(pageTitle);
+  }
+
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitTitle();
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelTitleEdit();
+    }
+  }
+
   return (
     <div className="workspace-mode-strip" aria-label="Workspace mode">
       <div className="workspace-strip-document">
-        <button type="button" className="workspace-back-button" aria-label="Back to story overview">‹</button>
+        <button type="button" className="workspace-back-button" aria-label="Back to story overview"><ChromeIcon icon="back" /></button>
         <div>
-          <strong>{pageTitle}</strong>
+          {isEditingTitle ? (
+            <input
+              aria-label="Document title"
+              className="workspace-title-input"
+              value={titleDraft}
+              onBlur={commitTitle}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              autoFocus
+            />
+          ) : (
+            <button type="button" className="workspace-title-button" onClick={() => setIsEditingTitle(true)}>
+              <strong>{pageTitle}</strong>
+              <span className="workspace-title-edit" aria-hidden="true"><ChromeIcon icon="pencil" /></span>
+            </button>
+          )}
           <span>{modeLabel} workspace</span>
         </div>
       </div>
@@ -287,11 +283,11 @@ export function WorkspaceModeStrip({
         <small>{selectionLabel}</small>
       </div>
       <div className="workspace-strip-tools" aria-label="Canvas view controls">
-        <button type="button" title="Desktop preview">▭</button>
-        <button type="button" title="Mobile preview">▯</button>
-        <button type="button" title="Zoom out">−</button>
-        <button type="button" title="Zoom in">+</button>
-        <button type="button" title="Grid">▦</button>
+        <button type="button" title="Desktop preview"><ChromeIcon icon="desktop" /></button>
+        <button type="button" title="Mobile preview"><ChromeIcon icon="mobile" /></button>
+        <button type="button" title="Zoom out"><ChromeIcon icon="zoomOut" /></button>
+        <button type="button" title="Zoom in"><ChromeIcon icon="zoomIn" /></button>
+        <button type="button" title="Grid"><ChromeIcon icon="grid" /></button>
       </div>
     </div>
   );
