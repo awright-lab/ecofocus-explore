@@ -219,12 +219,15 @@ export function BuilderHeader({
 export function WorkspaceModeStrip({
   activeView,
   pageTitle,
+  saveState,
   selectionLabel
 }: {
   activeView: "pages" | "layers" | "insert" | "data" | "brand";
   pageTitle: string;
+  saveState: string;
   selectionLabel: string;
 }) {
+  const saveStateView = buildDocumentSaveStateView(saveState);
   const modeLabel =
     activeView === "data"
       ? "Explore"
@@ -245,6 +248,10 @@ export function WorkspaceModeStrip({
       </div>
       <div className="workspace-strip-status">
         <span>Draft</span>
+        <small className={`workspace-save-state ${saveStateView.tone}`} aria-live="polite">
+          {saveStateView.showSpinner && <span className="save-state-spinner" aria-hidden="true" />}
+          {saveStateView.label}
+        </small>
         <small>{selectionLabel}</small>
       </div>
       <div className="workspace-strip-tools" aria-label="Canvas view controls">

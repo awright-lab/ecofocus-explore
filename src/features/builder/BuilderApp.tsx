@@ -864,7 +864,8 @@ export default function BuilderApp() {
       <section className="builder-workspace">
         <WorkspaceModeStrip
           activeView={leftPanelView}
-          pageTitle={activePage.title}
+          pageTitle={dashboard.title}
+          saveState={saveState}
           selectionLabel={workspaceSelectionLabel}
         />
         <ToolRail activeView={leftPanelView} onChange={setLeftPanelView} />

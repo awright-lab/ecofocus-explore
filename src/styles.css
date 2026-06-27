@@ -204,7 +204,7 @@ h1 {
 }
 
 .document-identity-shell {
-  display: grid;
+  display: none;
   min-width: 220px;
   max-width: 420px;
   justify-items: start;
@@ -356,10 +356,23 @@ h2 {
   opacity: 0.72;
 }
 
-.publish-controls button:not(.secondary) {
+.publish-controls button:not(.secondary):not(.icon-button):not(.export-action):not(.share-action) {
   border-color: #0e6f5c;
   background: #0e6f5c;
   color: #ffffff;
+}
+
+.publish-controls .icon-button {
+  border-color: #dce4e8;
+  background: #ffffff;
+  color: #2f3a43;
+  box-shadow: none;
+}
+
+.publish-controls .icon-button:hover {
+  border-color: #bed4dd;
+  background: #f7fafb;
+  color: #08715f;
 }
 
 .quick-edit-controls {
@@ -624,7 +637,7 @@ h2 {
 
 .builder-workspace {
   display: grid;
-  grid-template-columns: 56px 300px minmax(0, 1fr) 330px;
+  grid-template-columns: 56px 300px minmax(0, 1fr) 376px;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
@@ -676,6 +689,14 @@ h2 {
 .workspace-strip-status {
   justify-content: center;
   flex: 1 1 auto;
+}
+
+.workspace-save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #08715f;
+  font-weight: 850;
 }
 
 .workspace-strip-status > span {

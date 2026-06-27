@@ -1064,7 +1064,194 @@ export const initialDashboard: DashboardDraft = {
         status: "custom"
       },
       ...defaultPageDesign(),
-      elements: [],
+      elements: [
+        {
+          id: "mockup_accent_rule",
+          name: "Accent rule",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 52, y: 34, width: 48, height: 5, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#0e8f78", borderWidth: 0, borderRadius: 5 }
+        },
+        {
+          id: "mockup_story_title",
+          name: "Story title",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 64, y: 72, width: 440, height: 62, zIndex: 2 },
+          content: "Workplace Trends 2026",
+          style: {
+            ...defaultElementStyle("text"),
+            fill: "transparent",
+            textColor: "#101833",
+            fontFamily: "Georgia, serif",
+            fontSize: 36,
+            fontWeight: "800",
+            padding: 0
+          }
+        },
+        {
+          id: "mockup_story_subtitle",
+          name: "Story subtitle",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 66, y: 138, width: 420, height: 50, zIndex: 2 },
+          content: "What matters most to today’s workforce—and what it means for business",
+          style: {
+            ...defaultElementStyle("text"),
+            fill: "transparent",
+            textColor: "#536078",
+            fontSize: 16,
+            fontWeight: "500",
+            lineHeight: 1.32,
+            padding: 0
+          }
+        },
+        {
+          id: "mockup_kpi_card_1",
+          name: "KPI card",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 558, y: 56, width: 126, height: 146, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e7ec", borderWidth: 1, borderRadius: 8, shadow: true }
+        },
+        {
+          id: "mockup_kpi_1",
+          name: "KPI text",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 574, y: 82, width: 96, height: 100, zIndex: 2 },
+          content: "84%\nCare About\nWorkplace Culture\nvs. 78% in 2024 ↑",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#11182f", fontSize: 15, fontWeight: "800", lineHeight: 1.18, padding: 0 }
+        },
+        {
+          id: "mockup_kpi_card_2",
+          name: "KPI card",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 696, y: 56, width: 126, height: 146, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e7ec", borderWidth: 1, borderRadius: 8, shadow: true }
+        },
+        {
+          id: "mockup_kpi_2",
+          name: "KPI text",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 712, y: 82, width: 96, height: 100, zIndex: 2 },
+          content: "41%\nFeel Supported\nat Work\nvs. 35% in 2024 ↑",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#11182f", fontSize: 15, fontWeight: "800", lineHeight: 1.18, padding: 0 }
+        },
+        {
+          id: "mockup_kpi_card_3",
+          name: "KPI card",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 834, y: 56, width: 126, height: 146, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e7ec", borderWidth: 1, borderRadius: 8, shadow: true }
+        },
+        {
+          id: "mockup_kpi_3",
+          name: "KPI text",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 850, y: 82, width: 96, height: 100, zIndex: 2 },
+          content: "2x\nGrowth in\nJob-Seeker Influence\nvs. 2024 ↑",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#11182f", fontSize: 15, fontWeight: "800", lineHeight: 1.18, padding: 0 }
+        },
+        {
+          id: "mockup_chart_placeholder",
+          name: "Chart placeholder",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 64, y: 244, width: 516, height: 292, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 8, shadow: true }
+        },
+        {
+          id: "mockup_chart_title",
+          name: "Chart title",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 86, y: 264, width: 280, height: 38, zIndex: 2 },
+          content: "Top Drivers of Workplace Choice\n% selecting as a top 3 driver",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#172033", fontSize: 14, fontWeight: "800", lineHeight: 1.25, padding: 0 }
+        },
+        {
+          id: "mockup_donut_placeholder",
+          name: "Donut placeholder",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 608, y: 244, width: 352, height: 292, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 8, shadow: true }
+        },
+        {
+          id: "mockup_donut_title",
+          name: "Donut title",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 628, y: 264, width: 250, height: 36, zIndex: 2 },
+          content: "Preferred Work Arrangement\n% of respondents",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#172033", fontSize: 14, fontWeight: "800", lineHeight: 1.25, padding: 0 }
+        },
+        {
+          id: "mockup_insight_band",
+          name: "Insight band",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 64, y: 572, width: 392, height: 86, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#edf9f6", borderColor: "#def0eb", borderWidth: 1, borderRadius: 8, shadow: false }
+        },
+        {
+          id: "mockup_insight_text",
+          name: "Insight text",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 114, y: 590, width: 314, height: 52, zIndex: 2 },
+          content: "INSIGHT\nCulture leads the decision hierarchy, outranking compensation and growth.",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#101833", fontSize: 14, fontWeight: "800", lineHeight: 1.28, padding: 0 }
+        },
+        {
+          id: "mockup_next_section",
+          name: "Next section card",
+          type: "rectangle",
+          locked: false,
+          hidden: false,
+          layout: { x: 484, y: 572, width: 476, height: 86, zIndex: 1 },
+          content: "",
+          style: { ...defaultElementStyle("rectangle"), fill: "#f5f3fb", borderColor: "#ece9f7", borderWidth: 1, borderRadius: 8, shadow: false }
+        },
+        {
+          id: "mockup_next_section_text",
+          name: "Next section text",
+          type: "text",
+          locked: false,
+          hidden: false,
+          layout: { x: 558, y: 590, width: 260, height: 52, zIndex: 2 },
+          content: "SECTION 2\nOpportunity\nWhere organizations can take action",
+          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#101833", fontFamily: "Georgia, serif", fontSize: 22, fontWeight: "800", lineHeight: 1.12, padding: 0 }
+        }
+      ],
       tiles: []
     }
   ]

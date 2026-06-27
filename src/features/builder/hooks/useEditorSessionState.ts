@@ -29,7 +29,7 @@ export function useEditorSessionState() {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [multiSelectedObjects, setMultiSelectedObjects] = useState<Array<{ id: string; type: "tile" | "element" }>>([]);
   const [selectedChartPartId, setSelectedChartPartId] = useState("all");
-  const [leftPanelView, setLeftPanelView] = useState<LeftPanelView>("pages");
+  const [leftPanelView, setLeftPanelView] = useState<LeftPanelView>("data");
   const [exploreView, setExploreView] = useState<ExploreView>("source");
   const [sourceLibraryView, setSourceLibraryView] = useState<SourceLibraryView>("variableSets");
   const [analysisLibraryView, setAnalysisLibraryView] = useState<AnalysisLibraryView>("variableSets");
