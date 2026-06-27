@@ -847,12 +847,8 @@ export default function BuilderApp() {
         dashboard={dashboard}
         canUndo={history.length > 0}
         canRedo={future.length > 0}
-        canUseSelection={Boolean(selectedTile || selectedElement)}
         onUndo={undo}
         onRedo={redo}
-        onDuplicate={duplicateSelectedItem}
-        onDelete={deleteSelectedItem}
-        onReset={resetDashboard}
         onExport={exportDashboardSpec}
         onOpenPublished={openPublishedReport}
         onPublish={publishDashboard}

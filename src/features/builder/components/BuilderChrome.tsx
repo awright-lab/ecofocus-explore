@@ -4,7 +4,6 @@ import {
   buildExportPackageConfirmationView,
   buildExportPackageContextView,
   buildPublishReadinessView,
-  buildPublishShareContextView,
   type ExportPackageConfirmationView
 } from "../builderPublishModel";
 import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
@@ -12,10 +11,13 @@ import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentId
 type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report" | "present";
 type ChromeIconName =
   | WorkspaceProductMode
+  | "brand"
   | "undo"
   | "redo"
   | "duplicate"
   | "delete"
+  | "share"
+  | "export"
   | "help"
   | "bell"
   | "back"
@@ -41,6 +43,7 @@ const workspaceProductModes: Array<{
 
 function ChromeIcon({ icon }: { icon: ChromeIconName }) {
   const paths: Record<ChromeIconName, ReactNode> = {
+    brand: <><path d="M8.5 6.5 4.8 17a2.2 2.2 0 0 0 3.4 2.4l3.8-3.1" /><path d="m15.5 6.5 3.7 10.5a2.2 2.2 0 0 1-3.4 2.4L12 16.3" /><circle cx="12" cy="8" r="3.2" /><path d="M9.8 10.4 7.2 17.2M14.2 10.4l2.6 6.8" /></>,
     data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
     design: <><path d="M12 4 20 12l-8 8-8-8z" /><circle cx="12" cy="12" r="2.2" /></>,
     story: <><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M8 9h8M8 13h5M8 17h7" /></>,
@@ -51,6 +54,8 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
     redo: <><path d="M15 8h4V4" /><path d="M19 8c-2.3-2.5-5.8-3.2-8.8-1.7-3.1 1.6-4.5 5.2-3.2 8.4 1.2 3 4.4 4.8 7.6 4.1" /></>,
     duplicate: <><rect x="8" y="8" width="10" height="10" rx="2" /><path d="M6 14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1" /></>,
     delete: <><path d="M5 7h14M10 11v6M14 11v6M8 7l1-3h6l1 3M7 7l1 13h8l1-13" /></>,
+    share: <><circle cx="8" cy="8" r="3" /><path d="M16 21v-2a4 4 0 0 0-8 0v2" /><path d="M17 8h4M19 6v4" /></>,
+    export: <><path d="M12 15V4" /><path d="m8 8 4-4 4 4" /><rect x="5" y="13" width="14" height="7" rx="2" /></>,
     help: <><circle cx="12" cy="12" r="9" /><path d="M9.7 9a2.5 2.5 0 1 1 4.3 1.8c-.8.8-1.7 1.2-1.8 2.5" /><path d="M12 17h.01" /></>,
     bell: <><path d="M18 16H6c1.3-1.4 1.7-3 1.7-5a4.3 4.3 0 1 1 8.6 0c0 2 .4 3.6 1.7 5Z" /><path d="M10 19a2.2 2.2 0 0 0 4 0" /></>,
     back: <path d="m15 18-6-6 6-6" />,
@@ -75,12 +80,8 @@ export function BuilderHeader({
   dashboard,
   canUndo,
   canRedo,
-  canUseSelection,
   onUndo,
   onRedo,
-  onDuplicate,
-  onDelete,
-  onReset,
   onExport,
   onOpenPublished,
   onPublish,
@@ -89,19 +90,14 @@ export function BuilderHeader({
   dashboard: DashboardDraft;
   canUndo: boolean;
   canRedo: boolean;
-  canUseSelection: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-  onReset: () => void;
   onExport: () => void;
   onOpenPublished: () => void;
   onPublish: () => void;
   onUnpublish: () => void;
 }) {
   const readiness = buildPublishReadinessView(dashboard);
-  const shareContext = buildPublishShareContextView(dashboard);
   const exportContext = buildExportPackageContextView(dashboard, readiness);
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
@@ -120,7 +116,7 @@ export function BuilderHeader({
   return (
     <header className="builder-header">
       <div className="top-nav" aria-label="Product navigation">
-        <span className="app-mark">IC</span>
+        <span className="app-mark"><ChromeIcon icon="brand" /></span>
         <strong className="app-wordmark">InsightCanvas</strong>
         <nav className="workspace-product-nav" aria-label="Workspace modes">
           {workspaceProductModes.map((mode) => (
@@ -140,10 +136,8 @@ export function BuilderHeader({
       </div>
       <div className="publish-controls">
         <div className="quick-edit-controls" aria-label="Quick edit actions">
-          <button type="button" className="icon-button" aria-label="Undo" title="Undo" onClick={onUndo} disabled={!canUndo}><ChromeIcon icon="undo" /></button>
-          <button type="button" className="icon-button" aria-label="Redo" title="Redo" onClick={onRedo} disabled={!canRedo}><ChromeIcon icon="redo" /></button>
-          <button type="button" className="icon-button" aria-label="Duplicate selection" title="Duplicate" onClick={onDuplicate} disabled={!canUseSelection}><ChromeIcon icon="duplicate" /></button>
-          <button type="button" className="icon-button" aria-label="Delete selection" title="Delete" onClick={onDelete} disabled={!canUseSelection}><ChromeIcon icon="delete" /></button>
+          <button type="button" className="icon-button header-plain-icon" aria-label="Undo" title="Undo" onClick={onUndo} disabled={!canUndo}><ChromeIcon icon="undo" /></button>
+          <button type="button" className="icon-button header-plain-icon" aria-label="Redo" title="Redo" onClick={onRedo} disabled={!canRedo}><ChromeIcon icon="redo" /></button>
         </div>
         {exportConfirmation && (
           <div className={`export-package-confirmation ${exportConfirmation.status}`} role="status">
@@ -151,44 +145,18 @@ export function BuilderHeader({
             <small>{exportConfirmation.helper}</small>
           </div>
         )}
-        <details className="delivery-status-menu">
-          <summary>
-            <span className={dashboard.status === "published" ? "status published" : "status"}>{dashboard.status}</span>
-            <strong>{readiness.passedCount}/{readiness.totalCount} ready</strong>
-          </summary>
-          <div className="delivery-status-popover">
-            <div className={`publish-readiness-cue ${readiness.status}`} aria-label="Publish readiness">
-              <strong>{readiness.label}</strong>
-              <span>{readiness.passedCount}/{readiness.totalCount} checks</span>
-              <small>{readiness.helper}</small>
-            </div>
-            <div className={`publish-share-context ${shareContext.status}`} aria-label="Publish and share context">
-              <strong>{shareContext.label}</strong>
-              <span>{shareContext.helper}</span>
-              <small>{shareContext.viewerLabel}</small>
-              <small>{shareContext.exportLabel}</small>
-            </div>
-            <div className={`export-package-context ${exportContext.status}`} aria-label="Export package context">
-              <strong>{exportContext.label}</strong>
-              <span>{exportContext.packageLabel}</span>
-              <small>{exportContext.readinessLabel}</small>
-              <small>{exportContext.helper}</small>
-            </div>
-          </div>
-        </details>
-        <button type="button" className="icon-button" aria-label="Help" title="Help"><ChromeIcon icon="help" /></button>
-        <button type="button" className="icon-button" aria-label="Notifications" title="Notifications"><ChromeIcon icon="bell" /></button>
-        <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
-        <button type="button" className="secondary quiet-header-action" onClick={onReset}>Reset</button>
         {dashboard.status === "published" ? (
           <>
             <button type="button" className="secondary" onClick={onOpenPublished}>Open</button>
-            <button type="button" className="share-action" onClick={onUnpublish}>Unshare</button>
+            <button type="button" className="share-action" onClick={onUnpublish}><ChromeIcon icon="share" />Unshare</button>
           </>
         ) : (
-          <button type="button" className="share-action" onClick={onPublish}>Share</button>
+          <button type="button" className="share-action" onClick={onPublish}><ChromeIcon icon="share" />Share</button>
         )}
-        <button type="button" className="export-action" onClick={handleExport}>Export ▾</button>
+        <button type="button" className="export-action" onClick={handleExport}><ChromeIcon icon="export" />Export ▾</button>
+        <button type="button" className="icon-button header-plain-icon" aria-label="Help" title="Help"><ChromeIcon icon="help" /></button>
+        <button type="button" className="icon-button header-plain-icon" aria-label="Notifications" title="Notifications"><ChromeIcon icon="bell" /></button>
+        <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
       </div>
     </header>
   );

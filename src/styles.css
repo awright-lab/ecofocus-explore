@@ -133,13 +133,18 @@ h1 {
 .app-mark {
   display: inline-grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid rgba(15, 168, 122, 0.28);
-  border-radius: 9px;
-  background: linear-gradient(135deg, #e8f8f3, #ffffff);
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(8, 113, 95, 0.18);
+  border-radius: 10px;
+  background: #f8fcfb;
   color: #08715f;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 2px rgba(20, 39, 48, 0.04);
+}
+
+.app-mark .chrome-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .app-wordmark {
@@ -304,7 +309,7 @@ h2 {
 .publish-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: nowrap;
   justify-content: flex-end;
   min-width: 0;
@@ -347,12 +352,23 @@ h2 {
 
 .share-action,
 .export-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   min-height: 34px;
   color: #ffffff;
-  padding: 0 14px;
+  padding: 0 15px;
   font-weight: 850;
+  box-shadow: 0 8px 18px rgba(24, 37, 66, 0.12);
+}
+
+.share-action .chrome-icon,
+.export-action .chrome-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .share-action {
@@ -374,23 +390,37 @@ h2 {
 }
 
 .publish-controls .icon-button {
-  border-color: #dce4e8;
-  background: #ffffff;
+  border-color: transparent;
+  background: transparent;
   color: #2f3a43;
   box-shadow: none;
 }
 
 .publish-controls .icon-button:hover {
-  border-color: #bed4dd;
-  background: #f7fafb;
+  border-color: transparent;
+  background: #f6fbfa;
   color: #08715f;
+}
+
+.publish-controls .icon-button:disabled {
+  background: transparent;
+  color: #9aa7ad;
+  opacity: 0.62;
+}
+
+.publish-controls .avatar-button {
+  min-width: 34px;
+  min-height: 34px;
+  border-color: #dde6eb;
+  background: #eef2f5;
 }
 
 .quick-edit-controls {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding-right: 6px;
+  gap: 2px;
+  margin-right: 6px;
+  padding-right: 12px;
   border-right: 1px solid #dde4e8;
 }
 
