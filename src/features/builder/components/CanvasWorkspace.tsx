@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { Rnd } from "react-rnd";
 import { canvasHeight, canvasWidth } from "../builderConstants";
+import { gradientCss } from "../builderHelpers";
 import { buildCompositionGuideObjects, buildCompositionGuideState, type CompositionGuideObject, type CompositionGuideState } from "./compositionGuidesModel";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import type { MultiSelectedObject } from "../builderTypes";
@@ -10,6 +11,29 @@ function rangeFill(value: number | string, min: number, max: number) {
   const numericValue = Number(value);
   const percentage = ((numericValue - min) / (max - min)) * 100;
   return `${Math.min(100, Math.max(0, percentage))}%`;
+}
+
+type CanvasActionIconName = "addSlide" | "data" | "text" | "shape" | "image" | "comment" | "notes" | "fit";
+
+function CanvasActionIcon({ icon }: { icon: CanvasActionIconName }) {
+  const paths: Record<CanvasActionIconName, ReactNode> = {
+    addSlide: <><rect x="5" y="6" width="14" height="12" rx="2" /><path d="M12 9v6M9 12h6" /></>,
+    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
+    text: <><path d="M5 6h14M12 6v12M9 18h6" /></>,
+    shape: <rect x="6" y="6" width="12" height="12" rx="2" />,
+    image: <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6.5 17 4.2-4.2 2.6 2.6 2.1-2.1 2.1 3.7" /></>,
+    comment: <><path d="M5 6h14v9H9l-4 4z" /><path d="M8 10h8M8 13h5" /></>,
+    notes: <><path d="M6 4h10l2 2v14H6z" /><path d="M16 4v4h4M9 12h6M9 15h6" /></>,
+    fit: <><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" /><path d="M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5" /></>
+  };
+
+  return (
+    <svg className="canvas-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
+        {paths[icon]}
+      </g>
+    </svg>
+  );
 }
 
 function MockupStorySlide() {
@@ -214,13 +238,21 @@ export function CanvasWorkspace({
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
   const showMockupStorySurface = activePage.tiles.length === 0 && activePage.elements.length === 0;
+  const imageFit = activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit;
+  const pageBackground =
+    activePage.backgroundMode === "image" && activePage.backgroundImage
+      ? `center / ${activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit} no-repeat url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
+      : activePage.backgroundMode === "gradient"
+        ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
+        : activePage.background;
+  const gridBackground = "radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 0)";
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
-    background: "radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 0), linear-gradient(180deg, #ffffff, #fbfcfd)",
-    backgroundSize: "18px 18px, auto",
-    backgroundRepeat: "repeat, no-repeat",
-    backgroundPosition: "0 0, 0 0",
+    background: activePage.showCanvasGrid ? `${gridBackground}, ${pageBackground}` : pageBackground,
+    backgroundSize: activePage.showCanvasGrid ? `18px 18px, ${activePage.backgroundMode === "image" && activePage.backgroundImage ? imageFit : "auto"}` : undefined,
+    backgroundRepeat: activePage.showCanvasGrid ? "repeat, no-repeat" : undefined,
+    backgroundPosition: activePage.showCanvasGrid ? "0 0, center" : undefined,
     transform: `scale(${canvasScale})`
   };
   const updateGuideState = (movingObject: CompositionGuideObject) => {
@@ -416,16 +448,16 @@ export function CanvasWorkspace({
           <button type="button" className="icon-button" disabled={!nextPage} onClick={() => nextPage && onSetActivePage(nextPage.id)}>›</button>
         </div>
         <div className="canvas-insert-actions">
-          <button type="button" onClick={onAddPage}>＋ Add slide</button>
-          <button type="button" onClick={onOpenDataLibrary}>▤ Add data</button>
-          <button type="button" onClick={onOpenInsertPanel}>T Add text</button>
-          <button type="button" onClick={onOpenInsertPanel}>□ Add shape</button>
-          <button type="button" onClick={onOpenInsertPanel}>▧ Add image</button>
-          <button type="button">○ Comment</button>
+          <button type="button" onClick={onAddPage}><CanvasActionIcon icon="addSlide" />Add slide</button>
+          <button type="button" onClick={onOpenDataLibrary}><CanvasActionIcon icon="data" />Add data</button>
+          <button type="button" onClick={onOpenInsertPanel}><CanvasActionIcon icon="text" />Add text</button>
+          <button type="button" onClick={onOpenInsertPanel}><CanvasActionIcon icon="shape" />Add shape</button>
+          <button type="button" onClick={onOpenInsertPanel}><CanvasActionIcon icon="image" />Add image</button>
+          <button type="button"><CanvasActionIcon icon="comment" />Comment</button>
         </div>
         <div className="canvas-bottom-tools">
-          <button type="button">Notes</button>
-          <button type="button" aria-label="Fit to screen">⤢</button>
+          <button type="button"><CanvasActionIcon icon="notes" />Notes</button>
+          <button type="button" className="canvas-icon-only-action" aria-label="Fit to screen"><CanvasActionIcon icon="fit" /></button>
         </div>
       </div>
     </section>

@@ -7750,6 +7750,10 @@ code {
 
 .canvas-insert-actions button,
 .canvas-bottom-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 30px;
   border: 0;
   border-radius: 8px;
@@ -7759,6 +7763,18 @@ code {
   font-size: 0.76rem;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.canvas-action-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
+.canvas-bottom-tools .canvas-icon-only-action {
+  width: 30px;
+  padding: 0;
 }
 
 .canvas-insert-actions button:hover,
