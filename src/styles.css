@@ -2166,7 +2166,16 @@ h2 {
   display: inline-grid;
   place-items: center;
   color: #304653;
-  font-size: 0.72rem;
+}
+
+.data-library-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.mockup-library-row.compact .data-library-icon {
+  width: 13px;
+  height: 13px;
 }
 
 .mockup-library-row strong {
