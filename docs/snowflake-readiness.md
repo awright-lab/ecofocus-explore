@@ -98,6 +98,7 @@ The first live provider path supports:
 - dimension filters such as generation, region, and shopper segment
 - one validated metadata-backed question filter per query
 - summary-level wave comparisons across metadata-aligned datasets
+- breakout wave comparisons for metadata-backed banner dimensions that align across selected datasets
 - weighted and unweighted `column_percent`, `percent_selected`, and `count` metrics
 - normalized response parity with the frontend `AnalyticsQueryResponse` contract
 
@@ -147,7 +148,7 @@ Verification is intentionally bounded and read-only. It does not prove productio
 The live Snowflake provider will need to support:
 
 - broader saved/authored variable-set row execution
-- breakout-by-banner wave comparison queries
+- broader breakout wave comparison coverage beyond the current metadata-aligned banner subset
 - multiple simultaneous question filters
 - production parity checks for weighted output conventions
 
@@ -165,5 +166,5 @@ The live Snowflake provider will need to support:
 1. Verify the configured Snowflake table/view exposes the expected metadata-backed columns.
 2. Run opt-in provider-level integration tests against a safe non-production Snowflake target.
 3. Verify weighted output conventions with EcoFocus stakeholders.
-4. Expand live support for breakout wave comparisons and multiple question filters.
+4. Expand live support for multiple question filters and broader authored variable-set execution.
 5. Add read-only role and warehouse/timeout hardening for production deployment.

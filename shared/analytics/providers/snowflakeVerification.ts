@@ -52,13 +52,13 @@ const supportedLiveShapes = [
   "table-first single-select and multi-binary analytical queries",
   "summary and metadata-backed banner cuts",
   "dimension filters and one metadata-backed question filter",
-  "summary-level wave comparisons across metadata-aligned datasets"
+  "summary-level and metadata-backed breakout wave comparisons across metadata-aligned datasets"
 ];
 
 const limitations = [
   "verification is read-only and non-production oriented",
   "verification does not prove production row-level correctness",
-  "breakout-by-banner wave comparisons remain unsupported",
+  "wave breakout support requires aligned question, breakout, filter, and weight metadata across selected datasets",
   "multiple simultaneous question filters remain unsupported",
   "wave significance execution remains deferred"
 ];

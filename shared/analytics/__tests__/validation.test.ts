@@ -77,7 +77,7 @@ describe("validateAnalyticsQuery", () => {
     ).toContain("Wave comparison needs at least one comparison dataset.");
   });
 
-  it("rejects wave comparison on non-summary breakouts", () => {
+  it("accepts wave comparison on supported metadata-backed breakouts", () => {
     expect(
       validateAnalyticsQuery({
         dataset: "ecofocus_2025",
@@ -91,6 +91,6 @@ describe("validateAnalyticsQuery", () => {
         comparisonMode: "wave",
         comparisonDatasets: ["ecofocus_2024"]
       })
-    ).toContain("Wave comparison currently supports Summary only.");
+    ).toEqual([]);
   });
 });

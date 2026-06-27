@@ -29,7 +29,6 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
   if (!Array.isArray(input.filters)) errors.push("filters must be an array.");
   if (input.confidenceLevel !== undefined && ![0.9, 0.95, 0.99].includes(input.confidenceLevel)) errors.push("Unsupported confidence level.");
   if (input.comparisonMode !== undefined && !["none", "wave"].includes(input.comparisonMode)) errors.push("Unsupported comparison mode.");
-  if (input.comparisonMode === "wave" && input.breakBy !== "SUMMARY") errors.push("Wave comparison currently supports Summary only.");
   if (input.comparisonMode === "wave" && comparisonDatasets.length === 0) errors.push("Wave comparison needs at least one comparison dataset.");
 
   if (dataset && comparisonDatasets.length > 0) {

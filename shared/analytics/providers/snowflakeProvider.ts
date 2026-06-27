@@ -189,6 +189,34 @@ function filterMetadataAligned(query: AnalyticsQueryRequest, datasetId: DatasetI
   });
 }
 
+function breakoutMetadataAligned(query: AnalyticsQueryRequest, datasetId: DatasetId) {
+  if (query.breakBy === "SUMMARY") return true;
+
+  const primaryDimension = getDimensionMetadata(query.dataset, query.breakBy);
+  const comparisonDimension = getDimensionMetadata(datasetId, query.breakBy);
+
+  return Boolean(
+    primaryDimension
+    && comparisonDimension
+    && primaryDimension.role === "banner"
+    && comparisonDimension.role === "banner"
+    && primaryDimension.sourceColumn === comparisonDimension.sourceColumn
+    && arraysEqual(
+      primaryDimension.values.map((value) => value.id),
+      comparisonDimension.values.map((value) => value.id)
+    )
+  );
+}
+
+function weightMetadataAligned(query: AnalyticsQueryRequest, datasetId: DatasetId) {
+  if (!query.weight) return true;
+
+  const primaryWeight = getWeightMetadata(query.dataset, query.weight);
+  const comparisonWeight = getWeightMetadata(datasetId, query.weight);
+
+  return Boolean(primaryWeight && comparisonWeight && primaryWeight.sourceColumn === comparisonWeight.sourceColumn);
+}
+
 export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): SnowflakeQuerySupport {
   const dataset = getDatasetMetadata(query.dataset);
   const question = getQuestionMetadata(query.dataset, query.question);
@@ -200,15 +228,11 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
   const questionFilters = query.filters.filter((filter) => getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"]));
   const reasons: string[] = [];
 
-  if (!dataset || !question || !metric || !dimension) {
+  if (!dataset || !question || !metric || !dimension || dimension.role !== "banner") {
     reasons.push("metadata_not_supported");
   }
 
   if (comparisonMode === "wave") {
-    if (query.breakBy !== "SUMMARY") {
-      reasons.push("wave_breakout_not_live");
-    }
-
     if (comparisonDatasets.length === 0) {
       reasons.push("wave_comparison_dataset_missing");
     }
@@ -225,11 +249,15 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
       reasons.push("wave_metadata_alignment_not_live");
     }
 
+    if (allWaveDatasets.some((datasetId) => !breakoutMetadataAligned(query, datasetId))) {
+      reasons.push("wave_breakout_alignment_not_live");
+    }
+
     if (allWaveDatasets.some((datasetId) => !filterMetadataAligned(query, datasetId))) {
       reasons.push("wave_filter_mapping_not_live");
     }
 
-    if (query.weight && allWaveDatasets.some((datasetId) => !getWeightMetadata(datasetId, query.weight))) {
+    if (query.weight && allWaveDatasets.some((datasetId) => !weightMetadataAligned(query, datasetId))) {
       reasons.push("wave_weight_mapping_not_live");
     }
   }
@@ -320,6 +348,64 @@ function columnSortExpression(query: AnalyticsQueryRequest) {
   const source = `LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}))`;
   const cases = dimension.values.map((value) => `WHEN ${sqlString(value.id)} THEN ${value.sortOrder}`).join(" ");
   return `CASE ${source} ${cases} ELSE 999 END`;
+}
+
+function waveBreakoutColumnId(datasetId: DatasetId, valueId: string) {
+  return `${datasetId}__${valueId}`;
+}
+
+function waveBreakoutColumnLabel(datasetId: DatasetId, valueLabel: string) {
+  const dataset = getDatasetMetadata(datasetId);
+  return `${dataset?.wave ?? datasetId} - ${valueLabel}`;
+}
+
+function waveColumnIdExpression(query: AnalyticsQueryRequest, datasetId: DatasetId) {
+  const dimension = getDimensionMetadata(datasetId, query.breakBy);
+  if (!dimension || query.breakBy === "SUMMARY") return sqlString(datasetId);
+
+  return `CONCAT(${sqlString(`${datasetId}__`)}, LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)})))`;
+}
+
+function waveColumnLabelExpression(query: AnalyticsQueryRequest, datasetId: DatasetId) {
+  const dimension = getDimensionMetadata(datasetId, query.breakBy);
+  const dataset = getDatasetMetadata(datasetId);
+  if (!dimension || query.breakBy === "SUMMARY") return sqlString(dataset?.wave ?? datasetId);
+
+  const source = `LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}))`;
+  const cases = dimension.values.map((value) => `WHEN ${sqlString(value.id)} THEN ${sqlString(value.label)}`).join(" ");
+  const valueLabel = `CASE ${source} ${cases} ELSE TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}) END`;
+  return `CONCAT(${sqlString(`${dataset?.wave ?? datasetId} - `)}, ${valueLabel})`;
+}
+
+function waveColumnSortExpression(query: AnalyticsQueryRequest, datasetId: DatasetId, datasetIndex: number) {
+  const dimension = getDimensionMetadata(datasetId, query.breakBy);
+  if (!dimension || query.breakBy === "SUMMARY") return `${datasetIndex + 1}`;
+
+  const source = `LOWER(TO_VARCHAR(${sourceIdentifier(dimension.sourceColumn)}))`;
+  const cases = dimension.values.map((value) => `WHEN ${sqlString(value.id)} THEN ${value.sortOrder}`).join(" ");
+  return `${datasetIndex * 1000} + (CASE ${source} ${cases} ELSE 999 END)`;
+}
+
+function expectedColumnsForQuery(query: AnalyticsQueryRequest): AnalyticsTableColumn[] {
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+
+  if ((query.comparisonMode ?? "none") === "wave") {
+    return waveDatasetIds(query).flatMap((datasetId) => {
+      if (query.breakBy === "SUMMARY" || !dimension) {
+        return [{
+          id: datasetId,
+          label: getDatasetMetadata(datasetId)?.wave ?? datasetId
+        }];
+      }
+
+      return dimension.values.map((value) => ({
+        id: waveBreakoutColumnId(datasetId, value.id),
+        label: waveBreakoutColumnLabel(datasetId, value.label)
+      }));
+    });
+  }
+
+  return dimension?.values.map((value) => ({ id: value.id, label: value.label })) ?? [];
 }
 
 function datasetWhereClause(query: AnalyticsQueryRequest, datasetId: DatasetId = query.dataset) {
@@ -424,17 +510,19 @@ function buildSnowflakeStandardSqlPlan(query: AnalyticsQueryRequest, config: Sno
 function buildSnowflakeWaveSqlPlan(query: AnalyticsQueryRequest, config: SnowflakeConfig, question: NonNullable<ReturnType<typeof getQuestionMetadata>>) {
   return question.options.flatMap((option) =>
     waveDatasetIds(query).map((datasetId, datasetIndex) => {
-      const dataset = getDatasetMetadata(datasetId);
       const where = [datasetWhereClause(query, datasetId), ...filtersWhereClause(query)].join(" AND ");
+      const columnId = waveColumnIdExpression(query, datasetId);
+      const columnLabel = waveColumnLabelExpression(query, datasetId);
+      const columnSort = waveColumnSortExpression(query, datasetId, datasetIndex);
 
       return [
         "SELECT",
         `${option.sortOrder} AS option_sort,`,
-        `${datasetIndex + 1} AS column_sort,`,
+        `${columnSort} AS column_sort,`,
         `${sqlString(option.id)} AS option_id,`,
         `${sqlString(option.label)} AS option_label,`,
-        `${sqlString(datasetId)} AS column_id,`,
-        `${sqlString(dataset?.wave ?? datasetId)} AS column_label,`,
+        `${columnId} AS column_id,`,
+        `${columnLabel} AS column_label,`,
         `${valueExpression(query, option.id)} AS value,`,
         `${baseExpression(query)} AS base`,
         `FROM ${tableIdentifier(config)}`,
@@ -597,7 +685,13 @@ function waveComparisonExecutionInput(
   table: AnalyticsQueryResponse["table"]
 ): AnalyticsWaveComparisonExecutionInput | null {
   const comparisonDatasets = query.comparisonDatasets ?? [];
-  if ((query.comparisonMode ?? "none") !== "wave" || comparisonDatasets.length === 0 || columns.length <= 1 || table.length === 0) {
+  if (
+    (query.comparisonMode ?? "none") !== "wave"
+    || query.breakBy !== "SUMMARY"
+    || comparisonDatasets.length === 0
+    || columns.length <= 1
+    || table.length === 0
+  ) {
     return null;
   }
 
@@ -719,6 +813,21 @@ function significanceFromExecutionReport(
   };
 }
 
+function waveComparisonNote(query: AnalyticsQueryRequest, columns: AnalyticsTableColumn[]) {
+  if ((query.comparisonMode ?? "none") !== "wave") return "";
+
+  if (query.breakBy === "SUMMARY") {
+    return `${columns.map((column) => column.label).join(" vs ")} live wave comparison.`;
+  }
+
+  const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+  const waveLabels = waveDatasetIds(query)
+    .map((datasetId) => getDatasetMetadata(datasetId)?.wave ?? datasetId)
+    .join(" vs ");
+
+  return `${waveLabels} by ${dimension?.label ?? query.breakBy} live wave comparison.`;
+}
+
 export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: SnowflakeResultRow[]): AnalyticsQueryResponse {
   const query = normalizedQuery(queryInput);
   const dataset = getDatasetMetadata(query.dataset);
@@ -733,13 +842,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     ]);
   }
 
-  const columns: AnalyticsTableColumn[] =
-    query.comparisonMode === "wave"
-      ? waveDatasetIds(query).map((datasetId) => ({
-          id: datasetId,
-          label: getDatasetMetadata(datasetId)?.wave ?? datasetId
-        }))
-      : dimension.values.map((value) => ({ id: value.id, label: value.label }));
+  const columns = expectedColumnsForQuery(query);
   const labels = columns.map((column) => column.label);
   const normalizationWarnings = collectSnowflakeNormalizationWarnings(
     rows,
@@ -821,7 +924,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     warnings: [...normalizationWarnings, ...collectBaseWarnings(series, dataset.minBaseWarning)],
     notes: [
       "Live Snowflake analytics output.",
-      query.comparisonMode === "wave" ? `${columns.map((column) => column.label).join(" vs ")} live wave comparison.` : "",
+      waveComparisonNote(query, columns),
       query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted Snowflake output.",
       query.filters.length > 0 ? "Filters were applied by the Snowflake provider." : "No filters applied.",
       `${Math.round(query.confidenceLevel * 100)}% confidence level for significance context.`

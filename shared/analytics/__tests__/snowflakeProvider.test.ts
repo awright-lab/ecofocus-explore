@@ -52,6 +52,11 @@ const waveQuery: AnalyticsQueryRequest = {
   comparisonDatasets: ["ecofocus_2024"]
 };
 
+const breakoutWaveQuery: AnalyticsQueryRequest = {
+  ...waveQuery,
+  breakBy: "GENERATION"
+};
+
 describe("snowflakeProvider", () => {
   it("reports live readiness when Snowflake configuration exists", () => {
     expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).getReadiness?.()).toEqual({
@@ -93,6 +98,21 @@ describe("snowflakeProvider", () => {
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2024'");
     expect(plan.sqlText).toContain("'ecofocus_2025' AS column_id");
     expect(plan.sqlText).toContain("'ecofocus_2024' AS column_id");
+  });
+
+  it("builds a Snowflake SQL plan for supported live breakout wave comparison queries", () => {
+    const plan = buildSnowflakeSqlPlan(breakoutWaveQuery, requireSnowflakeConfig(env));
+
+    expect(getSnowflakeQuerySupport(breakoutWaveQuery)).toMatchObject({
+      supported: true,
+      reasons: []
+    });
+    expect(plan.summary).toBe("Snowflake wave SQL plan for ecofocus_2025/Q_PACKAGING_TRUST across ecofocus_2025, ecofocus_2024.");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2025'");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(survey_wave)) = '2024'");
+    expect(plan.sqlText).toContain("CONCAT('ecofocus_2025__', LOWER(TO_VARCHAR(generation))) AS column_id");
+    expect(plan.sqlText).toContain("CONCAT('2025 - ', CASE LOWER(TO_VARCHAR(generation))");
+    expect(plan.sqlText).toContain("GROUP BY column_id, column_label, column_sort");
   });
 
   it("builds a Snowflake SQL plan for one supported multi-binary question filter", () => {
@@ -308,6 +328,58 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 live wave comparison."]));
   });
 
+  it("executes a supported breakout wave query through the injected provider executor", async () => {
+    let executedSql = "";
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2025__gen_z", VALUE: 21, BASE: 310 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2025__millennial", VALUE: 24, BASE: 420 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2024__gen_z", VALUE: 18, BASE: 305 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2025__gen_z", VALUE: 43, BASE: 310 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2024__gen_z", VALUE: 40, BASE: 305 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(breakoutWaveQuery);
+
+    expect(executedSql).toContain("CONCAT('ecofocus_2024__', LOWER(TO_VARCHAR(generation))) AS column_id");
+    expect(result.columns).toEqual([
+      { id: "ecofocus_2025__gen_z", label: "2025 - Gen Z" },
+      { id: "ecofocus_2025__millennial", label: "2025 - Millennial" },
+      { id: "ecofocus_2025__gen_x", label: "2025 - Gen X" },
+      { id: "ecofocus_2025__boomer_plus", label: "2025 - Boomer+" },
+      { id: "ecofocus_2024__gen_z", label: "2024 - Gen Z" },
+      { id: "ecofocus_2024__millennial", label: "2024 - Millennial" },
+      { id: "ecofocus_2024__gen_x", label: "2024 - Gen X" },
+      { id: "ecofocus_2024__boomer_plus", label: "2024 - Boomer+" }
+    ]);
+    expect(result.table[0]).toMatchObject({
+      optionId: "trust_a_lot",
+      values: {
+        ecofocus_2025__gen_z: 21,
+        ecofocus_2025__millennial: 24,
+        ecofocus_2024__gen_z: 18,
+        ecofocus_2024__millennial: 0
+      },
+      bases: {
+        ecofocus_2025__gen_z: 310,
+        ecofocus_2025__millennial: 420,
+        ecofocus_2024__gen_z: 305,
+        ecofocus_2024__millennial: 0
+      }
+    });
+    expect(result.statistics.significanceExecutionInput).toBeNull();
+    expect(result.metadataRefs).toMatchObject({
+      breakBy: "GENERATION",
+      comparisonMode: "wave",
+      comparisonDatasets: ["ecofocus_2024"]
+    });
+    expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 by Generation live wave comparison."]));
+  });
+
   it("wraps executor failures with structured Snowflake provider diagnostics", async () => {
     const provider = createSnowflakeAnalyticsProvider(
       {
@@ -344,21 +416,21 @@ describe("snowflakeProvider", () => {
     });
   });
 
-  it("keeps unsupported wave breakout shapes explicit", async () => {
+  it("keeps unsupported wave breakout alignment explicit", async () => {
     const unsupportedWaveQuery: AnalyticsQueryRequest = {
       ...waveQuery,
-      breakBy: "GENERATION"
+      breakBy: "SHOPPER_SEGMENT" as AnalyticsQueryRequest["breakBy"]
     };
 
     expect(getSnowflakeQuerySupport(unsupportedWaveQuery)).toMatchObject({
       supported: false,
-      reasons: ["wave_breakout_not_live"]
+      reasons: ["metadata_not_supported", "wave_breakout_alignment_not_live"]
     });
     await expect(createSnowflakeAnalyticsProvider({ execute: async () => [] }, env).runQuery(unsupportedWaveQuery)).rejects.toMatchObject({
       name: "SnowflakeProviderError",
       code: "snowflake_unsupported_query",
-      reasons: ["wave_breakout_not_live"],
-      message: "Snowflake live execution does not yet support this query shape: wave_breakout_not_live."
+      reasons: ["metadata_not_supported", "wave_breakout_alignment_not_live"],
+      message: "Snowflake live execution does not yet support this query shape: metadata_not_supported, wave_breakout_alignment_not_live."
     });
   });
 

@@ -73,7 +73,9 @@ describe("verifySnowflakeIntegration", () => {
       ["supported_query_plan", "passed"],
       ["provider_smoke_query", "passed"]
     ]);
-    expect(report.supportedLiveShapes).toEqual(expect.arrayContaining(["summary-level wave comparisons across metadata-aligned datasets"]));
+    expect(report.supportedLiveShapes).toEqual(expect.arrayContaining([
+      "summary-level and metadata-backed breakout wave comparisons across metadata-aligned datasets"
+    ]));
     expect(report.limitations).toEqual(expect.arrayContaining(["verification is read-only and non-production oriented"]));
     expect(executedSql.every((sqlText) => sqlText.trim().toLowerCase().startsWith("select"))).toBe(true);
     expect(executedSql.every((sqlText) => !sqlText.includes(";"))).toBe(true);
