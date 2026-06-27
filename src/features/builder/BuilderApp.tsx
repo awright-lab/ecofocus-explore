@@ -14,7 +14,7 @@ import {
   storageKey
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
-import { BuilderHeader, BuilderPanel, ToolRail, WorkspaceModeStrip } from "./components/BuilderChrome";
+import { BuilderHeader, BuilderPanel, WorkspaceModeStrip } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
@@ -868,7 +868,6 @@ export default function BuilderApp() {
           saveState={saveState}
           selectionLabel={workspaceSelectionLabel}
         />
-        <ToolRail activeView={leftPanelView} onChange={setLeftPanelView} />
         <AnalysisAuthoringPanel
           leftPanelView={leftPanelView}
           setLeftPanelView={setLeftPanelView}
@@ -1041,6 +1040,8 @@ export default function BuilderApp() {
           }}
           onOpenPageDesign={() => setSettingsView("page")}
           onOpenLayout={() => setSettingsView("layout")}
+          onOpenDataLibrary={() => setLeftPanelView("data")}
+          onOpenInsertPanel={() => setLeftPanelView("insert")}
           onBringForward={() => changeSelectedLayer("front")}
           onDuplicateSelection={duplicateSelectedItem}
           onDeleteSelection={deleteSelectedItem}

@@ -146,6 +146,8 @@ export function CanvasWorkspace({
   onDrop,
   onOpenPageDesign,
   onOpenLayout,
+  onOpenDataLibrary,
+  onOpenInsertPanel,
   onBringForward,
   onDuplicateSelection,
   onDeleteSelection,
@@ -175,6 +177,8 @@ export function CanvasWorkspace({
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onOpenPageDesign: () => void;
   onOpenLayout: () => void;
+  onOpenDataLibrary: () => void;
+  onOpenInsertPanel: () => void;
   onBringForward: () => void;
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
@@ -209,16 +213,14 @@ export function CanvasWorkspace({
   const activePageIndex = sortedPages.findIndex((page) => page.id === activePage.id);
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
-  const showMockupStorySurface = true;
+  const showMockupStorySurface = activePage.tiles.length === 0 && activePage.elements.length === 0;
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
-    background: showMockupStorySurface
-      ? "radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 0), linear-gradient(180deg, #ffffff, #fbfcfd)"
-      : canvasBackground(activePage),
-    backgroundSize: showMockupStorySurface ? "18px 18px, auto" : canvasBackgroundSize(activePage),
-    backgroundRepeat: showMockupStorySurface ? "repeat, no-repeat" : canvasBackgroundRepeat(activePage),
-    backgroundPosition: showMockupStorySurface ? "0 0, 0 0" : canvasBackgroundPosition(activePage),
+    background: "radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 0), linear-gradient(180deg, #ffffff, #fbfcfd)",
+    backgroundSize: "18px 18px, auto",
+    backgroundRepeat: "repeat, no-repeat",
+    backgroundPosition: "0 0, 0 0",
     transform: `scale(${canvasScale})`
   };
   const updateGuideState = (movingObject: CompositionGuideObject) => {
@@ -300,7 +302,7 @@ export function CanvasWorkspace({
                 </div>
               </div>
             )}
-            {!showMockupStorySurface && activePage.elements.filter((element) => !element.hidden).map((element) => (
+            {activePage.elements.filter((element) => !element.hidden).map((element) => (
               <Rnd
                 key={element.id}
                 bounds="parent"
@@ -337,7 +339,7 @@ export function CanvasWorkspace({
                 {renderElement(element, element.id === selectedElementId, () => onSelectElement(element.id))}
               </Rnd>
             ))}
-            {!showMockupStorySurface && activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
+            {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
               <Rnd
                 key={tile.id}
                 bounds="parent"
@@ -415,10 +417,10 @@ export function CanvasWorkspace({
         </div>
         <div className="canvas-insert-actions">
           <button type="button" onClick={onAddPage}>＋ Add slide</button>
-          <button type="button">▤ Add data</button>
-          <button type="button">T Add text</button>
-          <button type="button">□ Add shape</button>
-          <button type="button">▧ Add image</button>
+          <button type="button" onClick={onOpenDataLibrary}>▤ Add data</button>
+          <button type="button" onClick={onOpenInsertPanel}>T Add text</button>
+          <button type="button" onClick={onOpenInsertPanel}>□ Add shape</button>
+          <button type="button" onClick={onOpenInsertPanel}>▧ Add image</button>
           <button type="button">○ Comment</button>
         </div>
         <div className="canvas-bottom-tools">
