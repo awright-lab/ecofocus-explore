@@ -371,12 +371,28 @@ h2 {
   height: 15px;
 }
 
-.share-action {
+.publish-controls .share-action {
+  border-color: transparent;
   background: linear-gradient(135deg, #0f8f7f, #08715f);
+  color: #ffffff;
 }
 
-.export-action {
+.publish-controls .export-action {
+  border-color: transparent;
   background: linear-gradient(135deg, #6557c8, #3f53b3);
+  color: #ffffff;
+}
+
+.publish-controls .share-action:hover,
+.publish-controls .share-action:focus-visible {
+  background: linear-gradient(135deg, #0b9b8a, #006d5d);
+  color: #ffffff;
+}
+
+.publish-controls .export-action:hover,
+.publish-controls .export-action:focus-visible {
+  background: linear-gradient(135deg, #7463d7, #4654bf);
+  color: #ffffff;
 }
 
 .quiet-header-action {
