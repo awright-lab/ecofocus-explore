@@ -101,6 +101,7 @@ The first live provider path supports:
 - breakout wave comparisons for metadata-backed banner dimensions that align across selected datasets
 - explicit authored variable-set rows built from known, non-overlapping source options
 - weighted and unweighted `column_percent`, `percent_selected`, and `count` metrics
+- weighted/unweighted smoke verification for percent and count normalization
 - normalized response parity with the frontend `AnalyticsQueryResponse` contract
 
 The provider also preserves the existing significance metadata contract. Column-comparison significance can run for supported breakout percent results after Snowflake rows are normalized; wave significance remains a structured deferred/not-executed path.
@@ -115,6 +116,7 @@ The Snowflake path is intentionally read-only and constrained:
 - query execution is wrapped in a provider timeout
 - SDK execution failures are surfaced as structured Snowflake provider errors
 - empty, duplicate, or unrecognized Snowflake result rows produce normalized warnings instead of silently disappearing
+- weighted count output is labeled as estimated weighted counts, while unweighted count output is labeled as respondent counts
 
 ## Non-Production Verification
 
@@ -141,8 +143,9 @@ The live verification report checks:
 - metadata-backed provider columns can be selected
 - a default supported query can be planned
 - a default supported query can execute and normalize through the provider
+- weighted and unweighted percent/count smoke queries normalize with explicit weighting context
 
-Verification is intentionally bounded and read-only. It does not prove production row-level correctness, weighted-output conventions, or unsupported query shapes.
+Verification is intentionally bounded and read-only. It does not prove production row-level correctness, full weighted-output methodology, or unsupported query shapes.
 
 ## Analytical Features The Provider Must Continue To Expand
 
@@ -152,7 +155,7 @@ The live Snowflake provider will need to support:
 - advanced authored recode behavior beyond explicit source-option composition
 - broader breakout wave comparison coverage beyond the current metadata-aligned banner subset
 - broader filter logic beyond the current metadata-backed question/dimension subset
-- production parity checks for weighted output conventions
+- deeper production parity checks for weighted output conventions
 
 ## What Is Still Intentionally Not Implemented
 

@@ -71,12 +71,41 @@ describe("verifySnowflakeIntegration", () => {
       ["table_access", "passed"],
       ["table_shape", "passed"],
       ["supported_query_plan", "passed"],
-      ["provider_smoke_query", "passed"]
+      ["provider_smoke_query", "passed"],
+      ["weighting_parity", "passed"]
     ]);
     expect(report.supportedLiveShapes).toEqual(expect.arrayContaining([
       "summary-level and metadata-backed breakout wave comparisons across metadata-aligned datasets"
     ]));
     expect(report.limitations).toEqual(expect.arrayContaining(["verification is read-only and non-production oriented"]));
+    expect(report.steps.find((step) => step.id === "weighting_parity")).toMatchObject({
+      summary: "Weighted and unweighted percent/count smoke queries normalized consistently.",
+      details: {
+        weighted_percent: {
+          metric: "column_percent",
+          weighting: {
+            applied: true,
+            id: "weightvar"
+          }
+        },
+        unweighted_percent: {
+          metric: "column_percent",
+          weighting: {
+            applied: false,
+            id: null
+          }
+        },
+        weighted_count: {
+          metric: "count",
+          warnings: expect.arrayContaining([
+            "Snowflake count metric is normalized as weighted estimated counts because weightvar is applied."
+          ])
+        },
+        unweighted_count: {
+          metric: "count"
+        }
+      }
+    });
     expect(executedSql.every((sqlText) => sqlText.trim().toLowerCase().startsWith("select"))).toBe(true);
     expect(executedSql.every((sqlText) => !sqlText.includes(";"))).toBe(true);
   });
@@ -140,6 +169,32 @@ describe("verifySnowflakeIntegration", () => {
     expect(smokeStep).toMatchObject({
       status: "failed",
       summary: "Snowflake query execution failed: warehouse unavailable",
+      reasons: ["execution_failed"],
+      details: {
+        code: "snowflake_execution_failed"
+      }
+    });
+  });
+
+  it("reports weighting parity execution failures separately from the provider smoke query", async () => {
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        if (sqlText.includes("COUNT(*) AS base")) {
+          throw new Error("count verification unavailable");
+        }
+        return fakeRowsFor(sqlText);
+      }
+    };
+
+    const report = await verifySnowflakeIntegration(executor, env);
+    const smokeStep = report.steps.find((step) => step.id === "provider_smoke_query");
+    const weightingStep = report.steps.find((step) => step.id === "weighting_parity");
+
+    expect(report.status).toBe("failed");
+    expect(smokeStep?.status).toBe("passed");
+    expect(weightingStep).toMatchObject({
+      status: "failed",
+      summary: "Snowflake query execution failed: count verification unavailable",
       reasons: ["execution_failed"],
       details: {
         code: "snowflake_execution_failed"

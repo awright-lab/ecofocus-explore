@@ -8,7 +8,7 @@ import {
 } from "./snowflakeProvider";
 import { getSnowflakeReadiness, requireSnowflakeConfig, type SnowflakeConfig } from "./snowflakeConfig";
 import { datasets } from "../../metadata/ecofocus2025";
-import type { AnalyticsQueryRequest } from "../../types/analytics";
+import type { AnalyticsQueryRequest, AnalyticsQueryResponse } from "../../types/analytics";
 
 export type SnowflakeVerificationStepStatus = "passed" | "failed" | "skipped";
 
@@ -19,7 +19,8 @@ export type SnowflakeVerificationStepId =
   | "table_access"
   | "table_shape"
   | "supported_query_plan"
-  | "provider_smoke_query";
+  | "provider_smoke_query"
+  | "weighting_parity";
 
 export interface SnowflakeVerificationStep {
   id: SnowflakeVerificationStepId;
@@ -53,12 +54,14 @@ const supportedLiveShapes = [
   "summary and metadata-backed banner cuts",
   "dimension filters and multiple metadata-backed question filters",
   "summary-level and metadata-backed breakout wave comparisons across metadata-aligned datasets",
-  "explicit authored variable-set rows with non-overlapping known source options"
+  "explicit authored variable-set rows with non-overlapping known source options",
+  "weighted and unweighted percent/count normalization checks"
 ];
 
 const limitations = [
   "verification is read-only and non-production oriented",
   "verification does not prove production row-level correctness",
+  "weighted-output parity verification checks normalized shape and base/count sanity, not full survey-statistical equivalence",
   "wave breakout support requires aligned question, breakout, filter, and weight metadata across selected datasets",
   "authored variable-set live support is limited to explicit non-overlapping source-option composition",
   "duplicate filters for the same question remain unsupported",
@@ -198,6 +201,109 @@ function defaultProviderSmokeQuery(): AnalyticsQueryRequest {
   };
 }
 
+function weightingParityQueries(): Array<{ id: string; query: AnalyticsQueryRequest }> {
+  const baseQuery = defaultProviderSmokeQuery();
+
+  return [
+    {
+      id: "weighted_percent",
+      query: {
+        ...baseQuery,
+        weight: "weightvar",
+        metric: "column_percent"
+      }
+    },
+    {
+      id: "unweighted_percent",
+      query: {
+        ...baseQuery,
+        weight: null,
+        metric: "column_percent"
+      }
+    },
+    {
+      id: "weighted_count",
+      query: {
+        ...baseQuery,
+        weight: "weightvar",
+        metric: "count"
+      }
+    },
+    {
+      id: "unweighted_count",
+      query: {
+        ...baseQuery,
+        weight: null,
+        metric: "count"
+      }
+    }
+  ];
+}
+
+function numericCells(response: AnalyticsQueryResponse, field: "values" | "bases") {
+  return response.table.flatMap((row) => response.columns.map((column) => row[field][column.id] ?? 0));
+}
+
+function responseHasUsableNumbers(response: AnalyticsQueryResponse) {
+  const values = numericCells(response, "values");
+  const bases = numericCells(response, "bases");
+  return [...values, ...bases].every((value) => Number.isFinite(value) && value >= 0);
+}
+
+function weightingParityFailure(responses: Record<string, AnalyticsQueryResponse>) {
+  const weightedPercent = responses.weighted_percent;
+  const unweightedPercent = responses.unweighted_percent;
+  const weightedCount = responses.weighted_count;
+  const unweightedCount = responses.unweighted_count;
+
+  if (!weightedPercent.weighting.applied || weightedPercent.weighting.id !== "weightvar") {
+    return "weighted_percent_context_mismatch";
+  }
+
+  if (unweightedPercent.weighting.applied || unweightedPercent.weighting.id !== null) {
+    return "unweighted_percent_context_mismatch";
+  }
+
+  if (!weightedCount.weighting.applied || weightedCount.metric.id !== "count") {
+    return "weighted_count_context_mismatch";
+  }
+
+  if (unweightedCount.weighting.applied || unweightedCount.metric.id !== "count") {
+    return "unweighted_count_context_mismatch";
+  }
+
+  if (Object.values(responses).some((response) => !responseHasUsableNumbers(response))) {
+    return "weighting_numeric_shape_invalid";
+  }
+
+  if (!weightedCount.warnings.some((warning) => warning.includes("weighted estimated counts"))) {
+    return "weighted_count_warning_missing";
+  }
+
+  if (!unweightedCount.notes.some((note) => note.includes("unweighted respondent counts"))) {
+    return "unweighted_count_note_missing";
+  }
+
+  return null;
+}
+
+function weightingParityDetails(responses: Record<string, AnalyticsQueryResponse>) {
+  return Object.fromEntries(
+    Object.entries(responses).map(([id, response]) => [
+      id,
+      {
+        metric: response.metric.id,
+        weighting: response.weighting,
+        rows: response.table.length,
+        columns: response.columns.length,
+        firstValues: numericCells(response, "values").slice(0, 4),
+        firstBases: numericCells(response, "bases").slice(0, 4),
+        warnings: response.warnings
+      }
+    ])
+  );
+}
+
 function reportStatus(steps: SnowflakeVerificationStep[]) {
   return steps.some((step) => step.status === "failed") ? "failed" as const : "passed" as const;
 }
@@ -221,6 +327,7 @@ export async function verifySnowflakeIntegration(
     steps.push(skippedStep("table_shape", "Table shape", "Skipped because configuration failed.", ["missing_configuration"]));
     steps.push(skippedStep("supported_query_plan", "Supported query plan", "Skipped because configuration failed.", ["missing_configuration"]));
     steps.push(skippedStep("provider_smoke_query", "Provider smoke query", "Skipped because configuration failed.", ["missing_configuration"]));
+    steps.push(skippedStep("weighting_parity", "Weighting parity", "Skipped because configuration failed.", ["missing_configuration"]));
 
     return {
       provider: "snowflake",
@@ -348,6 +455,31 @@ export async function verifySnowflakeIntegration(
   } catch (error) {
     const normalized = providerErrorDetails(error);
     steps.push(failedStep("provider_smoke_query", "Provider smoke query", normalized.summary, normalized.reasons, normalized.details));
+  }
+
+  try {
+    const provider = createSnowflakeAnalyticsProvider(executor, env);
+    const responses: Record<string, AnalyticsQueryResponse> = {};
+
+    for (const item of weightingParityQueries()) {
+      responses[item.id] = await provider.runQuery(item.query);
+    }
+
+    const failure = weightingParityFailure(responses);
+    const details = weightingParityDetails(responses);
+
+    if (failure) {
+      steps.push(
+        failedStep("weighting_parity", "Weighting parity", "Weighted/unweighted normalization sanity checks failed.", [failure], details)
+      );
+    } else {
+      steps.push(
+        passedStep("weighting_parity", "Weighting parity", "Weighted and unweighted percent/count smoke queries normalized consistently.", details)
+      );
+    }
+  } catch (error) {
+    const normalized = providerErrorDetails(error);
+    steps.push(failedStep("weighting_parity", "Weighting parity", normalized.summary, normalized.reasons, normalized.details));
   }
 
   return {

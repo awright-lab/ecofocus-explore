@@ -291,6 +291,66 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining(["Live Snowflake analytics output.", "Filters were applied by the Snowflake provider."]));
   });
 
+  it("normalizes weighted and unweighted count semantics explicitly", () => {
+    const weightedCountResult = normalizeSnowflakeRows(
+      {
+        ...breakoutQuery,
+        metric: "count",
+        weight: "weightvar"
+      },
+      [
+        { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 112, BASE: 312 },
+        { OPTION_ID: "trust_somewhat", COLUMN_ID: "gen_z", VALUE: 211, BASE: 312 }
+      ]
+    );
+    const unweightedCountResult = normalizeSnowflakeRows(
+      {
+        ...breakoutQuery,
+        metric: "count",
+        weight: null
+      },
+      [
+        { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 58, BASE: 310 },
+        { OPTION_ID: "trust_somewhat", COLUMN_ID: "gen_z", VALUE: 136, BASE: 310 }
+      ]
+    );
+
+    expect(weightedCountResult.weighting).toEqual({
+      applied: true,
+      id: "weightvar",
+      label: "EcoFocus respondent weight"
+    });
+    expect(weightedCountResult.warnings).toEqual(expect.arrayContaining([
+      "Snowflake count metric is normalized as weighted estimated counts because weightvar is applied."
+    ]));
+    expect(weightedCountResult.notes).toEqual(expect.arrayContaining([
+      "Count metric uses weighted estimated counts with EcoFocus respondent weight."
+    ]));
+    expect(unweightedCountResult.weighting).toEqual({
+      applied: false,
+      id: null,
+      label: "Unweighted"
+    });
+    expect(unweightedCountResult.warnings).not.toEqual(expect.arrayContaining([
+      "Snowflake count metric is normalized as weighted estimated counts because weightvar is applied."
+    ]));
+    expect(unweightedCountResult.notes).toEqual(expect.arrayContaining([
+      "Unweighted Snowflake output.",
+      "Count metric uses unweighted respondent counts."
+    ]));
+  });
+
+  it("warns when weighted Snowflake output has no usable base", () => {
+    const result = normalizeSnowflakeRows(breakoutQuery, [
+      { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 0, BASE: 0 },
+      { OPTION_ID: "trust_somewhat", COLUMN_ID: "gen_z", VALUE: 0, BASE: 0 }
+    ]);
+
+    expect(result.warnings).toEqual(expect.arrayContaining([
+      "Weighted Snowflake output has zero base across all cells; verify weight availability and filter scope."
+    ]));
+  });
+
   it("keeps empty and ambiguous Snowflake results visible as warnings while preserving the normalized contract", () => {
     const emptyResult = normalizeSnowflakeRows(breakoutQuery, []);
     expect(emptyResult.warnings).toEqual(expect.arrayContaining([
@@ -770,6 +830,18 @@ describe("snowflakeProvider", () => {
       supported: false,
       summary: "Snowflake live execution does not yet support this query shape: duplicate_question_filter_not_live.",
       reasons: ["duplicate_question_filter_not_live"]
+    });
+  });
+
+  it("keeps missing weight metadata explicit", () => {
+    const support = getSnowflakeQuerySupport({
+      ...breakoutQuery,
+      weight: "missing_weight" as AnalyticsQueryRequest["weight"]
+    });
+
+    expect(support).toMatchObject({
+      supported: false,
+      reasons: ["weight_not_live"]
     });
   });
 });

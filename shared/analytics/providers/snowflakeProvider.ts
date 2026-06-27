@@ -298,6 +298,10 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
     reasons.push("metadata_not_supported");
   }
 
+  if (query.weight && !getWeightMetadata(query.dataset, query.weight)) {
+    reasons.push("weight_not_live");
+  }
+
   if (comparisonMode === "wave") {
     if (comparisonDatasets.length === 0) {
       reasons.push("wave_comparison_dataset_missing");
@@ -709,6 +713,33 @@ function collectBaseWarnings(series: AnalyticsSeries[], minBase: number) {
   return [`Some cells have a base below ${minBase}; interpret those comparisons cautiously.`];
 }
 
+function collectWeightingWarnings(query: AnalyticsQueryRequest, series: AnalyticsSeries[]) {
+  const warnings: string[] = [];
+  const bases = series.flatMap((item) => item.bases);
+
+  if (query.weight && bases.length > 0 && bases.every((base) => base === 0)) {
+    warnings.push("Weighted Snowflake output has zero base across all cells; verify weight availability and filter scope.");
+  }
+
+  if (query.weight && query.metric === "count") {
+    warnings.push(`Snowflake count metric is normalized as weighted estimated counts because ${query.weight} is applied.`);
+  }
+
+  return warnings;
+}
+
+function weightingNote(query: AnalyticsQueryRequest, weightLabel: string) {
+  if (query.weight && query.metric === "count") {
+    return `Count metric uses weighted estimated counts with ${weightLabel}.`;
+  }
+
+  if (!query.weight && query.metric === "count") {
+    return "Count metric uses unweighted respondent counts.";
+  }
+
+  return "";
+}
+
 function collectSnowflakeNormalizationWarnings(
   rows: SnowflakeResultRow[],
   expectedOptionIds: string[],
@@ -1037,12 +1068,17 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
       significanceExecutionReport,
       significance
     },
-    warnings: [...normalizationWarnings, ...collectBaseWarnings(series, dataset.minBaseWarning)],
+    warnings: [
+      ...normalizationWarnings,
+      ...collectBaseWarnings(series, dataset.minBaseWarning),
+      ...collectWeightingWarnings(query, series)
+    ],
     notes: [
       "Live Snowflake analytics output.",
       query.authoredVariableSet ? `Authored variable set rows executed by Snowflake from ${query.authoredVariableSet.label}.` : "",
       waveComparisonNote(query, columns),
       query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted Snowflake output.",
+      weightingNote(query, weight?.label ?? query.weight ?? "Unweighted"),
       query.filters.length > 0 ? "Filters were applied by the Snowflake provider." : "No filters applied.",
       `${Math.round(query.confidenceLevel * 100)}% confidence level for significance context.`
     ].filter(Boolean),
