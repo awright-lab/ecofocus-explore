@@ -11,33 +11,38 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   return (
     <>
-      <div className="panel-title">
-        <h2>Explore</h2>
+      <div className="panel-title data-library-title">
+        <span>Navigation + sources</span>
+        <h2>Data Library</h2>
       </div>
       <div className="data-explorer">
-        <div className="color-summary-card compact workspace-context-card">
+        <div className="data-library-hero">
           <div>
-            <span>Dataset</span>
+            <span>Active dataset</span>
             <strong>{defaultDataset.label}</strong>
           </div>
           <small>{defaultDataset.description}</small>
+          <div className="data-library-chips">
+            <span>{defaultDataset.questions.length} variables</span>
+            <span>{defaultDataset.dimensions.length} banners</span>
+          </div>
         </div>
         <div className="explore-flow-tabs">
           <button type="button" className={exploreView === "source" ? "active" : ""} onClick={() => setExploreView("source")}>
-            1. Source
+            Sources
           </button>
           <button type="button" className={exploreView === "analyze" ? "active" : ""} onClick={() => setExploreView("analyze")}>
-            2. Analyze
+            Query
           </button>
           <button type="button" className={exploreView === "library" ? "active" : ""} onClick={() => setExploreView("library")}>
-            3. Library
+            Saved
           </button>
         </div>
         <details className="explore-step-card compact">
           <summary>
-            {exploreView === "source" && <><span>Step 1</span><strong>Choose a source</strong></>}
-            {exploreView === "analyze" && <><span>Step 2</span><strong>Shape the analysis</strong></>}
-            {exploreView === "library" && <><span>Step 3</span><strong>Save reusable objects</strong></>}
+            {exploreView === "source" && <><span>Source context</span><strong>Choose a variable or set</strong></>}
+            {exploreView === "analyze" && <><span>Query context</span><strong>Shape the analysis</strong></>}
+            {exploreView === "library" && <><span>Reusable context</span><strong>Use saved analytical assets</strong></>}
           </summary>
           {exploreView === "source" && <small>Pick a saved variable set or question. You can click to load it or drag it straight onto the canvas.</small>}
           {exploreView === "analyze" && <small>Adjust banner, metric, weight, filter, and chart type for the currently selected source before adding a tile.</small>}

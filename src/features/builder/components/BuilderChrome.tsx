@@ -10,6 +10,21 @@ import {
 } from "../builderPublishModel";
 import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
 
+type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report" | "present";
+
+const workspaceProductModes: Array<{
+  id: WorkspaceProductMode;
+  label: string;
+  helper: string;
+}> = [
+  { id: "data", label: "Data", helper: "Library and source setup" },
+  { id: "design", label: "Design", helper: "Brand and composition tools" },
+  { id: "story", label: "Story", helper: "Active authoring workspace" },
+  { id: "dashboard", label: "Dashboard", helper: "Structured view scaffold" },
+  { id: "report", label: "Report", helper: "Report assembly scaffold" },
+  { id: "present", label: "Present", helper: "Presentation scaffold" }
+];
+
 export function BuilderHeader({
   dashboard,
   saveState,
@@ -50,6 +65,7 @@ export function BuilderHeader({
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(dashboard.title);
+  const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
 
   useEffect(() => {
     if (!isEditingTitle) {
@@ -95,8 +111,25 @@ export function BuilderHeader({
 
   return (
     <header className="builder-header">
-      <div className="top-nav" aria-label="Workspace identity">
-        <span className="app-mark">EF</span>
+      <div className="top-nav" aria-label="Product navigation">
+        <span className="app-mark">IC</span>
+        <strong className="app-wordmark">InsightCanvas</strong>
+        <nav className="workspace-product-nav" aria-label="Workspace modes">
+          {workspaceProductModes.map((mode) => (
+            <button
+              type="button"
+              key={mode.id}
+              className={activeProductMode === mode.id ? "active" : ""}
+              aria-pressed={activeProductMode === mode.id}
+              title={mode.helper}
+              onClick={() => setActiveProductMode(mode.id)}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <div className="document-identity-shell" aria-label="Document identity">
         <div className="document-title-block">
           {isEditingTitle ? (
             <input
@@ -116,6 +149,7 @@ export function BuilderHeader({
           )}
           <div className="document-identity-meta">
             <span>{publishMetadataLabel(dashboard)}</span>
+            {activeProductMode !== "story" && <span>{workspaceProductModes.find((mode) => mode.id === activeProductMode)?.helper}</span>}
             <span className={`save-state ${saveStateView.tone}`} aria-live="polite">
               {saveStateView.showSpinner && <span className="save-state-spinner" aria-hidden="true" />}
               <strong>{saveStateView.label}</strong>

@@ -110,8 +110,9 @@ export function CanvasWorkspace({
     <section className="canvas" aria-label="Dashboard canvas">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Page {activePage.order}</p>
+          <p className="eyebrow">Story canvas · Slide {activePage.order}</p>
           <h2>{activePage.title}</h2>
+          <small>Compose analytical tiles, narrative sections, and reusable report blocks.</small>
         </div>
         <div className="canvas-toolbar">
           <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
@@ -169,9 +170,9 @@ export function CanvasWorkspace({
           >
             {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
               <div className="empty-canvas-state">
-                <span>Blank composition</span>
+                <span>Start a story section</span>
                 <strong>{activePage.title}</strong>
-                <p>Add charts, tables, text, shapes, or images from the left rail to start building this page.</p>
+                <p>Use section starters, analytical sources, text, images, or reusable blocks to build a clear insight narrative.</p>
                 <div>
                   <button type="button" className="secondary" onClick={onOpenPageDesign}>Page design</button>
                   <button type="button" className="secondary" onClick={onAddPage}>New page</button>

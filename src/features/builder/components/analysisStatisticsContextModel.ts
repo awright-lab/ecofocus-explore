@@ -306,7 +306,10 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
     };
   }
 
-  const reasonLabels = plan.reasonCodes.map(significanceReasonLabel);
+  const reasonLabels = [
+    ...plan.reasonCodes,
+    ...(report?.reasonCodes ?? [])
+  ].map(significanceReasonLabel);
   const prerequisiteLabels = plan.unmetPrerequisites.map((item) => {
     if (item === "comparison_basis") return "Comparison basis";
     if (item === "provider_method") return "Provider method";
@@ -356,6 +359,19 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
         "Executed",
         `${significantComparisons.toLocaleString()} significant ${significantComparisons === 1 ? "pair" : "pairs"}`
       ],
+      details
+    };
+  }
+
+  if (plan.providerCanExecute && report?.status === "not_executed" && report.reasonCodes.includes("insufficient_base")) {
+    const skippedComparisons = report.result?.summary.deferredComparisons ?? 0;
+
+    return {
+      status: "ready",
+      label: "Execution skipped for bases",
+      message: `The provider accepted the significance handoff, but ${skippedComparisons.toLocaleString()} comparison ${skippedComparisons === 1 ? "pair has" : "pairs have"} insufficient base for testing.`,
+      helper: "No p-values or significance markers are shown for comparisons without usable positive bases.",
+      chips: [plan.executionInputContract ?? "No input contract", "Insufficient base", "No test performed"],
       details
     };
   }

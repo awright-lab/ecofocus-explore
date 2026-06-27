@@ -206,39 +206,61 @@ function twoTailedColumnPercentPValue(value: number, comparedValue: number, base
   return Number.isFinite(pValue) ? Math.max(0, Math.min(1, pValue)) : null;
 }
 
+function testedColumnComparisonOutcome(
+  input: AnalyticsColumnComparisonExecutionInput,
+  row: AnalyticsColumnComparisonExecutionInput["rows"][number],
+  column: AnalyticsColumnComparisonExecutionInput["columns"][number],
+  comparedColumn: AnalyticsColumnComparisonExecutionInput["columns"][number]
+): AnalyticsColumnComparisonExecutionResult["outcomes"][number] {
+  const cell = row.cells.find((item) => item.columnId === column.id);
+  const comparedCell = row.cells.find((item) => item.columnId === comparedColumn.id);
+  const pValue =
+    cell && comparedCell
+      ? twoTailedColumnPercentPValue(cell.value, comparedCell.value, cell.base, comparedCell.base)
+      : null;
+
+  if (pValue === null) {
+    return {
+      rowId: row.id,
+      columnId: column.id,
+      comparedColumnId: comparedColumn.id,
+      status: "not_tested",
+      reasonCodes: ["insufficient_base"],
+      statistics: {
+        pValue: null,
+        confidence: null,
+        direction: null
+      }
+    };
+  }
+
+  const isSignificant = pValue <= 1 - input.confidenceLevel;
+
+  return {
+    rowId: row.id,
+    columnId: column.id,
+    comparedColumnId: comparedColumn.id,
+    status: "tested",
+    reasonCodes: [],
+    statistics: {
+      pValue,
+      confidence: input.confidenceLevel,
+      direction:
+        isSignificant && cell && comparedCell
+          ? cell.value > comparedCell.value
+            ? "up"
+            : "down"
+          : null
+    }
+  };
+}
+
 export function executeColumnComparisonSignificance(
   input: AnalyticsColumnComparisonExecutionInput
 ): AnalyticsColumnComparisonExecutionResult {
-  const alpha = 1 - input.confidenceLevel;
   const outcomes = input.rows.flatMap((row) =>
     input.columns.flatMap((column, columnIndex) =>
-      input.columns.slice(columnIndex + 1).map((comparedColumn) => {
-        const cell = row.cells.find((item) => item.columnId === column.id);
-        const comparedCell = row.cells.find((item) => item.columnId === comparedColumn.id);
-        const pValue =
-          cell && comparedCell
-            ? twoTailedColumnPercentPValue(cell.value, comparedCell.value, cell.base, comparedCell.base)
-            : null;
-        const isSignificant = pValue !== null && pValue <= alpha;
-
-        return {
-          rowId: row.id,
-          columnId: column.id,
-          comparedColumnId: comparedColumn.id,
-          status: "tested" as const,
-          reasonCodes: [],
-          statistics: {
-            pValue,
-            confidence: input.confidenceLevel,
-            direction:
-              isSignificant && cell && comparedCell
-                ? cell.value > comparedCell.value
-                  ? "up" as const
-                  : "down" as const
-                : null
-          }
-        };
-      })
+      input.columns.slice(columnIndex + 1).map((comparedColumn) => testedColumnComparisonOutcome(input, row, column, comparedColumn))
     )
   );
 
@@ -247,8 +269,8 @@ export function executeColumnComparisonSignificance(
     comparisonScope: input.comparisonScope,
     outcomes,
     summary: {
-      testedComparisons: outcomes.length,
-      deferredComparisons: 0,
+      testedComparisons: outcomes.filter((outcome) => outcome.status === "tested").length,
+      deferredComparisons: outcomes.filter((outcome) => outcome.status !== "tested").length,
       significantComparisons: outcomes.filter((outcome) => outcome.statistics.direction).length
     }
   };
@@ -265,14 +287,20 @@ export function runColumnComparisonSignificanceAdapter(
   const reasonCodes = Array.from(new Set([...plan.reasonCodes, ...validation.reasonCodes]));
   const unmetPrerequisites = Array.from(new Set([...plan.unmetPrerequisites, ...validation.unmetPrerequisites]));
   const canExecute = validation.valid && plan.providerCanExecute && input.metric.valueFormat === "percent";
+  const executedResult = canExecute ? executeColumnComparisonSignificance(input) : null;
+  const hasTestedComparisons = (executedResult?.summary.testedComparisons ?? 0) > 0;
+  const executionReasonCodes =
+    canExecute && !hasTestedComparisons
+      ? Array.from(new Set([...reasonCodes, "insufficient_base" as const]))
+      : reasonCodes;
 
   return {
     method: "column_comparison",
-    status: canExecute ? "executed" : validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
+    status: canExecute ? (hasTestedComparisons ? "executed" : "not_executed") : validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
     inputAccepted: validation.valid,
-    reasonCodes: canExecute ? [] : reasonCodes,
+    reasonCodes: canExecute ? (hasTestedComparisons ? [] : executionReasonCodes) : reasonCodes,
     unmetPrerequisites: canExecute ? [] : unmetPrerequisites,
-    result: validation.valid ? (canExecute ? executeColumnComparisonSignificance(input) : shapeDeferredColumnComparisonResult(input, reasonCodes)) : null
+    result: validation.valid ? (canExecute ? executedResult : shapeDeferredColumnComparisonResult(input, reasonCodes)) : null
   };
 }
 

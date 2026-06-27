@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { BuilderPanel } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
+import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import type { MultiSelectionLayoutAction } from "./multiSelectionModel";
 import { BarColorField, ColorField, PageBackgroundField, rangeFill } from "../../design-system/DesignControls";
@@ -171,8 +173,10 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   saveSelectedTileWeight,
   onViewSavedSettingInLibrary,
   deleteSelectedItem,
-  isLoading
+  isLoading,
+  comparisonDatasets
   } = props;
+  const [inspectorSurface, setInspectorSurface] = useState<"style" | "data" | "insight">("style");
   const multiSelectionSummary = buildMultiSelectionSummary(activePage, multiSelectedObjects);
   const inspectorFocus = multiSelectionSummary.count
     ? {
@@ -197,13 +201,19 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             title: activePage.title,
             helper: "Page design, grid, templates, master provenance, and canvas defaults."
           };
+  const insightNotes = selectedTile?.result.notes ?? [];
+  const insightWarnings = selectedTile?.result.warnings ?? [];
+  const dataContext = selectedTile
+    ? {
+        source: getQuestionLabel(selectedTile.query.question),
+        banner: comparisonSummaryLabel(selectedTile.query),
+        chart: getChartTypeLabel(selectedTile.visualization),
+        rows: selectedTile.result.table.length,
+        columns: selectedTile.result.columns.length
+      }
+    : null;
 
-  return (
-<BuilderPanel className="panel settings" label="Tile settings">
-          <div className="panel-title">
-            <h2>Settings</h2>
-          </div>
-          {multiSelectionSummary.count > 0 && (
+  const multiSelectionCard = multiSelectionSummary.count > 0 && (
             <div className="multi-selection-card inspector-primary-card">
               <div className="explorer-section-header">
                 <strong>{multiSelectionSummary.count} selected</strong>
@@ -261,7 +271,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
               </div>
               <button type="button" className="secondary" onClick={clearMultiSelection}>Clear selection</button>
             </div>
-          )}
+          );
+
+  const styleSurface = (
+    <>
+          {multiSelectionCard}
           {settingsView === "home" ? (
             <div className="settings-menu inspector-home">
               <div className="inspector-focus-card">
@@ -297,6 +311,92 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <ObjectInspector {...props} />
             </>
           )}
+    </>
+  );
+  const dataSurface = selectedTile ? (
+    <>
+      <div className="inspector-story-card">
+        <span>Selected analysis</span>
+        <strong>{dataContext?.source}</strong>
+        <small>{dataContext?.chart} · {dataContext?.banner}</small>
+        <div className="inspector-context-chips">
+          <span>{dataContext?.rows} rows</span>
+          <span>{dataContext?.columns} columns</span>
+          <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
+        </div>
+      </div>
+      <TileAnalysisResultSection {...props} />
+      <TileAnalysisQuerySection {...props} />
+    </>
+  ) : (
+    <div className="inspector-story-card quiet">
+      <span>Data context</span>
+      <strong>No analytical tile selected</strong>
+      <small>Select a chart or table to review query, source, result, and live-provider context.</small>
+    </div>
+  );
+  const insightSurface = (
+    <>
+      <div className="inspector-story-card">
+        <span>Story context</span>
+        <strong>{inspectorFocus.title}</strong>
+        <small>{inspectorFocus.helper}</small>
+      </div>
+      {selectedTile ? (
+        <>
+          <div className="inspector-story-card quiet">
+            <span>Interpretation cues</span>
+            <strong>{selectedTile.result.statistics.significance.status === "tested" ? "Tested comparisons available" : "Review analytical context"}</strong>
+            <small>{selectedTile.result.statistics.significance.comparisonBasis} basis · {Math.round(selectedTile.result.statistics.confidenceLevel * 100)}% confidence</small>
+            <div className="inspector-context-chips">
+              <span>{selectedTile.result.weighting.applied ? "Weighted" : "Unweighted"}</span>
+              <span>{selectedTile.result.statistics.significance.method}</span>
+            </div>
+          </div>
+          {(insightWarnings.length > 0 || insightNotes.length > 0) && (
+            <div className="inspector-story-card quiet">
+              <span>Result notes</span>
+              <strong>{insightWarnings.length > 0 ? `${insightWarnings.length} warning${insightWarnings.length === 1 ? "" : "s"}` : "No provider warnings"}</strong>
+              {[...insightWarnings, ...insightNotes].slice(0, 4).map((note) => (
+                <small key={note}>{note}</small>
+              ))}
+            </div>
+          )}
+          <button type="button" className="menu-card" onClick={() => {
+            setInspectorSurface("style");
+            setSettingsView("container");
+          }}>
+            <strong>Open provenance and lifecycle</strong>
+            <span>Review saved settings, derived-output, template, and segment context.</span>
+          </button>
+        </>
+      ) : (
+        <div className="inspector-story-card quiet">
+          <span>Insight surface</span>
+          <strong>Select an analytical tile</strong>
+          <small>Tile notes, warnings, provenance, and story handoff cues will appear here.</small>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+<BuilderPanel className="panel settings story-inspector" label="Design and insight inspector">
+          <div className="inspector-shell-title">
+            <div>
+              <span>Design + Insight</span>
+              <h2>Assistant</h2>
+            </div>
+            <small>{inspectorFocus.label}</small>
+          </div>
+          <div className="inspector-surface-tabs" role="tablist" aria-label="Inspector surfaces">
+            <button type="button" role="tab" aria-selected={inspectorSurface === "style"} className={inspectorSurface === "style" ? "active" : ""} onClick={() => setInspectorSurface("style")}>Style</button>
+            <button type="button" role="tab" aria-selected={inspectorSurface === "data"} className={inspectorSurface === "data" ? "active" : ""} onClick={() => setInspectorSurface("data")}>Data</button>
+            <button type="button" role="tab" aria-selected={inspectorSurface === "insight"} className={inspectorSurface === "insight" ? "active" : ""} onClick={() => setInspectorSurface("insight")}>Insight</button>
+          </div>
+          {inspectorSurface === "style" && styleSurface}
+          {inspectorSurface === "data" && dataSurface}
+          {inspectorSurface === "insight" && insightSurface}
         </BuilderPanel>
   );
 }

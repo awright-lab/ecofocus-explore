@@ -349,6 +349,19 @@ describe("snowflakeProvider", () => {
     expect(result.warnings).toEqual(expect.arrayContaining([
       "Weighted Snowflake output has zero base across all cells; verify weight availability and filter scope."
     ]));
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "column_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["insufficient_base"],
+      result: {
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: expect.any(Number),
+          significantComparisons: 0
+        }
+      }
+    });
   });
 
   it("keeps empty and ambiguous Snowflake results visible as warnings while preserving the normalized contract", () => {
@@ -687,6 +700,82 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining([
       "Authored variable set rows executed by Snowflake from Sustainability importance recode."
     ]));
+  });
+
+  it("executes authored variable-set breakout rows through live column-comparison significance", async () => {
+    let executedSql = "";
+    const query: AnalyticsQueryRequest = {
+      ...authoredVariableSetQuery,
+      breakBy: "GENERATION"
+    };
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "high_importance", COLUMN_ID: "gen_z", VALUE: 31, BASE: 312 },
+          { OPTION_ID: "high_importance", COLUMN_ID: "millennial", VALUE: 38, BASE: 428 },
+          { OPTION_ID: "middle_importance", COLUMN_ID: "gen_z", VALUE: 61, BASE: 312 },
+          { OPTION_ID: "middle_importance", COLUMN_ID: "millennial", VALUE: 54, BASE: 428 },
+          { OPTION_ID: "low_importance", COLUMN_ID: "gen_z", VALUE: 8, BASE: 312 },
+          { OPTION_ID: "low_importance", COLUMN_ID: "millennial", VALUE: 8, BASE: 428 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(query);
+
+    expect(executedSql).toContain("'high_importance' AS option_id");
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(generation)) AS column_id");
+    expect(result.table.map((row) => row.optionId)).toEqual(["high_importance", "middle_importance", "low_importance"]);
+    expect(result.columns.map((column) => column.id)).toEqual(["gen_z", "millennial", "gen_x", "boomer_plus"]);
+    expect(result.statistics.significanceExecutionInput).toMatchObject({
+      method: "column_comparison",
+      comparisonScope: {
+        basis: "breakout",
+        rowIds: ["high_importance", "middle_importance", "low_importance"],
+        columnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
+      },
+      rows: expect.arrayContaining([
+        expect.objectContaining({
+          id: "high_importance",
+          cells: expect.arrayContaining([
+            { columnId: "gen_z", value: 31, base: 312 },
+            { columnId: "millennial", value: 38, base: 428 }
+          ])
+        })
+      ])
+    });
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "column_comparison",
+      status: "executed",
+      inputAccepted: true,
+      result: {
+        summary: {
+          testedComparisons: 3,
+          deferredComparisons: 15
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            rowId: "high_importance",
+            columnId: "gen_z",
+            comparedColumnId: "millennial",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            rowId: "high_importance",
+            columnId: "gen_z",
+            comparedColumnId: "gen_x",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"]
+          })
+        ])
+      }
+    });
+    expect(result.statistics.significance).toMatchObject({
+      status: "tested",
+      method: "column_comparison",
+      hasPlaceholders: false
+    });
   });
 
   it("keeps unsupported authored variable-set row references explicit", async () => {

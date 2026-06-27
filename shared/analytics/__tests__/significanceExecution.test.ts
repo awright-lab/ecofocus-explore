@@ -187,6 +187,119 @@ describe("runColumnComparisonSignificanceAdapter", () => {
     expect(report?.result?.outcomes[0].statistics.pValue).toBeLessThan(1);
   });
 
+  it("marks individual executable column comparisons as not tested when bases are unusable", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredColumnComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const mixedBaseInput: AnalyticsColumnComparisonExecutionInput = {
+      ...columnComparisonInput,
+      comparisonScope: {
+        basis: "breakout",
+        rowIds: ["trust_a_lot", "neutral"],
+        columnIds: ["gen_z", "millennial"]
+      },
+      rows: [
+        columnComparisonInput.rows[0],
+        {
+          id: "neutral",
+          label: "Neutral",
+          cells: [
+            { columnId: "gen_z", value: 0, base: 0 },
+            { columnId: "millennial", value: 18, base: 428 }
+          ]
+        }
+      ]
+    };
+
+    const report = runColumnComparisonSignificanceAdapter(mixedBaseInput, readyPlan);
+
+    expect(report).toMatchObject({
+      status: "executed",
+      inputAccepted: true,
+      reasonCodes: [],
+      result: {
+        summary: {
+          testedComparisons: 1,
+          deferredComparisons: 1,
+          significantComparisons: 1
+        },
+        outcomes: [
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            status: "tested",
+            reasonCodes: []
+          }),
+          expect.objectContaining({
+            rowId: "neutral",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          })
+        ]
+      }
+    });
+  });
+
+  it("returns a not-executed report when all executable column comparisons lack usable bases", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredColumnComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const zeroBaseInput: AnalyticsColumnComparisonExecutionInput = {
+      ...columnComparisonInput,
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [
+            { columnId: "gen_z", value: 0, base: 0 },
+            { columnId: "millennial", value: 24, base: 0 }
+          ]
+        }
+      ]
+    };
+
+    expect(runColumnComparisonSignificanceAdapter(zeroBaseInput, readyPlan)).toMatchObject({
+      method: "column_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["insufficient_base"],
+      unmetPrerequisites: [],
+      result: {
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: 1,
+          significantComparisons: 0
+        },
+        outcomes: [
+          {
+            rowId: "trust_a_lot",
+            columnId: "gen_z",
+            comparedColumnId: "millennial",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          }
+        ]
+      }
+    });
+  });
+
   it("returns a not-executed report for executable plans outside the percent column-comparison path", () => {
     const readyPlan: AnalyticsSignificanceExecutionPlan = {
       ...deferredColumnComparisonPlan,

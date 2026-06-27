@@ -140,6 +140,59 @@ describe("buildAnalysisStatisticsContext", () => {
     expect(view.executionDiagnostics.message).toContain("still does not run statistical tests");
   });
 
+  it("explains not-executed significance when accepted input has insufficient bases", () => {
+    const result = runMockAnalyticsQuery(breakoutQuery);
+    const insufficientBaseResult: AnalyticsQueryResponse = {
+      ...result,
+      statistics: {
+        ...result.statistics,
+        significanceExecutionReport: {
+          method: "column_comparison",
+          status: "not_executed",
+          inputAccepted: true,
+          reasonCodes: ["insufficient_base"],
+          unmetPrerequisites: [],
+          result: {
+            method: "column_comparison",
+            comparisonScope: {
+              basis: "breakout",
+              rowIds: ["trust_a_lot"],
+              columnIds: ["gen_z", "millennial"]
+            },
+            outcomes: [
+              {
+                rowId: "trust_a_lot",
+                columnId: "gen_z",
+                comparedColumnId: "millennial",
+                status: "not_tested",
+                reasonCodes: ["insufficient_base"],
+                statistics: {
+                  pValue: null,
+                  confidence: null,
+                  direction: null
+                }
+              }
+            ],
+            summary: {
+              testedComparisons: 0,
+              deferredComparisons: 1,
+              significantComparisons: 0
+            }
+          }
+        }
+      }
+    };
+    const view = buildAnalysisStatisticsContext(tileFromResult(insufficientBaseResult));
+
+    expect(view.executionDiagnostics).toMatchObject({
+      status: "ready",
+      label: "Execution skipped for bases",
+      chips: ["column_comparison", "Insufficient base", "No test performed"],
+      details: ["Insufficient base"]
+    });
+    expect(view.executionDiagnostics.message).toContain("1 comparison pair has insufficient base");
+  });
+
   it("preserves placeholder significance interpretation", () => {
     const result = runMockAnalyticsQuery({
       ...summaryQuery,
