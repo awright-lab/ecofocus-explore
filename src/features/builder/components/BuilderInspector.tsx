@@ -241,6 +241,9 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         .filter((chartTypeOption) => !chartTypeOption.minSeries || selectedTile.result.columns.length >= chartTypeOption.minSeries)
         .map((chartTypeOption) => chartTypeOption.id)
     : [];
+  const activeDesignPaletteId = selectedTile
+    ? (designPalettes.find((palette) => palette.colors.join(",") === selectedTile.appearance.palette.join(","))?.id ?? getPaletteId(selectedTile.appearance.palette))
+    : "custom";
   const styleQuickCard = selectedTile ? (
     <div className="assistant-style-card">
       <div className="assistant-section-label">Chart</div>
@@ -278,7 +281,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <button
             type="button"
             key={palette.id}
-            className={getPaletteId(selectedTile.appearance.palette) === palette.id ? "active" : ""}
+            className={activeDesignPaletteId === palette.id ? "active" : ""}
             title={palette.label}
             onClick={() => applyPalettePresetToBars(palette.colors)}
             style={{ "--swatch-color": palette.colors[0] } as CSSProperties}
