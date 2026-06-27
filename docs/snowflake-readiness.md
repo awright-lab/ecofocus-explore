@@ -96,7 +96,7 @@ The first live provider path supports:
 - table-first multi-binary variable-set questions
 - summary and banner cuts represented by the current metadata
 - dimension filters such as generation, region, and shopper segment
-- one validated metadata-backed question filter per query
+- multiple validated metadata-backed question filters per query
 - summary-level wave comparisons across metadata-aligned datasets
 - breakout wave comparisons for metadata-backed banner dimensions that align across selected datasets
 - explicit authored variable-set rows built from known, non-overlapping source options
@@ -151,7 +151,7 @@ The live Snowflake provider will need to support:
 - broader saved/authored variable-set row execution
 - advanced authored recode behavior beyond explicit source-option composition
 - broader breakout wave comparison coverage beyond the current metadata-aligned banner subset
-- multiple simultaneous question filters
+- broader filter logic beyond the current metadata-backed question/dimension subset
 - production parity checks for weighted output conventions
 
 ## What Is Still Intentionally Not Implemented
@@ -160,7 +160,7 @@ The live Snowflake provider will need to support:
 - secure secret-management guidance for deployment environments
 - connection pooling beyond per-query SDK execution
 - Snowflake-backed wave significance execution
-- full production filter execution parity for multiple question filters
+- duplicate filters for the same question and broader custom filter logic
 - broad statistical testing beyond the current narrow column-comparison path
 
 ## Recommended Next Integration Steps
@@ -168,5 +168,5 @@ The live Snowflake provider will need to support:
 1. Verify the configured Snowflake table/view exposes the expected metadata-backed columns.
 2. Run opt-in provider-level integration tests against a safe non-production Snowflake target.
 3. Verify weighted output conventions with EcoFocus stakeholders.
-4. Expand live support for multiple question filters and broader authored variable-set execution.
+4. Expand live support for broader authored variable-set execution and production filter parity.
 5. Add read-only role and warehouse/timeout hardening for production deployment.

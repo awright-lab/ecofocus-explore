@@ -270,6 +270,19 @@ function authoredVariableSetSupportReasons(query: AnalyticsQueryRequest) {
   return Array.from(new Set(reasons));
 }
 
+function duplicateQuestionFilterFields(query: AnalyticsQueryRequest) {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  query.filters.forEach((filter) => {
+    if (!getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"])) return;
+    if (seen.has(filter.field)) duplicates.add(filter.field);
+    seen.add(filter.field);
+  });
+
+  return Array.from(duplicates);
+}
+
 export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): SnowflakeQuerySupport {
   const dataset = getDatasetMetadata(query.dataset);
   const question = getQuestionMetadata(query.dataset, query.question);
@@ -325,8 +338,8 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
     reasons.push("filter_field_not_live");
   }
 
-  if (questionFilters.length > 1) {
-    reasons.push("multiple_question_filters_not_live");
+  if (duplicateQuestionFilterFields(query).length > 0) {
+    reasons.push("duplicate_question_filter_not_live");
   }
 
   if (

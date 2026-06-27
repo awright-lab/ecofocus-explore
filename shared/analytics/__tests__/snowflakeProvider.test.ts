@@ -39,6 +39,15 @@ const questionFilteredQuery: AnalyticsQueryRequest = {
   filters: [{ field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] }]
 };
 
+const multiQuestionFilteredQuery: AnalyticsQueryRequest = {
+  ...breakoutQuery,
+  filters: [
+    { field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] },
+    { field: "Q_SUSTAINABILITY_IMPORTANCE", values: ["very_important", "somewhat_important"] },
+    { field: "Q15_TOP2_BRAND_PRIORITIES", values: ["Q15r1", "Q15r8"] }
+  ]
+};
+
 const waveQuery: AnalyticsQueryRequest = {
   dataset: "ecofocus_2025",
   question: "Q_PACKAGING_TRUST",
@@ -138,6 +147,20 @@ describe("snowflakeProvider", () => {
     });
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
     expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) = 'trust_somewhat'");
+  });
+
+  it("builds a Snowflake SQL plan for multiple supported question filters", () => {
+    const plan = buildSnowflakeSqlPlan(multiQuestionFilteredQuery, requireSnowflakeConfig(env));
+
+    expect(getSnowflakeQuerySupport(multiQuestionFilteredQuery)).toMatchObject({
+      supported: true,
+      reasons: []
+    });
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
+    expect(plan.sqlText).toContain("LOWER(TO_VARCHAR(q_sustainability_importance)) IN ('very_important', 'somewhat_important')");
+    expect(plan.sqlText).toContain("(TRY_TO_NUMBER(Q15r1) = 1 OR LOWER(TO_VARCHAR(Q15r1)) IN ('true', 'yes', 'selected'))");
+    expect(plan.sqlText).toContain("(TRY_TO_NUMBER(Q15r8) = 1 OR LOWER(TO_VARCHAR(Q15r8)) IN ('true', 'yes', 'selected'))");
+    expect(plan.sqlText).toContain(" AND LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot') AND LOWER(TO_VARCHAR(q_sustainability_importance)) IN ('very_important', 'somewhat_important') AND (");
   });
 
   it("builds a Snowflake SQL plan for supported live wave comparison queries", () => {
@@ -347,6 +370,113 @@ describe("snowflakeProvider", () => {
       }
     });
     expect(result.notes).toEqual(expect.arrayContaining(["Filters were applied by the Snowflake provider."]));
+  });
+
+  it("executes supported multiple question filters through the injected provider executor", async () => {
+    let executedSql = "";
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 26, BASE: 88 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "gen_z", VALUE: 52, BASE: 88 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(multiQuestionFilteredQuery);
+
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(q_sustainability_importance)) IN ('very_important', 'somewhat_important')");
+    expect(executedSql).toContain("(TRY_TO_NUMBER(Q15r1) = 1 OR LOWER(TO_VARCHAR(Q15r1)) IN ('true', 'yes', 'selected')) OR (TRY_TO_NUMBER(Q15r8) = 1 OR LOWER(TO_VARCHAR(Q15r8)) IN ('true', 'yes', 'selected'))");
+    expect(result.query.filters).toEqual(multiQuestionFilteredQuery.filters);
+    expect(result.table.find((row) => row.optionId === "trust_a_lot")).toMatchObject({
+      values: {
+        gen_z: 26,
+        millennial: 0
+      },
+      bases: {
+        gen_z: 88,
+        millennial: 0
+      }
+    });
+    expect(result.notes).toEqual(expect.arrayContaining(["Filters were applied by the Snowflake provider."]));
+  });
+
+  it("executes authored variable-set rows with multiple question filters through the injected provider executor", async () => {
+    let executedSql = "";
+    const query: AnalyticsQueryRequest = {
+      ...authoredVariableSetQuery,
+      filters: [
+        { field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] },
+        { field: "Q15_TOP2_BRAND_PRIORITIES", values: ["Q15r1"] }
+      ]
+    };
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "high_importance", COLUMN_ID: "summary", VALUE: 36, BASE: 220 },
+          { OPTION_ID: "middle_importance", COLUMN_ID: "summary", VALUE: 55, BASE: 220 },
+          { OPTION_ID: "low_importance", COLUMN_ID: "summary", VALUE: 9, BASE: 220 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(query);
+
+    expect(executedSql).toContain("'middle_importance' AS option_id");
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
+    expect(executedSql).toContain("(TRY_TO_NUMBER(Q15r1) = 1 OR LOWER(TO_VARCHAR(Q15r1)) IN ('true', 'yes', 'selected'))");
+    expect(result.metadataRefs.authoredVariableSet).toEqual({
+      id: "sustainability_importance_recode",
+      label: "Sustainability importance recode",
+      applied: true
+    });
+    expect(result.table[0]).toMatchObject({
+      optionId: "high_importance",
+      values: { summary: 36 },
+      bases: { summary: 220 }
+    });
+  });
+
+  it("executes wave output with multiple aligned question filters through the injected provider executor", async () => {
+    let executedSql = "";
+    const query: AnalyticsQueryRequest = {
+      ...waveQuery,
+      filters: [
+        { field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] },
+        { field: "Q_SUSTAINABILITY_IMPORTANCE", values: ["very_important"] }
+      ]
+    };
+    const executor: SnowflakeQueryExecutor = {
+      async execute(sqlText) {
+        executedSql = sqlText;
+        return [
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2025", VALUE: 28, BASE: 190 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2024", VALUE: 25, BASE: 175 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(query);
+
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(q_packaging_trust)) IN ('trust_a_lot')");
+    expect(executedSql).toContain("LOWER(TO_VARCHAR(q_sustainability_importance)) IN ('very_important')");
+    expect(result.columns).toEqual([
+      { id: "ecofocus_2025", label: "2025" },
+      { id: "ecofocus_2024", label: "2024" }
+    ]);
+    expect(result.table[0]).toMatchObject({
+      values: {
+        ecofocus_2025: 28,
+        ecofocus_2024: 25
+      },
+      bases: {
+        ecofocus_2025: 190,
+        ecofocus_2024: 175
+      }
+    });
   });
 
   it("executes a supported live wave query through the injected provider executor", async () => {
@@ -627,19 +757,19 @@ describe("snowflakeProvider", () => {
     });
   });
 
-  it("does not claim live support for multiple question filters yet", () => {
+  it("keeps duplicate question filters explicit", () => {
     const support = getSnowflakeQuerySupport({
       ...breakoutQuery,
       filters: [
         { field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] },
-        { field: "Q_SUSTAINABILITY_IMPORTANCE", values: ["very_important"] }
+        { field: "Q_PACKAGING_TRUST", values: ["trust_somewhat"] }
       ]
     });
 
     expect(support).toEqual({
       supported: false,
-      summary: "Snowflake live execution does not yet support this query shape: multiple_question_filters_not_live.",
-      reasons: ["multiple_question_filters_not_live"]
+      summary: "Snowflake live execution does not yet support this query shape: duplicate_question_filter_not_live.",
+      reasons: ["duplicate_question_filter_not_live"]
     });
   });
 });

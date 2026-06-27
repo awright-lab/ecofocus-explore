@@ -43,6 +43,25 @@ describe("validateAnalyticsQuery", () => {
     expect(errors).toContain("Filter SHOPPER_SEGMENT contains unsupported values: not_a_segment.");
   });
 
+  it("accepts multiple supported question filters", () => {
+    expect(
+      validateAnalyticsQuery({
+        dataset: "ecofocus_2025",
+        question: "Q_PACKAGING_TRUST",
+        breakBy: "GENERATION",
+        filters: [
+          { field: "Q_PACKAGING_TRUST", values: ["trust_a_lot"] },
+          { field: "Q_SUSTAINABILITY_IMPORTANCE", values: ["very_important", "somewhat_important"] },
+          { field: "Q15_TOP2_BRAND_PRIORITIES", values: ["Q15r1", "Q15r8"] }
+        ],
+        weight: "weightvar",
+        metric: "column_percent",
+        chartType: "grouped_bar",
+        confidenceLevel: 0.95
+      })
+    ).toEqual([]);
+  });
+
   it("accepts a valid wave comparison query", () => {
     expect(
       validateAnalyticsQuery({
