@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { BuilderPanel } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
 import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
@@ -40,6 +40,29 @@ import type {
 } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputModel";
+
+type AssistantRailIcon = "templates" | "themes" | "layout" | "widgets" | "text" | "images" | "elements" | "data";
+
+function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
+  const paths: Record<AssistantRailIcon, ReactNode> = {
+    templates: <><rect x="4" y="4" width="6" height="16" rx="1.5" /><rect x="14" y="4" width="6" height="7" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" /></>,
+    themes: <><path d="M5 13.5 12 4l7 9.5" /><path d="M7.5 12.5h9l-2 7h-5z" /><circle cx="12" cy="13" r="2" /></>,
+    layout: <><rect x="4" y="5" width="7" height="6" rx="1.5" /><rect x="13" y="5" width="7" height="6" rx="1.5" /><rect x="4" y="13" width="16" height="6" rx="1.5" /></>,
+    widgets: <><rect x="4" y="4" width="6" height="6" rx="1.5" /><rect x="14" y="4" width="6" height="6" rx="1.5" /><rect x="4" y="14" width="6" height="6" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" /></>,
+    text: <><path d="M5 6h14" /><path d="M12 6v13" /><path d="M8 19h8" /></>,
+    images: <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m7 17 4.5-4.5L15 16l2-2 2 3" /></>,
+    elements: <><circle cx="8" cy="8" r="3" /><rect x="13" y="5" width="6" height="6" rx="1.5" /><path d="M5 19h14l-7-7z" /></>,
+    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>
+  };
+
+  return (
+    <svg className="assistant-rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
+        {paths[icon]}
+      </g>
+    </svg>
+  );
+}
 
 export type BuilderInspectorProps = {
   settingsView: SettingsView;
@@ -292,16 +315,19 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <small>See all</small>
         </div>
         <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
-          <strong>Balanced two-column</strong>
-          <small>Keep charts side by side</small>
+          <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
+          <span><strong>Balanced two-column</strong><small>Keep charts side by side</small></span>
+          <em>with key insight</em>
         </button>
         <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
-          <strong>KPI strip on top</strong>
-          <small>Emphasize key numbers above charts</small>
+          <span className="layout-suggestion-icon"><AssistantIcon icon="widgets" /></span>
+          <span><strong>KPI strip on top</strong><small>Emphasize KPIs above</small></span>
+          <em>main charts</em>
         </button>
         <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("footer")}>
-          <strong>Full-width story note</strong>
-          <small>Reserve space for insight copy</small>
+          <span className="layout-suggestion-icon"><AssistantIcon icon="templates" /></span>
+          <span><strong>Full width hero</strong><small>Make this chart full width</small></span>
+          <em>greater impact</em>
         </button>
       </div>
       <div className="assistant-ai-takeaway">
@@ -490,21 +516,24 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   return (
 <BuilderPanel className="panel settings story-inspector" label="Design and insight inspector">
           <div className="assistant-side-rail" aria-label="Assistant tools">
-            <button type="button" className="active">Templates</button>
-            <button type="button">Themes</button>
-            <button type="button">Layout</button>
-            <button type="button">Widgets</button>
-            <button type="button">Text</button>
-            <button type="button">Images</button>
-            <button type="button">Elements</button>
-            <button type="button">Data</button>
+            {[
+              ["templates", "Templates"],
+              ["themes", "Themes"],
+              ["layout", "Layout"],
+              ["widgets", "Widgets"],
+              ["text", "Text"],
+              ["images", "Images"],
+              ["elements", "Elements"],
+              ["data", "Data"]
+            ].map(([icon, label], index) => (
+              <button type="button" className={index === 0 ? "active" : ""} key={label}>
+                <AssistantIcon icon={icon as AssistantRailIcon} />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
           <div className="inspector-shell-title">
-            <div>
-              <span>Design + Insight</span>
-              <h2>Assistant</h2>
-            </div>
-            <small>{inspectorFocus.label}</small>
+            <h2><span aria-hidden="true">✣</span> Design + Insight Assistant</h2>
           </div>
           <div className="inspector-surface-tabs" role="tablist" aria-label="Inspector surfaces">
             <button type="button" role="tab" aria-selected={inspectorSurface === "style"} className={inspectorSurface === "style" ? "active" : ""} onClick={() => setInspectorSurface("style")}>Style</button>

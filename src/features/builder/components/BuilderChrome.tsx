@@ -11,20 +11,52 @@ import {
 import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
 
 type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report" | "present";
+type ChromeIconName =
+  | WorkspaceProductMode
+  | "undo"
+  | "redo"
+  | "duplicate"
+  | "delete"
+  | "help"
+  | "bell";
 
 const workspaceProductModes: Array<{
   id: WorkspaceProductMode;
   label: string;
-  icon: string;
   helper: string;
 }> = [
-  { id: "data", label: "Data", icon: "▤", helper: "Library and source setup" },
-  { id: "design", label: "Design", icon: "◈", helper: "Brand and composition tools" },
-  { id: "story", label: "Story", icon: "▧", helper: "Active authoring workspace" },
-  { id: "dashboard", label: "Dashboard", icon: "▦", helper: "Structured view scaffold" },
-  { id: "report", label: "Report", icon: "▣", helper: "Report assembly scaffold" },
-  { id: "present", label: "Present", icon: "▷", helper: "Presentation scaffold" }
+  { id: "data", label: "Data", helper: "Library and source setup" },
+  { id: "design", label: "Design", helper: "Brand and composition tools" },
+  { id: "story", label: "Story", helper: "Active authoring workspace" },
+  { id: "dashboard", label: "Dashboard", helper: "Structured view scaffold" },
+  { id: "report", label: "Report", helper: "Report assembly scaffold" },
+  { id: "present", label: "Present", helper: "Presentation scaffold" }
 ];
+
+function ChromeIcon({ icon }: { icon: ChromeIconName }) {
+  const paths: Record<ChromeIconName, ReactNode> = {
+    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
+    design: <><path d="M12 4 20 12l-8 8-8-8z" /><circle cx="12" cy="12" r="2.2" /></>,
+    story: <><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M8 9h8M8 13h5M8 17h7" /></>,
+    dashboard: <><rect x="4" y="5" width="7" height="6" rx="1.5" /><rect x="13" y="5" width="7" height="6" rx="1.5" /><rect x="4" y="13" width="16" height="6" rx="1.5" /></>,
+    report: <><path d="M7 4h7l4 4v12H7z" /><path d="M14 4v5h5M9 13h6M9 16h6" /></>,
+    present: <><rect x="4" y="5" width="16" height="12" rx="2" /><path d="m11 9 4 2.5-4 2.5zM12 17v3" /></>,
+    undo: <><path d="M9 8H5V4" /><path d="M5 8c2.3-2.5 5.8-3.2 8.8-1.7 3.1 1.6 4.5 5.2 3.2 8.4-1.2 3-4.4 4.8-7.6 4.1" /></>,
+    redo: <><path d="M15 8h4V4" /><path d="M19 8c-2.3-2.5-5.8-3.2-8.8-1.7-3.1 1.6-4.5 5.2-3.2 8.4 1.2 3 4.4 4.8 7.6 4.1" /></>,
+    duplicate: <><rect x="8" y="8" width="10" height="10" rx="2" /><path d="M6 14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1" /></>,
+    delete: <><path d="M5 7h14M10 11v6M14 11v6M8 7l1-3h6l1 3M7 7l1 13h8l1-13" /></>,
+    help: <><circle cx="12" cy="12" r="9" /><path d="M9.7 9a2.5 2.5 0 1 1 4.3 1.8c-.8.8-1.7 1.2-1.8 2.5" /><path d="M12 17h.01" /></>,
+    bell: <><path d="M18 16H6c1.3-1.4 1.7-3 1.7-5a4.3 4.3 0 1 1 8.6 0c0 2 .4 3.6 1.7 5Z" /><path d="M10 19a2.2 2.2 0 0 0 4 0" /></>
+  };
+
+  return (
+    <svg className="chrome-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
+        {paths[icon]}
+      </g>
+    </svg>
+  );
+}
 
 export function BuilderHeader({
   dashboard,
@@ -125,7 +157,7 @@ export function BuilderHeader({
               title={mode.helper}
               onClick={() => setActiveProductMode(mode.id)}
             >
-              <span aria-hidden="true">{mode.icon}</span>
+              <span aria-hidden="true"><ChromeIcon icon={mode.id} /></span>
               {mode.label}
             </button>
           ))}
@@ -162,10 +194,10 @@ export function BuilderHeader({
       </div>
       <div className="publish-controls">
         <div className="quick-edit-controls" aria-label="Quick edit actions">
-          <button type="button" className="icon-button" aria-label="Undo" title="Undo" onClick={onUndo} disabled={!canUndo}>↶</button>
-          <button type="button" className="icon-button" aria-label="Redo" title="Redo" onClick={onRedo} disabled={!canRedo}>↷</button>
-          <button type="button" className="icon-button" aria-label="Duplicate selection" title="Duplicate" onClick={onDuplicate} disabled={!canUseSelection}>□</button>
-          <button type="button" className="icon-button" aria-label="Delete selection" title="Delete" onClick={onDelete} disabled={!canUseSelection}>⌫</button>
+          <button type="button" className="icon-button" aria-label="Undo" title="Undo" onClick={onUndo} disabled={!canUndo}><ChromeIcon icon="undo" /></button>
+          <button type="button" className="icon-button" aria-label="Redo" title="Redo" onClick={onRedo} disabled={!canRedo}><ChromeIcon icon="redo" /></button>
+          <button type="button" className="icon-button" aria-label="Duplicate selection" title="Duplicate" onClick={onDuplicate} disabled={!canUseSelection}><ChromeIcon icon="duplicate" /></button>
+          <button type="button" className="icon-button" aria-label="Delete selection" title="Delete" onClick={onDelete} disabled={!canUseSelection}><ChromeIcon icon="delete" /></button>
         </div>
         {exportConfirmation && (
           <div className={`export-package-confirmation ${exportConfirmation.status}`} role="status">
@@ -198,8 +230,8 @@ export function BuilderHeader({
             </div>
           </div>
         </details>
-        <button type="button" className="icon-button" aria-label="Help" title="Help">?</button>
-        <button type="button" className="icon-button" aria-label="Notifications" title="Notifications">○</button>
+        <button type="button" className="icon-button" aria-label="Help" title="Help"><ChromeIcon icon="help" /></button>
+        <button type="button" className="icon-button" aria-label="Notifications" title="Notifications"><ChromeIcon icon="bell" /></button>
         <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
         <button type="button" className="secondary quiet-header-action" onClick={onReset}>Reset</button>
         {dashboard.status === "published" ? (

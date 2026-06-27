@@ -175,8 +175,14 @@ h1 {
 }
 
 .workspace-product-nav button span {
+  display: inline-grid;
+  place-items: center;
   color: #1c3440;
-  font-size: 0.94rem;
+}
+
+.chrome-icon {
+  width: 17px;
+  height: 17px;
 }
 
 .workspace-product-nav button::after {
@@ -325,6 +331,11 @@ h2 {
   padding: 0;
   font-size: 0.84rem;
   font-weight: 850;
+}
+
+.icon-button .chrome-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .avatar-button {
@@ -849,8 +860,8 @@ h2 {
 }
 
 .story-inspector {
-  gap: 14px;
-  padding-right: 68px;
+  gap: 12px;
+  padding-right: 64px;
 }
 
 .assistant-side-rail {
@@ -860,25 +871,34 @@ h2 {
   bottom: 0;
   display: grid;
   align-content: start;
-  gap: 8px;
-  width: 56px;
+  gap: 6px;
+  width: 54px;
   border-left: 1px solid #e0e6eb;
   background: #ffffff;
-  padding: 58px 5px 12px;
+  padding: 54px 4px 12px;
 }
 
 .assistant-side-rail button {
   display: grid;
   place-items: center;
-  gap: 4px;
+  gap: 3px;
   min-height: 48px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: #34434e;
   padding: 4px 1px;
-  font-size: 0.59rem;
+  font-size: 0.57rem;
   font-weight: 800;
+}
+
+.assistant-side-rail button span {
+  display: block;
+}
+
+.assistant-rail-icon {
+  width: 19px;
+  height: 19px;
 }
 
 .assistant-side-rail button.active,
@@ -888,67 +908,61 @@ h2 {
 }
 
 .inspector-shell-title {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 10px;
+  display: block;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e2e9ed;
 }
 
-.inspector-shell-title div {
-  display: grid;
-  gap: 2px;
-}
-
-.inspector-shell-title span {
-  color: #08715f;
-  font-size: 0.68rem;
-  font-weight: 950;
-  text-transform: uppercase;
-}
-
 .inspector-shell-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #16251e;
-  font-size: 0.98rem;
-}
-
-.inspector-shell-title small {
-  border: 1px solid #dfe8eb;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #607168;
-  padding: 4px 8px;
-  font-size: 0.66rem;
-  font-weight: 850;
+  font-size: 0.86rem;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
+.inspector-shell-title h2 span {
+  color: #6557c8;
+  font-size: 0.98rem;
+}
+
 .inspector-surface-tabs {
-  display: grid;
+  display: flex;
   grid-template-columns: repeat(3, 1fr);
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid #dde6eb;
-  border-radius: 14px;
-  background: #eef3f4;
+  gap: 0;
+  border-bottom: 1px solid #dce3ea;
+  background: transparent;
 }
 
 .inspector-surface-tabs button {
+  position: relative;
+  flex: 1 1 0;
   min-height: 34px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 0;
   background: transparent;
-  color: #48574f;
+  color: #263343;
   padding: 0 6px;
-  font-size: 0.78rem;
-  font-weight: 900;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .inspector-surface-tabs button.active {
-  background: #ffffff;
   color: #08715f;
-  box-shadow: 0 8px 18px rgba(30, 42, 56, 0.08);
+  box-shadow: none;
+}
+
+.inspector-surface-tabs button.active::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: #008b89;
 }
 
 .inspector-story-card {
@@ -989,8 +1003,8 @@ h2 {
 
 .assistant-style-card {
   display: grid;
-  gap: 12px;
-  padding: 13px;
+  gap: 10px;
+  padding: 12px;
   border: 1px solid #dbe7e7;
   border-radius: 14px;
   background: #ffffff;
@@ -999,35 +1013,38 @@ h2 {
 
 .assistant-section-label {
   color: #253343;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 950;
   text-transform: uppercase;
 }
 
 .assistant-style-card label {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 1.05fr);
+  grid-template-columns: 92px minmax(136px, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   color: #344550;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .assistant-style-card select {
-  min-height: 36px;
+  min-width: 0;
+  min-height: 30px;
   border: 1px solid #d8e0e7;
   border-radius: 8px;
   background: #ffffff;
   color: #202c3a;
-  padding: 0 10px;
-  font-size: 0.78rem;
+  padding: 0 8px;
+  font-size: 0.66rem;
   font-weight: 700;
+  text-overflow: ellipsis;
 }
 
 .assistant-field-label {
   color: #344550;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 800;
 }
 
@@ -1036,7 +1053,7 @@ h2 {
   grid-template-columns: none;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 9px;
 }
 
 .toggle-row input {
@@ -1074,15 +1091,18 @@ h2 {
 
 .assistant-palette-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .assistant-palette-row button {
-  width: 34px;
-  height: 34px;
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
   border: 1px solid #dce3ea;
-  border-radius: 8px;
+  border-radius: 5px;
   background: var(--swatch-color);
   padding: 0;
 }
@@ -1152,7 +1172,7 @@ h2 {
 
 .layout-suggestion-list {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .assistant-section-header {
@@ -1177,11 +1197,13 @@ h2 {
 
 .layout-suggestion {
   display: grid;
-  gap: 2px;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   border: 1px solid #dfe7ef;
-  border-radius: 9px;
+  border-radius: 7px;
   background: #ffffff;
-  padding: 8px 9px;
+  padding: 7px;
   text-align: left;
 }
 
@@ -1191,13 +1213,44 @@ h2 {
 }
 
 .layout-suggestion strong {
+  display: block;
   color: #253343;
-  font-size: 0.75rem;
+  font-size: 0.66rem;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .layout-suggestion small {
+  display: block;
   color: #6b7a83;
-  font-size: 0.68rem;
+  font-size: 0.59rem;
+  font-weight: 650;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.layout-suggestion em {
+  color: #8b95a3;
+  font-size: 0.56rem;
+  font-style: normal;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.layout-suggestion-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d6e0e7;
+  border-radius: 5px;
+  color: #48586a;
+  background: #ffffff;
+}
+
+.layout-suggestion-icon .assistant-rail-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .tool-rail {
