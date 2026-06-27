@@ -424,7 +424,6 @@ export function QueryEditorSection(props: AnalysisAuthoringPanelProps) {
                         <div className="explorer-output-actions">
                           <button
                             type="button"
-                            className="secondary"
                             onClick={() => addTileFromSourceWithVisualization("table")}
                             disabled={isLoading || !selectedChartTypes.includes("table")}
                           >
@@ -432,6 +431,7 @@ export function QueryEditorSection(props: AnalysisAuthoringPanelProps) {
                           </button>
                           <button
                             type="button"
+                            className="secondary"
                             onClick={() => addTileFromSourceWithVisualization(chartType === "table" ? (selectedChartTypes.find((item) => item !== "table") ?? "vertical_bar") : chartType)}
                             disabled={isLoading}
                           >

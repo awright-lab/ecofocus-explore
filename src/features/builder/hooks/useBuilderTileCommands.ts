@@ -120,6 +120,13 @@ export function tileWithVisualization(tile: DashboardTile, nextVisualization: Ch
   };
 }
 
+function tableFirstQuery(nextQuery: AnalyticsQueryRequest): AnalyticsQueryRequest {
+  const questionMetadata = defaultDataset.questions.find((item) => item.id === nextQuery.question);
+  return questionMetadata?.allowedChartTypes.includes("table")
+    ? { ...nextQuery, chartType: "table" }
+    : nextQuery;
+}
+
 export function useBuilderTileCommands({
   activePage,
   canvasScale,
@@ -213,7 +220,7 @@ export function useBuilderTileCommands({
         if (!variableSet) return;
         applyVariableSetSelection(variableSet);
         await createTileFromSource(
-          queryForVariableSet(variableSet),
+          tableFirstQuery(queryForVariableSet(variableSet)),
           variableSet.label,
           { x: dropX, y: dropY },
           { kind: "variableSet", id: variableSet.id, label: variableSet.label }
@@ -225,7 +232,7 @@ export function useBuilderTileCommands({
       if (!nextQuestion) return;
       applyQuestionSelection(nextQuestion);
       await createTileFromSource(
-        queryForQuestion(nextQuestion),
+        tableFirstQuery(queryForQuestion(nextQuestion)),
         nextQuestion.shortLabel,
         { x: dropX, y: dropY },
         { kind: "question", id: nextQuestion.id, label: nextQuestion.shortLabel }
@@ -237,7 +244,7 @@ export function useBuilderTileCommands({
 
   async function addTileFromQuery() {
     return createTileFromSource(
-      query,
+      tableFirstQuery(query),
       selectedVariableSet?.label ?? selectedQuestion.shortLabel,
       undefined,
       selectedVariableSet
@@ -281,7 +288,7 @@ export function useBuilderTileCommands({
           : []
     };
     return createTileFromSource(
-      segmentQuery,
+      tableFirstQuery(segmentQuery),
       `${selectedVariableSet?.label ?? selectedQuestion.shortLabel} - ${segment.label}`,
       undefined,
       selectedVariableSet

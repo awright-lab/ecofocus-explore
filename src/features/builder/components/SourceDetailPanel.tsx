@@ -115,7 +115,6 @@ function SourceInsertionActions({
       <div className="source-insertion-card__actions">
         <button
           type="button"
-          className="secondary"
           onClick={() => void createSourceObject("table", "table")}
           disabled={isLoading || !insertion.canCreateTable}
         >
@@ -123,6 +122,7 @@ function SourceInsertionActions({
         </button>
         <button
           type="button"
+          className="secondary"
           onClick={() => void createSourceObject(insertion.chartType, insertion.chartLabel)}
           disabled={isLoading}
         >

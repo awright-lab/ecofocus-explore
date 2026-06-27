@@ -98,6 +98,12 @@ const sharedMetrics: MetricMetadata[] = [
 
 const sharedChartTypes: ChartTypeMetadata[] = [
   {
+    id: "table",
+    label: "Table",
+    description: "Show the normalized result values and bases plainly before designing a chart.",
+    supportedMetrics: ["percent_selected", "column_percent", "count"]
+  },
+  {
     id: "grouped_bar",
     label: "Grouped bar",
     description: "Compare answer distributions across banner groups.",
