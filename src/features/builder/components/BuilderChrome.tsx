@@ -202,7 +202,6 @@ export function BuilderHeader({
         <button type="button" className="icon-button" aria-label="Notifications" title="Notifications">○</button>
         <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
         <button type="button" className="secondary quiet-header-action" onClick={onReset}>Reset</button>
-        <button type="button" className="export-action" onClick={handleExport}>Export ▾</button>
         {dashboard.status === "published" ? (
           <>
             <button type="button" className="secondary" onClick={onOpenPublished}>Open</button>
@@ -211,6 +210,7 @@ export function BuilderHeader({
         ) : (
           <button type="button" className="share-action" onClick={onPublish}>Share</button>
         )}
+        <button type="button" className="export-action" onClick={handleExport}>Export ▾</button>
       </div>
     </header>
   );

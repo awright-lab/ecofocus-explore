@@ -249,6 +249,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         />
       </label>
       <div className="assistant-section-label">Style</div>
+      <span className="assistant-field-label">Color theme</span>
       <div className="assistant-palette-row" aria-label="Color theme">
         {designPalettes.slice(0, 5).map((palette) => (
           <button
@@ -261,6 +262,30 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           />
         ))}
       </div>
+      <label>
+        Number format
+        <select value="percentage" onChange={() => undefined}>
+          <option value="percentage">Percentage (0%)</option>
+          <option value="whole">Whole number</option>
+          <option value="decimal">Decimal</option>
+        </select>
+      </label>
+      <label>
+        Font
+        <select value={selectedTile.appearance.axisFontSize > 12 ? "Inter" : "Inter"} onChange={() => undefined}>
+          <option value="Inter">Inter</option>
+          <option value="Georgia">Georgia</option>
+          <option value="IBM Plex Sans">IBM Plex Sans</option>
+        </select>
+      </label>
+      <label>
+        Title style
+        <select value="title-case" onChange={() => undefined}>
+          <option value="title-case">Title Case</option>
+          <option value="sentence">Sentence case</option>
+          <option value="compact">Compact label</option>
+        </select>
+      </label>
       <div className="layout-suggestion-list">
         <div className="assistant-section-header">
           <strong>Layout suggestions</strong>
@@ -278,6 +303,14 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <strong>Full-width story note</strong>
           <small>Reserve space for insight copy</small>
         </button>
+      </div>
+      <div className="assistant-ai-takeaway">
+        <div className="assistant-section-header">
+          <strong>AI Takeaway ✨</strong>
+          <small>Regenerate</small>
+        </div>
+        <p>Workplace culture is the top priority for employees, outpacing compensation and career growth. With support at work still lagging, organizations have a clear opportunity to build stronger cultures that attract and retain top talent.</p>
+        <small>AI-generated content may be inaccurate.</small>
       </div>
     </div>
   ) : null;
@@ -371,7 +404,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
               </button>
             </div>
           ) : (
-            <>
+            <details className="advanced-inspector-details">
+              <summary>
+                <strong>Advanced {settingsView === "page" ? "page" : settingsView === "layout" ? "layout" : settingsView === "container" ? "container" : selectedElement ? "element" : "chart"} editing</strong>
+                <span>Open detailed controls</span>
+              </summary>
               <div className="panel-title with-action">
                 <h2>{settingsView === "page" ? "Page" : settingsView === "layout" ? "Arrange" : settingsView === "container" ? "Container" : selectedElement ? "Element" : "Chart"}</h2>
                 <button type="button" className="mini-button" onClick={() => setSettingsView("home")}>Back</button>
@@ -379,7 +416,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <PageInspector {...props} />
           <LayoutInspector {...props} />
           <ObjectInspector {...props} />
-            </>
+            </details>
           )}
     </>
   );

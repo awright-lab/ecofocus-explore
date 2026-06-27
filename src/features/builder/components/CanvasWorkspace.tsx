@@ -12,6 +12,120 @@ function rangeFill(value: number | string, min: number, max: number) {
   return `${Math.min(100, Math.max(0, percentage))}%`;
 }
 
+function MockupStorySlide() {
+  const bars = [
+    { label: "Workplace\nCulture", value: 72 },
+    { label: "Flexibility", value: 61 },
+    { label: "Compensation", value: 53 },
+    { label: "Career\nGrowth", value: 38 },
+    { label: "Sustainability", value: 29 },
+    { label: "Brand\nReputation", value: 21 }
+  ];
+
+  return (
+    <div className="mockup-slide-artboard" aria-label="InsightCanvas story mockup">
+      <div className="mockup-accent-rule" />
+      <section className="mockup-hero-copy">
+        <h1>Workplace Trends 2026</h1>
+        <p>What matters most to today&apos;s workforce-and what it means for business</p>
+      </section>
+
+      <div className="mockup-kpi-strip" aria-label="Key performance indicators">
+        {[
+          { icon: "◎", value: "84%", label: "Care About Workplace Culture", helper: "vs. 78% in 2024 ↑", tone: "teal" },
+          { icon: "♡", value: "41%", label: "Feel Supported at Work", helper: "vs. 35% in 2024 ↑", tone: "indigo" },
+          { icon: "↗", value: "2x", label: "Growth in Job-Seeker Influence", helper: "vs. 2024 ↑", tone: "coral" }
+        ].map((item) => (
+          <article className={`mockup-kpi-card ${item.tone}`} key={item.value}>
+            <span>{item.icon}</span>
+            <strong>{item.value}</strong>
+            <p>{item.label}</p>
+            <small>{item.helper}</small>
+          </article>
+        ))}
+      </div>
+
+      <section className="mockup-chart-card mockup-selected-chart">
+        <div className="mockup-object-toolbar" aria-hidden="true">
+          <button type="button">✥</button>
+          <button type="button">⚙</button>
+          <button type="button">▣</button>
+          <button type="button">⌫</button>
+        </div>
+        {["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((handle) => <span key={handle} className={`mockup-resize-handle ${handle}`} />)}
+        <div className="mockup-chart-heading">
+          <div>
+            <strong>Top Drivers of Workplace Choice</strong>
+            <small>% selecting as a top 3 driver</small>
+          </div>
+          <span>N = 12,540 ⋮</span>
+        </div>
+        <div className="mockup-bar-chart" aria-hidden="true">
+          <div className="mockup-y-axis">
+            <span>100%</span>
+            <span>80%</span>
+            <span>60%</span>
+            <span>40%</span>
+            <span>20%</span>
+            <span>0%</span>
+          </div>
+          <div className="mockup-bars">
+            {bars.map((bar) => (
+              <div className="mockup-bar-item" key={bar.label}>
+                <span>{bar.value}%</span>
+                <i style={{ height: `${bar.value * 1.62}px` }} />
+                <small>{bar.label}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mockup-chart-legend"><span /> All Respondents</div>
+      </section>
+
+      <section className="mockup-chart-card mockup-donut-card">
+        <div className="mockup-chart-heading">
+          <div>
+            <strong>Preferred Work Arrangement</strong>
+            <small>% of respondents</small>
+          </div>
+          <span>⋮</span>
+        </div>
+        <div className="mockup-donut-wrap">
+          <div className="mockup-donut" aria-hidden="true">
+            <span className="donut-label one">44%</span>
+            <span className="donut-label two">33%</span>
+            <span className="donut-label three">23%</span>
+          </div>
+        </div>
+        <div className="mockup-donut-legend">
+          <span><i className="teal" /> Hybrid</span>
+          <span><i className="indigo" /> Fully Remote</span>
+          <span><i className="coral" /> On-site</span>
+        </div>
+        <small className="mockup-base-note">N = 12,540</small>
+      </section>
+
+      <section className="mockup-insight-card">
+        <div className="mockup-insight-icon">◌</div>
+        <div>
+          <span>Insight</span>
+          <p>Culture leads the decision hierarchy, outranking compensation and growth. Support at work remains low-an opportunity for employers to differentiate.</p>
+        </div>
+      </section>
+
+      <section className="mockup-section-card">
+        <div className="mockup-dot-grid" aria-hidden="true" />
+        <div>
+          <span>Section 2</span>
+          <h2>Opportunity</h2>
+          <p>Where organizations can take action</p>
+        </div>
+        <button type="button" aria-label="Open next section">→</button>
+      </section>
+    </div>
+  );
+}
+
 export function CanvasWorkspace({
   activePage,
   sortedPages,
@@ -95,13 +209,16 @@ export function CanvasWorkspace({
   const activePageIndex = sortedPages.findIndex((page) => page.id === activePage.id);
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
+  const showMockupStorySurface = true;
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
-    background: canvasBackground(activePage),
-    backgroundSize: canvasBackgroundSize(activePage),
-    backgroundRepeat: canvasBackgroundRepeat(activePage),
-    backgroundPosition: canvasBackgroundPosition(activePage),
+    background: showMockupStorySurface
+      ? "radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 0), linear-gradient(180deg, #ffffff, #fbfcfd)"
+      : canvasBackground(activePage),
+    backgroundSize: showMockupStorySurface ? "18px 18px, auto" : canvasBackgroundSize(activePage),
+    backgroundRepeat: showMockupStorySurface ? "repeat, no-repeat" : canvasBackgroundRepeat(activePage),
+    backgroundPosition: showMockupStorySurface ? "0 0, 0 0" : canvasBackgroundPosition(activePage),
     transform: `scale(${canvasScale})`
   };
   const updateGuideState = (movingObject: CompositionGuideObject) => {
@@ -156,7 +273,7 @@ export function CanvasWorkspace({
       <div className="canvas-viewport">
         <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>
           <div
-            className="freeform-canvas"
+            className={showMockupStorySurface ? "freeform-canvas mockup-story-canvas" : "freeform-canvas"}
             onDragOver={(event) => {
               if (event.dataTransfer.types.includes("application/ecofocus-source")) {
                 event.preventDefault();
@@ -171,7 +288,8 @@ export function CanvasWorkspace({
             }}
             style={canvasStyle}
           >
-            {activePage.tiles.length === 0 && activePage.elements.length === 0 && (
+            {showMockupStorySurface && <MockupStorySlide />}
+            {!showMockupStorySurface && activePage.tiles.length === 0 && activePage.elements.length === 0 && (
               <div className="empty-canvas-state">
                 <span>Start a story section</span>
                 <strong>{activePage.title}</strong>
@@ -182,7 +300,7 @@ export function CanvasWorkspace({
                 </div>
               </div>
             )}
-            {activePage.elements.filter((element) => !element.hidden).map((element) => (
+            {!showMockupStorySurface && activePage.elements.filter((element) => !element.hidden).map((element) => (
               <Rnd
                 key={element.id}
                 bounds="parent"
@@ -219,7 +337,7 @@ export function CanvasWorkspace({
                 {renderElement(element, element.id === selectedElementId, () => onSelectElement(element.id))}
               </Rnd>
             ))}
-            {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
+            {!showMockupStorySurface && activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
               <Rnd
                 key={tile.id}
                 bounds="parent"
