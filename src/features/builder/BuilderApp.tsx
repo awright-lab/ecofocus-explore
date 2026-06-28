@@ -859,7 +859,11 @@ export default function BuilderApp() {
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
           saveState={saveState}
+          canvasZoom={canvasZoom}
+          showCanvasGrid={activePage.showCanvasGrid}
           onRenameDashboard={renameDashboard}
+          onZoomChange={updateCanvasZoom}
+          onToggleCanvasGrid={() => updateActivePage({ showCanvasGrid: !activePage.showCanvasGrid })}
           selectionLabel={workspaceSelectionLabel}
         />
         <AnalysisAuthoringPanel

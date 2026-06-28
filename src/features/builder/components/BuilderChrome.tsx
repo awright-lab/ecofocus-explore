@@ -165,12 +165,20 @@ export function BuilderHeader({
 export function WorkspaceModeStrip({
   pageTitle,
   saveState,
+  canvasZoom,
+  showCanvasGrid,
   onRenameDashboard,
+  onZoomChange,
+  onToggleCanvasGrid,
   selectionLabel
 }: {
   pageTitle: string;
   saveState: string;
+  canvasZoom: number;
+  showCanvasGrid: boolean;
   onRenameDashboard: (title: string) => void;
+  onZoomChange: (zoom: number) => void;
+  onToggleCanvasGrid: () => void;
   selectionLabel: string;
 }) {
   const saveStateView = buildDocumentSaveStateView(saveState);
@@ -240,11 +248,18 @@ export function WorkspaceModeStrip({
         <small>{selectionLabel}</small>
       </div>
       <div className="workspace-strip-tools" aria-label="Canvas view controls">
-        <button type="button" title="Desktop preview"><ChromeIcon icon="desktop" /></button>
-        <button type="button" title="Mobile preview"><ChromeIcon icon="mobile" /></button>
-        <button type="button" title="Zoom out"><ChromeIcon icon="zoomOut" /></button>
-        <button type="button" title="Zoom in"><ChromeIcon icon="zoomIn" /></button>
-        <button type="button" title="Grid"><ChromeIcon icon="grid" /></button>
+        <button type="button" title="Desktop view" onClick={() => onZoomChange(85)}><ChromeIcon icon="desktop" /></button>
+        <button type="button" title="Mobile view" onClick={() => onZoomChange(55)}><ChromeIcon icon="mobile" /></button>
+        <button type="button" title="Zoom out" onClick={() => onZoomChange(canvasZoom - 10)}><ChromeIcon icon="zoomOut" /></button>
+        <label className="workspace-zoom-select" aria-label="Canvas zoom">
+          <select value={canvasZoom} onChange={(event) => onZoomChange(Number(event.target.value))}>
+            {Array.from({ length: 26 }, (_, index) => 35 + index * 5).map((zoom) => (
+              <option value={zoom} key={zoom}>{zoom}%</option>
+            ))}
+          </select>
+        </label>
+        <button type="button" title="Zoom in" onClick={() => onZoomChange(canvasZoom + 10)}><ChromeIcon icon="zoomIn" /></button>
+        <button type="button" className={showCanvasGrid ? "active" : ""} title={showCanvasGrid ? "Hide grid" : "Show grid"} aria-pressed={showCanvasGrid} onClick={onToggleCanvasGrid}><ChromeIcon icon="grid" /></button>
       </div>
     </div>
   );

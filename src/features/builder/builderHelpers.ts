@@ -295,7 +295,7 @@ export function canvasBackground(page: DashboardPage) {
 
   if (!page.showCanvasGrid) return pageBackground;
 
-  return `linear-gradient(#eef3eb 1px, transparent 1px), linear-gradient(90deg, #eef3eb 1px, transparent 1px), ${pageBackground}`;
+  return `radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 1.5px), ${pageBackground}`;
 }
 
 export function canvasBackgroundSize(page: DashboardPage) {
@@ -308,7 +308,7 @@ export function canvasBackgroundSize(page: DashboardPage) {
 
   if (!page.showCanvasGrid) return finalSize;
 
-  return `${page.gridSize}px ${page.gridSize}px, ${page.gridSize}px ${page.gridSize}px, ${finalSize}`;
+  return `${page.gridSize}px ${page.gridSize}px, ${finalSize}`;
 }
 
 export function canvasBackgroundRepeat(page: DashboardPage) {
@@ -316,7 +316,7 @@ export function canvasBackgroundRepeat(page: DashboardPage) {
 
   if (!page.showCanvasGrid) return finalRepeat;
 
-  return `repeat, repeat, ${finalRepeat}`;
+  return `repeat, ${finalRepeat}`;
 }
 
 export function canvasBackgroundPosition(page: DashboardPage) {
@@ -324,5 +324,5 @@ export function canvasBackgroundPosition(page: DashboardPage) {
 
   if (!page.showCanvasGrid) return finalPosition;
 
-  return `0 0, 0 0, ${finalPosition}`;
+  return `0 0, ${finalPosition}`;
 }

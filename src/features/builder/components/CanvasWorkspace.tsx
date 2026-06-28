@@ -1,7 +1,6 @@
-import { useMemo, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { Rnd } from "react-rnd";
 import { canvasHeight, canvasWidth } from "../builderConstants";
-import { gradientCss } from "../builderHelpers";
 import { buildCompositionGuideObjects, buildCompositionGuideState, type CompositionGuideObject, type CompositionGuideState } from "./compositionGuidesModel";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import type { MultiSelectedObject } from "../builderTypes";
@@ -213,7 +212,9 @@ export function CanvasWorkspace({
   renderTile: (tile: DashboardTile, selected: boolean, onSelect: () => void) => ReactNode;
   renderElement: (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => ReactNode;
 }) {
+  const canvasSectionRef = useRef<HTMLElement | null>(null);
   const [activeGuideState, setActiveGuideState] = useState<CompositionGuideState | null>(null);
+  const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false);
   const compositionObjects = useMemo(
     () =>
       buildCompositionGuideObjects([
@@ -238,21 +239,13 @@ export function CanvasWorkspace({
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
   const showMockupStorySurface = activePage.tiles.length === 0 && activePage.elements.length === 0;
-  const imageFit = activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit;
-  const pageBackground =
-    activePage.backgroundMode === "image" && activePage.backgroundImage
-      ? `center / ${activePage.backgroundImageFit === "fill" ? "100% 100%" : activePage.backgroundImageFit} no-repeat url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
-      : activePage.backgroundMode === "gradient"
-        ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
-        : activePage.background;
-  const gridBackground = "radial-gradient(circle at 1px 1px, rgba(24, 45, 65, 0.075) 1px, transparent 0)";
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
-    background: activePage.showCanvasGrid ? `${gridBackground}, ${pageBackground}` : pageBackground,
-    backgroundSize: activePage.showCanvasGrid ? `18px 18px, ${activePage.backgroundMode === "image" && activePage.backgroundImage ? imageFit : "auto"}` : undefined,
-    backgroundRepeat: activePage.showCanvasGrid ? "repeat, no-repeat" : undefined,
-    backgroundPosition: activePage.showCanvasGrid ? "0 0, center" : undefined,
+    background: canvasBackground(activePage),
+    backgroundSize: canvasBackgroundSize(activePage),
+    backgroundRepeat: canvasBackgroundRepeat(activePage),
+    backgroundPosition: canvasBackgroundPosition(activePage),
     transform: `scale(${canvasScale})`
   };
   const updateGuideState = (movingObject: CompositionGuideObject) => {
@@ -260,8 +253,29 @@ export function CanvasWorkspace({
   };
   const clearGuideState = () => setActiveGuideState(null);
 
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsCanvasFullscreen(document.fullscreenElement === canvasSectionRef.current);
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  async function toggleCanvasFullscreen() {
+    if (document.fullscreenElement === canvasSectionRef.current) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (canvasSectionRef.current?.requestFullscreen) {
+      await canvasSectionRef.current.requestFullscreen();
+      setIsCanvasFullscreen(true);
+    }
+  }
+
   return (
-    <section className="canvas" aria-label="Dashboard canvas">
+    <section ref={canvasSectionRef} className={isCanvasFullscreen ? "canvas canvas-fullscreen" : "canvas"} aria-label="Dashboard canvas">
       <div className="page-header">
         <div>
           <p className="eyebrow">Story canvas · Slide {activePage.order}</p>
@@ -457,7 +471,7 @@ export function CanvasWorkspace({
         </div>
         <div className="canvas-bottom-tools">
           <button type="button"><CanvasActionIcon icon="notes" />Notes</button>
-          <button type="button" className="canvas-icon-only-action" aria-label="Fit to screen"><CanvasActionIcon icon="fit" /></button>
+          <button type="button" className="canvas-icon-only-action" aria-label={isCanvasFullscreen ? "Exit fullscreen canvas" : "Fullscreen canvas"} onClick={() => void toggleCanvasFullscreen()}><CanvasActionIcon icon="fit" /></button>
         </div>
       </div>
     </section>
