@@ -724,7 +724,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         rowIds: ["trust_a_lot"],
         waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
         primaryDatasetId: "ecofocus_2025",
-        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"]
+        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"],
+        pairingStrategy: "adjacent_wave"
       },
       waves: [
         ...waveComparisonInput.waves,
@@ -771,6 +772,50 @@ describe("runColumnComparisonSignificanceAdapter", () => {
           })
         ]
       }
+    });
+  });
+
+  it("keeps multi-wave summary inputs deferred when they are not explicit adjacent trend pairs", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredWaveComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const primaryVsManyInput: AnalyticsWaveComparisonExecutionInput = {
+      ...waveComparisonInput,
+      comparisonScope: {
+        basis: "wave",
+        rowIds: ["trust_a_lot"],
+        waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
+        primaryDatasetId: "ecofocus_2025",
+        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"],
+        pairingStrategy: "primary_vs_comparison"
+      },
+      waves: [
+        ...waveComparisonInput.waves,
+        { id: "ecofocus_2023", label: "2023" }
+      ],
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [
+            ...waveComparisonInput.rows[0].cells,
+            { waveId: "ecofocus_2023", value: 14, base: 1360 }
+          ]
+        }
+      ]
+    };
+
+    expect(runWaveComparisonSignificanceAdapter(primaryVsManyInput, readyPlan)).toEqual({
+      method: "wave_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["future_method"],
+      unmetPrerequisites: [],
+      result: shapeDeferredWaveComparisonResult(primaryVsManyInput, ["future_method"])
     });
   });
 

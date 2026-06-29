@@ -867,6 +867,7 @@ function waveComparisonExecutionInput(
         waveIds: datasetIds,
         primaryDatasetId: query.dataset,
         comparisonDatasetIds: comparisonDatasets,
+        pairingStrategy: "primary_vs_comparison",
         breakoutColumnIds: breakoutColumns.map((column) => column.id)
       },
       breakoutColumns,
@@ -906,7 +907,8 @@ function waveComparisonExecutionInput(
       rowIds: table.map((row) => row.optionId),
       waveIds,
       primaryDatasetId: query.dataset,
-      comparisonDatasetIds: comparisonDatasets
+      comparisonDatasetIds: comparisonDatasets,
+      pairingStrategy: waveIds.length > 2 ? "adjacent_wave" : "primary_vs_comparison"
     },
     waves: columns.map((column) => ({
       id: column.id as DatasetId,

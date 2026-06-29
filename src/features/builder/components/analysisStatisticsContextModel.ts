@@ -354,11 +354,17 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
       report.method === "wave_comparison" && "breakoutColumnIds" in report.result.comparisonScope
         ? (report.result.comparisonScope as { breakoutColumnIds?: string[] }).breakoutColumnIds
         : undefined;
+    const wavePairingStrategy =
+      report.method === "wave_comparison" && "pairingStrategy" in report.result.comparisonScope
+        ? (report.result.comparisonScope as { pairingStrategy?: "primary_vs_comparison" | "adjacent_wave" }).pairingStrategy
+        : undefined;
     const helper =
       report.method === "wave_comparison"
         ? Boolean(waveBreakoutColumnIds?.length)
           ? "This narrow provider path currently supports valid percent two-wave comparisons within aligned breakout columns; multi-wave trend methods can still be deferred or unsupported."
-          : "This narrow provider path currently supports valid percent summary wave comparisons; broader trend methods can still be deferred or unsupported."
+          : wavePairingStrategy === "adjacent_wave"
+            ? "This narrow provider path currently supports valid percent summary trend comparisons between adjacent waves; broader trend methods can still be deferred or unsupported."
+            : "This narrow provider path currently supports valid percent summary wave comparisons; broader trend methods can still be deferred or unsupported."
         : "This provider path supports valid percent breakout tables; summary contexts and broader trend tests can still be deferred or unsupported.";
 
     return {

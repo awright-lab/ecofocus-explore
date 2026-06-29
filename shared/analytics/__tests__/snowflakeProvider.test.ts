@@ -637,7 +637,8 @@ describe("snowflakeProvider", () => {
       comparisonScope: {
         waveIds: ["ecofocus_2025", "ecofocus_2024"],
         primaryDatasetId: "ecofocus_2025",
-        comparisonDatasetIds: ["ecofocus_2024"]
+        comparisonDatasetIds: ["ecofocus_2024"],
+        pairingStrategy: "primary_vs_comparison"
       }
     });
     expect(result.statistics.significanceExecutionPlan).toMatchObject({
@@ -705,7 +706,8 @@ describe("snowflakeProvider", () => {
       comparisonScope: {
         waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
         primaryDatasetId: "ecofocus_2025",
-        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"]
+        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"],
+        pairingStrategy: "adjacent_wave"
       }
     });
     expect(result.statistics.significanceExecutionReport).toMatchObject({
@@ -800,6 +802,7 @@ describe("snowflakeProvider", () => {
         basis: "wave",
         primaryDatasetId: "ecofocus_2025",
         comparisonDatasetIds: ["ecofocus_2024"],
+        pairingStrategy: "primary_vs_comparison",
         breakoutColumnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
       },
       breakoutColumns: [
@@ -877,6 +880,7 @@ describe("snowflakeProvider", () => {
       comparisonScope: {
         waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
         comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"],
+        pairingStrategy: "primary_vs_comparison",
         breakoutColumnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
       }
     });

@@ -168,6 +168,7 @@ export interface AnalyticsWaveComparisonExecutionInput {
     waveIds: DatasetId[];
     primaryDatasetId: DatasetId;
     comparisonDatasetIds: DatasetId[];
+    pairingStrategy?: "primary_vs_comparison" | "adjacent_wave";
     breakoutColumnIds?: string[];
   };
   breakoutColumns?: Array<{

@@ -102,8 +102,19 @@ export function shapeDeferredColumnComparisonResult(
 }
 
 function waveComparisonPairs(input: AnalyticsWaveComparisonExecutionInput) {
+  const pairingStrategy =
+    input.comparisonScope.pairingStrategy
+    ?? (
+      (input.comparisonScope.breakoutColumnIds?.length ?? 0) === 0
+      && input.comparisonScope.waveIds.length > 2
+      && input.comparisonScope.comparisonDatasetIds.length === input.comparisonScope.waveIds.length - 1
+      && input.comparisonScope.comparisonDatasetIds.every((waveId, index) => waveId === input.comparisonScope.waveIds[index + 1])
+        ? "adjacent_wave"
+        : "primary_vs_comparison"
+    );
   const canUseAdjacentSummaryPairs =
-    (input.comparisonScope.breakoutColumnIds?.length ?? 0) === 0
+    pairingStrategy === "adjacent_wave"
+    && (input.comparisonScope.breakoutColumnIds?.length ?? 0) === 0
     && input.comparisonScope.waveIds.length > 2
     && input.comparisonScope.comparisonDatasetIds.length === input.comparisonScope.waveIds.length - 1
     && input.comparisonScope.comparisonDatasetIds.every((waveId, index) => waveId === input.comparisonScope.waveIds[index + 1]);
@@ -425,13 +436,31 @@ export function runWaveComparisonSignificanceAdapter(
   }
   const validation = validateWaveComparisonExecutionInput(input);
   const hasBreakoutColumns = (input.comparisonScope.breakoutColumnIds?.length ?? 0) > 0;
+  const pairingStrategy =
+    input.comparisonScope.pairingStrategy
+    ?? (
+      !hasBreakoutColumns
+      && input.comparisonScope.waveIds.length > 2
+      && input.comparisonScope.comparisonDatasetIds.length === input.comparisonScope.waveIds.length - 1
+      && input.comparisonScope.comparisonDatasetIds.every((waveId, index) => waveId === input.comparisonScope.waveIds[index + 1])
+        ? "adjacent_wave"
+        : "primary_vs_comparison"
+    );
   const supportsSummaryTrendExecution =
     !hasBreakoutColumns
+    && pairingStrategy === "adjacent_wave"
     && input.comparisonScope.waveIds.length >= 2
     && input.comparisonScope.comparisonDatasetIds.length === input.comparisonScope.waveIds.length - 1
     && input.comparisonScope.comparisonDatasetIds.every((waveId, index) => waveId === input.comparisonScope.waveIds[index + 1]);
+  const supportsTwoWaveSummaryExecution =
+    !hasBreakoutColumns
+    && pairingStrategy === "primary_vs_comparison"
+    && input.comparisonScope.comparisonDatasetIds.length === 1
+    && input.comparisonScope.waveIds.length === 2
+    && input.waves.length === 2;
   const supportsBreakoutWaveExecution =
     hasBreakoutColumns
+    && pairingStrategy === "primary_vs_comparison"
     && input.comparisonScope.comparisonDatasetIds.length === 1
     && input.comparisonScope.waveIds.length === 2
     && input.waves.length === 2
@@ -439,7 +468,7 @@ export function runWaveComparisonSignificanceAdapter(
   const supportsNarrowWaveExecution =
     input.metric.valueFormat === "percent"
     && input.waves.length === input.comparisonScope.waveIds.length
-    && (supportsSummaryTrendExecution || supportsBreakoutWaveExecution);
+    && (supportsSummaryTrendExecution || supportsTwoWaveSummaryExecution || supportsBreakoutWaveExecution);
   const unsupportedNarrowReason =
     validation.valid && plan.providerCanExecute && !supportsNarrowWaveExecution ? ["future_method" as const] : [];
   const reasonCodes = Array.from(new Set([
