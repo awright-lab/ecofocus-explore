@@ -98,6 +98,7 @@ export function useBuilderDesignCommands({
   function applyPageTheme(theme: PageThemePreset) {
     updateActivePage({
       backgroundMode: theme.backgroundMode,
+      backgroundPattern: theme.backgroundPattern,
       background: theme.background,
       backgroundImage: theme.backgroundImage,
       backgroundImageFit: theme.backgroundImageFit,

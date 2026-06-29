@@ -5,7 +5,7 @@ import {
   effectPresets,
   type EffectPreset
 } from "../builderConstants";
-import { effectShadow, gradientCss } from "../builderHelpers";
+import { effectShadow, gradientCss, pagePatternBackground } from "../builderHelpers";
 import { getBarStyle, getPaletteId } from "./CanvasRenderers";
 import { ElementInspector, TileAnalysisInspector, TileContainerInspector } from "./InspectorObjectSections";
 import type { BuilderInspectorProps } from "./BuilderInspector";
@@ -210,13 +210,16 @@ export function PageInspector(props: BuilderInspectorProps) {
                 background:
                   activePage.backgroundMode === "image" && activePage.backgroundImage
                     ? `center / cover no-repeat url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
+                    : activePage.backgroundMode === "pattern"
+                      ? pagePatternBackground(activePage.backgroundPattern)
                     : activePage.backgroundMode === "gradient"
                       ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
-                      : activePage.background
+                      : activePage.background,
+                backgroundSize: activePage.backgroundMode === "pattern" ? "12px 12px, 12px 12px, 100% 100%" : undefined
               }}
             />
             <span>Background</span>
-            <small>{activePage.backgroundMode === "image" ? "Image" : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}</small>
+            <small>{activePage.backgroundMode === "image" ? "Image" : activePage.backgroundMode === "pattern" ? "Pattern" : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}</small>
           </button>
           <div className="brand-card-actions">
             <button type="button" className="secondary" onClick={duplicateActivePage}>
@@ -234,7 +237,9 @@ export function PageInspector(props: BuilderInspectorProps) {
 }
 
 function pageThemePreview(theme: PageThemePreset) {
-  return theme.backgroundMode === "gradient"
+  return theme.backgroundMode === "pattern"
+    ? pagePatternBackground(theme.backgroundPattern)
+    : theme.backgroundMode === "gradient"
     ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
     : theme.backgroundMode === "image" && theme.backgroundImage
       ? `center / cover no-repeat url("${theme.backgroundImage.replace(/"/g, '\\"')}")`

@@ -50,6 +50,7 @@ export function clampZIndex(value: number) {
 function matchingPageTheme(page: DashboardPage, pageThemes: PageThemePreset[]) {
   return pageThemes.find((theme) =>
     theme.backgroundMode === (page.backgroundMode ?? "solid")
+    && theme.backgroundPattern === (page.backgroundPattern ?? "none")
     && theme.background === page.background
     && theme.backgroundImage === (page.backgroundImage ?? "")
     && theme.backgroundImageFit === (page.backgroundImageFit ?? "cover")
@@ -438,6 +439,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           label: pageTheme.label ?? `Page theme ${index + 1}`,
           description: pageTheme.description ?? "",
           backgroundMode: pageTheme.backgroundMode ?? "solid",
+          backgroundPattern: pageTheme.backgroundPattern ?? "none",
           background: pageTheme.background ?? "#ffffff",
           backgroundImage: pageTheme.backgroundImage ?? "",
           backgroundImageFit: pageTheme.backgroundImageFit ?? "cover",
@@ -455,6 +457,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           ...page,
           provenance: normalizePageProvenance(page, seededDesignLibrary.pageThemes),
           backgroundMode: page.backgroundMode ?? "solid",
+          backgroundPattern: page.backgroundPattern ?? "none",
           backgroundImage: page.backgroundImage ?? "",
           backgroundImageFit: page.backgroundImageFit ?? "cover",
           gradientType: page.gradientType ?? "linear",

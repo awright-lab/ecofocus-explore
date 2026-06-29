@@ -1,7 +1,7 @@
 import type React from "react";
 import { axisRotationPresets, effectPresets, palettes, type EffectPreset } from "../builderConstants";
 import { BarColorField, ColorField, GradientEditor, PageBackgroundField, rangeFill } from "../../design-system/DesignControls";
-import { applyGradientStylePreset, effectShadow, gradientCss } from "../builderHelpers";
+import { applyGradientStylePreset, effectShadow, gradientCss, pagePatternBackground } from "../builderHelpers";
 import { getAxisLabel, getBarStyle, getPaletteId } from "./CanvasRenderers";
 import type { DesignModal } from "../builderTypes";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, TileAppearance } from "../../../../shared/types/dashboard";
@@ -225,6 +225,8 @@ export function BuilderDesignModal(props: BuilderDesignModalProps) {
                     <strong>
                       {activePage.backgroundMode === "image"
                         ? "Image"
+                        : activePage.backgroundMode === "pattern"
+                          ? "Pattern"
                         : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}
                     </strong>
                   </div>
@@ -234,6 +236,8 @@ export function BuilderDesignModal(props: BuilderDesignModalProps) {
                       background:
                         activePage.backgroundMode === "image" && activePage.backgroundImage
                           ? undefined
+                          : activePage.backgroundMode === "pattern"
+                            ? pagePatternBackground(activePage.backgroundPattern)
                           : activePage.backgroundMode === "gradient"
                             ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
                             : activePage.background,
@@ -242,7 +246,9 @@ export function BuilderDesignModal(props: BuilderDesignModalProps) {
                           ? `url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
                           : undefined,
                       backgroundSize:
-                        activePage.backgroundMode === "image"
+                        activePage.backgroundMode === "pattern"
+                          ? "18px 18px, 18px 18px, 100% 100%"
+                          : activePage.backgroundMode === "image"
                           ? activePage.backgroundImageFit === "fill"
                             ? "100% 100%"
                             : activePage.backgroundImageFit
@@ -257,7 +263,7 @@ export function BuilderDesignModal(props: BuilderDesignModalProps) {
                   </div>
                   <PageBackgroundField
                     page={activePage}
-                    onModeChange={(mode) => updateActivePage({ backgroundMode: mode })}
+                    onModeChange={(mode) => updateActivePage({ backgroundMode: mode, ...(mode === "pattern" ? { backgroundPattern: "teal_grid" as const } : {}) })}
                     onSolidChange={(value) => updateActivePage({ background: value })}
                     onGradientChange={(updates) =>
                       updateActivePage({
@@ -268,6 +274,7 @@ export function BuilderDesignModal(props: BuilderDesignModalProps) {
                         gradientStops: updates.stops
                       })
                     }
+                    onPatternChange={(pattern) => updateActivePage({ backgroundMode: "pattern", backgroundPattern: pattern })}
                     onImageChange={(updates) => updateActivePage(updates)}
                   />
                 </div>

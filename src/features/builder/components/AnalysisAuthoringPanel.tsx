@@ -11,7 +11,7 @@ import {
 } from "../builderConstants";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { gradientCss } from "../builderHelpers";
+import { gradientCss, pagePatternBackground } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import {
   buildSmartCompositionBlockFromTile,
@@ -857,7 +857,10 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                             background:
                               theme.backgroundMode === "gradient"
                                 ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
-                                : theme.background
+                                : theme.backgroundMode === "pattern"
+                                  ? pagePatternBackground(theme.backgroundPattern)
+                                  : theme.background,
+                            backgroundSize: theme.backgroundMode === "pattern" ? "16px 16px, 16px 16px, 100% 100%" : undefined
                           }}
                         />
                         <div>

@@ -562,12 +562,14 @@ export function PageBackgroundField({
   onModeChange,
   onSolidChange,
   onGradientChange,
+  onPatternChange,
   onImageChange
 }: {
   page: DashboardPage;
   onModeChange: (mode: DashboardPage["backgroundMode"]) => void;
   onSolidChange: (value: string) => void;
   onGradientChange: (updates: { from: string; to: string; type: GradientType; angle: number; stops: GradientStop[] }) => void;
+  onPatternChange: (pattern: DashboardPage["backgroundPattern"]) => void;
   onImageChange: (updates: Partial<Pick<DashboardPage, "backgroundImage" | "backgroundImageFit">>) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -577,6 +579,8 @@ export function PageBackgroundField({
   const backgroundPreview =
     page.backgroundMode === "image" && page.backgroundImage
       ? undefined
+      : page.backgroundMode === "pattern"
+        ? "linear-gradient(90deg, rgba(35, 135, 147, 0.34) 50%, transparent 50%), linear-gradient(rgba(35, 135, 147, 0.34) 50%, transparent 50%), linear-gradient(135deg, #103442, #0b2630)"
       : page.backgroundMode === "gradient"
         ? gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, `${page.gradientAngle}deg`)
         : normalizeHexColor(page.background);
@@ -638,7 +642,9 @@ export function PageBackgroundField({
                   ? `url("${page.backgroundImage.replace(/"/g, '\\"')}")`
                   : undefined,
               backgroundSize:
-                page.backgroundMode === "image"
+                page.backgroundMode === "pattern"
+                  ? "10px 10px, 10px 10px, 100% 100%"
+                  : page.backgroundMode === "image"
                   ? page.backgroundImageFit === "fill"
                     ? "100% 100%"
                     : page.backgroundImageFit
@@ -652,6 +658,7 @@ export function PageBackgroundField({
             <div className="fill-mode-tabs picker input-mode-tabs">
               <button type="button" className={page.backgroundMode === "solid" ? "active" : ""} onClick={() => onModeChange("solid")}>Solid</button>
               <button type="button" className={page.backgroundMode === "gradient" ? "active" : ""} onClick={() => onModeChange("gradient")}>Gradient</button>
+              <button type="button" className={page.backgroundMode === "pattern" ? "active" : ""} onClick={() => onModeChange("pattern")}>Pattern</button>
               <button type="button" className={page.backgroundMode === "image" ? "active" : ""} onClick={() => onModeChange("image")}>Image</button>
             </div>
             {page.backgroundMode === "gradient" ? (
@@ -730,6 +737,26 @@ export function PageBackgroundField({
                   </div>
                 </div>
               </>
+            ) : page.backgroundMode === "pattern" ? (
+              <div className="color-field">
+                <span>Pattern</span>
+                <div className="background-pattern-grid">
+                  <button
+                    type="button"
+                    className={page.backgroundPattern === "teal_grid" ? "active" : ""}
+                    onClick={() => onPatternChange("teal_grid")}
+                  >
+                    <span
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(35, 135, 147, 0.34) 50%, transparent 50%), linear-gradient(rgba(35, 135, 147, 0.34) 50%, transparent 50%), linear-gradient(135deg, #103442, #0b2630)",
+                        backgroundSize: "18px 18px, 18px 18px, 100% 100%"
+                      }}
+                    />
+                    Teal grid
+                  </button>
+                </div>
+              </div>
             ) : page.backgroundMode === "image" ? (
               <div className="color-field">
                 <span>Background image</span>

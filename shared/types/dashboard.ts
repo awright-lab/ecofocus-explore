@@ -242,7 +242,8 @@ export interface DashboardPage {
   snapToGrid: boolean;
   gridSize: number;
   background: string;
-  backgroundMode: "solid" | "gradient" | "image";
+  backgroundMode: "solid" | "gradient" | "image" | "pattern";
+  backgroundPattern: "none" | "teal_grid";
   backgroundImage: string;
   backgroundImageFit: "cover" | "contain" | "fill";
   gradientFrom: string;
@@ -520,6 +521,7 @@ export interface PageThemePreset {
   label: string;
   description: string;
   backgroundMode: DashboardPage["backgroundMode"];
+  backgroundPattern: DashboardPage["backgroundPattern"];
   background: string;
   backgroundImage: string;
   backgroundImageFit: DashboardPage["backgroundImageFit"];

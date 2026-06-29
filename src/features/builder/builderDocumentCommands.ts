@@ -45,6 +45,7 @@ export function buildPageFromTemplate(args: {
     ...(pageTheme
       ? {
           backgroundMode: pageTheme.backgroundMode,
+          backgroundPattern: pageTheme.backgroundPattern,
           background: pageTheme.background,
           backgroundImage: pageTheme.backgroundImage,
           backgroundImageFit: pageTheme.backgroundImageFit,
