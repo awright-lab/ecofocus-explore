@@ -348,9 +348,15 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
     const testedComparisons = report.result.summary.testedComparisons;
     const significantComparisons = report.result.summary.significantComparisons ?? 0;
     const methodLabel = report.method === "wave_comparison" ? "Wave-comparison" : "Column-comparison";
+    const waveBreakoutColumnIds =
+      report.method === "wave_comparison" && "breakoutColumnIds" in report.result.comparisonScope
+        ? (report.result.comparisonScope as { breakoutColumnIds?: string[] }).breakoutColumnIds
+        : undefined;
     const helper =
       report.method === "wave_comparison"
-        ? "This narrow provider path currently supports valid percent summary wave comparisons; breakout wave structures and broader trend methods can still be deferred or unsupported."
+        ? Boolean(waveBreakoutColumnIds?.length)
+          ? "This narrow provider path currently supports valid percent two-wave comparisons within aligned breakout columns; multi-wave trend methods can still be deferred or unsupported."
+          : "This narrow provider path currently supports valid percent summary wave comparisons; broader trend methods can still be deferred or unsupported."
         : "This provider path supports valid percent breakout tables; summary contexts and broader trend tests can still be deferred or unsupported.";
 
     return {

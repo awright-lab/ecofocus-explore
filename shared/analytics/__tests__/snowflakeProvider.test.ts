@@ -729,14 +729,114 @@ describe("snowflakeProvider", () => {
       providerCanExecute: true,
       executionInputContract: "wave_comparison"
     });
-    expect(result.statistics.significanceExecutionInput).toBeNull();
-    expect(result.statistics.significanceExecutionReport).toBeNull();
+    expect(result.statistics.significanceExecutionInput).toMatchObject({
+      method: "wave_comparison",
+      comparisonScope: {
+        basis: "wave",
+        primaryDatasetId: "ecofocus_2025",
+        comparisonDatasetIds: ["ecofocus_2024"],
+        breakoutColumnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
+      },
+      breakoutColumns: [
+        { id: "gen_z", label: "Gen Z" },
+        { id: "millennial", label: "Millennial" },
+        { id: "gen_x", label: "Gen X" },
+        { id: "boomer_plus", label: "Boomer+" }
+      ],
+      rows: expect.arrayContaining([
+        expect.objectContaining({
+          id: "trust_a_lot",
+          cells: expect.arrayContaining([
+            { waveId: "ecofocus_2025", breakoutColumnId: "gen_z", value: 21, base: 310 },
+            { waveId: "ecofocus_2024", breakoutColumnId: "gen_z", value: 18, base: 305 },
+            { waveId: "ecofocus_2024", breakoutColumnId: "millennial", value: 0, base: 0 }
+          ])
+        })
+      ])
+    });
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "wave_comparison",
+      status: "executed",
+      inputAccepted: true,
+      result: {
+        summary: {
+          testedComparisons: expect.any(Number),
+          deferredComparisons: expect.any(Number)
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            breakoutColumnId: "gen_z",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            breakoutColumnId: "millennial",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"]
+          })
+        ])
+      }
+    });
     expect(result.metadataRefs).toMatchObject({
       breakBy: "GENERATION",
       comparisonMode: "wave",
       comparisonDatasets: ["ecofocus_2024"]
     });
     expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 by Generation live wave comparison."]));
+  });
+
+  it("keeps multi-wave breakout significance outside the narrow live execution bridge", async () => {
+    const query: AnalyticsQueryRequest = {
+      ...breakoutWaveQuery,
+      comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"]
+    };
+    const executor: SnowflakeQueryExecutor = {
+      async execute() {
+        return [
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2025__gen_z", VALUE: 24, BASE: 310 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2024__gen_z", VALUE: 18, BASE: 305 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2023__gen_z", VALUE: 14, BASE: 300 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(query);
+
+    expect(result.statistics.significanceExecutionInput).toMatchObject({
+      method: "wave_comparison",
+      comparisonScope: {
+        waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
+        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"],
+        breakoutColumnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
+      }
+    });
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "wave_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["future_method"],
+      result: {
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: expect.any(Number),
+          significantComparisons: 0
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            comparedWaveId: "ecofocus_2024",
+            breakoutColumnId: "gen_z",
+            status: "deferred",
+            reasonCodes: ["future_method"]
+          })
+        ])
+      }
+    });
   });
 
   it("executes supported authored variable-set rows through the injected provider executor", async () => {

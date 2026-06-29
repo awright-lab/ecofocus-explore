@@ -84,6 +84,34 @@ const waveComparisonInput: AnalyticsWaveComparisonExecutionInput = {
   ]
 };
 
+const breakoutWaveComparisonInput: AnalyticsWaveComparisonExecutionInput = {
+  ...waveComparisonInput,
+  comparisonScope: {
+    basis: "wave",
+    rowIds: ["trust_a_lot"],
+    waveIds: ["ecofocus_2025", "ecofocus_2024"],
+    primaryDatasetId: "ecofocus_2025",
+    comparisonDatasetIds: ["ecofocus_2024"],
+    breakoutColumnIds: ["gen_z", "millennial"]
+  },
+  breakoutColumns: [
+    { id: "gen_z", label: "Gen Z" },
+    { id: "millennial", label: "Millennial" }
+  ],
+  rows: [
+    {
+      id: "trust_a_lot",
+      label: "Trust a lot",
+      cells: [
+        { waveId: "ecofocus_2025", breakoutColumnId: "gen_z", value: 30, base: 312 },
+        { waveId: "ecofocus_2024", breakoutColumnId: "gen_z", value: 18, base: 305 },
+        { waveId: "ecofocus_2025", breakoutColumnId: "millennial", value: 24, base: 428 },
+        { waveId: "ecofocus_2024", breakoutColumnId: "millennial", value: 22, base: 411 }
+      ]
+    }
+  ]
+};
+
 const deferredWaveComparisonPlan: AnalyticsSignificanceExecutionPlan = {
   status: "deferred",
   candidateMethod: "wave_comparison",
@@ -594,6 +622,71 @@ describe("runColumnComparisonSignificanceAdapter", () => {
     expect(report?.result?.outcomes[0].statistics.pValue).toBeLessThan(0.05);
   });
 
+  it("executes narrow two-wave percent breakout-wave comparisons by aligned breakout column", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredWaveComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const report = runWaveComparisonSignificanceAdapter(breakoutWaveComparisonInput, readyPlan);
+
+    expect(validateWaveComparisonExecutionInput(breakoutWaveComparisonInput)).toEqual({
+      valid: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    });
+    expect(report).toMatchObject({
+      method: "wave_comparison",
+      status: "executed",
+      inputAccepted: true,
+      reasonCodes: [],
+      unmetPrerequisites: [],
+      result: {
+        method: "wave_comparison",
+        comparisonScope: {
+          basis: "wave",
+          primaryDatasetId: "ecofocus_2025",
+          comparisonDatasetIds: ["ecofocus_2024"],
+          breakoutColumnIds: ["gen_z", "millennial"]
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            breakoutColumnId: "gen_z",
+            status: "tested",
+            reasonCodes: [],
+            statistics: expect.objectContaining({
+              confidence: 0.95,
+              direction: "up"
+            })
+          }),
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            breakoutColumnId: "millennial",
+            status: "tested",
+            reasonCodes: []
+          })
+        ]),
+        summary: {
+          testedComparisons: 2,
+          deferredComparisons: 0,
+          significantComparisons: 1
+        }
+      }
+    });
+    expect(
+      report?.method === "wave_comparison"
+        ? report.result?.outcomes.find((outcome) => outcome.breakoutColumnId === "gen_z")?.statistics.pValue
+        : null
+    ).toBeLessThan(0.05);
+  });
+
   it("keeps valid but broader wave comparison inputs not executed outside the narrow bridge", () => {
     const readyPlan: AnalyticsSignificanceExecutionPlan = {
       ...deferredWaveComparisonPlan,
@@ -688,6 +781,61 @@ describe("runColumnComparisonSignificanceAdapter", () => {
             }
           }
         ]
+      }
+    });
+  });
+
+  it("marks breakout-wave comparison cells as not tested when a breakout base is unusable", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredWaveComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const report = runWaveComparisonSignificanceAdapter(
+      {
+        ...breakoutWaveComparisonInput,
+        rows: [
+          {
+            ...breakoutWaveComparisonInput.rows[0],
+            cells: breakoutWaveComparisonInput.rows[0].cells.map((cell) =>
+              cell.breakoutColumnId === "millennial" && cell.waveId === "ecofocus_2024"
+                ? { ...cell, base: 0 }
+                : cell
+            )
+          }
+        ]
+      },
+      readyPlan
+    );
+
+    expect(report).toMatchObject({
+      method: "wave_comparison",
+      status: "executed",
+      inputAccepted: true,
+      result: {
+        summary: {
+          testedComparisons: 1,
+          deferredComparisons: 1,
+          significantComparisons: 1
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            breakoutColumnId: "gen_z",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            breakoutColumnId: "millennial",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          })
+        ])
       }
     });
   });

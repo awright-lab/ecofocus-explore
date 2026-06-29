@@ -168,7 +168,12 @@ export interface AnalyticsWaveComparisonExecutionInput {
     waveIds: DatasetId[];
     primaryDatasetId: DatasetId;
     comparisonDatasetIds: DatasetId[];
+    breakoutColumnIds?: string[];
   };
+  breakoutColumns?: Array<{
+    id: string;
+    label: string;
+  }>;
   waves: Array<{
     id: DatasetId;
     label: string;
@@ -178,6 +183,7 @@ export interface AnalyticsWaveComparisonExecutionInput {
     label: string;
     cells: Array<{
       waveId: DatasetId;
+      breakoutColumnId?: string;
       value: number;
       base: number;
     }>;
@@ -236,6 +242,7 @@ export interface AnalyticsWaveComparisonExecutionResult {
     rowId: string;
     waveId: DatasetId;
     comparedWaveId: DatasetId;
+    breakoutColumnId?: string;
     status: "deferred" | "not_tested" | "placeholder" | "tested";
     reasonCodes: SignificanceReasonCode[];
     statistics: {

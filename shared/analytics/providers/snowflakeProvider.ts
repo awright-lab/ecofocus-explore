@@ -833,12 +833,63 @@ function waveComparisonExecutionInput(
   const comparisonDatasets = query.comparisonDatasets ?? [];
   if (
     (query.comparisonMode ?? "none") !== "wave"
-    || query.breakBy !== "SUMMARY"
     || comparisonDatasets.length === 0
     || columns.length <= 1
     || table.length === 0
   ) {
     return null;
+  }
+
+  const datasetIds = waveDatasetIds(query);
+
+  if (query.breakBy !== "SUMMARY") {
+    const dimension = getDimensionMetadata(query.dataset, query.breakBy);
+    const breakoutColumns = dimension?.values.map((value) => ({
+      id: value.id,
+      label: value.label
+    })) ?? [];
+    const expectedColumnIds = new Set(datasetIds.flatMap((datasetId) => breakoutColumns.map((column) => waveBreakoutColumnId(datasetId, column.id))));
+
+    if (breakoutColumns.length === 0 || columns.some((column) => !expectedColumnIds.has(column.id))) {
+      return null;
+    }
+
+    return {
+      method: "wave_comparison",
+      confidenceLevel: query.confidenceLevel,
+      metric: {
+        id: metric.id,
+        valueFormat: metric.valueFormat
+      },
+      comparisonScope: {
+        basis: "wave",
+        rowIds: table.map((row) => row.optionId),
+        waveIds: datasetIds,
+        primaryDatasetId: query.dataset,
+        comparisonDatasetIds: comparisonDatasets,
+        breakoutColumnIds: breakoutColumns.map((column) => column.id)
+      },
+      breakoutColumns,
+      waves: datasetIds.map((datasetId) => ({
+        id: datasetId,
+        label: getDatasetMetadata(datasetId)?.wave ?? datasetId
+      })),
+      rows: table.map((row) => ({
+        id: row.optionId,
+        label: row.label,
+        cells: datasetIds.flatMap((datasetId) =>
+          breakoutColumns.map((breakoutColumn) => {
+            const columnId = waveBreakoutColumnId(datasetId, breakoutColumn.id);
+            return {
+              waveId: datasetId,
+              breakoutColumnId: breakoutColumn.id,
+              value: row.values[columnId] ?? 0,
+              base: row.bases[columnId] ?? 0
+            };
+          })
+        )
+      }))
+    };
   }
 
   const waveIds = columns.map((column) => column.id as DatasetId);
