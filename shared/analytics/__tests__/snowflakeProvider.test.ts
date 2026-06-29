@@ -291,6 +291,50 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining(["Live Snowflake analytics output.", "Filters were applied by the Snowflake provider."]));
   });
 
+  it("executes column-comparison significance for unweighted Snowflake-shaped percent breakout rows", () => {
+    const result = normalizeSnowflakeRows(
+      {
+        ...breakoutQuery,
+        weight: null
+      },
+      [
+        { OPTION_ID: "trust_a_lot", COLUMN_ID: "gen_z", VALUE: 18, BASE: 310 },
+        { OPTION_ID: "trust_a_lot", COLUMN_ID: "millennial", VALUE: 30, BASE: 420 },
+        { OPTION_ID: "trust_somewhat", COLUMN_ID: "gen_z", VALUE: 45, BASE: 310 },
+        { OPTION_ID: "trust_somewhat", COLUMN_ID: "millennial", VALUE: 35, BASE: 420 }
+      ]
+    );
+
+    expect(result.weighting).toEqual({
+      applied: false,
+      id: null,
+      label: "Unweighted"
+    });
+    expect(result.statistics.significanceExecutionInput).toMatchObject({
+      method: "column_comparison",
+      rows: expect.arrayContaining([
+        expect.objectContaining({
+          id: "trust_a_lot",
+          cells: expect.arrayContaining([
+            { columnId: "gen_z", value: 18, base: 310 },
+            { columnId: "millennial", value: 30, base: 420 }
+          ])
+        })
+      ])
+    });
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "column_comparison",
+      status: "executed",
+      inputAccepted: true,
+      result: {
+        summary: {
+          testedComparisons: expect.any(Number),
+          significantComparisons: expect.any(Number)
+        }
+      }
+    });
+  });
+
   it("normalizes weighted and unweighted count semantics explicitly", () => {
     const weightedCountResult = normalizeSnowflakeRows(
       {
@@ -596,6 +640,43 @@ describe("snowflakeProvider", () => {
         comparisonDatasetIds: ["ecofocus_2024"]
       }
     });
+    expect(result.statistics.significanceExecutionPlan).toMatchObject({
+      status: "ready",
+      candidateMethod: "wave_comparison",
+      providerCanExecute: true,
+      executionInputContract: "wave_comparison"
+    });
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "wave_comparison",
+      status: "executed",
+      inputAccepted: true,
+        result: {
+        summary: {
+          testedComparisons: 2,
+          deferredComparisons: 2
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            rowId: "neutral",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"]
+          })
+        ])
+      }
+    });
+    expect(result.statistics.significance).toMatchObject({
+      status: "tested",
+      method: "wave_comparison",
+      comparisonBasis: "wave"
+    });
     expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 live wave comparison."]));
   });
 
@@ -642,7 +723,14 @@ describe("snowflakeProvider", () => {
         ecofocus_2024__millennial: 0
       }
     });
+    expect(result.statistics.significanceExecutionPlan).toMatchObject({
+      status: "ready",
+      candidateMethod: "wave_comparison",
+      providerCanExecute: true,
+      executionInputContract: "wave_comparison"
+    });
     expect(result.statistics.significanceExecutionInput).toBeNull();
+    expect(result.statistics.significanceExecutionReport).toBeNull();
     expect(result.metadataRefs).toMatchObject({
       breakBy: "GENERATION",
       comparisonMode: "wave",

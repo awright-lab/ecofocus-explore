@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   executeColumnComparisonSignificance,
+  executeWaveComparisonSignificance,
   runColumnComparisonSignificanceAdapter,
   runWaveComparisonSignificanceAdapter,
   shapeDeferredColumnComparisonResult,
@@ -531,6 +532,166 @@ describe("runColumnComparisonSignificanceAdapter", () => {
     });
   });
 
+  it("executes a narrow two-wave percent comparison when the provider can run wave significance", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredWaveComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const report = runWaveComparisonSignificanceAdapter(
+      {
+        ...waveComparisonInput,
+        rows: [
+          {
+            id: "trust_a_lot",
+            label: "Trust a lot",
+            cells: [
+              { waveId: "ecofocus_2025", value: 30, base: 1495 },
+              { waveId: "ecofocus_2024", value: 20, base: 1410 }
+            ]
+          }
+        ]
+      },
+      readyPlan
+    );
+
+    expect(report).toMatchObject({
+      method: "wave_comparison",
+      status: "executed",
+      inputAccepted: true,
+      reasonCodes: [],
+      unmetPrerequisites: [],
+      result: {
+        method: "wave_comparison",
+        comparisonScope: {
+          basis: "wave",
+          primaryDatasetId: "ecofocus_2025",
+          comparisonDatasetIds: ["ecofocus_2024"]
+        },
+        outcomes: [
+          {
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "tested",
+            reasonCodes: [],
+            statistics: {
+              confidence: 0.95,
+              direction: "up"
+            }
+          }
+        ],
+        summary: {
+          testedComparisons: 1,
+          deferredComparisons: 0,
+          significantComparisons: 1
+        }
+      }
+    });
+    expect(report?.result?.outcomes[0].statistics.pValue).toBeGreaterThan(0);
+    expect(report?.result?.outcomes[0].statistics.pValue).toBeLessThan(0.05);
+  });
+
+  it("keeps valid but broader wave comparison inputs not executed outside the narrow bridge", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredWaveComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const multiWaveInput: AnalyticsWaveComparisonExecutionInput = {
+      ...waveComparisonInput,
+      comparisonScope: {
+        basis: "wave",
+        rowIds: ["trust_a_lot"],
+        waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
+        primaryDatasetId: "ecofocus_2025",
+        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"]
+      },
+      waves: [
+        ...waveComparisonInput.waves,
+        { id: "ecofocus_2023", label: "2023" }
+      ],
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [
+            ...waveComparisonInput.rows[0].cells,
+            { waveId: "ecofocus_2023", value: 14, base: 1360 }
+          ]
+        }
+      ]
+    };
+
+    expect(runWaveComparisonSignificanceAdapter(multiWaveInput, readyPlan)).toEqual({
+      method: "wave_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["future_method"],
+      unmetPrerequisites: [],
+      result: shapeDeferredWaveComparisonResult(multiWaveInput, ["future_method"])
+    });
+  });
+
+  it("marks narrow wave comparisons as not tested when bases are unusable", () => {
+    const readyPlan: AnalyticsSignificanceExecutionPlan = {
+      ...deferredWaveComparisonPlan,
+      status: "ready",
+      providerCanExecute: true,
+      reasonCodes: [],
+      unmetPrerequisites: []
+    };
+    const report = runWaveComparisonSignificanceAdapter(
+      {
+        ...waveComparisonInput,
+        rows: [
+          {
+            id: "trust_a_lot",
+            label: "Trust a lot",
+            cells: [
+              { waveId: "ecofocus_2025", value: 30, base: 0 },
+              { waveId: "ecofocus_2024", value: 20, base: 1410 }
+            ]
+          }
+        ]
+      },
+      readyPlan
+    );
+
+    expect(report).toMatchObject({
+      method: "wave_comparison",
+      status: "not_executed",
+      inputAccepted: true,
+      reasonCodes: ["insufficient_base"],
+      unmetPrerequisites: [],
+      result: {
+        summary: {
+          testedComparisons: 0,
+          deferredComparisons: 1,
+          significantComparisons: 0
+        },
+        outcomes: [
+          {
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"],
+            statistics: {
+              pValue: null,
+              confidence: null,
+              direction: null
+            }
+          }
+        ]
+      }
+    });
+  });
+
   it("shapes deferred wave comparison outcomes from accepted input", () => {
     expect(shapeDeferredWaveComparisonResult(waveComparisonInput, ["future_method"])).toEqual({
       method: "wave_comparison",
@@ -555,6 +716,40 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         significantComparisons: 0
       }
     });
+  });
+
+  it("shapes real tested wave-comparison outcomes for the narrow bridge", () => {
+    const executed = executeWaveComparisonSignificance({
+      ...waveComparisonInput,
+      rows: [
+        {
+          id: "trust_a_lot",
+          label: "Trust a lot",
+          cells: [
+            { waveId: "ecofocus_2025", value: 30, base: 1495 },
+            { waveId: "ecofocus_2024", value: 20, base: 1410 }
+          ]
+        }
+      ]
+    });
+
+    expect(executed.summary).toEqual({
+      testedComparisons: 1,
+      deferredComparisons: 0,
+      significantComparisons: 1
+    });
+    expect(executed.outcomes[0]).toMatchObject({
+      rowId: "trust_a_lot",
+      waveId: "ecofocus_2025",
+      comparedWaveId: "ecofocus_2024",
+      status: "tested",
+      reasonCodes: [],
+      statistics: {
+        confidence: 0.95,
+        direction: "up"
+      }
+    });
+    expect(executed.outcomes[0].statistics.pValue).toBeLessThan(0.05);
   });
 
   it("returns a structured deferred report when wave input is malformed", () => {

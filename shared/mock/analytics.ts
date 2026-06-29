@@ -278,24 +278,36 @@ function significanceFromExecutionReport(
   annotations: AnalyticsAnnotation[],
   report: AnalyticsSignificanceExecutionReport | null
 ): AnalyticsSignificanceResult {
-  if (report?.status !== "executed" || report.method !== "column_comparison" || !report.result) {
+  if (report?.status !== "executed" || !report.result) {
     return significanceFromReadiness(readiness, annotations);
   }
 
-  const testedDetails = report.result.outcomes
-    .filter((outcome) => outcome.status === "tested")
-    .map((outcome) => ({
-      rowId: outcome.rowId,
-      columnId: outcome.columnId,
-      direction: outcome.statistics.direction ?? undefined,
-      confidence: outcome.statistics.confidence ?? 0.95,
-      status: "tested" as const,
-      reasonCodes: outcome.reasonCodes
-    }));
+  const testedDetails =
+    report.method === "column_comparison"
+      ? report.result.outcomes
+          .filter((outcome) => outcome.status === "tested")
+          .map((outcome) => ({
+            rowId: outcome.rowId,
+            columnId: outcome.columnId,
+            direction: outcome.statistics.direction ?? undefined,
+            confidence: outcome.statistics.confidence ?? 0.95,
+            status: "tested" as const,
+            reasonCodes: outcome.reasonCodes
+          }))
+      : report.result.outcomes
+          .filter((outcome) => outcome.status === "tested")
+          .map((outcome) => ({
+            rowId: outcome.rowId,
+            columnId: outcome.waveId,
+            direction: outcome.statistics.direction ?? undefined,
+            confidence: outcome.statistics.confidence ?? 0.95,
+            status: "tested" as const,
+            reasonCodes: outcome.reasonCodes
+          }));
 
   return {
     status: "tested",
-    method: "column_comparison",
+    method: report.method,
     readiness,
     reasonCodes: [],
     comparisonBasis: readiness.comparisonBasis,

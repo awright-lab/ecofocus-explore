@@ -348,12 +348,16 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
     const testedComparisons = report.result.summary.testedComparisons;
     const significantComparisons = report.result.summary.significantComparisons ?? 0;
     const methodLabel = report.method === "wave_comparison" ? "Wave-comparison" : "Column-comparison";
+    const helper =
+      report.method === "wave_comparison"
+        ? "This narrow provider path currently supports valid percent summary wave comparisons; breakout wave structures and broader trend methods can still be deferred or unsupported."
+        : "This provider path supports valid percent breakout tables; summary contexts and broader trend tests can still be deferred or unsupported.";
 
     return {
       status: "executed",
       label: "Significance executed",
       message: `${methodLabel} significance ran for ${testedComparisons.toLocaleString()} comparison ${testedComparisons === 1 ? "pair" : "pairs"}.`,
-      helper: "This is the first narrow provider path for valid percent breakout tables; summary contexts and wave trend tests can still be deferred or unsupported.",
+      helper,
       chips: [
         plan.executionInputContract ?? "No input contract",
         "Executed",

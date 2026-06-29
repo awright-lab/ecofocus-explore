@@ -190,7 +190,7 @@ function normalCdf(value: number) {
   return 0.5 * (1 + sign * erf);
 }
 
-function twoTailedColumnPercentPValue(value: number, comparedValue: number, base: number, comparedBase: number) {
+function twoTailedPercentPValue(value: number, comparedValue: number, base: number, comparedBase: number) {
   if (base <= 0 || comparedBase <= 0) return null;
 
   const proportion = value / 100;
@@ -216,7 +216,7 @@ function testedColumnComparisonOutcome(
   const comparedCell = row.cells.find((item) => item.columnId === comparedColumn.id);
   const pValue =
     cell && comparedCell
-      ? twoTailedColumnPercentPValue(cell.value, comparedCell.value, cell.base, comparedCell.base)
+      ? twoTailedPercentPValue(cell.value, comparedCell.value, cell.base, comparedCell.base)
       : null;
 
   if (pValue === null) {
@@ -276,6 +276,73 @@ export function executeColumnComparisonSignificance(
   };
 }
 
+function testedWaveComparisonOutcome(
+  input: AnalyticsWaveComparisonExecutionInput,
+  row: AnalyticsWaveComparisonExecutionInput["rows"][number],
+  comparedWaveId: AnalyticsWaveComparisonExecutionInput["comparisonScope"]["comparisonDatasetIds"][number]
+): AnalyticsWaveComparisonExecutionResult["outcomes"][number] {
+  const cell = row.cells.find((item) => item.waveId === input.comparisonScope.primaryDatasetId);
+  const comparedCell = row.cells.find((item) => item.waveId === comparedWaveId);
+  const pValue =
+    cell && comparedCell
+      ? twoTailedPercentPValue(cell.value, comparedCell.value, cell.base, comparedCell.base)
+      : null;
+
+  if (pValue === null) {
+    return {
+      rowId: row.id,
+      waveId: input.comparisonScope.primaryDatasetId,
+      comparedWaveId,
+      status: "not_tested",
+      reasonCodes: ["insufficient_base"],
+      statistics: {
+        pValue: null,
+        confidence: null,
+        direction: null
+      }
+    };
+  }
+
+  const isSignificant = pValue <= 1 - input.confidenceLevel;
+
+  return {
+    rowId: row.id,
+    waveId: input.comparisonScope.primaryDatasetId,
+    comparedWaveId,
+    status: "tested",
+    reasonCodes: [],
+    statistics: {
+      pValue,
+      confidence: input.confidenceLevel,
+      direction:
+        isSignificant && cell && comparedCell
+          ? cell.value > comparedCell.value
+            ? "up"
+            : "down"
+          : null
+    }
+  };
+}
+
+export function executeWaveComparisonSignificance(
+  input: AnalyticsWaveComparisonExecutionInput
+): AnalyticsWaveComparisonExecutionResult {
+  const outcomes = input.rows.flatMap((row) =>
+    input.comparisonScope.comparisonDatasetIds.map((comparedWaveId) => testedWaveComparisonOutcome(input, row, comparedWaveId))
+  );
+
+  return {
+    method: "wave_comparison",
+    comparisonScope: input.comparisonScope,
+    outcomes,
+    summary: {
+      testedComparisons: outcomes.filter((outcome) => outcome.status === "tested").length,
+      deferredComparisons: outcomes.filter((outcome) => outcome.status !== "tested").length,
+      significantComparisons: outcomes.filter((outcome) => outcome.statistics.direction).length
+    }
+  };
+}
+
 export function runColumnComparisonSignificanceAdapter(
   input: AnalyticsColumnComparisonExecutionInput | null,
   plan: AnalyticsSignificanceExecutionPlan
@@ -312,19 +379,33 @@ export function runWaveComparisonSignificanceAdapter(
     return null;
   }
   const validation = validateWaveComparisonExecutionInput(input);
+  const supportsNarrowWaveExecution =
+    input.metric.valueFormat === "percent"
+    && input.comparisonScope.comparisonDatasetIds.length === 1
+    && input.comparisonScope.waveIds.length === 2
+    && input.waves.length === 2;
+  const unsupportedNarrowReason =
+    validation.valid && plan.providerCanExecute && !supportsNarrowWaveExecution ? ["future_method" as const] : [];
   const reasonCodes = Array.from(new Set([
     ...plan.reasonCodes,
     ...validation.reasonCodes,
-    plan.providerCanExecute ? "future_method" as const : undefined
-  ].filter(Boolean) as SignificanceReasonCode[]));
+    ...unsupportedNarrowReason
+  ]));
   const unmetPrerequisites = Array.from(new Set([...plan.unmetPrerequisites, ...validation.unmetPrerequisites]));
+  const canExecute = validation.valid && plan.providerCanExecute && supportsNarrowWaveExecution;
+  const executedResult = canExecute ? executeWaveComparisonSignificance(input) : null;
+  const hasTestedComparisons = (executedResult?.summary.testedComparisons ?? 0) > 0;
+  const executionReasonCodes =
+    canExecute && !hasTestedComparisons
+      ? Array.from(new Set([...reasonCodes, "insufficient_base" as const]))
+      : reasonCodes;
 
   return {
     method: "wave_comparison",
-    status: validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
+    status: canExecute ? (hasTestedComparisons ? "executed" : "not_executed") : validation.valid && plan.providerCanExecute ? "not_executed" : "deferred",
     inputAccepted: validation.valid,
-    reasonCodes,
-    unmetPrerequisites,
-    result: validation.valid ? shapeDeferredWaveComparisonResult(input, reasonCodes) : null
+    reasonCodes: canExecute ? (hasTestedComparisons ? [] : executionReasonCodes) : reasonCodes,
+    unmetPrerequisites: canExecute ? [] : unmetPrerequisites,
+    result: validation.valid ? (canExecute ? executedResult : shapeDeferredWaveComparisonResult(input, reasonCodes)) : null
   };
 }
