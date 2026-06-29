@@ -347,6 +347,8 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
   if (report?.status === "executed" && report.result) {
     const testedComparisons = report.result.summary.testedComparisons;
     const significantComparisons = report.result.summary.significantComparisons ?? 0;
+    const notTestedComparisons = report.result.summary.notTestedComparisons ?? 0;
+    const pendingComparisons = report.result.summary.pendingComparisons ?? Math.max(0, report.result.summary.deferredComparisons - notTestedComparisons);
     const methodLabel = report.method === "wave_comparison" ? "Wave-comparison" : "Column-comparison";
     const waveBreakoutColumnIds =
       report.method === "wave_comparison" && "breakoutColumnIds" in report.result.comparisonScope
@@ -362,13 +364,18 @@ function buildExecutionDiagnostics(tile: DashboardTile): AnalysisExecutionDiagno
     return {
       status: "executed",
       label: "Significance executed",
-      message: `${methodLabel} significance ran for ${testedComparisons.toLocaleString()} comparison ${testedComparisons === 1 ? "pair" : "pairs"}.`,
+      message:
+        `${methodLabel} significance ran for ${testedComparisons.toLocaleString()} comparison ${testedComparisons === 1 ? "pair" : "pairs"}.`
+        + (notTestedComparisons > 0 ? ` ${notTestedComparisons.toLocaleString()} ${notTestedComparisons === 1 ? "pair was" : "pairs were"} not tested because of base limits.` : "")
+        + (pendingComparisons > 0 ? ` ${pendingComparisons.toLocaleString()} ${pendingComparisons === 1 ? "pair remains" : "pairs remain"} deferred.` : ""),
       helper,
       chips: [
         plan.executionInputContract ?? "No input contract",
         "Executed",
+        notTestedComparisons > 0 ? `${notTestedComparisons.toLocaleString()} not tested` : null,
+        pendingComparisons > 0 ? `${pendingComparisons.toLocaleString()} deferred` : null,
         `${significantComparisons.toLocaleString()} significant ${significantComparisons === 1 ? "pair" : "pairs"}`
-      ],
+      ].filter(Boolean) as string[],
       details
     };
   }

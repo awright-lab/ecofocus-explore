@@ -680,6 +680,71 @@ describe("snowflakeProvider", () => {
     expect(result.notes).toEqual(expect.arrayContaining(["2025 vs 2024 live wave comparison."]));
   });
 
+  it("executes narrow multi-wave summary trend significance as adjacent wave pairs", async () => {
+    const query: AnalyticsQueryRequest = {
+      ...waveQuery,
+      comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"]
+    };
+    const executor: SnowflakeQueryExecutor = {
+      async execute() {
+        return [
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2025", VALUE: 30, BASE: 1495 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2024", VALUE: 20, BASE: 1410 },
+          { OPTION_ID: "trust_a_lot", COLUMN_ID: "ecofocus_2023", VALUE: 15, BASE: 1360 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2025", VALUE: 42, BASE: 1495 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2024", VALUE: 39, BASE: 1410 },
+          { OPTION_ID: "trust_somewhat", COLUMN_ID: "ecofocus_2023", VALUE: 34, BASE: 1360 }
+        ];
+      }
+    };
+
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(query);
+
+    expect(result.statistics.significanceExecutionInput).toMatchObject({
+      method: "wave_comparison",
+      comparisonScope: {
+        waveIds: ["ecofocus_2025", "ecofocus_2024", "ecofocus_2023"],
+        primaryDatasetId: "ecofocus_2025",
+        comparisonDatasetIds: ["ecofocus_2024", "ecofocus_2023"]
+      }
+    });
+    expect(result.statistics.significanceExecutionReport).toMatchObject({
+      method: "wave_comparison",
+      status: "executed",
+      inputAccepted: true,
+      reasonCodes: [],
+      result: {
+        summary: {
+          testedComparisons: 4,
+          deferredComparisons: 4,
+          notTestedComparisons: 4,
+          pendingComparisons: 0
+        },
+        outcomes: expect.arrayContaining([
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2024",
+            comparedWaveId: "ecofocus_2023",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            rowId: "neutral",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "not_tested",
+            reasonCodes: ["insufficient_base"]
+          })
+        ])
+      }
+    });
+  });
+
   it("executes a supported breakout wave query through the injected provider executor", async () => {
     let executedSql = "";
     const executor: SnowflakeQueryExecutor = {

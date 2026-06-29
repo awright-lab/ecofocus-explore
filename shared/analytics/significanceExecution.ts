@@ -15,6 +15,19 @@ export interface ColumnComparisonInputValidation {
   unmetPrerequisites: SignificanceExecutionPrerequisite[];
 }
 
+function executionSummary(outcomes: Array<{ status: "deferred" | "not_tested" | "placeholder" | "tested"; statistics: { direction: "up" | "down" | null } }>) {
+  const notTestedComparisons = outcomes.filter((outcome) => outcome.status === "not_tested").length;
+  const pendingComparisons = outcomes.filter((outcome) => outcome.status === "deferred" || outcome.status === "placeholder").length;
+
+  return {
+    testedComparisons: outcomes.filter((outcome) => outcome.status === "tested").length,
+    deferredComparisons: outcomes.filter((outcome) => outcome.status !== "tested").length,
+    notTestedComparisons,
+    pendingComparisons,
+    significantComparisons: outcomes.filter((outcome) => outcome.statistics.direction).length
+  };
+}
+
 export function validateColumnComparisonExecutionInput(input: AnalyticsColumnComparisonExecutionInput): ColumnComparisonInputValidation {
   const reasonCodes: SignificanceReasonCode[] = [];
   const unmetPrerequisites: SignificanceExecutionPrerequisite[] = [];
@@ -84,12 +97,28 @@ export function shapeDeferredColumnComparisonResult(
     method: "column_comparison",
     comparisonScope: input.comparisonScope,
     outcomes,
-    summary: {
-      testedComparisons: 0,
-      deferredComparisons: outcomes.length,
-      significantComparisons: 0
-    }
+    summary: executionSummary(outcomes)
   };
+}
+
+function waveComparisonPairs(input: AnalyticsWaveComparisonExecutionInput) {
+  const canUseAdjacentSummaryPairs =
+    (input.comparisonScope.breakoutColumnIds?.length ?? 0) === 0
+    && input.comparisonScope.waveIds.length > 2
+    && input.comparisonScope.comparisonDatasetIds.length === input.comparisonScope.waveIds.length - 1
+    && input.comparisonScope.comparisonDatasetIds.every((waveId, index) => waveId === input.comparisonScope.waveIds[index + 1]);
+
+  if (canUseAdjacentSummaryPairs) {
+    return input.comparisonScope.waveIds.slice(0, -1).map((waveId, index) => ({
+      waveId,
+      comparedWaveId: input.comparisonScope.waveIds[index + 1]
+    }));
+  }
+
+  return input.comparisonScope.comparisonDatasetIds.map((comparedWaveId) => ({
+    waveId: input.comparisonScope.primaryDatasetId,
+    comparedWaveId
+  }));
 }
 
 export function validateWaveComparisonExecutionInput(input: AnalyticsWaveComparisonExecutionInput): ColumnComparisonInputValidation {
@@ -168,12 +197,12 @@ export function shapeDeferredWaveComparisonResult(
   reasonCodes: SignificanceReasonCode[]
 ): AnalyticsWaveComparisonExecutionResult {
   const outcomes = input.rows.flatMap((row) =>
-    input.comparisonScope.comparisonDatasetIds.flatMap((comparedWaveId) =>
+    waveComparisonPairs(input).flatMap(({ waveId, comparedWaveId }) =>
       (input.comparisonScope.breakoutColumnIds?.length ? input.comparisonScope.breakoutColumnIds : [undefined]).map((breakoutColumnId) => ({
         rowId: row.id,
-        waveId: input.comparisonScope.primaryDatasetId,
+        waveId,
         comparedWaveId,
-        breakoutColumnId,
+        ...(breakoutColumnId ? { breakoutColumnId } : {}),
         status: "deferred" as const,
         reasonCodes,
         statistics: {
@@ -189,11 +218,7 @@ export function shapeDeferredWaveComparisonResult(
     method: "wave_comparison",
     comparisonScope: input.comparisonScope,
     outcomes,
-    summary: {
-      testedComparisons: 0,
-      deferredComparisons: outcomes.length,
-      significantComparisons: 0
-    }
+    summary: executionSummary(outcomes)
   };
 }
 
@@ -288,21 +313,18 @@ export function executeColumnComparisonSignificance(
     method: "column_comparison",
     comparisonScope: input.comparisonScope,
     outcomes,
-    summary: {
-      testedComparisons: outcomes.filter((outcome) => outcome.status === "tested").length,
-      deferredComparisons: outcomes.filter((outcome) => outcome.status !== "tested").length,
-      significantComparisons: outcomes.filter((outcome) => outcome.statistics.direction).length
-    }
+    summary: executionSummary(outcomes)
   };
 }
 
 function testedWaveComparisonOutcome(
   input: AnalyticsWaveComparisonExecutionInput,
   row: AnalyticsWaveComparisonExecutionInput["rows"][number],
+  waveId: AnalyticsWaveComparisonExecutionInput["comparisonScope"]["waveIds"][number],
   comparedWaveId: AnalyticsWaveComparisonExecutionInput["comparisonScope"]["comparisonDatasetIds"][number],
   breakoutColumnId?: string
 ): AnalyticsWaveComparisonExecutionResult["outcomes"][number] {
-  const cell = row.cells.find((item) => item.waveId === input.comparisonScope.primaryDatasetId && (item.breakoutColumnId ?? undefined) === breakoutColumnId);
+  const cell = row.cells.find((item) => item.waveId === waveId && (item.breakoutColumnId ?? undefined) === breakoutColumnId);
   const comparedCell = row.cells.find((item) => item.waveId === comparedWaveId && (item.breakoutColumnId ?? undefined) === breakoutColumnId);
   const pValue =
     cell && comparedCell
@@ -312,9 +334,9 @@ function testedWaveComparisonOutcome(
   if (pValue === null) {
     return {
       rowId: row.id,
-      waveId: input.comparisonScope.primaryDatasetId,
+      waveId,
       comparedWaveId,
-      breakoutColumnId,
+      ...(breakoutColumnId ? { breakoutColumnId } : {}),
       status: "not_tested",
       reasonCodes: ["insufficient_base"],
       statistics: {
@@ -329,9 +351,9 @@ function testedWaveComparisonOutcome(
 
   return {
     rowId: row.id,
-    waveId: input.comparisonScope.primaryDatasetId,
+    waveId,
     comparedWaveId,
-    breakoutColumnId,
+    ...(breakoutColumnId ? { breakoutColumnId } : {}),
     status: "tested",
     reasonCodes: [],
     statistics: {
@@ -351,9 +373,9 @@ export function executeWaveComparisonSignificance(
   input: AnalyticsWaveComparisonExecutionInput
 ): AnalyticsWaveComparisonExecutionResult {
   const outcomes = input.rows.flatMap((row) =>
-    input.comparisonScope.comparisonDatasetIds.flatMap((comparedWaveId) =>
+    waveComparisonPairs(input).flatMap(({ waveId, comparedWaveId }) =>
       (input.comparisonScope.breakoutColumnIds?.length ? input.comparisonScope.breakoutColumnIds : [undefined]).map((breakoutColumnId) =>
-        testedWaveComparisonOutcome(input, row, comparedWaveId, breakoutColumnId)
+        testedWaveComparisonOutcome(input, row, waveId, comparedWaveId, breakoutColumnId)
       )
     )
   );
@@ -362,11 +384,7 @@ export function executeWaveComparisonSignificance(
     method: "wave_comparison",
     comparisonScope: input.comparisonScope,
     outcomes,
-    summary: {
-      testedComparisons: outcomes.filter((outcome) => outcome.status === "tested").length,
-      deferredComparisons: outcomes.filter((outcome) => outcome.status !== "tested").length,
-      significantComparisons: outcomes.filter((outcome) => outcome.statistics.direction).length
-    }
+    summary: executionSummary(outcomes)
   };
 }
 
@@ -407,12 +425,21 @@ export function runWaveComparisonSignificanceAdapter(
   }
   const validation = validateWaveComparisonExecutionInput(input);
   const hasBreakoutColumns = (input.comparisonScope.breakoutColumnIds?.length ?? 0) > 0;
-  const supportsNarrowWaveExecution =
-    input.metric.valueFormat === "percent"
+  const supportsSummaryTrendExecution =
+    !hasBreakoutColumns
+    && input.comparisonScope.waveIds.length >= 2
+    && input.comparisonScope.comparisonDatasetIds.length === input.comparisonScope.waveIds.length - 1
+    && input.comparisonScope.comparisonDatasetIds.every((waveId, index) => waveId === input.comparisonScope.waveIds[index + 1]);
+  const supportsBreakoutWaveExecution =
+    hasBreakoutColumns
     && input.comparisonScope.comparisonDatasetIds.length === 1
     && input.comparisonScope.waveIds.length === 2
     && input.waves.length === 2
-    && (!hasBreakoutColumns || input.comparisonScope.breakoutColumnIds?.length === input.breakoutColumns?.length);
+    && input.comparisonScope.breakoutColumnIds?.length === input.breakoutColumns?.length;
+  const supportsNarrowWaveExecution =
+    input.metric.valueFormat === "percent"
+    && input.waves.length === input.comparisonScope.waveIds.length
+    && (supportsSummaryTrendExecution || supportsBreakoutWaveExecution);
   const unsupportedNarrowReason =
     validation.valid && plan.providerCanExecute && !supportsNarrowWaveExecution ? ["future_method" as const] : [];
   const reasonCodes = Array.from(new Set([

@@ -216,6 +216,8 @@ export interface AnalyticsColumnComparisonExecutionResult {
   summary: {
     testedComparisons: number;
     deferredComparisons: number;
+    notTestedComparisons?: number;
+    pendingComparisons?: number;
     significantComparisons?: number;
   };
 }
@@ -254,6 +256,8 @@ export interface AnalyticsWaveComparisonExecutionResult {
   summary: {
     testedComparisons: number;
     deferredComparisons: number;
+    notTestedComparisons?: number;
+    pendingComparisons?: number;
     significantComparisons?: number;
   };
 }

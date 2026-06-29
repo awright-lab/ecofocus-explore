@@ -162,6 +162,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 0,
           deferredComparisons: 1,
+          notTestedComparisons: 0,
+          pendingComparisons: 1,
           significantComparisons: 0
         }
       }
@@ -208,6 +210,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 1,
           deferredComparisons: 0,
+          notTestedComparisons: 0,
+          pendingComparisons: 0,
           significantComparisons: 1
         }
       }
@@ -254,6 +258,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 1,
           deferredComparisons: 1,
+          notTestedComparisons: 1,
+          pendingComparisons: 0,
           significantComparisons: 1
         },
         outcomes: [
@@ -309,6 +315,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 0,
           deferredComparisons: 1,
+          notTestedComparisons: 1,
+          pendingComparisons: 0,
           significantComparisons: 0
         },
         outcomes: [
@@ -428,6 +436,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       summary: {
         testedComparisons: 0,
         deferredComparisons: 0,
+        notTestedComparisons: 0,
+        pendingComparisons: 0,
         significantComparisons: 0
       }
     };
@@ -443,6 +453,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       summary: {
         testedComparisons: 0,
         deferredComparisons: 0,
+        notTestedComparisons: 0,
+        pendingComparisons: 0,
         significantComparisons: 0
       }
     });
@@ -473,8 +485,10 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       ],
       summary: {
         testedComparisons: 0,
-        deferredComparisons: 1,
-        significantComparisons: 0
+          deferredComparisons: 1,
+          notTestedComparisons: 0,
+          pendingComparisons: 1,
+          significantComparisons: 0
       }
     });
   });
@@ -496,8 +510,10 @@ describe("runColumnComparisonSignificanceAdapter", () => {
 
     expect(executed.summary).toEqual({
       testedComparisons: 1,
-      deferredComparisons: 0,
-      significantComparisons: 1
+          deferredComparisons: 0,
+          notTestedComparisons: 0,
+          pendingComparisons: 0,
+          significantComparisons: 1
     });
     expect(executed.outcomes[0]).toMatchObject({
       rowId: "trust_a_lot",
@@ -554,6 +570,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 0,
           deferredComparisons: 1,
+          notTestedComparisons: 0,
+          pendingComparisons: 1,
           significantComparisons: 0
         }
       }
@@ -614,6 +632,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 1,
           deferredComparisons: 0,
+          notTestedComparisons: 0,
+          pendingComparisons: 0,
           significantComparisons: 1
         }
       }
@@ -676,6 +696,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 2,
           deferredComparisons: 0,
+          notTestedComparisons: 0,
+          pendingComparisons: 0,
           significantComparisons: 1
         }
       }
@@ -720,13 +742,35 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       ]
     };
 
-    expect(runWaveComparisonSignificanceAdapter(multiWaveInput, readyPlan)).toEqual({
+    expect(runWaveComparisonSignificanceAdapter(multiWaveInput, readyPlan)).toMatchObject({
       method: "wave_comparison",
-      status: "not_executed",
+      status: "executed",
       inputAccepted: true,
-      reasonCodes: ["future_method"],
+      reasonCodes: [],
       unmetPrerequisites: [],
-      result: shapeDeferredWaveComparisonResult(multiWaveInput, ["future_method"])
+      result: {
+        summary: {
+          testedComparisons: 2,
+          deferredComparisons: 0,
+          notTestedComparisons: 0,
+          pendingComparisons: 0,
+          significantComparisons: 2
+        },
+        outcomes: [
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2025",
+            comparedWaveId: "ecofocus_2024",
+            status: "tested"
+          }),
+          expect.objectContaining({
+            rowId: "trust_a_lot",
+            waveId: "ecofocus_2024",
+            comparedWaveId: "ecofocus_2023",
+            status: "tested"
+          })
+        ]
+      }
     });
   });
 
@@ -765,6 +809,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 0,
           deferredComparisons: 1,
+          notTestedComparisons: 1,
+          pendingComparisons: 0,
           significantComparisons: 0
         },
         outcomes: [
@@ -818,6 +864,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
         summary: {
           testedComparisons: 1,
           deferredComparisons: 1,
+          notTestedComparisons: 1,
+          pendingComparisons: 0,
           significantComparisons: 1
         },
         outcomes: expect.arrayContaining([
@@ -861,6 +909,8 @@ describe("runColumnComparisonSignificanceAdapter", () => {
       summary: {
         testedComparisons: 0,
         deferredComparisons: 1,
+        notTestedComparisons: 0,
+        pendingComparisons: 1,
         significantComparisons: 0
       }
     });
@@ -883,8 +933,10 @@ describe("runColumnComparisonSignificanceAdapter", () => {
 
     expect(executed.summary).toEqual({
       testedComparisons: 1,
-      deferredComparisons: 0,
-      significantComparisons: 1
+          deferredComparisons: 0,
+          notTestedComparisons: 0,
+          pendingComparisons: 0,
+          significantComparisons: 1
     });
     expect(executed.outcomes[0]).toMatchObject({
       rowId: "trust_a_lot",
