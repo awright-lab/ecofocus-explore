@@ -235,6 +235,44 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         columns: selectedTile.result.columns.length
       }
     : null;
+  const leadColumn = selectedTile?.result.columns[0] ?? null;
+  const leadRow = selectedTile?.result.table[0] ?? null;
+  const leadValue = leadColumn && leadRow ? leadRow.values[leadColumn.id] : undefined;
+  const leadValueLabel =
+    typeof leadValue === "number"
+      ? selectedTile?.result.metric.valueFormat === "percent"
+        ? `${Math.round(leadValue)}%`
+        : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(leadValue)
+      : null;
+  const executionReport = selectedTile?.result.statistics.significanceExecutionReport ?? null;
+  const executionSummary =
+    executionReport?.status === "executed"
+      ? `${executionReport.method.replace("_", " ")} ran`
+      : selectedTile?.result.statistics.significance.status === "eligible"
+        ? "Eligible, not tested"
+        : selectedTile?.result.statistics.significance.status === "unsupported"
+          ? "Unsupported significance"
+          : selectedTile?.result.statistics.significance.hasPlaceholders
+            ? "Placeholder context"
+            : "No test run";
+  const storyRoleLabel = selectedTile
+    ? selectedTile.result.columns.length > 1 || (selectedTile.query.comparisonMode ?? "none") !== "none"
+      ? "Comparison story"
+      : selectedTile.visualization === "table"
+        ? "Evidence table"
+        : "Lead evidence"
+    : selectedElement
+      ? selectedElement.type === "text"
+        ? "Narrative object"
+        : "Visual object"
+      : "Page story";
+  const groundedTakeaway = selectedTile
+    ? leadValueLabel && leadRow
+      ? `${leadRow.label} is the lead visible result at ${leadValueLabel}. Use the surrounding section to explain why that signal matters and what action it implies.`
+      : `This ${getChartTypeLabel(selectedTile.visualization).toLowerCase()} frames ${getQuestionLabel(selectedTile.query.question)}. Pair it with one clear interpretation and a short context note.`
+    : selectedElement
+      ? "Use this object to support the page narrative. Pair decorative or text elements with nearby analytical evidence when possible."
+      : "Start with a section pattern, then add one analytical object and one interpretation block to keep the page story focused.";
   const chartTypeOptions = selectedTile
     ? defaultDataset.chartTypes
         .filter((chartTypeOption) => chartTypeOption.supportedMetrics.includes(selectedTile.query.metric))
@@ -473,21 +511,41 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   );
   const insightSurface = (
     <>
-      <div className="inspector-story-card">
-        <span>Story context</span>
+      <div className="inspector-insight-hero">
+        <span>{storyRoleLabel}</span>
         <strong>{inspectorFocus.title}</strong>
-        <small>{inspectorFocus.helper}</small>
+        <small>{groundedTakeaway}</small>
       </div>
       {selectedTile ? (
         <>
+          <div className="inspector-story-grid">
+            <div className="inspector-story-metric">
+              <span>Evidence</span>
+              <strong>{leadValueLabel ?? `${selectedTile.result.table.length} rows`}</strong>
+              <small>{leadRow?.label ?? `${selectedTile.result.columns.length} result columns`}</small>
+            </div>
+            <div className="inspector-story-metric">
+              <span>Confidence</span>
+              <strong>{Math.round(selectedTile.result.statistics.confidenceLevel * 100)}%</strong>
+              <small>{selectedTile.result.weighting.label}</small>
+            </div>
+          </div>
           <div className="inspector-story-card quiet">
-            <span>Interpretation cues</span>
-            <strong>{selectedTile.result.statistics.significance.status === "tested" ? "Tested comparisons available" : "Review analytical context"}</strong>
-            <small>{selectedTile.result.statistics.significance.comparisonBasis} basis · {Math.round(selectedTile.result.statistics.confidenceLevel * 100)}% confidence</small>
+            <span>Analytical context</span>
+            <strong>{executionSummary}</strong>
+            <small>{selectedTile.result.statistics.significance.comparisonBasis} basis · {dataContext?.banner}</small>
             <div className="inspector-context-chips">
               <span>{selectedTile.result.weighting.applied ? "Weighted" : "Unweighted"}</span>
-              <span>{selectedTile.result.statistics.significance.method}</span>
+              <span>{selectedTile.result.statistics.significance.method.replace("_", " ")}</span>
+              <span>{selectedTile.result.metric.label}</span>
             </div>
+          </div>
+          <div className="inspector-ai-takeaway">
+            <div>
+              <span>Story takeaway</span>
+              <small>Grounded in current result</small>
+            </div>
+            <p>{groundedTakeaway}</p>
           </div>
           {(insightWarnings.length > 0 || insightNotes.length > 0) && (
             <div className="inspector-story-card quiet">
@@ -503,14 +561,14 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             setSettingsView("container");
           }}>
             <strong>Open provenance and lifecycle</strong>
-            <span>Review saved settings, derived-output, template, and segment context.</span>
+            <span>Review saved settings, derived-output, template, segment, and starter context.</span>
           </button>
         </>
       ) : (
         <div className="inspector-story-card quiet">
           <span>Insight surface</span>
-          <strong>Select an analytical tile</strong>
-          <small>Tile notes, warnings, provenance, and story handoff cues will appear here.</small>
+          <strong>{selectedElement ? "Pair with analytical evidence" : "Build a story section"}</strong>
+          <small>{selectedElement ? "Select a chart or table to see evidence, significance, weighting, and story framing." : "Use KPI, insight, chart commentary, and opportunity starters from the Brand panel."}</small>
         </div>
       )}
     </>

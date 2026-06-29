@@ -557,6 +557,270 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
       ]
     }),
     seedCompositionStarter({
+      id: "starter_kpi_strip_section",
+      label: "KPI strip",
+      description: "Three presentation-ready metric cards for opening a story section with evidence.",
+      category: "quote_stat",
+      width: 760,
+      height: 210,
+      items: [
+        ...[
+          {
+            id: "culture",
+            value: "84%",
+            label: "Care about workplace culture",
+            helper: "vs. 78% in 2024",
+            fill: "#f8fffd",
+            accent: "#0f9b90",
+            x: 0
+          },
+          {
+            id: "support",
+            value: "41%",
+            label: "Feel supported at work",
+            helper: "vs. 35% in 2024",
+            fill: "#fbfbff",
+            accent: "#5955b8",
+            x: 260
+          },
+          {
+            id: "growth",
+            value: "2x",
+            label: "Growth in job-seeker influence",
+            helper: "vs. 2024",
+            fill: "#fff8f4",
+            accent: "#ff6b57",
+            x: 520
+          }
+        ].flatMap((card, index) => [
+          starterElement({
+            id: `starter_kpi_strip_${card.id}_card`,
+            name: `${card.label} card`,
+            type: "rectangle",
+            content: "",
+            layout: { x: card.x, y: 0, width: 220, height: 190, zIndex: 1 + index * 5 },
+            style: {
+              fill: card.fill,
+              borderColor: "#dfe9e5",
+              borderWidth: 1,
+              borderRadius: 18,
+              shadow: true,
+              shadowOpacity: 10,
+              shadowBlur: 22
+            }
+          }),
+          starterElement({
+            id: `starter_kpi_strip_${card.id}_icon`,
+            name: `${card.label} icon`,
+            type: "circle",
+            content: "",
+            layout: { x: card.x + 24, y: 22, width: 42, height: 42, zIndex: 2 + index * 5 },
+            style: {
+              fill: card.accent,
+              opacity: 13,
+              borderColor: "transparent",
+              borderWidth: 0
+            }
+          }),
+          starterElement({
+            id: `starter_kpi_strip_${card.id}_value`,
+            name: `${card.label} value`,
+            content: card.value,
+            layout: { x: card.x + 24, y: 72, width: 160, height: 54, zIndex: 3 + index * 5 },
+            style: {
+              fill: "transparent",
+              textColor: "#0d1630",
+              fontSize: 34,
+              fontWeight: "900",
+              lineHeight: 1,
+              padding: 0,
+              borderStyle: "none",
+              borderWidth: 0
+            }
+          }),
+          starterElement({
+            id: `starter_kpi_strip_${card.id}_label`,
+            name: `${card.label} label`,
+            content: card.label,
+            layout: { x: card.x + 24, y: 122, width: 158, height: 42, zIndex: 4 + index * 5 },
+            style: {
+              fill: "transparent",
+              textColor: "#172033",
+              fontSize: 13,
+              fontWeight: "750",
+              lineHeight: 1.18,
+              padding: 0,
+              borderStyle: "none",
+              borderWidth: 0
+            }
+          }),
+          starterElement({
+            id: `starter_kpi_strip_${card.id}_helper`,
+            name: `${card.label} helper`,
+            content: `${card.helper} ↑`,
+            layout: { x: card.x + 24, y: 164, width: 148, height: 22, zIndex: 5 + index * 5 },
+            style: {
+              fill: "transparent",
+              textColor: "#65736d",
+              fontSize: 11,
+              fontWeight: "700",
+              lineHeight: 1.1,
+              padding: 0,
+              borderStyle: "none",
+              borderWidth: 0
+            }
+          })
+        ])
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_insight_callout_section",
+      label: "Insight callout",
+      description: "A soft insight card for pairing a key takeaway with analytical evidence.",
+      category: "callout",
+      width: 640,
+      height: 150,
+      items: [
+        starterElement({
+          id: "starter_insight_callout_backdrop",
+          name: "Insight callout backdrop",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 0, width: 640, height: 138, zIndex: 1 },
+          style: {
+            fillMode: "gradient",
+            gradientFrom: "#eafff9",
+            gradientTo: "#ffffff",
+            gradientType: "linear",
+            borderColor: "#d7eee8",
+            borderWidth: 1,
+            borderRadius: 24,
+            shadow: true,
+            shadowOpacity: 8,
+            shadowBlur: 18
+          }
+        }),
+        starterElement({
+          id: "starter_insight_callout_icon",
+          name: "Insight callout icon",
+          type: "circle",
+          content: "",
+          layout: { x: 28, y: 36, width: 66, height: 66, zIndex: 2 },
+          style: { fill: "#008b86", borderWidth: 0 }
+        }),
+        starterElement({
+          id: "starter_insight_callout_label",
+          name: "Insight label",
+          content: "INSIGHT",
+          layout: { x: 122, y: 28, width: 160, height: 22, zIndex: 3 },
+          style: {
+            fill: "transparent",
+            textColor: "#008b86",
+            fontSize: 12,
+            fontWeight: "900",
+            lineHeight: 1,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_insight_callout_copy",
+          name: "Insight copy",
+          content: "Culture leads the decision hierarchy, outranking compensation and growth. Use this space to turn one chart into one action-ready takeaway.",
+          layout: { x: 122, y: 55, width: 450, height: 70, zIndex: 4 },
+          style: {
+            fill: "transparent",
+            textColor: "#102332",
+            fontSize: 16,
+            fontWeight: "750",
+            lineHeight: 1.28,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
+      id: "starter_opportunity_card_section",
+      label: "Opportunity card",
+      description: "A chapter-style story card for moving from evidence into implication.",
+      category: "title_section",
+      width: 640,
+      height: 150,
+      items: [
+        starterElement({
+          id: "starter_opportunity_backdrop",
+          name: "Opportunity card backdrop",
+          type: "rectangle",
+          content: "",
+          layout: { x: 0, y: 0, width: 640, height: 138, zIndex: 1 },
+          style: {
+            fillMode: "gradient",
+            gradientFrom: "#fbfbff",
+            gradientTo: "#ffffff",
+            gradientType: "linear",
+            borderColor: "#e2e5f5",
+            borderWidth: 1,
+            borderRadius: 24,
+            shadow: true,
+            shadowOpacity: 8,
+            shadowBlur: 18
+          }
+        }),
+        starterElement({
+          id: "starter_opportunity_section_label",
+          name: "Section label",
+          content: "SECTION 2",
+          layout: { x: 170, y: 20, width: 116, height: 28, zIndex: 2 },
+          style: {
+            fill: "#2a287f",
+            textColor: "#ffffff",
+            fontSize: 12,
+            fontWeight: "900",
+            lineHeight: 1,
+            textAlign: "center",
+            padding: 8,
+            borderRadius: 16,
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_opportunity_title",
+          name: "Opportunity title",
+          content: "Opportunity",
+          layout: { x: 170, y: 58, width: 320, height: 44, zIndex: 3 },
+          style: {
+            fill: "transparent",
+            textColor: "#0d1630",
+            fontSize: 28,
+            fontWeight: "900",
+            lineHeight: 1,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        }),
+        starterElement({
+          id: "starter_opportunity_copy",
+          name: "Opportunity copy",
+          content: "Where organizations can take action",
+          layout: { x: 170, y: 100, width: 340, height: 26, zIndex: 4 },
+          style: {
+            fill: "transparent",
+            textColor: "#3f4b64",
+            fontSize: 14,
+            fontWeight: "650",
+            lineHeight: 1.2,
+            padding: 0,
+            borderStyle: "none",
+            borderWidth: 0
+          }
+        })
+      ]
+    }),
+    seedCompositionStarter({
       id: "starter_image_caption_section",
       label: "Image and caption",
       description: "An editorial image block with caption and narrative context for visual storytelling.",

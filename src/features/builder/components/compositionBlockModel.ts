@@ -647,16 +647,37 @@ export function buildCompositionBlockLibraryView(block: SavedCompositionBlock) {
     roleHelper,
     recency,
     structureLabel: hasTile && hasElement ? "Mixed analytical + visual block" : hasTile ? "Analytical layout block" : "Visual composition block",
-    previewTone: hasTile ? "analytical" : block.category === "image_caption" ? "image" : "editorial"
+    previewTone: hasTile
+      ? "analytical"
+      : block.id.includes("kpi") || block.category === "quote_stat"
+        ? "kpi"
+        : block.id.includes("insight") || block.category === "callout"
+          ? "insight"
+          : block.id.includes("opportunity") || block.id.includes("divider") || block.category === "title_section"
+            ? "section"
+            : block.category === "image_caption"
+              ? "image"
+              : "editorial"
   };
 }
 
 export function buildCompositionStarterLibraryView(block: SavedCompositionBlock) {
   const view = buildCompositionBlockLibraryView(block);
+  const starterLabel =
+    block.id.includes("kpi") || block.category === "quote_stat"
+      ? "KPI story starter"
+      : block.id.includes("insight") || block.category === "callout"
+        ? "Insight block starter"
+        : block.id.includes("opportunity") || block.id.includes("divider") || block.category === "title_section"
+          ? "Section story starter"
+          : block.category === "chart_commentary"
+            ? "Analysis story starter"
+            : "Editorial section starter";
+
   return {
     ...view,
     actionLabel: "Insert section",
-    starterLabel: block.category === "chart_commentary" ? "Analysis story starter" : "Editorial section starter"
+    starterLabel
   };
 }
 
@@ -807,6 +828,19 @@ export function buildSmartCompositionBlockFromTile(starterId: SmartCompositionSt
           })
         ]
       : [
+          smartStarterShapeElement({
+            id: "smart_story_section_backdrop",
+            name: "Story section backdrop",
+            layout: { x: 0, y: 0, width: width, height: height - 26, zIndex: 0 },
+            style: {
+              fill: "#ffffff",
+              borderColor: "#e2ece7",
+              borderRadius: 28,
+              shadow: true,
+              shadowOpacity: 10,
+              shadowBlur: 24
+            }
+          }),
           smartStarterTextElement({
             id: "smart_story_title",
             name: "Analysis story title",
@@ -817,12 +851,45 @@ export function buildSmartCompositionBlockFromTile(starterId: SmartCompositionSt
             layout: { x: 28, y: 18, width: 720, height: 62, zIndex: 1 },
             style: { textColor: "#102332", fontSize: 28, fontWeight: "850", lineHeight: 1.1 }
           }),
+          smartStarterShapeElement({
+            id: "smart_story_commentary_backdrop",
+            name: "Insight commentary card",
+            layout: { x: 570, y: 102, width: 264, height: 178, zIndex: 2 },
+            style: {
+              fill: starterId === "comparison_insight" || starterId === "source_comparison_section" ? "#f5fbff" : "#f1fffa",
+              borderColor: starterId === "comparison_insight" || starterId === "source_comparison_section" ? "#d4eaf6" : "#cfeee6",
+              borderRadius: 22,
+              shadow: true,
+              shadowOpacity: 8,
+              shadowBlur: 16
+            }
+          }),
+          smartStarterTextElement({
+            id: "smart_story_kicker",
+            name: "Insight kicker",
+            content: starterId === "comparison_insight" || starterId === "source_comparison_section" ? "COMPARISON" : "INSIGHT",
+            layout: { x: 590, y: 122, width: 160, height: 22, zIndex: 3 },
+            style: { textColor: "#008b86", fontSize: 12, fontWeight: "900", lineHeight: 1 }
+          }),
           smartStarterTextElement({
             id: "smart_story_commentary",
             name: "Insight commentary",
             content: smartStarterSummaryText(starterId, tile),
-            layout: { x: 590, y: 120, width: 230, height: 150, zIndex: 3 },
+            layout: { x: 590, y: 152, width: 220, height: 104, zIndex: 4 },
             style: { textColor: "#334b40", fontSize: 16, fontWeight: "650", lineHeight: 1.38 }
+          }),
+          smartStarterShapeElement({
+            id: "smart_story_implication_backdrop",
+            name: "Implication card",
+            layout: { x: 28, y: 470, width: 520, height: 56, zIndex: 3 },
+            style: { fill: "#fbfbff", borderColor: "#e1e4f3", borderRadius: 18 }
+          }),
+          smartStarterTextElement({
+            id: "smart_story_implication",
+            name: "Implication prompt",
+            content: "Implication: turn the strongest difference into a client-ready action statement.",
+            layout: { x: 50, y: 488, width: 458, height: 24, zIndex: 4 },
+            style: { textColor: "#30354d", fontSize: 13, fontWeight: "800", lineHeight: 1.2 }
           }),
           smartStarterShapeElement({
             id: "smart_story_note_backdrop",
