@@ -273,6 +273,27 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     : selectedElement
       ? "Use this object to support the page narrative. Pair decorative or text elements with nearby analytical evidence when possible."
       : "Start with a section pattern, then add one analytical object and one interpretation block to keep the page story focused.";
+  const assistantNextStep = selectedTile
+    ? selectedTile.result.columns.length > 1 || (selectedTile.query.comparisonMode ?? "none") !== "none"
+      ? {
+          label: "Explain the comparison",
+          helper: "Use the Insight tab to frame which segment, banner, or wave difference matters most."
+        }
+      : {
+          label: selectedTile.visualization === "table" ? "Design from the numbers" : "Pair chart with a takeaway",
+          helper: selectedTile.visualization === "table"
+            ? "Start with the table for plain reading, then duplicate as a chart when the story is clear."
+            : "Add an insight callout or KPI strip near this chart to make the section easier to scan."
+        }
+    : selectedElement
+      ? {
+          label: "Connect this object to evidence",
+          helper: "Select or add a chart nearby so the visual block supports a measured insight."
+        }
+      : {
+          label: "Start with a story section",
+          helper: "Use the Brand panel starters for KPI strips, insight callouts, chart commentary, or opportunity cards."
+        };
   const chartTypeOptions = selectedTile
     ? defaultDataset.chartTypes
         .filter((chartTypeOption) => chartTypeOption.supportedMetrics.includes(selectedTile.query.metric))
@@ -373,11 +394,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
       </div>
       <div className="assistant-ai-takeaway">
         <div className="assistant-section-header">
-          <strong>AI Takeaway ✨</strong>
-          <small>Regenerate</small>
+          <strong>Takeaway draft ✨</strong>
+          <small>Grounded</small>
         </div>
         <p>Workplace culture is the top priority for employees, outpacing compensation and career growth. With support at work still lagging, organizations have a clear opportunity to build stronger cultures that attract and retain top talent.</p>
-        <small>AI-generated content may be inaccurate.</small>
+        <small>Use as starter copy; verify against the selected result before publishing.</small>
       </div>
     </div>
   ) : null;
@@ -445,6 +466,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   const styleSurface = (
     <>
           {styleQuickCard}
+          <div className="assistant-next-step-card">
+            <span>Suggested next step</span>
+            <strong>{assistantNextStep.label}</strong>
+            <small>{assistantNextStep.helper}</small>
+          </div>
           {multiSelectionCard}
           {settingsView === "home" ? (
             <div className="settings-menu inspector-home">
@@ -498,6 +524,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <span>{dataContext?.columns} columns</span>
           <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
         </div>
+      </div>
+      <div className="assistant-next-step-card data">
+        <span>Data guidance</span>
+        <strong>{assistantNextStep.label}</strong>
+        <small>{assistantNextStep.helper}</small>
       </div>
       <TileAnalysisResultSection {...props} />
       <TileAnalysisQuerySection {...props} />

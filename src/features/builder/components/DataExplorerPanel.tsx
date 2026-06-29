@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import { AnalysisLibrarySection, QueryEditorSection, SourcePickerSection } from "./DataExplorerSections";
+import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
 
@@ -37,6 +38,19 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     sourceSearch,
     setSourceSearch
   } = props;
+  const savedChartRows = savedAnalyticalTemplates.length > 0
+    ? savedAnalyticalTemplates.slice(0, 3).map((template) => ({
+        id: template.id,
+        label: template.label,
+        meta: `${getChartTypeLabel(template.visualization)} · ${template.summary.sourceLabel}`,
+        kind: "Template"
+      }))
+    : savedVariableSets.slice(0, 3).map((variableSet) => ({
+        id: variableSet.id,
+        label: variableSet.label,
+        meta: `${variableSet.rows.length} authored rows`,
+        kind: "Variable set"
+      }));
 
   if (leftPanelView !== "data") {
     return null;
@@ -48,9 +62,24 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         <h2>Data Library</h2>
       </div>
       <div className="data-explorer">
-        <label className="data-library-search" aria-label="Search data library">
-          <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search data library" />
-        </label>
+        <div className="data-library-search-row">
+          <label className="data-library-search" aria-label="Search data library">
+            <span aria-hidden="true">⌕</span>
+            <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search data library" />
+          </label>
+          <button type="button" className="data-library-filter-button" onClick={() => setExploreView("source")} aria-label="Filter data library">
+            <DataLibraryIcon icon="filter" />
+          </button>
+        </div>
+        <div className="data-library-overview" aria-label="Library summary">
+          <span>Survey workspace</span>
+          <strong>EcoFocus study library</strong>
+          <div className="data-library-overview-grid">
+            <small>{filteredQuestions.length} variables</small>
+            <small>{savedVariableSets.length} variable sets</small>
+            <small>{savedAnalyticalTemplates.length + savedSegmentProfiles.length} saved artifacts</small>
+          </div>
+        </div>
         <div className="mockup-library-stack" aria-label="Data library overview">
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
@@ -127,10 +156,13 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <strong>Saved charts</strong>
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
-            {(savedAnalyticalTemplates.length > 0 ? savedAnalyticalTemplates.slice(0, 3).map((template) => template.label) : savedVariableSets.slice(0, 3).map((item) => item.label)).map((label) => (
-              <button type="button" className="mockup-library-row compact" key={label} onClick={() => setExploreView("library")}>
+            {savedChartRows.map((artifact) => (
+              <button type="button" className="mockup-library-row artifact" key={artifact.id} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="chart" /></span>
-                <strong>{label}</strong>
+                <div>
+                  <strong>{artifact.label}</strong>
+                  <small>{artifact.kind} · {artifact.meta}</small>
+                </div>
               </button>
             ))}
           </section>
