@@ -11,7 +11,7 @@ import {
 } from "../builderConstants";
 import { defaultVariableSetRows, rowKindLabel } from "../../document/documentSeeds";
 import { defaultVisualizationForQuestion, getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { gradientCss, pagePatternBackground } from "../builderHelpers";
+import { pagePatternBackgroundSize, themePreviewBackground } from "../builderHelpers";
 import { buildInsertionContextView } from "./insertionContextModel";
 import {
   buildSmartCompositionBlockFromTile,
@@ -855,12 +855,11 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
                           className="brand-theme-preview"
                           style={{
                             background:
-                              theme.backgroundMode === "gradient"
-                                ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
-                                : theme.backgroundMode === "pattern"
-                                  ? pagePatternBackground(theme.backgroundPattern)
-                                  : theme.background,
-                            backgroundSize: theme.backgroundMode === "pattern" ? "16px 16px, 16px 16px, 100% 100%" : undefined
+                              themePreviewBackground(theme),
+                            backgroundSize:
+                              theme.backgroundPattern === "teal_grid"
+                                ? pagePatternBackgroundSize(theme.backgroundPattern, theme.backgroundMode === "image" ? "cover" : "100% 100%", 16)
+                                : undefined
                           }}
                         />
                         <div>

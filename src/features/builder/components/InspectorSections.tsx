@@ -5,7 +5,15 @@ import {
   effectPresets,
   type EffectPreset
 } from "../builderConstants";
-import { effectShadow, gradientCss, pagePatternBackground } from "../builderHelpers";
+import {
+  effectShadow,
+  gradientCss,
+  pageBackgroundLayer,
+  pagePatternBackgroundPosition,
+  pagePatternBackgroundRepeat,
+  pagePatternBackgroundSize,
+  themePreviewBackground
+} from "../builderHelpers";
 import { getBarStyle, getPaletteId } from "./CanvasRenderers";
 import { ElementInspector, TileAnalysisInspector, TileContainerInspector } from "./InspectorObjectSections";
 import type { BuilderInspectorProps } from "./BuilderInspector";
@@ -208,18 +216,31 @@ export function PageInspector(props: BuilderInspectorProps) {
               className="gradient-button-preview"
               style={{
                 background:
-                  activePage.backgroundMode === "image" && activePage.backgroundImage
+                  activePage.backgroundMode === "image" && activePage.backgroundImage && activePage.backgroundPattern !== "teal_grid"
                     ? `center / cover no-repeat url("${activePage.backgroundImage.replace(/"/g, '\\"')}")`
-                    : activePage.backgroundMode === "pattern"
-                      ? pagePatternBackground(activePage.backgroundPattern)
-                    : activePage.backgroundMode === "gradient"
-                      ? gradientCss(activePage.gradientFrom, activePage.gradientTo, activePage.gradientStops, activePage.gradientType, `${activePage.gradientAngle}deg`)
-                      : activePage.background,
-                backgroundSize: activePage.backgroundMode === "pattern" ? "12px 12px, 12px 12px, 100% 100%" : undefined
+                    : pageBackgroundLayer(activePage),
+                backgroundSize:
+                  activePage.backgroundPattern === "teal_grid"
+                    ? pagePatternBackgroundSize(activePage.backgroundPattern, activePage.backgroundMode === "image" ? "cover" : "100% 100%", 12)
+                    : undefined,
+                backgroundRepeat:
+                  activePage.backgroundPattern === "teal_grid"
+                    ? pagePatternBackgroundRepeat(activePage.backgroundPattern)
+                    : undefined,
+                backgroundPosition:
+                  activePage.backgroundPattern === "teal_grid"
+                    ? pagePatternBackgroundPosition(activePage.backgroundPattern, "center", 6)
+                    : undefined
               }}
             />
             <span>Background</span>
-            <small>{activePage.backgroundMode === "image" ? "Image" : activePage.backgroundMode === "pattern" ? "Pattern" : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}</small>
+            <small>
+              {activePage.backgroundPattern === "teal_grid"
+                ? "Checker"
+                : activePage.backgroundMode === "image"
+                  ? "Image"
+                  : activePage.backgroundMode[0].toUpperCase() + activePage.backgroundMode.slice(1)}
+            </small>
           </button>
           <div className="brand-card-actions">
             <button type="button" className="secondary" onClick={duplicateActivePage}>
@@ -237,13 +258,9 @@ export function PageInspector(props: BuilderInspectorProps) {
 }
 
 function pageThemePreview(theme: PageThemePreset) {
-  return theme.backgroundMode === "pattern"
-    ? pagePatternBackground(theme.backgroundPattern)
-    : theme.backgroundMode === "gradient"
-    ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
-    : theme.backgroundMode === "image" && theme.backgroundImage
+  return theme.backgroundMode === "image" && theme.backgroundImage
       ? `center / cover no-repeat url("${theme.backgroundImage.replace(/"/g, '\\"')}")`
-      : theme.background;
+      : themePreviewBackground(theme);
 }
 
 export function LayoutInspector(props: BuilderInspectorProps) {

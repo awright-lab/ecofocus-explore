@@ -241,10 +241,10 @@ export function backgroundStyle(mode: "solid" | "gradient", solid: string, gradi
 
 export function themePreviewBackground(theme?: PageThemePreset) {
   if (!theme) return "#ffffff";
-  if (theme.backgroundMode === "pattern") return pagePatternBackground(theme.backgroundPattern ?? "teal_grid");
-  return theme.backgroundMode === "gradient"
+  const baseBackground = theme.backgroundMode === "gradient" || theme.backgroundMode === "pattern"
     ? gradientCss(theme.gradientFrom, theme.gradientTo, theme.gradientStops, theme.gradientType, `${theme.gradientAngle}deg`)
     : theme.background;
+  return pagePatternBackground(theme.backgroundPattern ?? "none", baseBackground);
 }
 
 export function hexToRgb(color: string) {
@@ -280,27 +280,34 @@ export function effectShadow(style: {
 }
 
 export function pageBackgroundLayer(page: DashboardPage) {
-  if (page.backgroundMode === "pattern") {
-    return pagePatternBackground(page.backgroundPattern);
-  }
+  const baseBackground =
+    page.backgroundMode === "gradient" || page.backgroundMode === "pattern"
+      ? gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, `${page.gradientAngle}deg`)
+      : page.backgroundMode === "image" && page.backgroundImage
+      ? `url("${page.backgroundImage.replace(/"/g, '\\"')}")`
+      : page.background;
 
-  if (page.backgroundMode === "gradient") {
-    return gradientCss(page.gradientFrom, page.gradientTo, page.gradientStops, page.gradientType, `${page.gradientAngle}deg`);
-  }
-
-  if (page.backgroundMode === "image" && page.backgroundImage) {
-    return `url("${page.backgroundImage.replace(/"/g, '\\"')}")`;
-  }
-
-  return page.background;
+  return pagePatternBackground(page.backgroundPattern ?? "none", baseBackground);
 }
 
-export function pagePatternBackground(pattern: DashboardPage["backgroundPattern"] = "teal_grid") {
+export function pagePatternBackground(pattern: DashboardPage["backgroundPattern"] = "teal_grid", baseBackground = "#ffffff") {
   if (pattern === "teal_grid") {
-    return "linear-gradient(90deg, rgba(35, 135, 147, 0.34) 50%, transparent 50%), linear-gradient(rgba(35, 135, 147, 0.34) 50%, transparent 50%), linear-gradient(135deg, #103442, #0b2630)";
+    return `linear-gradient(45deg, rgba(35, 135, 147, 0.28) 25%, transparent 25%, transparent 75%, rgba(35, 135, 147, 0.28) 75%), linear-gradient(45deg, rgba(35, 135, 147, 0.28) 25%, transparent 25%, transparent 75%, rgba(35, 135, 147, 0.28) 75%), ${baseBackground}`;
   }
 
-  return "#ffffff";
+  return baseBackground;
+}
+
+export function pagePatternBackgroundSize(pattern: DashboardPage["backgroundPattern"], baseSize = "100% 100%", patternSize = 36) {
+  return pattern === "teal_grid" ? `${patternSize}px ${patternSize}px, ${patternSize}px ${patternSize}px, ${baseSize}` : baseSize;
+}
+
+export function pagePatternBackgroundRepeat(pattern: DashboardPage["backgroundPattern"], baseRepeat = "no-repeat") {
+  return pattern === "teal_grid" ? `repeat, repeat, ${baseRepeat}` : baseRepeat;
+}
+
+export function pagePatternBackgroundPosition(pattern: DashboardPage["backgroundPattern"], basePosition = "0 0", patternOffset = 18) {
+  return pattern === "teal_grid" ? `0 0, ${patternOffset}px ${patternOffset}px, ${basePosition}` : basePosition;
 }
 
 export function canvasBackground(page: DashboardPage) {
@@ -312,14 +319,13 @@ export function canvasBackground(page: DashboardPage) {
 }
 
 export function canvasBackgroundSize(page: DashboardPage) {
-  const finalSize =
-    page.backgroundMode === "pattern"
-      ? "36px 36px, 36px 36px, 100% 100%"
-      : page.backgroundMode === "image"
+  const baseSize =
+    page.backgroundMode === "image"
       ? page.backgroundImageFit === "fill"
         ? "100% 100%"
         : page.backgroundImageFit
       : "100% 100%";
+  const finalSize = pagePatternBackgroundSize(page.backgroundPattern ?? "none", baseSize, 36);
 
   if (!page.showCanvasGrid) return finalSize;
 
@@ -327,7 +333,8 @@ export function canvasBackgroundSize(page: DashboardPage) {
 }
 
 export function canvasBackgroundRepeat(page: DashboardPage) {
-  const finalRepeat = page.backgroundMode === "pattern" ? "repeat, repeat, no-repeat" : page.backgroundMode === "image" ? "no-repeat" : "no-repeat";
+  const baseRepeat = page.backgroundMode === "image" ? "no-repeat" : "no-repeat";
+  const finalRepeat = pagePatternBackgroundRepeat(page.backgroundPattern ?? "none", baseRepeat);
 
   if (!page.showCanvasGrid) return finalRepeat;
 
@@ -335,7 +342,8 @@ export function canvasBackgroundRepeat(page: DashboardPage) {
 }
 
 export function canvasBackgroundPosition(page: DashboardPage) {
-  const finalPosition = page.backgroundMode === "pattern" ? "0 0, 0 0, center" : page.backgroundMode === "image" ? "center center" : "0 0";
+  const basePosition = page.backgroundMode === "image" ? "center center" : "0 0";
+  const finalPosition = pagePatternBackgroundPosition(page.backgroundPattern ?? "none", basePosition, 18);
 
   if (!page.showCanvasGrid) return finalPosition;
 

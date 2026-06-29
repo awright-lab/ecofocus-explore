@@ -747,8 +747,8 @@ export function seedPageThemes(): PageThemePreset[] {
     {
       id: "teal_grid",
       label: "Teal grid",
-      description: "Dark teal checker grid for analytical stage slides and high-contrast chart callouts.",
-      backgroundMode: "pattern",
+      description: "Dark teal stage background with the checker treatment applied.",
+      backgroundMode: "gradient",
       backgroundPattern: "teal_grid",
       background: "#102332",
       backgroundImage: "",
