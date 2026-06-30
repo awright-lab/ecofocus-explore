@@ -7768,15 +7768,16 @@ button.secondary.compact {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border: 1px solid #dfe6dc;
-  border-radius: 10px;
-  padding: 14px;
+  border: 1px solid #dde7e4;
+  border-radius: 16px;
+  padding: 16px;
   background: #ffffff;
+  box-shadow: 0 18px 42px rgba(20, 35, 48, 0.08);
 }
 
 .dashboard-tile.selected {
-  border-color: var(--accent-eco);
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 5px rgba(15, 168, 122, 0.22), 0 18px 38px rgba(23, 45, 38, 0.16);
+  border-color: #2f8cff;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(47, 140, 255, 0.74), 0 22px 48px rgba(23, 45, 38, 0.18);
 }
 
 .tile-header {
@@ -7784,22 +7785,51 @@ button.secondary.compact {
   gap: 12px;
   align-items: start;
   justify-content: space-between;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #edf0ea;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf1f0;
+}
+
+.tile-header h2 {
+  margin: 0;
+  color: #172033;
+  font-size: clamp(0.86rem, 1.2vw, 1.02rem);
+  font-weight: 900;
+  line-height: 1.18;
 }
 
 .tile-source-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  margin-bottom: 6px;
+  min-height: 20px;
+  margin-bottom: 7px;
   padding: 0 8px;
-  border: 1px solid #dce4ea;
+  border: 1px solid #dbe7e3;
   border-radius: 999px;
-  background: #f8fbfc;
+  background: #f8fcfb;
   color: #4f665b;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
+.tile-header-meta {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-width: 88px;
+  color: #65746d;
+  text-align: right;
+}
+
+.tile-header-meta span {
+  color: #3f4b5c;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 850;
+}
+
+.tile-header-meta small {
+  color: #6e7d75;
+  font-size: 0.62rem;
+  font-weight: 750;
 }
 
 .tile-drag-handle {
@@ -7809,7 +7839,7 @@ button.secondary.compact {
 .tile-scroll-area {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
   overflow: hidden;
   padding-right: 0;
@@ -7849,12 +7879,20 @@ code {
 .chart-card {
   height: 100%;
   min-height: 0;
-  margin-top: 10px;
-  border: 1px solid #edf0ea;
-  border-radius: 8px;
-  padding: 10px 12px 8px;
+  margin-top: 12px;
+  border: 1px solid #edf1ef;
+  border-radius: 13px;
+  padding: 14px 16px 10px;
   overflow: hidden;
-  background: rgba(251, 252, 250, 0.82);
+  background: rgba(252, 253, 251, 0.88);
+}
+
+.dashboard-tile--donut .chart-card {
+  padding: 12px 12px 8px;
+}
+
+.dashboard-tile--table .chart-card {
+  padding: 0;
 }
 
 .table-card {
@@ -7864,7 +7902,7 @@ code {
 .table-shell {
   height: 100%;
   overflow: auto;
-  border-radius: 6px;
+  border-radius: 13px;
 }
 
 .analytics-table {
@@ -8232,13 +8270,29 @@ td span {
   justify-content: center;
   gap: 4px 12px;
   min-height: 18px;
-  padding: 0 10px 8px;
+  padding: 0 10px 5px;
   overflow: hidden;
   color: #69776e;
-  font-size: 0.74rem;
-  font-weight: 650;
+  font-size: 0.68rem;
+  font-weight: 750;
   line-height: 1.2;
   text-align: center;
+}
+
+.tile-meta span {
+  position: relative;
+}
+
+.tile-meta span:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: #b8c5bf;
+  transform: translateY(-50%);
 }
 
 .tile-meta span {

@@ -1403,7 +1403,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 558, y: 56, width: 126, height: 146, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e7ec", borderWidth: 1, borderRadius: 8, shadow: true }
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e8ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 12, shadowBlur: 22 }
         },
         {
           id: "mockup_kpi_1",
@@ -1423,7 +1423,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 696, y: 56, width: 126, height: 146, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e7ec", borderWidth: 1, borderRadius: 8, shadow: true }
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e8ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 12, shadowBlur: 22 }
         },
         {
           id: "mockup_kpi_2",
@@ -1443,7 +1443,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 834, y: 56, width: 126, height: 146, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e7ec", borderWidth: 1, borderRadius: 8, shadow: true }
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e8ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 12, shadowBlur: 22 }
         },
         {
           id: "mockup_kpi_3",
@@ -1463,7 +1463,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 64, y: 244, width: 516, height: 292, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 8, shadow: true }
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 11, shadowBlur: 24 }
         },
         {
           id: "mockup_chart_title",
@@ -1483,7 +1483,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 608, y: 244, width: 352, height: 292, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 8, shadow: true }
+          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 11, shadowBlur: 24 }
         },
         {
           id: "mockup_donut_title",
@@ -1503,7 +1503,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 64, y: 572, width: 392, height: 86, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#edf9f6", borderColor: "#def0eb", borderWidth: 1, borderRadius: 8, shadow: false }
+          style: { ...defaultElementStyle("rectangle"), fill: "#edf9f6", borderColor: "#d5ede6", borderWidth: 1, borderRadius: 22, shadow: true, shadowOpacity: 7, shadowBlur: 16 }
         },
         {
           id: "mockup_insight_text",
@@ -1523,7 +1523,7 @@ export const initialDashboard: DashboardDraft = {
           hidden: false,
           layout: { x: 484, y: 572, width: 476, height: 86, zIndex: 1 },
           content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#f5f3fb", borderColor: "#ece9f7", borderWidth: 1, borderRadius: 8, shadow: false }
+          style: { ...defaultElementStyle("rectangle"), fill: "#f7f5fc", borderColor: "#e9e5f6", borderWidth: 1, borderRadius: 22, shadow: true, shadowOpacity: 7, shadowBlur: 16 }
         },
         {
           id: "mockup_next_section_text",

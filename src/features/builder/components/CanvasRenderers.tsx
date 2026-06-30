@@ -778,7 +778,11 @@ export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile
 
   return (
     <article
-      className={selected ? "dashboard-tile selected" : "dashboard-tile"}
+      className={[
+        "dashboard-tile",
+        `dashboard-tile--${tile.visualization.replace("_", "-")}`,
+        selected ? "selected" : ""
+      ].filter(Boolean).join(" ")}
       style={{
         background: backgroundStyle(tile.appearance.backgroundMode, tile.appearance.background, tile.appearance.gradientFrom, tile.appearance.gradientTo, tile.appearance.gradientStops, tile.appearance.gradientType),
         borderColor: tile.appearance.borderColor,
@@ -792,6 +796,10 @@ export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile
         <div>
           {tile.source && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
           <h2>{tile.title}</h2>
+        </div>
+        <div className="tile-header-meta" aria-label="Analysis summary">
+          <span>{sampleSizeLabel(result)}</span>
+          <small>{confidenceLevelLabel(resultConfidenceLevel(result))}</small>
         </div>
       </div>
       <div className="tile-scroll-area">
