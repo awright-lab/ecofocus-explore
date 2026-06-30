@@ -4,6 +4,7 @@ import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSect
 import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import type { MultiSelectionLayoutAction } from "./multiSelectionModel";
+import { buildStoryGuidanceView } from "./storyGuidanceModel";
 import { BarColorField, ColorField, PageBackgroundField, rangeFill } from "../../design-system/DesignControls";
 import {
   axisRotationPresets,
@@ -226,6 +227,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           };
   const insightNotes = selectedTile?.result.notes ?? [];
   const insightWarnings = selectedTile?.result.warnings ?? [];
+  const storyGuidance = buildStoryGuidanceView(activePage, selectedTile, selectedElement);
   const dataContext = selectedTile
     ? {
         source: getQuestionLabel(selectedTile.query.question),
@@ -543,9 +545,21 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   const insightSurface = (
     <>
       <div className="inspector-insight-hero">
-        <span>{storyRoleLabel}</span>
+        <span>{storyGuidance.selectedRoleLabel}</span>
         <strong>{inspectorFocus.title}</strong>
-        <small>{groundedTakeaway}</small>
+        <small>{storyGuidance.selectedRoleHelper}</small>
+      </div>
+      <div className="inspector-story-arc-card">
+        <div>
+          <span>Page role</span>
+          <strong>{storyGuidance.pageRoleLabel}</strong>
+          <small>{storyGuidance.pagePurpose}</small>
+        </div>
+        <div>
+          <span>Suggested arc</span>
+          <strong>{storyGuidance.arcLabel}</strong>
+          <small>{storyGuidance.nextStepLabel}: {storyGuidance.nextStepHelper}</small>
+        </div>
       </div>
       {selectedTile ? (
         <>

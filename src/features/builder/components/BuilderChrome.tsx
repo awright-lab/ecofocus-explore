@@ -38,7 +38,7 @@ const workspaceProductModes: Array<{
   { id: "story", label: "Story", helper: "Active authoring workspace" },
   { id: "dashboard", label: "Dashboard", helper: "Structured view scaffold" },
   { id: "report", label: "Report", helper: "Report assembly scaffold" },
-  { id: "present", label: "Present", helper: "Presentation scaffold" }
+  { id: "present", label: "Present", helper: "Presentation preview framing" }
 ];
 
 function ChromeIcon({ icon }: { icon: ChromeIconName }) {
@@ -158,6 +158,12 @@ export function BuilderHeader({
         <button type="button" className="icon-button header-plain-icon" aria-label="Notifications" title="Notifications"><ChromeIcon icon="bell" /></button>
         <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
       </div>
+      {activeProductMode === "present" && (
+        <div className="present-mode-frame" role="status">
+          <strong>Present preview</strong>
+          <span>Review story flow and slide readiness. Export or share still uses the current local draft workflow.</span>
+        </div>
+      )}
     </header>
   );
 }

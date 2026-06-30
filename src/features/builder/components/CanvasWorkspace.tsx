@@ -3,6 +3,7 @@ import { Rnd } from "react-rnd";
 import { canvasHeight, canvasWidth } from "../builderConstants";
 import { buildCompositionGuideObjects, buildCompositionGuideState, type CompositionGuideObject, type CompositionGuideState } from "./compositionGuidesModel";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
+import { buildStoryGuidanceView } from "./storyGuidanceModel";
 import type { MultiSelectedObject } from "../builderTypes";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile } from "../../../../shared/types/dashboard";
 
@@ -239,6 +240,11 @@ export function CanvasWorkspace({
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
   const showMockupStorySurface = activePage.tiles.length === 0 && activePage.elements.length === 0;
+  const storyGuidance = buildStoryGuidanceView(
+    activePage,
+    activePage.tiles.find((tile) => tile.id === selectedTileId) ?? null,
+    activePage.elements.find((element) => element.id === selectedElementId) ?? null
+  );
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
@@ -451,8 +457,8 @@ export function CanvasWorkspace({
         </div>
       </div>
       <div className="story-arc-pill" role="status">
-        <strong>Suggested story arc:</strong>
-        <span>Demand is rising → Opportunity → Implications</span>
+        <strong>{storyGuidance.pageRoleLabel} story arc:</strong>
+        <span>{storyGuidance.arcLabel}</span>
         <button type="button" aria-label="Dismiss story suggestion">×</button>
       </div>
       <div className="canvas-bottom-bar" aria-label="Story page actions">
