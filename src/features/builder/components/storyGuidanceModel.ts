@@ -9,6 +9,8 @@ export type StoryGuidanceView = {
   arcLabel: string;
   nextStepLabel: string;
   nextStepHelper: string;
+  pageFlowLabel: string;
+  pageFlowHelper: string;
   roleCounts: Record<StoryRole, number>;
   selectedRoleLabel: string;
   selectedRoleHelper: string;
@@ -99,9 +101,15 @@ function selectedRole(
 ) {
   if (selectedTile) {
     const role = tileRole(selectedTile);
+    const starterHint = selectedTile.compositionBlock?.starterContext?.nextEditHint;
     return {
-      label: `${roleLabels[role]} object`,
+      label: selectedTile.compositionBlock?.sourceKind === "starter" ? `${roleLabels[role]} starter tile` : `${roleLabels[role]} object`,
       helper:
+        starterHint
+          ? starterHint
+          : selectedTile.compositionBlock?.starterContext
+            ? `This tile came from ${selectedTile.compositionBlock.starterContext.label}. Keep the surrounding section aligned to that starter's purpose.`
+            :
         role === "comparison"
           ? "This tile is carrying comparison evidence. Add commentary that names the difference and why it matters."
           : selectedTile.visualization === "table"
@@ -112,10 +120,15 @@ function selectedRole(
 
   if (selectedElement) {
     const role = elementRole(selectedElement);
+    const starterHint = selectedElement.compositionBlock?.starterContext?.nextEditHint;
     return {
-      label: `${roleLabels[role]} block`,
+      label: selectedElement.compositionBlock?.sourceKind === "starter" ? `${roleLabels[role]} starter block` : `${roleLabels[role]} block`,
       helper:
-        role === "takeaway"
+        starterHint
+          ? starterHint
+          : selectedElement.compositionBlock?.starterContext
+            ? `This block came from ${selectedElement.compositionBlock.starterContext.label}. Edit the copy while preserving the section role.`
+            : role === "takeaway"
           ? "This block frames the point. Keep it close to the chart or table it explains."
           : role === "methodology"
             ? "This block supports trust. Keep it compact and near the evidence it qualifies."
@@ -131,10 +144,39 @@ function selectedRole(
   };
 }
 
+function pageFlow(page: DashboardPage, pageCount?: number) {
+  if (!pageCount || pageCount <= 1) {
+    return {
+      label: "Single-slide story",
+      helper: "Use this page to connect the main evidence, takeaway, and implication in one complete section."
+    };
+  }
+
+  if (page.order === 1) {
+    return {
+      label: `Opening slide ${page.order} of ${pageCount}`,
+      helper: "Set the headline, lead evidence, and first takeaway before moving into supporting detail."
+    };
+  }
+
+  if (page.order === pageCount) {
+    return {
+      label: `Closing slide ${page.order} of ${pageCount}`,
+      helper: "Use this slide to land the implication, opportunity, or decision-ready summary."
+    };
+  }
+
+  return {
+    label: `Story slide ${page.order} of ${pageCount}`,
+    helper: "Bridge the previous evidence to the next implication with one focused comparison or takeaway."
+  };
+}
+
 export function buildStoryGuidanceView(
   page: DashboardPage,
   selectedTile: DashboardTile | null,
-  selectedElement: DashboardCanvasElement | null
+  selectedElement: DashboardCanvasElement | null,
+  pageCount?: number
 ): StoryGuidanceView {
   const roleCounts: Record<StoryRole, number> = {
     evidence: 0,
@@ -152,6 +194,7 @@ export function buildStoryGuidanceView(
   const pageRole = dominantRole(roleCounts);
   const nextStep = nextStepFromCounts(roleCounts);
   const selected = selectedRole(selectedTile, selectedElement, pageRole);
+  const flow = pageFlow(page, pageCount);
 
   return {
     pageRole,
@@ -163,6 +206,8 @@ export function buildStoryGuidanceView(
     arcLabel: arcFromCounts(roleCounts),
     nextStepLabel: nextStep.label,
     nextStepHelper: nextStep.helper,
+    pageFlowLabel: flow.label,
+    pageFlowHelper: flow.helper,
     roleCounts,
     selectedRoleLabel: selected.label,
     selectedRoleHelper: selected.helper

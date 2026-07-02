@@ -227,7 +227,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           };
   const insightNotes = selectedTile?.result.notes ?? [];
   const insightWarnings = selectedTile?.result.warnings ?? [];
-  const storyGuidance = buildStoryGuidanceView(activePage, selectedTile, selectedElement);
+  const storyGuidance = buildStoryGuidanceView(activePage, selectedTile, selectedElement, dashboardPageCount);
   const dataContext = selectedTile
     ? {
         source: getQuestionLabel(selectedTile.query.question),
@@ -559,6 +559,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <span>Suggested arc</span>
           <strong>{storyGuidance.arcLabel}</strong>
           <small>{storyGuidance.nextStepLabel}: {storyGuidance.nextStepHelper}</small>
+        </div>
+        <div>
+          <span>Page flow</span>
+          <strong>{storyGuidance.pageFlowLabel}</strong>
+          <small>{storyGuidance.pageFlowHelper}</small>
         </div>
       </div>
       {selectedTile ? (

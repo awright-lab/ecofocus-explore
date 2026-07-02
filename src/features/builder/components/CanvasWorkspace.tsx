@@ -243,7 +243,8 @@ export function CanvasWorkspace({
   const storyGuidance = buildStoryGuidanceView(
     activePage,
     activePage.tiles.find((tile) => tile.id === selectedTileId) ?? null,
-    activePage.elements.find((element) => element.id === selectedElementId) ?? null
+    activePage.elements.find((element) => element.id === selectedElementId) ?? null,
+    sortedPages.length
   );
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
