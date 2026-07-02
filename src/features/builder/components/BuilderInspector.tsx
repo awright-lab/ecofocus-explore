@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { BuilderPanel } from "./BuilderChrome";
+import { BuilderPanel, type OutcomeWorkspaceMode } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
 import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
@@ -66,7 +66,9 @@ function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
 }
 
 export type BuilderInspectorProps = {
-  isPresentMode: boolean;
+  outcomeMode: OutcomeWorkspaceMode | null;
+  outcomeLabel: string;
+  outcomeHelper: string;
   settingsView: SettingsView;
   setSettingsView: (view: SettingsView) => void;
   activePage: DashboardPage;
@@ -148,7 +150,9 @@ export type BuilderInspectorProps = {
 
 export function BuilderInspector(props: BuilderInspectorProps) {
   const {
-  isPresentMode,
+  outcomeMode,
+  outcomeLabel,
+  outcomeHelper,
   settingsView,
   setSettingsView,
   activePage,
@@ -546,11 +550,17 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   );
   const insightSurface = (
     <>
-      {isPresentMode && (
-        <div className="present-inspector-card">
-          <span>Present review</span>
-          <strong>{storyGuidance.pageFlowLabel}</strong>
-          <small>{storyGuidance.pageFlowHelper}</small>
+      {outcomeMode && (
+        <div className={`outcome-inspector-card ${outcomeMode}`}>
+          <span>
+            {outcomeMode === "dashboard"
+              ? "Dashboard review"
+              : outcomeMode === "report"
+                ? "Report review"
+                : "Present review"}
+          </span>
+          <strong>{outcomeLabel}</strong>
+          <small>{outcomeHelper}</small>
         </div>
       )}
       <div className="inspector-insight-hero">

@@ -36,10 +36,53 @@ const workspaceProductModes: Array<{
   { id: "data", label: "Data", helper: "Library and source setup" },
   { id: "design", label: "Design", helper: "Brand and composition tools" },
   { id: "story", label: "Story", helper: "Active authoring workspace" },
-  { id: "dashboard", label: "Dashboard", helper: "Structured view scaffold" },
-  { id: "report", label: "Report", helper: "Report assembly scaffold" },
+  { id: "dashboard", label: "Dashboard", helper: "Analytical interaction framing" },
+  { id: "report", label: "Report", helper: "Authored document framing" },
   { id: "present", label: "Present", helper: "Presentation preview framing" }
 ];
+
+export type OutcomeWorkspaceMode = Extract<WorkspaceProductMode, "dashboard" | "report" | "present">;
+
+export function outcomeModeView(mode: WorkspaceProductMode): {
+  mode: OutcomeWorkspaceMode | null;
+  label: string;
+  helper: string;
+  canvasLabel: string;
+} {
+  if (mode === "dashboard") {
+    return {
+      mode,
+      label: "Dashboard framing",
+      helper: "Review analytical clarity, interaction readiness, and evidence structure. Live delivery remains the current draft workflow.",
+      canvasLabel: "Analytical dashboard review"
+    };
+  }
+
+  if (mode === "report") {
+    return {
+      mode,
+      label: "Report framing",
+      helper: "Review page sequence, document hierarchy, and client-ready story structure before export.",
+      canvasLabel: "Report page review"
+    };
+  }
+
+  if (mode === "present") {
+    return {
+      mode,
+      label: "Present preview",
+      helper: "Review story flow and slide readability. Export or share still uses the current local draft workflow.",
+      canvasLabel: "Presentation preview"
+    };
+  }
+
+  return {
+    mode: null,
+    label: "Story workspace",
+    helper: "Compose analytical evidence, narrative blocks, and reusable report sections.",
+    canvasLabel: "Story canvas"
+  };
+}
 
 function ChromeIcon({ icon }: { icon: ChromeIconName }) {
   const paths: Record<ChromeIconName, ReactNode> = {
@@ -104,6 +147,7 @@ export function BuilderHeader({
   const readiness = buildPublishReadinessView(dashboard);
   const exportContext = buildExportPackageContextView(dashboard, readiness);
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
+  const activeOutcomeMode = outcomeModeView(activeProductMode);
 
   useEffect(() => {
     if (!exportConfirmation) return undefined;
@@ -161,10 +205,10 @@ export function BuilderHeader({
         <button type="button" className="icon-button header-plain-icon" aria-label="Notifications" title="Notifications"><ChromeIcon icon="bell" /></button>
         <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
       </div>
-      {activeProductMode === "present" && (
-        <div className="present-mode-frame" role="status">
-          <strong>Present preview</strong>
-          <span>Review story flow and slide readiness. Export or share still uses the current local draft workflow.</span>
+      {activeOutcomeMode.mode && (
+        <div className={`outcome-mode-frame ${activeOutcomeMode.mode}`} role="status">
+          <strong>{activeOutcomeMode.label}</strong>
+          <span>{activeOutcomeMode.helper}</span>
         </div>
       )}
     </header>

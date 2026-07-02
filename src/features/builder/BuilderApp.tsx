@@ -14,7 +14,7 @@ import {
   storageKey
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
-import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, type WorkspaceProductMode } from "./components/BuilderChrome";
+import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
@@ -167,6 +167,7 @@ export default function BuilderApp() {
     setError
   } = useEditorSessionState();
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
+  const activeOutcomeMode = outcomeModeView(activeProductMode);
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -858,7 +859,13 @@ export default function BuilderApp() {
         onUnpublish={unpublishDashboard}
       />
 
-      <section className={activeProductMode === "present" ? "builder-workspace present-workspace" : "builder-workspace"}>
+      <section
+        className={[
+          "builder-workspace",
+          activeOutcomeMode.mode ? "outcome-workspace" : "",
+          activeOutcomeMode.mode ? `${activeOutcomeMode.mode}-workspace` : ""
+        ].filter(Boolean).join(" ")}
+      >
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
           saveState={saveState}
@@ -1020,7 +1027,8 @@ export default function BuilderApp() {
         />
 
         <CanvasWorkspace
-          isPresentMode={activeProductMode === "present"}
+          outcomeMode={activeOutcomeMode.mode}
+          outcomeCanvasLabel={activeOutcomeMode.canvasLabel}
           activePage={activePage}
           sortedPages={sortedPages}
           canvasScale={canvasScale}
@@ -1056,7 +1064,9 @@ export default function BuilderApp() {
         />
 
         <BuilderInspector
-          isPresentMode={activeProductMode === "present"}
+          outcomeMode={activeOutcomeMode.mode}
+          outcomeLabel={activeOutcomeMode.label}
+          outcomeHelper={activeOutcomeMode.helper}
           settingsView={settingsView}
           setSettingsView={setSettingsView}
           activePage={activePage}

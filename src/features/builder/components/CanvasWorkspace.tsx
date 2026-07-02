@@ -5,6 +5,7 @@ import { buildCompositionGuideObjects, buildCompositionGuideState, type Composit
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import { buildStoryGuidanceView } from "./storyGuidanceModel";
 import type { MultiSelectedObject } from "../builderTypes";
+import type { OutcomeWorkspaceMode } from "./BuilderChrome";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile } from "../../../../shared/types/dashboard";
 
 function rangeFill(value: number | string, min: number, max: number) {
@@ -151,7 +152,8 @@ function MockupStorySlide() {
 }
 
 export function CanvasWorkspace({
-  isPresentMode,
+  outcomeMode,
+  outcomeCanvasLabel,
   activePage,
   sortedPages,
   canvasScale,
@@ -183,7 +185,8 @@ export function CanvasWorkspace({
   renderTile,
   renderElement
 }: {
-  isPresentMode: boolean;
+  outcomeMode: OutcomeWorkspaceMode | null;
+  outcomeCanvasLabel: string;
   activePage: DashboardPage;
   sortedPages: DashboardPage[];
   canvasScale: number;
@@ -248,6 +251,12 @@ export function CanvasWorkspace({
     activePage.elements.find((element) => element.id === selectedElementId) ?? null,
     sortedPages.length
   );
+  const outcomePreviewHelper =
+    outcomeMode === "dashboard"
+      ? "Check evidence clarity, filter context, and whether the page can support analytical exploration."
+      : outcomeMode === "report"
+        ? "Check section hierarchy, narrative continuity, and document-ready page structure."
+        : storyGuidance.pageFlowHelper;
   const canvasStyle: CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,
@@ -289,7 +298,8 @@ export function CanvasWorkspace({
       className={[
         "canvas",
         isCanvasFullscreen ? "canvas-fullscreen" : "",
-        isPresentMode ? "present-canvas" : ""
+        outcomeMode ? "outcome-canvas" : "",
+        outcomeMode ? `${outcomeMode}-canvas` : ""
       ].filter(Boolean).join(" ")}
       aria-label="Dashboard canvas"
     >
@@ -335,11 +345,11 @@ export function CanvasWorkspace({
           <small>Select an object for quick actions</small>
         )}
       </div>
-      {isPresentMode && (
-        <div className="present-preview-card" role="status">
-          <span>Presentation preview</span>
+      {outcomeMode && (
+        <div className={`outcome-preview-card ${outcomeMode}`} role="status">
+          <span>{outcomeCanvasLabel}</span>
           <strong>Slide {activePage.order} of {sortedPages.length}: {storyGuidance.pageRoleLabel}</strong>
-          <small>{storyGuidance.pageFlowHelper}</small>
+          <small>{outcomePreviewHelper}</small>
         </div>
       )}
       <div className="canvas-viewport">
