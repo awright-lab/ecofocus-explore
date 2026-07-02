@@ -13,6 +13,7 @@ import {
   filterDimensions,
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
+import { importDatasetFile } from "../data/datasetImportModel";
 import { exportCoreDocument, type CoreExportTarget } from "../export/coreDocumentExports";
 import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
@@ -72,6 +73,7 @@ import {
   findReport,
   loadDashboardWorkspace,
   makeBuilderReportPath,
+  makeWorkspaceHomePath,
   markReportOpened,
   parseWorkspaceRoute,
   saveDashboardWorkspace,
@@ -424,6 +426,10 @@ export default function BuilderApp() {
   function replaceHash(path: string) {
     if (window.location.hash === path) return;
     window.history.pushState(null, "", path);
+  }
+
+  function openWorkspaceHome() {
+    window.location.hash = makeWorkspaceHomePath().replace(/^#/, "");
   }
 
   function resetEditorForReport(nextDashboard: DashboardDraft) {
@@ -827,6 +833,22 @@ export default function BuilderApp() {
     await exportCoreDocument(dashboard, sortedPages, target);
   }
 
+  async function importDataset(file: File) {
+    const result = await importDatasetFile(file);
+    if (result.error || !result.dataset) {
+      setError(result.error ?? "Dataset import failed.");
+      return false;
+    }
+
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      importedDatasets: [result.dataset!, ...(current.importedDatasets ?? [])]
+    }));
+    setError(null);
+    return true;
+  }
+
   const {
     applyPaletteToTile,
     applyTextStylePresetToSelection,
@@ -1038,6 +1060,7 @@ export default function BuilderApp() {
           saveState={saveState}
           canvasZoom={canvasZoom}
           showCanvasGrid={activePage.showCanvasGrid}
+          onBackToWorkspace={openWorkspaceHome}
           onRenameDashboard={renameDashboard}
           onZoomChange={updateCanvasZoom}
           onToggleCanvasGrid={() => updateActivePage({ showCanvasGrid: !activePage.showCanvasGrid })}
@@ -1102,6 +1125,8 @@ export default function BuilderApp() {
           savedLibraryHandoff={savedLibraryHandoff}
           sourceSearch={sourceSearch}
           setSourceSearch={setSourceSearch}
+          importedDatasets={dashboard.importedDatasets}
+          importDataset={importDataset}
           filteredVariableSets={filteredVariableSets}
           filteredQuestions={filteredQuestions}
           selectedDataSource={selectedDataSource}

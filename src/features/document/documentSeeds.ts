@@ -1337,6 +1337,7 @@ export const initialDashboard: DashboardDraft = {
     templates: seedAnalyticalTemplates(),
     derivedDefinitions: []
   },
+  importedDatasets: [],
   designLibrary: seedDesignLibrary(),
   pages: [
     {

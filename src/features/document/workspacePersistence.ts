@@ -6,6 +6,7 @@ import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, Publish
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
 
 export type WorkspaceRoute =
+  | { mode: "home"; reportId: null }
   | { mode: "builder"; reportId: string | null }
   | { mode: "published"; reportId: string | null; snapshotId: string | null };
 
@@ -19,6 +20,10 @@ function makeId(prefix: string) {
 
 export function makePublishedViewerPath(reportId: string, snapshotId: string) {
   return `#/published/${encodeURIComponent(reportId)}/${encodeURIComponent(snapshotId)}`;
+}
+
+export function makeWorkspaceHomePath() {
+  return "#/";
 }
 
 export function makeBuilderReportPath(reportId: string) {
@@ -43,7 +48,7 @@ export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute
     };
   }
 
-  return { mode: "builder", reportId: null };
+  return { mode: "home", reportId: null };
 }
 
 function cloneDashboard(dashboard: DashboardDraft): DashboardDraft {

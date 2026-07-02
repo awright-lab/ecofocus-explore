@@ -23,7 +23,7 @@ import {
 import { defaultVisualizationForQuestion, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { BreakById } from "../../../shared/types/analytics";
-import type { DashboardDraft, DashboardPage, PageThemePreset, TileAppearance } from "../../../shared/types/dashboard";
+import type { DashboardDraft, DashboardPage, ImportedDatasetField, PageThemePreset, TileAppearance } from "../../../shared/types/dashboard";
 
 export function makeTileId() {
   return `tile_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -154,6 +154,20 @@ function normalizeDerivedDefinitionSummary(
     sourceLabel,
     structureLabel,
     queryLabel: definition.summary?.queryLabel ?? `${sourceLabel} · ${outputLabel}`
+  };
+}
+
+function normalizeImportedDatasetField(field: Partial<ImportedDatasetField>, index: number): ImportedDatasetField {
+  const label = field.label ?? field.sourceColumn ?? `Field ${index + 1}`;
+  return {
+    id: field.id ?? `field_${index + 1}`,
+    label,
+    sourceColumn: field.sourceColumn ?? label,
+    type: field.type ?? "text",
+    nonEmptyCount: field.nonEmptyCount ?? 0,
+    distinctCount: field.distinctCount ?? field.sampleValues?.length ?? 0,
+    sampleValues: field.sampleValues ?? [],
+    modelingRole: field.modelingRole ?? "raw_variable"
   };
 }
 
@@ -298,6 +312,22 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           };
         }) ?? []
     },
+    importedDatasets:
+      dashboard.importedDatasets?.map((dataset, index) => ({
+        ...dataset,
+        id: dataset.id ?? `imported_dataset_${index + 1}`,
+        title: dataset.title ?? dataset.fileName ?? `Imported dataset ${index + 1}`,
+        sourceType: dataset.sourceType ?? "local_file",
+        fileName: dataset.fileName ?? dataset.title ?? `dataset_${index + 1}`,
+        fileType: dataset.fileType ?? "unknown",
+        importedAt: dataset.importedAt ?? new Date().toISOString(),
+        rowCount: dataset.rowCount ?? dataset.previewRows?.length ?? 0,
+        fieldCount: dataset.fieldCount ?? dataset.fields?.length ?? 0,
+        fields: (dataset.fields ?? []).map(normalizeImportedDatasetField),
+        previewRows: dataset.previewRows ?? [],
+        modelingStatus: dataset.modelingStatus ?? "initial_model",
+        notes: dataset.notes ?? []
+      })) ?? [],
     designLibrary: {
       palettes:
         dashboard.designLibrary?.palettes?.map((palette, index) => ({

@@ -248,6 +248,7 @@ export function WorkspaceModeStrip({
   saveState,
   canvasZoom,
   showCanvasGrid,
+  onBackToWorkspace,
   onRenameDashboard,
   onZoomChange,
   onToggleCanvasGrid,
@@ -257,6 +258,7 @@ export function WorkspaceModeStrip({
   saveState: string;
   canvasZoom: number;
   showCanvasGrid: boolean;
+  onBackToWorkspace: () => void;
   onRenameDashboard: (title: string) => void;
   onZoomChange: (zoom: number) => void;
   onToggleCanvasGrid: () => void;
@@ -300,7 +302,7 @@ export function WorkspaceModeStrip({
   return (
     <div className="workspace-mode-strip" aria-label="Workspace mode">
       <div className="workspace-strip-document">
-        <button type="button" className="workspace-back-button" aria-label="Back to story overview"><ChromeIcon icon="back" /></button>
+        <button type="button" className="workspace-back-button" aria-label="Back to workspace home" onClick={onBackToWorkspace}><ChromeIcon icon="back" /></button>
         <div>
           {isEditingTitle ? (
             <input

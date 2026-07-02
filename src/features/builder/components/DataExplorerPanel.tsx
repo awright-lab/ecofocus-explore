@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import { AnalysisLibrarySection, QueryEditorSection, SourcePickerSection } from "./DataExplorerSections";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
@@ -36,8 +36,13 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     savedBanners,
     savedAnalyticalTemplates,
     sourceSearch,
-    setSourceSearch
+    setSourceSearch,
+    importedDatasets,
+    importDataset
   } = props;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importFeedback, setImportFeedback] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
   const savedChartRows = savedAnalyticalTemplates.length > 0
     ? savedAnalyticalTemplates.slice(0, 3).map((template) => ({
         id: template.id,
@@ -51,6 +56,32 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         meta: `${variableSet.rows.length} authored rows`,
         kind: "Variable set"
       }));
+  const activeImportedDataset = importedDatasets[0];
+  const datasetRows = activeImportedDataset
+    ? importedDatasets.map((dataset) => ({
+        id: dataset.id,
+        title: dataset.title,
+        meta: `${dataset.rowCount.toLocaleString()} rows · ${dataset.fieldCount} fields`,
+        imported: true
+      }))
+    : [
+        { id: "ecofocus_2026", title: "2026 EcoFocus Study", meta: "12,540 responses", imported: false },
+        { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", imported: false }
+      ];
+  const modeledVariables = activeImportedDataset?.fields ?? [];
+
+  async function handleImportFile(file: File | undefined) {
+    if (!file) return;
+    setIsImporting(true);
+    setImportFeedback(null);
+    try {
+      const imported = await importDataset(file);
+      setImportFeedback(imported ? `Imported ${file.name}` : null);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   if (leftPanelView !== "data") {
     return null;
@@ -74,45 +105,68 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         <div className="data-library-overview" aria-label="Library summary">
           <span>Survey workspace</span>
           <strong>EcoFocus study library</strong>
-          <div className="data-library-overview-grid">
-            <small>{filteredQuestions.length} variables</small>
+            <div className="data-library-overview-grid">
+            <small>{activeImportedDataset ? activeImportedDataset.fieldCount : filteredQuestions.length} variables</small>
             <small>{savedVariableSets.length} variable sets</small>
             <small>{savedAnalyticalTemplates.length + savedSegmentProfiles.length} saved artifacts</small>
           </div>
+          {activeImportedDataset && <small className="data-library-model-note">Initial model · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}</small>}
+        </div>
+        <div className="dataset-import-card">
+          <div>
+            <strong>Import dataset</strong>
+            <small>CSV files become workspace datasets with modeled fields. XLSX and SAV are queued for later parser support.</small>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.sav,text/csv"
+            className="visually-hidden"
+            onChange={(event) => void handleImportFile(event.target.files?.[0])}
+          />
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+            {isImporting ? "Importing..." : "Import CSV"}
+          </button>
+          {importFeedback && <small className="dataset-import-feedback">{importFeedback}</small>}
         </div>
         <div className="mockup-library-stack" aria-label="Data library overview">
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Datasets</strong>
-              <button type="button" onClick={() => setExploreView("source")}>+</button>
+              <button type="button" onClick={() => fileInputRef.current?.click()}>+</button>
             </div>
-            <button type="button" className="mockup-library-row active" onClick={() => setExploreView("source")}>
-              <span><DataLibraryIcon icon="dataset" /></span>
-              <div>
-                <strong>2026 EcoFocus Study</strong>
-                <small>12,540 responses</small>
-              </div>
-            </button>
-            <button type="button" className="mockup-library-row quiet" onClick={() => setExploreView("source")}>
-              <span><DataLibraryIcon icon="dataset" /></span>
-              <div>
-                <strong>2024 EcoFocus Study</strong>
-                <small>8,750 responses</small>
-              </div>
-            </button>
+            {datasetRows.map((dataset, index) => (
+              <button type="button" className={index === 0 ? "mockup-library-row active" : "mockup-library-row quiet"} onClick={() => setExploreView("source")} key={dataset.id}>
+                <span><DataLibraryIcon icon="dataset" /></span>
+                <div>
+                  <strong>{dataset.title}</strong>
+                  <small>{dataset.meta}{dataset.imported ? " · imported" : ""}</small>
+                </div>
+              </button>
+            ))}
           </section>
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Variables</strong>
               <button type="button" onClick={() => setExploreView("source")}>+</button>
             </div>
-            {filteredQuestions.slice(0, 4).map((question) => (
-              <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => setExploreView("source")}>
-                <span><DataLibraryIcon icon="variable" /></span>
-                <strong>{question.shortLabel}</strong>
-              </button>
-            ))}
-            <button type="button" className="mockup-library-link" onClick={() => setExploreView("source")}>View all variables ({filteredQuestions.length})</button>
+            {modeledVariables.length > 0
+              ? modeledVariables.slice(0, 5).map((field) => (
+                <button type="button" className="mockup-library-row compact modeled-variable-row" key={field.id} onClick={() => setExploreView("source")}>
+                  <span><DataLibraryIcon icon="variable" /></span>
+                  <strong>{field.label}</strong>
+                  <small>{field.type}</small>
+                </button>
+              ))
+              : filteredQuestions.slice(0, 4).map((question) => (
+                <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => setExploreView("source")}>
+                  <span><DataLibraryIcon icon="variable" /></span>
+                  <strong>{question.shortLabel}</strong>
+                </button>
+              ))}
+            <button type="button" className="mockup-library-link" onClick={() => setExploreView("source")}>
+              View all variables ({modeledVariables.length || filteredQuestions.length})
+            </button>
           </section>
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">

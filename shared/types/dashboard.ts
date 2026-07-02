@@ -545,6 +545,34 @@ export interface DesignLibrary {
   pageMasters: PageMasterPreset[];
 }
 
+export type ImportedDatasetFieldType = "text" | "numeric" | "categorical" | "date";
+
+export interface ImportedDatasetField {
+  id: string;
+  label: string;
+  sourceColumn: string;
+  type: ImportedDatasetFieldType;
+  nonEmptyCount: number;
+  distinctCount: number;
+  sampleValues: string[];
+  modelingRole: "raw_variable" | "candidate_dimension" | "candidate_measure" | "candidate_date";
+}
+
+export interface ImportedDatasetRecord {
+  id: string;
+  title: string;
+  sourceType: "local_file";
+  fileName: string;
+  fileType: "csv" | "xlsx" | "sav" | "unknown";
+  importedAt: string;
+  rowCount: number;
+  fieldCount: number;
+  fields: ImportedDatasetField[];
+  previewRows: Array<Record<string, string>>;
+  modelingStatus: "initial_model";
+  notes: string[];
+}
+
 export interface DashboardDraft {
   id: string;
   title: string;
@@ -565,6 +593,7 @@ export interface DashboardDraft {
     templates: SavedAnalyticalTemplate[];
     derivedDefinitions: SavedDerivedDefinition[];
   };
+  importedDatasets: ImportedDatasetRecord[];
   designLibrary: DesignLibrary;
   pages: DashboardPage[];
 }
