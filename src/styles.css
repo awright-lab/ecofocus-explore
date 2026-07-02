@@ -1,6 +1,12 @@
 :root {
   --accent-eco: #0fa87a;
   --accent-eco-soft: rgba(15, 168, 122, 0.18);
+  --surface-raised: #ffffff;
+  --surface-subtle: #f8fafb;
+  --border-soft: #dfe7ed;
+  --shadow-card: 0 12px 28px rgba(22, 33, 48, 0.075);
+  --shadow-card-hover: 0 16px 36px rgba(22, 33, 48, 0.11);
+  --shadow-stage: 0 26px 64px rgba(28, 42, 58, 0.14);
   color: #17211b;
   background: #f1f3f7;
   font-family:
@@ -8699,4 +8705,407 @@ td span {
   .panel {
     position: static;
   }
+}
+
+/* Mockup Alignment Pass 8: fine-grain finish and interaction polish */
+button,
+select,
+input,
+textarea,
+summary {
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(0, 139, 137, 0.16), 0 0 0 1px rgba(0, 139, 137, 0.28);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.builder-header {
+  min-height: 60px;
+  border-bottom-color: rgba(214, 224, 231, 0.86);
+  background: rgba(255, 255, 255, 0.985);
+  box-shadow: 0 1px 0 rgba(21, 32, 43, 0.055), 0 10px 30px rgba(28, 40, 54, 0.035);
+}
+
+.app-mark {
+  border-color: rgba(0, 139, 137, 0.2);
+  background: linear-gradient(135deg, #ffffff, #effbf9);
+}
+
+.workspace-product-nav button {
+  color: #253240;
+  font-size: 0.82rem;
+  font-weight: 820;
+}
+
+.workspace-product-nav button:hover {
+  background: rgba(0, 139, 137, 0.055);
+  color: #007a73;
+}
+
+.workspace-product-nav button.active {
+  color: #007a73;
+}
+
+.workspace-product-nav button.active::after {
+  height: 3px;
+  background: linear-gradient(90deg, #008b89, #11a58f);
+}
+
+.share-action,
+.export-action {
+  min-height: 35px;
+  border-radius: 9px;
+  box-shadow: 0 10px 22px rgba(19, 36, 58, 0.14);
+}
+
+.share-action:hover,
+.export-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(19, 36, 58, 0.18);
+}
+
+.workspace-mode-strip {
+  border-bottom-color: rgba(214, 224, 231, 0.82);
+  background: rgba(250, 252, 253, 0.94);
+}
+
+.workspace-strip-status > span,
+.save-state,
+.status {
+  border-color: rgba(217, 229, 236, 0.9);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.outcome-mode-frame,
+.outcome-preview-card,
+.story-arc-pill {
+  border-color: rgba(200, 218, 227, 0.88);
+  background: rgba(255, 255, 255, 0.955);
+  box-shadow: 0 16px 38px rgba(24, 38, 56, 0.12);
+  backdrop-filter: blur(16px);
+}
+
+.panel {
+  background: #f9fbfc;
+}
+
+.panel.settings {
+  background: linear-gradient(180deg, #ffffff, #fbfcfd);
+}
+
+.data-library-search {
+  border-color: rgba(210, 222, 231, 0.95);
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.data-library-search:focus-within {
+  border-color: rgba(0, 139, 137, 0.34);
+  box-shadow: 0 0 0 3px rgba(0, 139, 137, 0.11);
+}
+
+.data-library-filter-button,
+.mockup-library-section__header button,
+.workspace-back-button,
+.workspace-strip-tools button,
+.icon-button {
+  border-color: rgba(215, 226, 233, 0.95);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(20, 35, 48, 0.045);
+}
+
+.data-library-filter-button:hover,
+.mockup-library-section__header button:hover,
+.workspace-back-button:hover,
+.workspace-strip-tools button:hover,
+.icon-button:hover:not(:disabled) {
+  border-color: rgba(0, 139, 137, 0.22);
+  background: #f3fbfa;
+  color: #007a73;
+}
+
+.mockup-library-stack {
+  gap: 17px;
+}
+
+.mockup-library-section {
+  gap: 8px;
+}
+
+.mockup-library-section__header {
+  padding-inline: 1px;
+}
+
+.mockup-library-section__header strong {
+  color: #1e2e3a;
+  font-size: 0.66rem;
+}
+
+.mockup-library-row {
+  border-radius: 10px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mockup-library-row:hover {
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 8px 20px rgba(28, 42, 56, 0.065);
+}
+
+.mockup-library-row.active {
+  border-color: rgba(0, 139, 137, 0.16);
+  background: linear-gradient(135deg, #eaf8f8, #f7fcfb);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.54);
+}
+
+.mockup-library-row > span {
+  background: transparent;
+  color: #2d4650;
+}
+
+.mockup-library-row.active > span {
+  color: #007a73;
+}
+
+.mockup-library-row strong {
+  color: #172533;
+  font-weight: 850;
+}
+
+.mockup-library-row small {
+  color: #667787;
+}
+
+.new-data-query-button {
+  border-color: rgba(0, 139, 137, 0.2);
+  border-radius: 9px;
+  background: #ffffff;
+  color: #007a73;
+  box-shadow: 0 8px 20px rgba(28, 42, 56, 0.055);
+}
+
+.new-data-query-button:hover {
+  background: #f0fbfa;
+  box-shadow: var(--shadow-card);
+}
+
+.inspector-shell-title h2 {
+  color: #111e2a;
+  font-size: 0.9rem;
+}
+
+.inspector-surface-tabs {
+  margin-top: 2px;
+}
+
+.inspector-surface-tabs button {
+  color: #314152;
+}
+
+.inspector-surface-tabs button:hover {
+  color: #007a73;
+  background: rgba(0, 139, 137, 0.045);
+}
+
+.inspector-surface-tabs button.active::after {
+  height: 3px;
+  background: linear-gradient(90deg, #008b89, #12a69b);
+}
+
+.assistant-style-card {
+  gap: 12px;
+}
+
+.assistant-style-card label {
+  color: #263848;
+}
+
+.assistant-style-card select {
+  border-color: rgba(213, 224, 232, 0.98);
+  border-radius: 9px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.assistant-palette-row button {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36), 0 3px 8px rgba(24, 38, 56, 0.075);
+}
+
+.assistant-palette-row button:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45), 0 8px 16px rgba(24, 38, 56, 0.12);
+}
+
+.layout-suggestion {
+  min-height: 46px;
+  border-color: rgba(218, 228, 236, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(25, 39, 55, 0.035);
+}
+
+.layout-suggestion:hover {
+  border-color: rgba(0, 139, 137, 0.24);
+  background: #f8fcfc;
+  box-shadow: 0 8px 18px rgba(28, 42, 56, 0.075);
+}
+
+.layout-suggestion.active {
+  border-color: rgba(0, 139, 137, 0.34);
+  background: linear-gradient(135deg, #effbfb, #ffffff);
+  box-shadow: 0 8px 20px rgba(0, 139, 137, 0.08);
+}
+
+.assistant-ai-takeaway p,
+.inspector-ai-takeaway,
+.inspector-story-card,
+.inspector-story-arc-card,
+.assistant-next-step-card,
+.outcome-inspector-card,
+.multi-selection-card,
+.inspector-story-metric {
+  border-color: rgba(217, 228, 236, 0.95);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.inspector-story-card.quiet {
+  border-color: rgba(224, 232, 238, 0.9);
+  background: #fbfcfd;
+  box-shadow: none;
+}
+
+.assistant-ai-takeaway p {
+  font-weight: 680;
+}
+
+.assistant-side-rail button {
+  border-radius: 9px;
+}
+
+.assistant-side-rail button:hover,
+.assistant-side-rail button.active {
+  background: #eef9f8;
+  box-shadow: inset 3px 0 0 #008b89;
+}
+
+.canvas-viewport {
+  border-color: rgba(197, 211, 221, 0.78);
+  border-radius: 22px;
+  box-shadow: inset 0 0 0 1px rgba(32, 44, 58, 0.035), inset 0 26px 60px rgba(255, 255, 255, 0.5);
+}
+
+.freeform-canvas {
+  box-shadow: var(--shadow-stage), 0 0 0 1px rgba(20, 30, 42, 0.04);
+}
+
+.mockup-story-canvas {
+  border-radius: 16px;
+  box-shadow: 0 24px 58px rgba(35, 43, 55, 0.135), 0 0 0 1px rgba(20, 30, 42, 0.045);
+}
+
+.mockup-kpi-card,
+.mockup-chart-card {
+  border-color: rgba(223, 231, 238, 0.96);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(17, 30, 48, 0.105);
+}
+
+.mockup-kpi-card {
+  padding-top: 17px;
+}
+
+.mockup-kpi-card strong {
+  letter-spacing: 0;
+}
+
+.mockup-selected-chart {
+  border-color: #2b7fff;
+  box-shadow: 0 0 0 2px rgba(43, 127, 255, 0.09), 0 14px 32px rgba(17, 30, 48, 0.11);
+}
+
+.mockup-object-toolbar {
+  border-color: rgba(217, 228, 236, 0.96);
+  border-radius: 10px;
+  box-shadow: 0 12px 26px rgba(17, 30, 48, 0.13);
+}
+
+.mockup-object-toolbar button:hover {
+  background: #f2f8ff;
+  color: #2b7fff;
+}
+
+.mockup-insight-card,
+.mockup-section-card {
+  border: 1px solid rgba(224, 232, 238, 0.72);
+  box-shadow: 0 13px 28px rgba(17, 30, 48, 0.075);
+}
+
+.mockup-section-card span {
+  box-shadow: 0 5px 12px rgba(41, 36, 116, 0.18);
+}
+
+.floating-format-bar {
+  border-color: rgba(207, 221, 229, 0.92);
+  border-radius: 18px;
+  box-shadow: 0 16px 38px rgba(25, 33, 45, 0.13);
+}
+
+.floating-format-bar.has-selection {
+  border-color: rgba(0, 139, 137, 0.28);
+  box-shadow: 0 18px 40px rgba(17, 90, 72, 0.17);
+}
+
+.floating-format-bar button:hover:not(:disabled) {
+  background: #eef8f7;
+  color: #007a73;
+}
+
+.multi-selection-canvas-bounds {
+  border-color: rgba(0, 139, 137, 0.84);
+  background: rgba(0, 139, 137, 0.045);
+  box-shadow: 0 0 0 2px rgba(0, 139, 137, 0.12), 0 10px 24px rgba(0, 139, 137, 0.08);
+}
+
+.composition-guide.vertical,
+.composition-guide.horizontal {
+  border-color: #00a48e;
+  box-shadow: 0 0 0 1px rgba(0, 164, 142, 0.14), 0 0 20px rgba(0, 164, 142, 0.2);
+}
+
+.dashboard-tile.selected,
+.canvas-element.selected {
+  box-shadow: 0 0 0 2px #2b7fff, 0 0 0 6px rgba(43, 127, 255, 0.09), var(--shadow-card-hover);
+}
+
+.chart-card {
+  border-color: rgba(220, 228, 235, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(17, 30, 48, 0.07);
+}
+
+.dashboard-tile:hover .chart-card {
+  box-shadow: 0 14px 30px rgba(17, 30, 48, 0.1);
+}
+
+.story-arc-pill {
+  min-height: 46px;
+  border-radius: 999px;
 }
