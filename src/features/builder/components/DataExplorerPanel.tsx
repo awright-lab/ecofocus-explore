@@ -43,6 +43,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
   const savedChartRows = savedAnalyticalTemplates.length > 0
     ? savedAnalyticalTemplates.slice(0, 3).map((template) => ({
         id: template.id,
@@ -56,7 +57,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         meta: `${variableSet.rows.length} authored rows`,
         kind: "Variable set"
       }));
-  const activeImportedDataset = importedDatasets[0];
+  const activeImportedDataset =
+    importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
   const datasetRows = activeImportedDataset
     ? importedDatasets.map((dataset) => ({
         id: dataset.id,
@@ -77,6 +79,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     try {
       const imported = await importDataset(file);
       setImportFeedback(imported ? `Imported ${file.name}` : null);
+      if (imported) setSelectedImportedDatasetId(null);
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -103,8 +106,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           </button>
         </div>
         <div className="data-library-overview" aria-label="Library summary">
-          <span>Survey workspace</span>
-          <strong>EcoFocus study library</strong>
+          <span>{activeImportedDataset ? "Imported workspace dataset" : "Survey workspace"}</span>
+          <strong>{activeImportedDataset?.title ?? "EcoFocus study library"}</strong>
             <div className="data-library-overview-grid">
             <small>{activeImportedDataset ? activeImportedDataset.fieldCount : filteredQuestions.length} variables</small>
             <small>{savedVariableSets.length} variable sets</small>
@@ -136,7 +139,15 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <button type="button" onClick={() => fileInputRef.current?.click()}>+</button>
             </div>
             {datasetRows.map((dataset, index) => (
-              <button type="button" className={index === 0 ? "mockup-library-row active" : "mockup-library-row quiet"} onClick={() => setExploreView("source")} key={dataset.id}>
+              <button
+                type="button"
+                className={activeImportedDataset?.id === dataset.id || (!activeImportedDataset && index === 0) ? "mockup-library-row active" : "mockup-library-row quiet"}
+                onClick={() => {
+                  if (dataset.imported) setSelectedImportedDatasetId(dataset.id);
+                  setExploreView("source");
+                }}
+                key={dataset.id}
+              >
                 <span><DataLibraryIcon icon="dataset" /></span>
                 <div>
                   <strong>{dataset.title}</strong>

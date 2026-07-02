@@ -1,7 +1,7 @@
 import { storageKey } from "../builder/builderConstants";
-import { normalizeDashboard } from "./documentModel";
+import { normalizeDashboard, normalizeImportedDataset } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
-import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
+import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
 
@@ -55,6 +55,15 @@ function cloneDashboard(dashboard: DashboardDraft): DashboardDraft {
   return JSON.parse(JSON.stringify(dashboard)) as DashboardDraft;
 }
 
+function mergeImportedDatasets(...groups: Array<Array<Partial<ImportedDatasetRecord>> | undefined>) {
+  const datasetMap = new Map<string, ImportedDatasetRecord>();
+  groups.flatMap((group) => group ?? []).forEach((dataset, index) => {
+    const normalized = normalizeImportedDataset(dataset, index);
+    datasetMap.set(normalized.id, normalized);
+  });
+  return Array.from(datasetMap.values()).sort((a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime());
+}
+
 export function createReportRecord(dashboard: DashboardDraft, createdAt = nowIso()): DashboardReportRecord {
   const normalized = normalizeDashboard(dashboard);
   return {
@@ -73,6 +82,7 @@ function defaultWorkspace(): DashboardWorkspace {
     id: "local_workspace",
     label: "InsightCanvas Workspace",
     activeReportId: report.id,
+    importedDatasets: [],
     reports: [report],
     publishedSnapshots: []
   };
@@ -88,6 +98,7 @@ function migrateLegacyDashboard(): DashboardWorkspace | null {
       id: "local_workspace",
       label: "InsightCanvas Workspace",
       activeReportId: report.id,
+      importedDatasets: dashboard.importedDatasets,
       reports: [report],
       publishedSnapshots: []
     };
@@ -121,11 +132,16 @@ export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspac
     ...snapshot,
     dashboard: normalizeDashboard(snapshot.dashboard)
   }));
+  const importedDatasets = mergeImportedDatasets(
+    workspace.importedDatasets,
+    reports.flatMap((report) => report.draft.importedDatasets ?? [])
+  );
 
   return {
     id: workspace.id ?? "local_workspace",
     label: workspace.label ?? "InsightCanvas Workspace",
     activeReportId,
+    importedDatasets,
     reports,
     publishedSnapshots
   };
@@ -146,6 +162,20 @@ export function loadDashboardWorkspace(): DashboardWorkspace {
 
 export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
   window.localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+}
+
+export function upsertWorkspaceImportedDataset(workspace: DashboardWorkspace, dataset: ImportedDatasetRecord): DashboardWorkspace {
+  return {
+    ...workspace,
+    importedDatasets: mergeImportedDatasets([dataset], workspace.importedDatasets)
+  };
+}
+
+export function removeWorkspaceImportedDataset(workspace: DashboardWorkspace, datasetId: string): DashboardWorkspace {
+  return {
+    ...workspace,
+    importedDatasets: workspace.importedDatasets.filter((dataset) => dataset.id !== datasetId)
+  };
 }
 
 export function findReport(workspace: DashboardWorkspace, reportId: string | null | undefined) {

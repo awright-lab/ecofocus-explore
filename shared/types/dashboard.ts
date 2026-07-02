@@ -622,6 +622,7 @@ export interface DashboardWorkspace {
   id: string;
   label: string;
   activeReportId: string;
+  importedDatasets: ImportedDatasetRecord[];
   reports: DashboardReportRecord[];
   publishedSnapshots: PublishedDashboardSnapshot[];
 }

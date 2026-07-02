@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
+import { importDatasetFile } from "../data/datasetImportModel";
 import {
   createNewReportFromSeed,
   duplicateReportRecord,
@@ -7,11 +8,12 @@ import {
   makeBuilderReportPath,
   makePublishedViewerPath,
   markReportOpened,
-  saveDashboardWorkspace
+  saveDashboardWorkspace,
+  upsertWorkspaceImportedDataset
 } from "../document/workspacePersistence";
 
 type ReportLibraryState = "draft" | "published" | "changed";
-type HomeIconName = "brand" | "plus" | "copy" | "open" | "published" | "draft" | "clock" | "deck";
+type HomeIconName = "brand" | "plus" | "copy" | "open" | "published" | "draft" | "clock" | "deck" | "dataset" | "field";
 
 interface ReportLibraryItem {
   report: DashboardReportRecord;
@@ -35,7 +37,9 @@ function HomeIcon({ icon }: { icon: HomeIconName }) {
     published: <><circle cx="12" cy="12" r="8" /><path d="m8.8 12.3 2.1 2.2 4.4-5" /></>,
     draft: <><path d="M7 4h7l4 4v12H7z" /><path d="M14 4v5h5M9 14h6" /></>,
     clock: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>,
-    deck: <><rect x="4" y="5" width="16" height="12" rx="2" /><path d="M8 9h8M8 13h5M12 17v3" /></>
+    deck: <><rect x="4" y="5" width="16" height="12" rx="2" /><path d="M8 9h8M8 13h5M12 17v3" /></>,
+    dataset: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
+    field: <><path d="M5 19V9" /><path d="M12 19V5" /><path d="M19 19v-7" /><path d="M3.5 19h17" /></>
   };
 
   return (
@@ -96,6 +100,9 @@ export function WorkspaceHome({
   workspace: DashboardWorkspace;
   onWorkspaceChange: (workspace: DashboardWorkspace) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFeedback, setImportFeedback] = useState<{ tone: "success" | "error"; label: string } | null>(null);
   const reports = workspace.reports
     .filter((report) => !report.archived)
     .map((report) => buildReportLibraryItem(workspace, report))
@@ -103,6 +110,9 @@ export function WorkspaceHome({
   const publishedCount = reports.filter((item) => item.state === "published" || item.state === "changed").length;
   const draftOnlyCount = reports.filter((item) => item.state === "draft").length;
   const recentReports = reports.slice(0, 3);
+  const importedDatasets = [...(workspace.importedDatasets ?? [])].sort(
+    (a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
+  );
 
   function navigate(path: string) {
     window.location.hash = path.replace(/^#/, "");
@@ -133,6 +143,26 @@ export function WorkspaceHome({
     const snapshot = item.latestSnapshot;
     if (!snapshot) return;
     navigate(makePublishedViewerPath(snapshot.reportId, snapshot.id));
+  }
+
+  async function handleImportFile(file: File | undefined) {
+    if (!file) return;
+    setIsImporting(true);
+    setImportFeedback(null);
+    try {
+      const result = await importDatasetFile(file);
+      if (result.error || !result.dataset) {
+        setImportFeedback({ tone: "error", label: result.error ?? "Dataset import failed." });
+        return;
+      }
+      const nextWorkspace = upsertWorkspaceImportedDataset(workspace, result.dataset);
+      onWorkspaceChange(nextWorkspace);
+      saveDashboardWorkspace(nextWorkspace);
+      setImportFeedback({ tone: "success", label: `Imported ${result.dataset.title} with ${result.dataset.fieldCount} fields.` });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   return (
@@ -172,6 +202,10 @@ export function WorkspaceHome({
             <strong>{draftOnlyCount}</strong>
             <span>Draft only</span>
           </article>
+          <article>
+            <strong>{importedDatasets.length}</strong>
+            <span>Datasets</span>
+          </article>
         </div>
       </section>
 
@@ -202,6 +236,26 @@ export function WorkspaceHome({
               <strong>Product layers</strong>
             </div>
             <p>Home manages report identity. The editor handles canvas authoring. Published links show snapshot previews.</p>
+          </div>
+
+          <div className="workspace-home-panel">
+            <div className="workspace-home-panel__header">
+              <span><HomeIcon icon="dataset" /></span>
+              <strong>Workspace data</strong>
+            </div>
+            <p>Import local CSV files as workspace datasets. XLSX and SAV parsing are deferred until dedicated parsers are added.</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.sav,text/csv"
+              className="visually-hidden"
+              onChange={(event) => void handleImportFile(event.target.files?.[0])}
+            />
+            <button type="button" className="workspace-home-secondary" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+              <HomeIcon icon="plus" />
+              {isImporting ? "Importing..." : "Import dataset"}
+            </button>
+            {importFeedback && <small className={`workspace-home-import-feedback ${importFeedback.tone}`}>{importFeedback.label}</small>}
           </div>
         </aside>
 
@@ -287,6 +341,63 @@ export function WorkspaceHome({
               <h2>No reports yet</h2>
               <p>Create the first local draft to start building a data-backed story canvas.</p>
               <button type="button" className="workspace-home-primary" onClick={createReport}>Create report</button>
+            </div>
+          )}
+        </section>
+
+        <section className="workspace-dataset-library" aria-label="Imported dataset library">
+          <div className="workspace-report-library__header">
+            <div>
+              <p className="workspace-home-kicker">Data Assets</p>
+              <h2>Imported datasets</h2>
+            </div>
+            <button type="button" className="workspace-home-secondary" onClick={() => fileInputRef.current?.click()}>
+              <HomeIcon icon="plus" />
+              Import CSV
+            </button>
+          </div>
+          <div className="workspace-dataset-grid">
+            {importedDatasets.map((dataset) => (
+              <article className="workspace-dataset-card" key={dataset.id}>
+                <div className="workspace-dataset-card__header">
+                  <span><HomeIcon icon="dataset" /></span>
+                  <div>
+                    <h3>{dataset.title}</h3>
+                    <small>{dataset.fileName} · imported {formatDateTime(dataset.importedAt)}</small>
+                  </div>
+                </div>
+                <dl className="workspace-dataset-stats">
+                  <div>
+                    <dt>Rows</dt>
+                    <dd>{dataset.rowCount.toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt>Fields</dt>
+                    <dd>{dataset.fieldCount}</dd>
+                  </div>
+                  <div>
+                    <dt>Type</dt>
+                    <dd>{dataset.fileType.toUpperCase()}</dd>
+                  </div>
+                </dl>
+                <div className="workspace-dataset-fields">
+                  {dataset.fields.slice(0, 6).map((field) => (
+                    <span key={field.id}>
+                      <HomeIcon icon="field" />
+                      {field.label}
+                      <em>{field.type}</em>
+                    </span>
+                  ))}
+                </div>
+                <p>{dataset.notes[0] ?? "Initial variable catalog generated from imported columns."}</p>
+              </article>
+            ))}
+          </div>
+          {!importedDatasets.length && (
+            <div className="workspace-home-empty compact">
+              <HomeIcon icon="dataset" />
+              <h2>No imported datasets yet</h2>
+              <p>Import a CSV to create a workspace dataset and initial field catalog.</p>
             </div>
           )}
         </section>

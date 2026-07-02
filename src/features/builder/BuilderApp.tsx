@@ -77,6 +77,7 @@ import {
   markReportOpened,
   parseWorkspaceRoute,
   saveDashboardWorkspace,
+  upsertWorkspaceImportedDataset,
   upsertDraftReport
 } from "../document/workspacePersistence";
 import type {
@@ -189,6 +190,13 @@ export default function BuilderApp() {
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
   const activeOutcomeMode = outcomeModeView(activeProductMode);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
+  const importedDatasetMap = new Map([
+    ...dashboard.importedDatasets.map((dataset) => [dataset.id, dataset] as const),
+    ...(workspace.importedDatasets ?? []).map((dataset) => [dataset.id, dataset] as const)
+  ]);
+  const workspaceImportedDatasets = Array.from(importedDatasetMap.values()).sort(
+    (a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
+  );
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -840,11 +848,9 @@ export default function BuilderApp() {
       return false;
     }
 
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      importedDatasets: [result.dataset!, ...(current.importedDatasets ?? [])]
-    }));
+    const nextWorkspace = upsertWorkspaceImportedDataset(workspace, result.dataset);
+    setWorkspace(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
     setError(null);
     return true;
   }
@@ -1125,7 +1131,7 @@ export default function BuilderApp() {
           savedLibraryHandoff={savedLibraryHandoff}
           sourceSearch={sourceSearch}
           setSourceSearch={setSourceSearch}
-          importedDatasets={dashboard.importedDatasets}
+          importedDatasets={workspaceImportedDatasets}
           importDataset={importDataset}
           filteredVariableSets={filteredVariableSets}
           filteredQuestions={filteredQuestions}
