@@ -553,6 +553,8 @@ export interface DashboardDraft {
     publishedAt?: string;
     publishCount: number;
     versionLabel: string;
+    publishedSnapshotId?: string;
+    viewerPath?: string;
   };
   analysisLibrary: {
     variableSets: SavedVariableSet[];
@@ -565,4 +567,32 @@ export interface DashboardDraft {
   };
   designLibrary: DesignLibrary;
   pages: DashboardPage[];
+}
+
+export interface DashboardReportRecord {
+  id: string;
+  title: string;
+  draft: DashboardDraft;
+  createdAt: string;
+  updatedAt: string;
+  lastOpenedAt: string;
+  archived?: boolean;
+}
+
+export interface PublishedDashboardSnapshot {
+  id: string;
+  reportId: string;
+  title: string;
+  versionLabel: string;
+  publishedAt: string;
+  viewerPath: string;
+  dashboard: DashboardDraft;
+}
+
+export interface DashboardWorkspace {
+  id: string;
+  label: string;
+  activeReportId: string;
+  reports: DashboardReportRecord[];
+  publishedSnapshots: PublishedDashboardSnapshot[];
 }

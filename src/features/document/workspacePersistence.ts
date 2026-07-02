@@ -1,0 +1,290 @@
+import { storageKey } from "../builder/builderConstants";
+import { normalizeDashboard } from "./documentModel";
+import { initialDashboard } from "./documentSeeds";
+import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
+
+export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
+
+export type WorkspaceRoute =
+  | { mode: "builder"; reportId: string | null }
+  | { mode: "published"; reportId: string | null; snapshotId: string | null };
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function makeId(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function makePublishedViewerPath(reportId: string, snapshotId: string) {
+  return `#/published/${encodeURIComponent(reportId)}/${encodeURIComponent(snapshotId)}`;
+}
+
+export function makeBuilderReportPath(reportId: string) {
+  return `#/reports/${encodeURIComponent(reportId)}`;
+}
+
+export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute {
+  const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+
+  if (parts[0] === "published") {
+    return {
+      mode: "published",
+      reportId: parts[1] ?? null,
+      snapshotId: parts[2] ?? null
+    };
+  }
+
+  if (parts[0] === "reports") {
+    return {
+      mode: "builder",
+      reportId: parts[1] ?? null
+    };
+  }
+
+  return { mode: "builder", reportId: null };
+}
+
+function cloneDashboard(dashboard: DashboardDraft): DashboardDraft {
+  return JSON.parse(JSON.stringify(dashboard)) as DashboardDraft;
+}
+
+export function createReportRecord(dashboard: DashboardDraft, createdAt = nowIso()): DashboardReportRecord {
+  const normalized = normalizeDashboard(dashboard);
+  return {
+    id: normalized.id,
+    title: normalized.title,
+    draft: normalized,
+    createdAt,
+    updatedAt: createdAt,
+    lastOpenedAt: createdAt
+  };
+}
+
+function defaultWorkspace(): DashboardWorkspace {
+  const report = createReportRecord(initialDashboard);
+  return {
+    id: "local_workspace",
+    label: "InsightCanvas Workspace",
+    activeReportId: report.id,
+    reports: [report],
+    publishedSnapshots: []
+  };
+}
+
+function migrateLegacyDashboard(): DashboardWorkspace | null {
+  try {
+    const savedDashboard = window.localStorage.getItem(storageKey);
+    if (!savedDashboard) return null;
+    const dashboard = normalizeDashboard(JSON.parse(savedDashboard) as DashboardDraft);
+    const report = createReportRecord(dashboard);
+    return {
+      id: "local_workspace",
+      label: "InsightCanvas Workspace",
+      activeReportId: report.id,
+      reports: [report],
+      publishedSnapshots: []
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspace> | null | undefined): DashboardWorkspace {
+  if (!workspace?.reports?.length) return defaultWorkspace();
+
+  const reports = workspace.reports.map((report, index) => {
+    const normalizedDraft = normalizeDashboard(report.draft ?? initialDashboard);
+    const id = report.id || normalizedDraft.id || `report_${index + 1}`;
+    const createdAt = report.createdAt ?? nowIso();
+    return {
+      ...report,
+      id,
+      title: report.title || normalizedDraft.title || "Untitled report",
+      draft: { ...normalizedDraft, id },
+      createdAt,
+      updatedAt: report.updatedAt ?? createdAt,
+      lastOpenedAt: report.lastOpenedAt ?? createdAt
+    };
+  });
+  const activeReportId =
+    workspace.activeReportId && reports.some((report) => report.id === workspace.activeReportId)
+      ? workspace.activeReportId
+      : reports[0].id;
+  const publishedSnapshots = (workspace.publishedSnapshots ?? []).map((snapshot) => ({
+    ...snapshot,
+    dashboard: normalizeDashboard(snapshot.dashboard)
+  }));
+
+  return {
+    id: workspace.id ?? "local_workspace",
+    label: workspace.label ?? "InsightCanvas Workspace",
+    activeReportId,
+    reports,
+    publishedSnapshots
+  };
+}
+
+export function loadDashboardWorkspace(): DashboardWorkspace {
+  try {
+    const savedWorkspace = window.localStorage.getItem(workspaceStorageKey);
+    if (savedWorkspace) {
+      return normalizeDashboardWorkspace(JSON.parse(savedWorkspace) as DashboardWorkspace);
+    }
+  } catch {
+    // Fall through to legacy migration/default workspace.
+  }
+
+  return migrateLegacyDashboard() ?? defaultWorkspace();
+}
+
+export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
+  window.localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+}
+
+export function findReport(workspace: DashboardWorkspace, reportId: string | null | undefined) {
+  return workspace.reports.find((report) => report.id === reportId) ?? null;
+}
+
+export function findPublishedSnapshot(
+  workspace: DashboardWorkspace,
+  reportId: string | null | undefined,
+  snapshotId: string | null | undefined
+) {
+  const reportSnapshots = workspace.publishedSnapshots
+    .filter((snapshot) => snapshot.reportId === reportId)
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  if (snapshotId) return reportSnapshots.find((snapshot) => snapshot.id === snapshotId) ?? null;
+  return reportSnapshots[0] ?? null;
+}
+
+export function upsertDraftReport(workspace: DashboardWorkspace, dashboard: DashboardDraft, reportId = dashboard.id): DashboardWorkspace {
+  const timestamp = nowIso();
+  const normalizedDashboard = normalizeDashboard({ ...dashboard, id: reportId });
+  const reports = workspace.reports.map((report) =>
+    report.id === reportId
+      ? {
+          ...report,
+          title: normalizedDashboard.title,
+          draft: normalizedDashboard,
+          updatedAt: timestamp
+        }
+      : report
+  );
+
+  if (!reports.some((report) => report.id === reportId)) {
+    reports.push(createReportRecord(normalizedDashboard, timestamp));
+  }
+
+  return {
+    ...workspace,
+    activeReportId: reportId,
+    reports
+  };
+}
+
+export function markReportOpened(workspace: DashboardWorkspace, reportId: string): DashboardWorkspace {
+  const timestamp = nowIso();
+  return {
+    ...workspace,
+    activeReportId: reportId,
+    reports: workspace.reports.map((report) =>
+      report.id === reportId
+        ? { ...report, lastOpenedAt: timestamp }
+        : report
+    )
+  };
+}
+
+export function createNewReportFromSeed(workspace: DashboardWorkspace): { workspace: DashboardWorkspace; report: DashboardReportRecord } {
+  const timestamp = nowIso();
+  const id = makeId("report");
+  const draft = normalizeDashboard({
+    ...cloneDashboard(initialDashboard),
+    id,
+    title: `Untitled Insight Report ${workspace.reports.length + 1}`,
+    status: "draft",
+    publishMetadata: {
+      publishCount: 0,
+      versionLabel: "Draft"
+    }
+  });
+  const report = createReportRecord(draft, timestamp);
+
+  return {
+    report,
+    workspace: {
+      ...workspace,
+      activeReportId: report.id,
+      reports: [report, ...workspace.reports]
+    }
+  };
+}
+
+export function duplicateReportRecord(workspace: DashboardWorkspace, sourceReport: DashboardReportRecord): { workspace: DashboardWorkspace; report: DashboardReportRecord } {
+  const timestamp = nowIso();
+  const id = makeId("report");
+  const draft = normalizeDashboard({
+    ...cloneDashboard(sourceReport.draft),
+    id,
+    title: `${sourceReport.title} copy`,
+    status: "draft",
+    publishMetadata: {
+      publishCount: 0,
+      versionLabel: "Draft"
+    }
+  });
+  const report = createReportRecord(draft, timestamp);
+
+  return {
+    report,
+    workspace: {
+      ...workspace,
+      activeReportId: report.id,
+      reports: [report, ...workspace.reports]
+    }
+  };
+}
+
+export function createPublishedSnapshot(
+  workspace: DashboardWorkspace,
+  dashboard: DashboardDraft
+): { workspace: DashboardWorkspace; dashboard: DashboardDraft; snapshot: PublishedDashboardSnapshot } {
+  const publishedAt = nowIso();
+  const publishCount = dashboard.publishMetadata.publishCount + 1;
+  const versionLabel = `v${publishCount}`;
+  const snapshotId = makeId("snapshot");
+  const viewerPath = makePublishedViewerPath(dashboard.id, snapshotId);
+  const publishedDashboard = normalizeDashboard({
+    ...cloneDashboard(dashboard),
+    status: "published",
+    publishMetadata: {
+      ...dashboard.publishMetadata,
+      publishedAt,
+      publishCount,
+      versionLabel,
+      publishedSnapshotId: snapshotId,
+      viewerPath
+    }
+  });
+  const snapshot: PublishedDashboardSnapshot = {
+    id: snapshotId,
+    reportId: dashboard.id,
+    title: publishedDashboard.title,
+    versionLabel,
+    publishedAt,
+    viewerPath,
+    dashboard: publishedDashboard
+  };
+  const snapshots = [
+    snapshot,
+    ...workspace.publishedSnapshots.filter((item) => item.id !== snapshotId)
+  ];
+
+  return {
+    dashboard: publishedDashboard,
+    snapshot,
+    workspace: upsertDraftReport({ ...workspace, publishedSnapshots: snapshots }, publishedDashboard, dashboard.id)
+  };
+}

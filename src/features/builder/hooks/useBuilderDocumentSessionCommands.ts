@@ -67,6 +67,8 @@ type UseBuilderDocumentSessionCommandsArgs = {
   setLeftPanelView: (view: LeftPanelView) => void;
   setCanvasZoom: (value: number) => void;
   setViewerMode: (value: boolean) => void;
+  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft;
+  openPublishedSnapshot?: (dashboard: DashboardDraft) => void;
 };
 
 export function useBuilderDocumentSessionCommands({
@@ -94,7 +96,9 @@ export function useBuilderDocumentSessionCommands({
   setSettingsView,
   setLeftPanelView,
   setCanvasZoom,
-  setViewerMode
+  setViewerMode,
+  createPublishedSnapshot,
+  openPublishedSnapshot
 }: UseBuilderDocumentSessionCommandsArgs) {
   function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
     setDashboardState((current) => {
@@ -704,7 +708,15 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function resetDashboard() {
-    setDashboard(initialDashboard);
+    setDashboard({
+      ...initialDashboard,
+      id: dashboard.id,
+      title: dashboard.title,
+      publishMetadata: {
+        publishCount: 0,
+        versionLabel: "Draft"
+      }
+    });
     setActivePageId("page_overview");
     setSelectedTileId(null);
     setSelectedElementId(null);
@@ -725,6 +737,7 @@ export function useBuilderDocumentSessionCommands({
 
   function publishDashboard() {
     setDashboard((current) => {
+      if (createPublishedSnapshot) return createPublishedSnapshot(current);
       const nextPublishCount = current.publishMetadata.publishCount + 1;
       return {
         ...current,
@@ -755,6 +768,7 @@ export function useBuilderDocumentSessionCommands({
     setSelectedTileId(null);
     setSelectedElementId(null);
     setSelectedChartPartId("all");
+    openPublishedSnapshot?.(dashboard);
     setViewerMode(true);
   }
 

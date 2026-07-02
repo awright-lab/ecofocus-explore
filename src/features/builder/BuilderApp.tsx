@@ -11,7 +11,6 @@ import {
   defaultQuestion,
   datasets,
   filterDimensions,
-  storageKey
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
 import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
@@ -64,6 +63,19 @@ import {
   rowKindLabel,
 } from "../document/documentSeeds";
 import { normalizeDashboard } from "../document/documentModel";
+import {
+  createNewReportFromSeed,
+  createPublishedSnapshot,
+  duplicateReportRecord,
+  findPublishedSnapshot,
+  findReport,
+  loadDashboardWorkspace,
+  makeBuilderReportPath,
+  markReportOpened,
+  parseWorkspaceRoute,
+  saveDashboardWorkspace,
+  upsertDraftReport
+} from "../document/workspacePersistence";
 import type {
   AnalysisLibraryView,
   DesignModal,
@@ -94,18 +106,23 @@ import type {
   SavedFilterSet,
   SavedVariableSet,
   SavedWeightProfile,
+  PublishedDashboardSnapshot,
 } from "../../../shared/types/dashboard";
 
 export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
-  const [dashboard, setDashboardState] = useState<DashboardDraft>(() => {
-    try {
-      const savedDashboard = window.localStorage.getItem(storageKey);
-      return savedDashboard ? normalizeDashboard(JSON.parse(savedDashboard) as DashboardDraft) : initialDashboard;
-    } catch {
-      return initialDashboard;
-    }
-  });
+  const [workspace, setWorkspace] = useState(() => loadDashboardWorkspace());
+  const initialRoute = parseWorkspaceRoute();
+  const initialReport = findReport(workspace, initialRoute.reportId) ?? findReport(workspace, workspace.activeReportId) ?? workspace.reports[0];
+  const initialPublishedSnapshot =
+    initialRoute.mode === "published"
+      ? findPublishedSnapshot(workspace, initialRoute.reportId ?? initialReport.id, initialRoute.snapshotId)
+      : null;
+  const [activeReportId, setActiveReportId] = useState(initialPublishedSnapshot?.reportId ?? initialReport.id);
+  const [publishedSnapshot, setPublishedSnapshot] = useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
+  const [dashboard, setDashboardState] = useState<DashboardDraft>(() =>
+    initialPublishedSnapshot ? initialPublishedSnapshot.dashboard : normalizeDashboard(initialReport.draft)
+  );
   const {
     history,
     setHistory,
@@ -168,6 +185,7 @@ export default function BuilderApp() {
   } = useEditorSessionState();
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
   const activeOutcomeMode = outcomeModeView(activeProductMode);
+  const reportRecords = workspace.reports.filter((report) => !report.archived);
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -402,12 +420,103 @@ export default function BuilderApp() {
     setSavedLibraryHandoff({ view, ...handoff, createdAt: Date.now() });
   }
 
+  function replaceHash(path: string) {
+    if (window.location.hash === path) return;
+    window.history.pushState(null, "", path);
+  }
+
+  function resetEditorForReport(nextDashboard: DashboardDraft) {
+    setHistory([]);
+    setFuture([]);
+    setActivePageId(nextDashboard.pages[0]?.id ?? "page_overview");
+    setSelectedTileId(null);
+    setSelectedElementId(null);
+    setSelectedChartPartId("all");
+  }
+
+  function openReport(reportId: string) {
+    const report = findReport(workspace, reportId);
+    if (!report || report.id === activeReportId) return;
+
+    const nextWorkspace = markReportOpened(upsertDraftReport(workspace, dashboard, activeReportId), report.id);
+    setWorkspace(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setActiveReportId(report.id);
+    setPublishedSnapshot(null);
+    setDashboardState(normalizeDashboard(report.draft));
+    resetEditorForReport(report.draft);
+    setViewerMode(false);
+    replaceHash(makeBuilderReportPath(report.id));
+  }
+
+  function createReport() {
+    const next = createNewReportFromSeed(upsertDraftReport(workspace, dashboard, activeReportId));
+    setWorkspace(next.workspace);
+    saveDashboardWorkspace(next.workspace);
+    setActiveReportId(next.report.id);
+    setPublishedSnapshot(null);
+    setDashboardState(normalizeDashboard(next.report.draft));
+    resetEditorForReport(next.report.draft);
+    setViewerMode(false);
+    replaceHash(makeBuilderReportPath(next.report.id));
+  }
+
+  function duplicateReport() {
+    const sourceWorkspace = upsertDraftReport(workspace, dashboard, activeReportId);
+    const sourceReport = findReport(sourceWorkspace, activeReportId);
+    if (!sourceReport) return;
+
+    const next = duplicateReportRecord(sourceWorkspace, { ...sourceReport, draft: dashboard, title: dashboard.title });
+    setWorkspace(next.workspace);
+    saveDashboardWorkspace(next.workspace);
+    setActiveReportId(next.report.id);
+    setPublishedSnapshot(null);
+    setDashboardState(normalizeDashboard(next.report.draft));
+    resetEditorForReport(next.report.draft);
+    setViewerMode(false);
+    replaceHash(makeBuilderReportPath(next.report.id));
+  }
+
+  function createPublishedDashboardSnapshot(current: DashboardDraft) {
+    const next = createPublishedSnapshot(upsertDraftReport(workspace, current, activeReportId), { ...current, id: activeReportId });
+    setWorkspace(next.workspace);
+    saveDashboardWorkspace(next.workspace);
+    setPublishedSnapshot(next.snapshot);
+    replaceHash(next.snapshot.viewerPath);
+    return next.dashboard;
+  }
+
+  function openPublishedDashboardSnapshot(current: DashboardDraft) {
+    const snapshot =
+      findPublishedSnapshot(workspace, current.id, current.publishMetadata.publishedSnapshotId) ??
+      findPublishedSnapshot(workspace, current.id, null);
+    if (!snapshot) return;
+
+    setPublishedSnapshot(snapshot);
+    replaceHash(snapshot.viewerPath);
+  }
+
+  function closePublishedViewer() {
+    const report = findReport(workspace, activeReportId);
+    if (report) {
+      setDashboardState(normalizeDashboard(report.draft));
+      resetEditorForReport(report.draft);
+      setPublishedSnapshot(null);
+      replaceHash(makeBuilderReportPath(report.id));
+    }
+    closePublishedReport();
+  }
+
   useEffect(() => {
+    if (publishedSnapshot) return undefined;
+
     setSaveState("Saving...");
     let settleTimer: number | undefined;
     const saveTimer = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(storageKey, JSON.stringify(dashboard));
+        const nextWorkspace = upsertDraftReport(workspace, dashboard, activeReportId);
+        setWorkspace(nextWorkspace);
+        saveDashboardWorkspace(nextWorkspace);
         setSaveState("Saved just now");
         settleTimer = window.setTimeout(() => setSaveState("Saved locally"), 2200);
       } catch {
@@ -421,13 +530,52 @@ export default function BuilderApp() {
         window.clearTimeout(settleTimer);
       }
     };
-  }, [dashboard, setSaveState]);
+  }, [dashboard, activeReportId, publishedSnapshot, setSaveState]);
 
   useEffect(() => {
     if (dashboard.status !== "published") {
       setViewerMode(false);
     }
   }, [dashboard.status]);
+
+  useEffect(() => {
+    if (publishedSnapshot) {
+      setViewerMode(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleRouteChange() {
+      const route = parseWorkspaceRoute();
+
+      if (route.mode === "published") {
+        const snapshot = findPublishedSnapshot(workspace, route.reportId ?? activeReportId, route.snapshotId);
+        if (!snapshot) return;
+        setPublishedSnapshot(snapshot);
+        setActiveReportId(snapshot.reportId);
+        setDashboardState(normalizeDashboard(snapshot.dashboard));
+        resetEditorForReport(snapshot.dashboard);
+        setViewerMode(true);
+        return;
+      }
+
+      if (!route.reportId) return;
+      const report = findReport(workspace, route.reportId);
+      if (!report) return;
+      setPublishedSnapshot(null);
+      setActiveReportId(report.id);
+      setDashboardState(normalizeDashboard(report.draft));
+      resetEditorForReport(report.draft);
+      setViewerMode(false);
+    }
+
+    window.addEventListener("hashchange", handleRouteChange);
+    window.addEventListener("popstate", handleRouteChange);
+    return () => {
+      window.removeEventListener("hashchange", handleRouteChange);
+      window.removeEventListener("popstate", handleRouteChange);
+    };
+  }, [workspace, activeReportId, setViewerMode]);
 
   useEffect(() => {
     if (!designModal) return;
@@ -506,7 +654,9 @@ export default function BuilderApp() {
     setSettingsView,
     setLeftPanelView,
     setCanvasZoom,
-    setViewerMode
+    setViewerMode,
+    createPublishedSnapshot: createPublishedDashboardSnapshot,
+    openPublishedSnapshot: openPublishedDashboardSnapshot
   });
 
   const {
@@ -751,18 +901,24 @@ export default function BuilderApp() {
   }, [dashboard, history, future, selectedTile, selectedElement, activePage]);
 
   if (viewerMode) {
+    const viewerPath = publishedSnapshot?.viewerPath ?? dashboard.publishMetadata.viewerPath ?? "";
     return (
       <main className="published-shell">
         <header className="published-header">
           <div className="published-header__copy">
-            <span className="published-kicker">{dashboard.status === "published" ? "Published report" : "Report preview"}</span>
+            <span className="published-kicker">{publishedSnapshot ? "Published snapshot" : dashboard.status === "published" ? "Published report" : "Report preview"}</span>
             <h1>{dashboard.title}</h1>
-            <small className="published-version-cue">{publishMetadataLabel(dashboard)}</small>
+            <small className="published-version-cue">
+              {publishedSnapshot
+                ? `${publishedSnapshot.versionLabel} · ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(publishedSnapshot.publishedAt))}`
+                : publishMetadataLabel(dashboard)}
+            </small>
+            {viewerPath && <small className="published-url-cue">{`${window.location.origin}${window.location.pathname}${viewerPath}`}</small>}
           </div>
           <div className="published-header__actions">
             <span className="status published">{dashboard.status}</span>
-            <button type="button" className="secondary" onClick={closePublishedReport}>Back to builder</button>
-            {dashboard.status === "published" && (
+            <button type="button" className="secondary" onClick={closePublishedViewer}>Back to draft</button>
+            {dashboard.status === "published" && !publishedSnapshot && (
               <button type="button" className="secondary" onClick={unpublishDashboard}>Unpublish</button>
             )}
           </div>
@@ -849,6 +1005,11 @@ export default function BuilderApp() {
         dashboard={dashboard}
         activeProductMode={activeProductMode}
         setActiveProductMode={setActiveProductMode}
+        reports={reportRecords}
+        activeReportId={activeReportId}
+        onOpenReport={openReport}
+        onCreateReport={createReport}
+        onDuplicateReport={duplicateReport}
         canUndo={history.length > 0}
         canRedo={future.length > 0}
         onUndo={undo}

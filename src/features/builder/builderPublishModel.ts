@@ -98,10 +98,11 @@ export function buildPublishShareContextView(dashboard: DashboardDraft): Publish
   const { publishCount, versionLabel } = dashboard.publishMetadata;
 
   if (dashboard.status === "published") {
+    const routeLabel = dashboard.publishMetadata.viewerPath ? ` Share URL: ${dashboard.publishMetadata.viewerPath}` : "";
     return {
       status: "published",
       label: "Published viewer",
-      helper: `${versionLabel} is available in the report viewer.`,
+      helper: `${versionLabel} is available as a published snapshot.${routeLabel}`,
       viewerLabel: "Open report reviews the current published version.",
       exportLabel: "Export package is separate from the published viewer."
     };

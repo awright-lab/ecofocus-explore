@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { DashboardDraft } from "../../../../shared/types/dashboard";
+import type { DashboardDraft, DashboardReportRecord } from "../../../../shared/types/dashboard";
 import {
   buildExportPackageConfirmationView,
   buildExportPackageContextView,
@@ -123,6 +123,11 @@ export function BuilderHeader({
   dashboard,
   activeProductMode,
   setActiveProductMode,
+  reports,
+  activeReportId,
+  onOpenReport,
+  onCreateReport,
+  onDuplicateReport,
   canUndo,
   canRedo,
   onUndo,
@@ -135,6 +140,11 @@ export function BuilderHeader({
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
   setActiveProductMode: (mode: WorkspaceProductMode) => void;
+  reports: DashboardReportRecord[];
+  activeReportId: string;
+  onOpenReport: (reportId: string) => void;
+  onCreateReport: () => void;
+  onDuplicateReport: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -165,6 +175,15 @@ export function BuilderHeader({
       <div className="top-nav" aria-label="Product navigation">
         <span className="app-mark"><ChromeIcon icon="brand" /></span>
         <strong className="app-wordmark">InsightCanvas</strong>
+        <div className="report-switcher" aria-label="Workspace reports">
+          <select value={activeReportId} onChange={(event) => onOpenReport(event.target.value)}>
+            {reports.map((report) => (
+              <option key={report.id} value={report.id}>{report.title}</option>
+            ))}
+          </select>
+          <button type="button" onClick={onCreateReport}>New</button>
+          <button type="button" onClick={onDuplicateReport}>Duplicate</button>
+        </div>
         <nav className="workspace-product-nav" aria-label="Workspace modes">
           {workspaceProductModes.map((mode) => (
             <button

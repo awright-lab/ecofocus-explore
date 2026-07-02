@@ -164,7 +164,9 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
     publishMetadata: {
       publishedAt: dashboard.publishMetadata?.publishedAt,
       publishCount: dashboard.publishMetadata?.publishCount ?? (dashboard.status === "published" ? 1 : 0),
-      versionLabel: dashboard.publishMetadata?.versionLabel ?? (dashboard.status === "published" ? "v1" : "Draft")
+      versionLabel: dashboard.publishMetadata?.versionLabel ?? (dashboard.status === "published" ? "v1" : "Draft"),
+      publishedSnapshotId: dashboard.publishMetadata?.publishedSnapshotId,
+      viewerPath: dashboard.publishMetadata?.viewerPath
     },
     analysisLibrary: {
       variableSets:
