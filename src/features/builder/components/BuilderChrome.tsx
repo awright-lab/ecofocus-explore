@@ -150,7 +150,7 @@ export function BuilderHeader({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onExport: (target: CoreExportTarget) => void;
+  onExport: (target: CoreExportTarget) => void | Promise<void>;
   onOpenPublished: () => void;
   onPublish: () => void;
   onUnpublish: () => void;
@@ -166,8 +166,8 @@ export function BuilderHeader({
     return () => window.clearTimeout(timeout);
   }, [exportConfirmation]);
 
-  function handleExport(target: CoreExportTarget) {
-    onExport(target);
+  async function handleExport(target: CoreExportTarget) {
+    await onExport(target);
     setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext, target));
   }
 
@@ -223,10 +223,10 @@ export function BuilderHeader({
         <details className="export-menu">
           <summary className="export-action"><ChromeIcon icon="export" />Export ▾</summary>
           <div>
-            <button type="button" onClick={() => handleExport("pptx")}>PowerPoint (.pptx)</button>
-            <button type="button" onClick={() => handleExport("pdf")}>PDF document (.pdf)</button>
-            <button type="button" onClick={() => handleExport("xlsx")}>Excel tables (.xlsx)</button>
-            <button type="button" onClick={() => handleExport("json")}>JSON package</button>
+            <button type="button" onClick={() => void handleExport("pptx")}>PowerPoint (.pptx)</button>
+            <button type="button" onClick={() => void handleExport("pdf")}>PDF document (.pdf)</button>
+            <button type="button" onClick={() => void handleExport("xlsx")}>Excel tables (.xlsx)</button>
+            <button type="button" onClick={() => void handleExport("json")}>JSON package</button>
           </div>
         </details>
         <button type="button" className="icon-button header-plain-icon" aria-label="Help" title="Help"><ChromeIcon icon="help" /></button>

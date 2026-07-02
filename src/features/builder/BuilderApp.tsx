@@ -818,13 +818,13 @@ export default function BuilderApp() {
     setError
   });
 
-  function exportDashboardSpec(target: CoreExportTarget) {
+  async function exportDashboardSpec(target: CoreExportTarget) {
     if (target === "json") {
       downloadDashboardExportSpec(dashboard, sortedPages);
       return;
     }
 
-    exportCoreDocument(dashboard, sortedPages, target);
+    await exportCoreDocument(dashboard, sortedPages, target);
   }
 
   const {
