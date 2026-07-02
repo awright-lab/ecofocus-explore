@@ -7,6 +7,11 @@ export interface PageVisualImage {
   dataUrl: string;
 }
 
+export interface PageVisualRenderOptions {
+  includeElement?: (element: DashboardCanvasElement) => boolean;
+  includeTile?: (tile: DashboardTile) => boolean;
+}
+
 function escapeXml(value: unknown) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -49,7 +54,13 @@ function elementSvg(element: DashboardCanvasElement) {
     const lines = wrapLines(element.content, Math.max(12, Math.floor(width / Math.max(element.style.fontSize * 0.48, 6))), 8);
     const anchor = element.style.textAlign === "center" ? "middle" : element.style.textAlign === "right" ? "end" : "start";
     const textX = element.style.textAlign === "center" ? x + width / 2 : element.style.textAlign === "right" ? x + width - element.style.padding : x + element.style.padding;
-    return textLines(lines, textX, y + element.style.padding + element.style.fontSize, element.style.fontSize, element.style.textColor, Number(element.style.fontWeight) || 700, anchor);
+    const background = element.style.fill === "transparent"
+      ? ""
+      : `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${element.style.borderRadius}" fill="${escapeXml(element.style.fill)}" opacity="${element.style.opacity / 100}"/>`;
+    const border = element.style.borderStyle === "none" || element.style.borderWidth <= 0
+      ? ""
+      : `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${element.style.borderRadius}" fill="none" stroke="${escapeXml(element.style.borderColor)}" stroke-width="${element.style.borderWidth}"/>`;
+    return `${background}${border}${textLines(lines, textX, y + element.style.padding + element.style.fontSize, element.style.fontSize, element.style.textColor, Number(element.style.fontWeight) || 700, anchor)}`;
   }
   if (element.type === "circle") {
     return `<ellipse cx="${x + width / 2}" cy="${y + height / 2}" rx="${width / 2}" ry="${height / 2}" fill="${escapeXml(element.style.fill)}" stroke="${escapeXml(element.style.borderColor)}" stroke-width="${element.style.borderWidth}" opacity="${element.style.opacity}"/>`;
@@ -198,19 +209,23 @@ function pageBackgroundSvg(page: DashboardPage) {
   return `${defs}<rect width="${canvasWidth}" height="${canvasHeight}" fill="${escapeXml(baseFill)}"/>`;
 }
 
-export function buildPageVisualSvg(page: DashboardPage) {
+export function buildPageVisualSvg(page: DashboardPage, options: PageVisualRenderOptions = {}) {
   const objects = [
-    ...page.elements.filter((element) => !element.hidden).map((element) => ({ z: element.layout.zIndex, svg: elementSvg(element) })),
-    ...page.tiles.filter((tile) => !tile.hidden).map((tile) => ({ z: tile.layout.zIndex, svg: tileSvg(tile) }))
+    ...page.elements
+      .filter((element) => !element.hidden && (options.includeElement ? options.includeElement(element) : true))
+      .map((element) => ({ z: element.layout.zIndex, svg: elementSvg(element) })),
+    ...page.tiles
+      .filter((tile) => !tile.hidden && (options.includeTile ? options.includeTile(tile) : true))
+      .map((tile) => ({ z: tile.layout.zIndex, svg: tileSvg(tile) }))
   ].sort((a, b) => a.z - b.z);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">${pageBackgroundSvg(page)}${objects.map((object) => object.svg).join("")}</svg>`;
 }
 
-export async function renderPageVisualImages(pages: DashboardPage[]): Promise<PageVisualImage[]> {
+export async function renderPageVisualImages(pages: DashboardPage[], options: PageVisualRenderOptions = {}): Promise<PageVisualImage[]> {
   const sortedPages = [...pages].sort((a, b) => a.order - b.order);
   const images = await Promise.all(sortedPages.map(async (page) => {
-    const svg = buildPageVisualSvg(page);
+    const svg = buildPageVisualSvg(page, options);
     const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(svgBlob);
     try {

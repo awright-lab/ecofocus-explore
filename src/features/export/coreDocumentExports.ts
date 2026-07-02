@@ -1,6 +1,7 @@
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
 import { dataUrlToBytes, renderPageVisualImages, type PageVisualImage } from "./pageVisualExport";
+import { buildEditableSlideReconstruction, canReconstructElementInPptx } from "./pptxEditableReconstruction";
 import { buildZip } from "./zip";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
 
@@ -45,8 +46,8 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-function visualSlideXml(image: PageVisualImage, index: number) {
-  return `${xmlHeader}<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name="Slide ${index}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:pic><p:nvPicPr><p:cNvPr id="2" name="${escapeXml(image.title || `Page ${index}`)} visual export"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${slideCx}" cy="${slideCy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+function visualSlideXml(image: PageVisualImage, index: number, editableXml = "") {
+  return `${xmlHeader}<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name="Slide ${index}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:pic><p:nvPicPr><p:cNvPr id="2" name="${escapeXml(image.title || `Page ${index}`)} visual fallback"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${slideCx}" cy="${slideCy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>${editableXml}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
 }
 
 function visualSlideRels(index: number) {
@@ -54,7 +55,13 @@ function visualSlideRels(index: number) {
 }
 
 export async function buildPptxBlob(pages: DashboardPage[]) {
-  const pageImages = await renderPageVisualImages(visiblePages(pages));
+  const sortedPages = visiblePages(pages);
+  const pageImages = await renderPageVisualImages(sortedPages, {
+    // Hybrid PPTX strategy: keep a visual fallback for charts, image assets,
+    // and complex content, then layer cleanly reconstructable elements as
+    // editable Office objects.
+    includeElement: (element) => !canReconstructElementInPptx(element)
+  });
   const slideIds = pageImages.map((_, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join("");
   const rels = pageImages.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("");
   const overrides = pageImages.map((_, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("");
@@ -90,7 +97,8 @@ export async function buildPptxBlob(pages: DashboardPage[]) {
   ];
 
   pageImages.forEach((image, index) => {
-    files.push({ path: `ppt/slides/slide${index + 1}.xml`, content: visualSlideXml(image, index + 1) });
+    const editable = buildEditableSlideReconstruction(sortedPages[index], 3);
+    files.push({ path: `ppt/slides/slide${index + 1}.xml`, content: visualSlideXml(image, index + 1, editable.editableXml) });
     files.push({ path: `ppt/slides/_rels/slide${index + 1}.xml.rels`, content: visualSlideRels(index + 1) });
     files.push({ path: `ppt/media/page${index + 1}.jpg`, content: dataUrlToBytes(image.dataUrl) });
   });
@@ -280,7 +288,7 @@ export async function exportCoreDocument(dashboard: DashboardDraft, pages: Dashb
     throw new Error("JSON package export is handled by the legacy package exporter.");
   }
   if (target === "pptx") {
-    warnings.push("PPTX is a visual-fidelity export: each report page is embedded as a flattened rendered image, not editable native Office objects yet.");
+    warnings.push("PPTX uses a hybrid export: simple text and shape elements are editable Office objects, while charts and complex content remain image-backed for visual fidelity.");
     downloadBlob(await buildPptxBlob(pages), `${baseName}-${dashboard.status}.pptx`);
     return { target, fileName: `${baseName}-${dashboard.status}.pptx`, warnings };
   }
