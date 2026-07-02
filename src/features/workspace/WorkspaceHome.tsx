@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 import { importDatasetFile } from "../data/datasetImportModel";
+import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
 import {
   createNewReportFromSeed,
   duplicateReportRecord,
@@ -357,41 +358,49 @@ export function WorkspaceHome({
             </button>
           </div>
           <div className="workspace-dataset-grid">
-            {importedDatasets.map((dataset) => (
-              <article className="workspace-dataset-card" key={dataset.id}>
-                <div className="workspace-dataset-card__header">
-                  <span><HomeIcon icon="dataset" /></span>
-                  <div>
-                    <h3>{dataset.title}</h3>
-                    <small>{dataset.fileName} · imported {formatDateTime(dataset.importedAt)}</small>
-                  </div>
-                </div>
-                <dl className="workspace-dataset-stats">
-                  <div>
-                    <dt>Rows</dt>
-                    <dd>{dataset.rowCount.toLocaleString()}</dd>
-                  </div>
-                  <div>
-                    <dt>Fields</dt>
-                    <dd>{dataset.fieldCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Type</dt>
-                    <dd>{dataset.fileType.toUpperCase()}</dd>
-                  </div>
-                </dl>
-                <div className="workspace-dataset-fields">
-                  {dataset.fields.slice(0, 6).map((field) => (
-                    <span key={field.id}>
-                      <HomeIcon icon="field" />
-                      {field.label}
-                      <em>{field.type}</em>
-                    </span>
-                  ))}
-                </div>
-                <p>{dataset.notes[0] ?? "Initial variable catalog generated from imported columns."}</p>
-              </article>
-            ))}
+            {importedDatasets.map((dataset) => {
+              const summary = buildImportedDatasetStructureSummary(dataset);
+              return (
+                <article className="workspace-dataset-card" key={dataset.id}>
+                    <div className="workspace-dataset-card__header">
+                      <span><HomeIcon icon="dataset" /></span>
+                      <div>
+                        <h3>{dataset.title}</h3>
+                        <small>{dataset.fileName} · imported {formatDateTime(dataset.importedAt)}</small>
+                      </div>
+                    </div>
+                    <dl className="workspace-dataset-stats">
+                      <div>
+                        <dt>Rows</dt>
+                        <dd>{dataset.rowCount.toLocaleString()}</dd>
+                      </div>
+                      <div>
+                        <dt>Fields</dt>
+                        <dd>{dataset.fieldCount}</dd>
+                      </div>
+                      <div>
+                        <dt>Modeled</dt>
+                        <dd>{summary.filters.length + summary.segments.length + summary.banners.length}</dd>
+                      </div>
+                    </dl>
+                    <div className="workspace-dataset-structures">
+                      <span>{summary.filterLabel}</span>
+                      <span>{summary.segmentLabel}</span>
+                      <span>{summary.bannerLabel}</span>
+                    </div>
+                    <div className="workspace-dataset-fields">
+                      {dataset.fields.slice(0, 6).map((field) => (
+                        <span key={field.id}>
+                          <HomeIcon icon="field" />
+                          {field.label}
+                          <em>{importedFieldTypeLabel(field.type)}</em>
+                        </span>
+                      ))}
+                    </div>
+                    <p>{dataset.notes[0] ?? "Initial variable catalog generated from imported columns."}</p>
+                </article>
+              );
+            })}
           </div>
           {!importedDatasets.length && (
             <div className="workspace-home-empty compact">

@@ -77,6 +77,7 @@ import {
   markReportOpened,
   parseWorkspaceRoute,
   saveDashboardWorkspace,
+  updateWorkspaceImportedDatasetField,
   upsertWorkspaceImportedDataset,
   upsertDraftReport
 } from "../document/workspacePersistence";
@@ -855,6 +856,17 @@ export default function BuilderApp() {
     return true;
   }
 
+  function updateImportedDatasetField(
+    datasetId: string,
+    fieldId: string,
+    updates: Parameters<typeof updateWorkspaceImportedDatasetField>[3]
+  ) {
+    const nextWorkspace = updateWorkspaceImportedDatasetField(workspace, datasetId, fieldId, updates);
+    setWorkspace(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setError(null);
+  }
+
   const {
     applyPaletteToTile,
     applyTextStylePresetToSelection,
@@ -1133,6 +1145,7 @@ export default function BuilderApp() {
           setSourceSearch={setSourceSearch}
           importedDatasets={workspaceImportedDatasets}
           importDataset={importDataset}
+          updateImportedDatasetField={updateImportedDatasetField}
           filteredVariableSets={filteredVariableSets}
           filteredQuestions={filteredQuestions}
           selectedDataSource={selectedDataSource}

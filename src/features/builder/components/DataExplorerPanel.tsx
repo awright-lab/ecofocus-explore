@@ -1,7 +1,14 @@
 import { useRef, useState, type ReactNode } from "react";
+import type { ImportedDatasetField } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import { AnalysisLibrarySection, QueryEditorSection, SourcePickerSection } from "./DataExplorerSections";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import {
+  buildImportedDatasetStructureSummary,
+  describeFieldModeling,
+  importedFieldRoleLabel,
+  importedFieldTypeLabel
+} from "../../data/datasetModelingModel";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
 
@@ -38,12 +45,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     sourceSearch,
     setSourceSearch,
     importedDatasets,
-    importDataset
+    importDataset,
+    updateImportedDatasetField
   } = props;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
+  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState<string | null>(null);
   const savedChartRows = savedAnalyticalTemplates.length > 0
     ? savedAnalyticalTemplates.slice(0, 3).map((template) => ({
         id: template.id,
@@ -71,6 +80,23 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", imported: false }
       ];
   const modeledVariables = activeImportedDataset?.fields ?? [];
+  const importedStructureSummary = buildImportedDatasetStructureSummary(activeImportedDataset);
+  const activeImportedField =
+    modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
+  const activeImportedFieldView = activeImportedField ? describeFieldModeling(activeImportedField) : null;
+
+  function selectImportedDataset(datasetId: string) {
+    const dataset = importedDatasets.find((item) => item.id === datasetId);
+    setSelectedImportedDatasetId(datasetId);
+    setSelectedImportedFieldId(dataset?.fields[0]?.id ?? null);
+  }
+
+  function updateActiveImportedField(
+    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
+  ) {
+    if (!activeImportedDataset || !activeImportedField) return;
+    updateImportedDatasetField(activeImportedDataset.id, activeImportedField.id, updates);
+  }
 
   async function handleImportFile(file: File | undefined) {
     if (!file) return;
@@ -143,7 +169,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 type="button"
                 className={activeImportedDataset?.id === dataset.id || (!activeImportedDataset && index === 0) ? "mockup-library-row active" : "mockup-library-row quiet"}
                 onClick={() => {
-                  if (dataset.imported) setSelectedImportedDatasetId(dataset.id);
+                  if (dataset.imported) selectImportedDataset(dataset.id);
                   setExploreView("source");
                 }}
                 key={dataset.id}
@@ -163,10 +189,18 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             </div>
             {modeledVariables.length > 0
               ? modeledVariables.slice(0, 5).map((field) => (
-                <button type="button" className="mockup-library-row compact modeled-variable-row" key={field.id} onClick={() => setExploreView("source")}>
+                <button
+                  type="button"
+                  className={activeImportedField?.id === field.id ? "mockup-library-row compact modeled-variable-row active" : "mockup-library-row compact modeled-variable-row"}
+                  key={field.id}
+                  onClick={() => {
+                    setSelectedImportedFieldId(field.id);
+                    setExploreView("source");
+                  }}
+                >
                   <span><DataLibraryIcon icon="variable" /></span>
                   <strong>{field.label}</strong>
-                  <small>{field.type}</small>
+                  <small>{importedFieldTypeLabel(field.type)}</small>
                 </button>
               ))
               : filteredQuestions.slice(0, 4).map((question) => (
@@ -179,42 +213,104 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               View all variables ({modeledVariables.length || filteredQuestions.length})
             </button>
           </section>
+          {activeImportedDataset && activeImportedField && activeImportedFieldView && (
+            <section className="imported-variable-model-card" aria-label="Imported variable modeling">
+              <div className="imported-variable-model-card__header">
+                <span>Variable model</span>
+                <strong>{activeImportedField.sourceColumn}</strong>
+              </div>
+              <label>
+                Display label
+                <input value={activeImportedField.label} onChange={(event) => updateActiveImportedField({ label: event.target.value })} />
+              </label>
+              <div className="imported-variable-model-grid">
+                <label>
+                  Type
+                  <select
+                    value={activeImportedField.type}
+                    onChange={(event) => updateActiveImportedField({ type: event.target.value as ImportedDatasetField["type"] })}
+                  >
+                    {(["text", "numeric", "categorical", "date"] as const).map((type) => (
+                      <option value={type} key={type}>{importedFieldTypeLabel(type)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Role
+                  <select
+                    value={activeImportedField.modelingRole}
+                    onChange={(event) => updateActiveImportedField({ modelingRole: event.target.value as ImportedDatasetField["modelingRole"] })}
+                  >
+                    {(["raw_variable", "candidate_dimension", "candidate_measure", "candidate_date"] as const).map((role) => (
+                      <option value={role} key={role}>{importedFieldRoleLabel(role)}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="imported-variable-model-toggles">
+                <label>
+                  <input type="checkbox" checked={activeImportedField.eligibleForFilter} onChange={(event) => updateActiveImportedField({ eligibleForFilter: event.target.checked })} />
+                  Filter
+                </label>
+                <label>
+                  <input type="checkbox" checked={activeImportedField.eligibleForSegment} onChange={(event) => updateActiveImportedField({ eligibleForSegment: event.target.checked })} />
+                  Segment
+                </label>
+                <label>
+                  <input type="checkbox" checked={activeImportedField.eligibleForBanner} onChange={(event) => updateActiveImportedField({ eligibleForBanner: event.target.checked })} />
+                  Banner
+                </label>
+              </div>
+              <p>{activeImportedFieldView.completenessLabel}</p>
+              <small>{activeImportedFieldView.eligibilityLabel}</small>
+              <small>Samples: {activeImportedFieldView.sampleLabel}</small>
+            </section>
+          )}
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Filters</strong>
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
-            {(savedFilters.length > 0 ? savedFilters.slice(0, 3).map((filter) => filter.label) : ["Region: Global", "Age: 18–65+", "Employment: All"]).map((label) => (
+            {(activeImportedDataset
+              ? importedStructureSummary.filters.slice(0, 3).map((field) => field.label)
+              : savedFilters.length > 0 ? savedFilters.slice(0, 3).map((filter) => filter.label) : ["Region: Global", "Age: 18–65+", "Employment: All"]).map((label) => (
               <button type="button" className="mockup-library-row compact" key={label} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="filter" /></span>
                 <strong>{label}</strong>
               </button>
             ))}
+            {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.filterLabel}</small>}
           </section>
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Segments</strong>
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
-            {(savedSegmentProfiles.length > 0 ? savedSegmentProfiles.slice(0, 3).map((segment) => segment.label) : ["Gen Z (18–27)", "Millennials (28–43)", "Parents"]).map((label, index) => (
+            {(activeImportedDataset
+              ? importedStructureSummary.segments.slice(0, 3).map((field) => field.label)
+              : savedSegmentProfiles.length > 0 ? savedSegmentProfiles.slice(0, 3).map((segment) => segment.label) : ["Gen Z (18–27)", "Millennials (28–43)", "Parents"]).map((label, index) => (
               <button type="button" className="mockup-library-row compact with-count" key={label} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="segment" /></span>
                 <strong>{label}</strong>
-                <small>{[2312, 4598, 3764][index]?.toLocaleString()}</small>
+                <small>{activeImportedDataset ? "Modeled" : [2312, 4598, 3764][index]?.toLocaleString()}</small>
               </button>
             ))}
+            {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.segmentLabel}</small>}
           </section>
           <section className="mockup-library-section quieter">
             <div className="mockup-library-section__header">
               <strong>Banners</strong>
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
-            {(savedBanners.length > 0 ? savedBanners.slice(0, 2).map((banner) => banner.label) : ["Key takeaway", "Section divider"]).map((label) => (
+            {(activeImportedDataset
+              ? importedStructureSummary.banners.slice(0, 2).map((field) => field.label)
+              : savedBanners.length > 0 ? savedBanners.slice(0, 2).map((banner) => banner.label) : ["Key takeaway", "Section divider"]).map((label) => (
               <button type="button" className="mockup-library-row compact" key={label} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="banner" /></span>
                 <strong>{label}</strong>
               </button>
             ))}
+            {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.bannerLabel}</small>}
           </section>
           <section className="mockup-library-section quieter">
             <div className="mockup-library-section__header">

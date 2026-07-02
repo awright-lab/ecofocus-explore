@@ -698,6 +698,21 @@ textarea {
   gap: 6px;
 }
 
+.workspace-dataset-structures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workspace-dataset-structures span {
+  border-radius: 999px;
+  background: #eef8f6;
+  color: #08715f;
+  padding: 5px 8px;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
 .workspace-dataset-fields span {
   display: inline-flex;
   align-items: center;
@@ -749,6 +764,96 @@ textarea {
 
 .workspace-home-empty.compact {
   min-height: 220px;
+}
+
+.imported-variable-model-card {
+  display: grid;
+  gap: 9px;
+  border: 1px solid rgba(0, 139, 137, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #f5fbfa);
+  padding: 12px;
+  box-shadow: 0 12px 28px rgba(20, 39, 48, 0.06);
+}
+
+.imported-variable-model-card__header {
+  display: grid;
+  gap: 2px;
+}
+
+.imported-variable-model-card__header span {
+  color: #08715f;
+  font-size: 0.64rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.imported-variable-model-card__header strong {
+  overflow: hidden;
+  color: #192a34;
+  font-size: 0.84rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imported-variable-model-card label {
+  display: grid;
+  gap: 5px;
+  color: #334552;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.imported-variable-model-card input:not([type="checkbox"]),
+.imported-variable-model-card select {
+  min-height: 31px;
+  border: 1px solid rgba(211, 224, 232, 0.95);
+  border-radius: 9px;
+  background: #ffffff;
+  color: #1f303a;
+  padding: 0 9px;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.imported-variable-model-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.imported-variable-model-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.imported-variable-model-toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(211, 224, 232, 0.95);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 6px 8px;
+  color: #334552;
+  font-size: 0.68rem;
+}
+
+.imported-variable-model-card p,
+.imported-variable-model-card small,
+.imported-structure-note {
+  margin: 0;
+  color: #667786;
+  font-size: 0.68rem;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.imported-variable-model-card small,
+.imported-structure-note {
+  display: block;
 }
 
 @media (max-width: 980px) {

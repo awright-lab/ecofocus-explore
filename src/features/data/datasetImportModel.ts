@@ -86,7 +86,10 @@ function inferField(header: string, values: string[], index: number, rowCount: n
     nonEmptyCount: values.filter(Boolean).length,
     distinctCount: distinctValues.length,
     sampleValues: distinctValues.slice(0, 5),
-    modelingRole
+    modelingRole,
+    eligibleForFilter: type === "categorical" || type === "date",
+    eligibleForSegment: type === "categorical",
+    eligibleForBanner: type === "categorical"
   };
 }
 

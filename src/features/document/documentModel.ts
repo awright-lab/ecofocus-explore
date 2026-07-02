@@ -159,15 +159,28 @@ function normalizeDerivedDefinitionSummary(
 
 export function normalizeImportedDatasetField(field: Partial<ImportedDatasetField>, index: number): ImportedDatasetField {
   const label = field.label ?? field.sourceColumn ?? `Field ${index + 1}`;
+  const type = field.type ?? "text";
+  const modelingRole =
+    field.modelingRole ??
+    (type === "numeric"
+      ? "candidate_measure"
+      : type === "date"
+        ? "candidate_date"
+        : type === "categorical"
+          ? "candidate_dimension"
+          : "raw_variable");
   return {
     id: field.id ?? `field_${index + 1}`,
     label,
     sourceColumn: field.sourceColumn ?? label,
-    type: field.type ?? "text",
+    type,
     nonEmptyCount: field.nonEmptyCount ?? 0,
     distinctCount: field.distinctCount ?? field.sampleValues?.length ?? 0,
     sampleValues: field.sampleValues ?? [],
-    modelingRole: field.modelingRole ?? "raw_variable"
+    modelingRole,
+    eligibleForFilter: field.eligibleForFilter ?? (type === "categorical" || type === "date"),
+    eligibleForSegment: field.eligibleForSegment ?? type === "categorical",
+    eligibleForBanner: field.eligibleForBanner ?? type === "categorical"
   };
 }
 

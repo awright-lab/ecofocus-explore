@@ -1,7 +1,7 @@
 import { storageKey } from "../builder/builderConstants";
-import { normalizeDashboard, normalizeImportedDataset } from "./documentModel";
+import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
-import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
+import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
 
@@ -175,6 +175,27 @@ export function removeWorkspaceImportedDataset(workspace: DashboardWorkspace, da
   return {
     ...workspace,
     importedDatasets: workspace.importedDatasets.filter((dataset) => dataset.id !== datasetId)
+  };
+}
+
+export function updateWorkspaceImportedDatasetField(
+  workspace: DashboardWorkspace,
+  datasetId: string,
+  fieldId: string,
+  updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
+): DashboardWorkspace {
+  return {
+    ...workspace,
+    importedDatasets: workspace.importedDatasets.map((dataset) =>
+      dataset.id === datasetId
+        ? {
+            ...dataset,
+            fields: dataset.fields.map((field, index) =>
+              field.id === fieldId ? normalizeImportedDatasetField({ ...field, ...updates }, index) : field
+            )
+          }
+        : dataset
+    )
   };
 }
 

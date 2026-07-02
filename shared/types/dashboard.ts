@@ -546,6 +546,7 @@ export interface DesignLibrary {
 }
 
 export type ImportedDatasetFieldType = "text" | "numeric" | "categorical" | "date";
+export type ImportedDatasetFieldRole = "raw_variable" | "candidate_dimension" | "candidate_measure" | "candidate_date";
 
 export interface ImportedDatasetField {
   id: string;
@@ -555,7 +556,10 @@ export interface ImportedDatasetField {
   nonEmptyCount: number;
   distinctCount: number;
   sampleValues: string[];
-  modelingRole: "raw_variable" | "candidate_dimension" | "candidate_measure" | "candidate_date";
+  modelingRole: ImportedDatasetFieldRole;
+  eligibleForFilter: boolean;
+  eligibleForSegment: boolean;
+  eligibleForBanner: boolean;
 }
 
 export interface ImportedDatasetRecord {

@@ -26,7 +26,7 @@ import {
 } from "./compositionBlockModel";
 import type { SmartCompositionStarterId } from "./compositionBlockModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
-import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, ImportedDatasetRecord, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
+import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, ImportedDatasetField, ImportedDatasetRecord, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type AnalysisAuthoringPanelProps = {
@@ -93,6 +93,11 @@ export type AnalysisAuthoringPanelProps = {
   setSourceSearch: (value: string) => void;
   importedDatasets: ImportedDatasetRecord[];
   importDataset: (file: File) => Promise<boolean>;
+  updateImportedDatasetField: (
+    datasetId: string,
+    fieldId: string,
+    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
+  ) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
   selectedDataSource: { kind: "question" | "variableSet"; id: string };

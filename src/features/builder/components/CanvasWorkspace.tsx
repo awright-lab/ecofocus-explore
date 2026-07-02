@@ -244,7 +244,7 @@ export function CanvasWorkspace({
   const activePageIndex = sortedPages.findIndex((page) => page.id === activePage.id);
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
-  const showMockupStorySurface = activePage.tiles.length === 0 && activePage.elements.length === 0;
+  const showMockupStorySurface = false;
   const storyGuidance = buildStoryGuidanceView(
     activePage,
     activePage.tiles.find((tile) => tile.id === selectedTileId) ?? null,
