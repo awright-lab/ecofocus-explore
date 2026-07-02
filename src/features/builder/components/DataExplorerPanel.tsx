@@ -46,7 +46,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     setSourceSearch,
     importedDatasets,
     importDataset,
-    updateImportedDatasetField
+    updateImportedDatasetField,
+    openGuidedDataQuery
   } = props;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
@@ -210,7 +211,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 </button>
               ))}
             <button type="button" className="mockup-library-link" onClick={() => setExploreView("source")}>
-              View all variables ({modeledVariables.length || filteredQuestions.length})
+              Browse variables ({modeledVariables.length || filteredQuestions.length})
+            </button>
+            <button type="button" className="mockup-library-link primary-link" onClick={() => openGuidedDataQuery({ outputMode: "table" })}>
+              Use variable in query
             </button>
           </section>
           {activeImportedDataset && activeImportedField && activeImportedFieldView && (
@@ -328,10 +332,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             ))}
           </section>
         </div>
-        <button type="button" className="new-data-query-button" onClick={() => setExploreView("analyze")}>＋ New data query</button>
+        <button type="button" className="new-data-query-button" onClick={() => openGuidedDataQuery({ outputMode: "table" })}>＋ New data query</button>
         {exploreView === "analyze" && <QueryEditorSection {...props} />}
         {exploreView === "library" && <AnalysisLibrarySection {...props} />}
-        {exploreView === "source" && sourceSearch.trim() && <SourcePickerSection {...props} />}
+        {exploreView === "source" && <SourcePickerSection {...props} />}
       </div>
     </>
   );

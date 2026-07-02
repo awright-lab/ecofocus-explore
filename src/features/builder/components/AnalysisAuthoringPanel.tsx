@@ -98,6 +98,7 @@ export type AnalysisAuthoringPanelProps = {
     fieldId: string,
     updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
   ) => void;
+  openGuidedDataQuery: (options?: { outputMode?: "table" | "chart" }) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
   selectedDataSource: { kind: "question" | "variableSet"; id: string };

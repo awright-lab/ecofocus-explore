@@ -19,6 +19,7 @@ import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type 
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
+import { GuidedDataQueryModal } from "./components/GuidedDataQueryModal";
 import {
   CanvasElementRenderer,
   TileRenderer,
@@ -189,6 +190,7 @@ export default function BuilderApp() {
     setError
   } = useEditorSessionState();
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
+  const [guidedDataQuery, setGuidedDataQuery] = useState<{ outputMode: "table" | "chart" } | null>(null);
   const activeOutcomeMode = outcomeModeView(activeProductMode);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
   const importedDatasetMap = new Map([
@@ -867,6 +869,12 @@ export default function BuilderApp() {
     setError(null);
   }
 
+  function openGuidedDataQuery(options?: { outputMode?: "table" | "chart" }) {
+    setLeftPanelView("data");
+    setExploreView("source");
+    setGuidedDataQuery({ outputMode: options?.outputMode ?? "table" });
+  }
+
   const {
     applyPaletteToTile,
     applyTextStylePresetToSelection,
@@ -1146,6 +1154,7 @@ export default function BuilderApp() {
           importedDatasets={workspaceImportedDatasets}
           importDataset={importDataset}
           updateImportedDatasetField={updateImportedDatasetField}
+          openGuidedDataQuery={openGuidedDataQuery}
           filteredVariableSets={filteredVariableSets}
           filteredQuestions={filteredQuestions}
           selectedDataSource={selectedDataSource}
@@ -1261,7 +1270,7 @@ export default function BuilderApp() {
           }}
           onOpenPageDesign={() => setSettingsView("page")}
           onOpenLayout={() => setSettingsView("layout")}
-          onOpenDataLibrary={() => setLeftPanelView("data")}
+          onOpenDataLibrary={() => openGuidedDataQuery({ outputMode: "table" })}
           onOpenInsertPanel={() => setLeftPanelView("insert")}
           onBringForward={() => changeSelectedLayer("front")}
           onDuplicateSelection={duplicateSelectedItem}
@@ -1381,6 +1390,165 @@ export default function BuilderApp() {
           clearBarColorOverrides={clearBarColorOverrides}
           applySelectedElementEffectPreset={applySelectedElementEffectPreset}
           applySelectedTileEffectPreset={applySelectedTileEffectPreset}
+        />
+      )}
+      {guidedDataQuery && (
+        <GuidedDataQueryModal
+          props={{
+            leftPanelView,
+            setLeftPanelView,
+            layerItems,
+            selectedTileId,
+            selectedElementId,
+            multiSelectedObjects: activeMultiSelectedObjects,
+            toggleMultiSelectedObject,
+            clearMultiSelection,
+            chooseLayer,
+            selectTile,
+            selectElement,
+            recordReportTreeSelectionCue: (cue) => setReportTreeSelectionCue({ ...cue, createdAt: Date.now() }),
+            recordSavedLibraryInsertionCue: (cue) => setSavedLibraryInsertionCue({ ...cue, createdAt: Date.now() }),
+            updateTile,
+            updateElement,
+            sortedPages,
+            activePage,
+            setActivePageId,
+            selectPage,
+            renamePage,
+            addPage,
+            duplicateActivePage,
+            duplicatePageById,
+            deleteActivePage,
+            deletePageById,
+            movePage,
+            pageTemplates,
+            pageThemes,
+            selectedTextElement,
+            selectedTile,
+            focusSelectedTileInspector: () => setSettingsView("chart"),
+            recordSavedSettingOriginCue: (kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() }),
+            recordDerivedOutputLibraryActionCue: (cue) => setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() }),
+            designPalettes,
+            applyPaletteToTile,
+            textStylePresets,
+            applyTextStylePresetToSelection,
+            textBlockPresets,
+            addTextBlockPreset,
+            compositionStarters,
+            savedCompositionBlocks,
+            designAssets,
+            saveCompositionBlockFromSelection,
+            updateCompositionBlockMetadata,
+            insertCompositionBlock,
+            insertCompositionStarter,
+            deleteCompositionBlock,
+            insertDesignAsset,
+            applyPageTheme,
+            exploreView,
+            setExploreView,
+            sourceLibraryView,
+            setSourceLibraryView,
+            analysisLibraryView,
+            setAnalysisLibraryView,
+            savedLibraryHandoff,
+            sourceSearch,
+            setSourceSearch,
+            importedDatasets: workspaceImportedDatasets,
+            importDataset,
+            updateImportedDatasetField,
+            openGuidedDataQuery,
+            filteredVariableSets,
+            filteredQuestions,
+            selectedDataSource,
+            applyVariableSetSelection,
+            applyQuestionSelection,
+            startDataSourceDrag,
+            selectedVariableSet,
+            question,
+            setQuestion,
+            variableSetDraftName,
+            setVariableSetDraftName,
+            variableSetDescription,
+            setVariableSetDescription,
+            variableSetQuestionIds,
+            toggleVariableSetQuestion,
+            selectedQuestion,
+            resetVariableSetRows,
+            revealAllVariableSetRows,
+            markVariableSetRowsAsDetails,
+            variableSetRows,
+            variableSetOptionSelection,
+            toggleVariableSetOptionRow,
+            toggleVariableSetOptionSelection,
+            addVariableSetNet,
+            addRowsForUncoveredOptions,
+            updateVariableSetRow,
+            reorderVariableSetRow,
+            removeVariableSetRow,
+            saveCurrentVariableSet,
+            deleteVariableSet,
+            savedBanners,
+            savedFilters,
+            savedSegmentProfiles,
+            savedWeights,
+            savedAnalyticalTemplates,
+            savedDerivedDefinitions,
+            saveAnalyticalTemplate,
+            deleteAnalyticalTemplate,
+            saveDerivedDefinition,
+            deleteDerivedDefinition,
+            duplicateDerivedOutputFromLibrary,
+            createDerivedOutputFromDefinition,
+            savedVariableSets,
+            breakBy,
+            setBreakBy,
+            metric,
+            setMetric,
+            chartType,
+            setChartType,
+            weight,
+            setWeight,
+            filterField,
+            setFilterField,
+            filterValue,
+            setFilterValue,
+            comparisonMode,
+            setComparisonMode,
+            comparisonDatasets,
+            setComparisonDatasets,
+            toggleComparisonDataset,
+            selectedFilterDimension,
+            selectedChartTypes,
+            query,
+            setVariableSetRows,
+            setVariableSetOptionSelection,
+            addCanvasElement,
+            addTileFromQuery,
+            addTileFromSourceWithVisualization,
+            addTileFromVariableSet,
+            createSourceDrivenSmartStarter,
+            addTileFromAnalyticalTemplate,
+            addTileFromSegmentProfile,
+            isLoading,
+            applySavedBanner,
+            bannerDraftName,
+            setBannerDraftName,
+            saveCurrentBanner,
+            applySavedFilter,
+            filterDraftName,
+            setFilterDraftName,
+            saveCurrentFilter,
+            saveCurrentSegmentProfile,
+            applySegmentProfile,
+            deleteSegmentProfile,
+            applySavedWeight,
+            weightDraftName,
+            setWeightDraftName,
+            saveCurrentWeight,
+            error
+          }}
+          initialOutputMode={guidedDataQuery.outputMode}
+          onClose={() => setGuidedDataQuery(null)}
         />
       )}
     </main>
