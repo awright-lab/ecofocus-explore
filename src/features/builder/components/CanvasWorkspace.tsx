@@ -151,6 +151,7 @@ function MockupStorySlide() {
 }
 
 export function CanvasWorkspace({
+  isPresentMode,
   activePage,
   sortedPages,
   canvasScale,
@@ -182,6 +183,7 @@ export function CanvasWorkspace({
   renderTile,
   renderElement
 }: {
+  isPresentMode: boolean;
   activePage: DashboardPage;
   sortedPages: DashboardPage[];
   canvasScale: number;
@@ -282,7 +284,15 @@ export function CanvasWorkspace({
   }
 
   return (
-    <section ref={canvasSectionRef} className={isCanvasFullscreen ? "canvas canvas-fullscreen" : "canvas"} aria-label="Dashboard canvas">
+    <section
+      ref={canvasSectionRef}
+      className={[
+        "canvas",
+        isCanvasFullscreen ? "canvas-fullscreen" : "",
+        isPresentMode ? "present-canvas" : ""
+      ].filter(Boolean).join(" ")}
+      aria-label="Dashboard canvas"
+    >
       <div className="page-header">
         <div>
           <p className="eyebrow">Story canvas · Slide {activePage.order}</p>
@@ -325,6 +335,13 @@ export function CanvasWorkspace({
           <small>Select an object for quick actions</small>
         )}
       </div>
+      {isPresentMode && (
+        <div className="present-preview-card" role="status">
+          <span>Presentation preview</span>
+          <strong>Slide {activePage.order} of {sortedPages.length}: {storyGuidance.pageRoleLabel}</strong>
+          <small>{storyGuidance.pageFlowHelper}</small>
+        </div>
+      )}
       <div className="canvas-viewport">
         <div className="canvas-zoom-shell" style={{ width: canvasWidth * canvasScale, height: canvasHeight * canvasScale }}>
           <div

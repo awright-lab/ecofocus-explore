@@ -66,6 +66,7 @@ function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
 }
 
 export type BuilderInspectorProps = {
+  isPresentMode: boolean;
   settingsView: SettingsView;
   setSettingsView: (view: SettingsView) => void;
   activePage: DashboardPage;
@@ -147,6 +148,7 @@ export type BuilderInspectorProps = {
 
 export function BuilderInspector(props: BuilderInspectorProps) {
   const {
+  isPresentMode,
   settingsView,
   setSettingsView,
   activePage,
@@ -544,6 +546,13 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   );
   const insightSurface = (
     <>
+      {isPresentMode && (
+        <div className="present-inspector-card">
+          <span>Present review</span>
+          <strong>{storyGuidance.pageFlowLabel}</strong>
+          <small>{storyGuidance.pageFlowHelper}</small>
+        </div>
+      )}
       <div className="inspector-insight-hero">
         <span>{storyGuidance.selectedRoleLabel}</span>
         <strong>{inspectorFocus.title}</strong>

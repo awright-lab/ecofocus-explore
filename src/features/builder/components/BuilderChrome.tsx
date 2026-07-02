@@ -8,7 +8,7 @@ import {
 } from "../builderPublishModel";
 import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
 
-type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report" | "present";
+export type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report" | "present";
 type ChromeIconName =
   | WorkspaceProductMode
   | "brand"
@@ -78,6 +78,8 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
 
 export function BuilderHeader({
   dashboard,
+  activeProductMode,
+  setActiveProductMode,
   canUndo,
   canRedo,
   onUndo,
@@ -88,6 +90,8 @@ export function BuilderHeader({
   onUnpublish
 }: {
   dashboard: DashboardDraft;
+  activeProductMode: WorkspaceProductMode;
+  setActiveProductMode: (mode: WorkspaceProductMode) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -100,7 +104,6 @@ export function BuilderHeader({
   const readiness = buildPublishReadinessView(dashboard);
   const exportContext = buildExportPackageContextView(dashboard, readiness);
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
-  const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
 
   useEffect(() => {
     if (!exportConfirmation) return undefined;

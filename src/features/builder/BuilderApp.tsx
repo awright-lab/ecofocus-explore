@@ -14,7 +14,7 @@ import {
   storageKey
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
-import { BuilderHeader, BuilderPanel, WorkspaceModeStrip } from "./components/BuilderChrome";
+import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, type WorkspaceProductMode } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
@@ -166,6 +166,7 @@ export default function BuilderApp() {
     error,
     setError
   } = useEditorSessionState();
+  const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -845,6 +846,8 @@ export default function BuilderApp() {
     <main className="builder-shell">
       <BuilderHeader
         dashboard={dashboard}
+        activeProductMode={activeProductMode}
+        setActiveProductMode={setActiveProductMode}
         canUndo={history.length > 0}
         canRedo={future.length > 0}
         onUndo={undo}
@@ -855,7 +858,7 @@ export default function BuilderApp() {
         onUnpublish={unpublishDashboard}
       />
 
-      <section className="builder-workspace">
+      <section className={activeProductMode === "present" ? "builder-workspace present-workspace" : "builder-workspace"}>
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
           saveState={saveState}
@@ -1017,6 +1020,7 @@ export default function BuilderApp() {
         />
 
         <CanvasWorkspace
+          isPresentMode={activeProductMode === "present"}
           activePage={activePage}
           sortedPages={sortedPages}
           canvasScale={canvasScale}
@@ -1052,6 +1056,7 @@ export default function BuilderApp() {
         />
 
         <BuilderInspector
+          isPresentMode={activeProductMode === "present"}
           settingsView={settingsView}
           setSettingsView={setSettingsView}
           activePage={activePage}
