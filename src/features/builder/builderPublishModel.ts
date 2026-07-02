@@ -1,4 +1,5 @@
 import type { DashboardDraft } from "../../../shared/types/dashboard";
+import type { CoreExportTarget } from "../export/coreDocumentExports";
 
 export interface PublishReadinessCheck {
   id: string;
@@ -136,8 +137,8 @@ export function buildExportPackageContextView(dashboard: DashboardDraft, readine
 
   return {
     status: ready ? "ready" : "needs-review",
-    label: ready ? "Package ready" : "Package review",
-    helper: "Exports a JSON presentation package with visible pages, objects, analytics, and metadata.",
+    label: ready ? "Exports ready" : "Export review",
+    helper: "Exports PPTX/PDF deliverables and XLSX analytical tables from the current report state.",
     packageLabel,
     readinessLabel: `${readiness.passedCount}/${readiness.totalCount} readiness checks pass.`
   };
@@ -145,12 +146,14 @@ export function buildExportPackageContextView(dashboard: DashboardDraft, readine
 
 export function buildExportPackageConfirmationView(
   dashboard: DashboardDraft,
-  exportContext = buildExportPackageContextView(dashboard)
+  exportContext = buildExportPackageContextView(dashboard),
+  target: CoreExportTarget = "json"
 ): ExportPackageConfirmationView {
+  const targetLabel = target === "pptx" ? "PowerPoint" : target === "pdf" ? "PDF" : target === "xlsx" ? "Excel" : "JSON package";
   const contextLabel =
     dashboard.status === "published"
-      ? `Published ${dashboard.publishMetadata.versionLabel} package downloaded`
-      : "Draft package downloaded";
+      ? `Published ${dashboard.publishMetadata.versionLabel} ${targetLabel} downloaded`
+      : `Draft ${targetLabel} downloaded`;
 
   return {
     status: exportContext.status,

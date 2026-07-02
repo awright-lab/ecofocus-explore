@@ -13,6 +13,7 @@ import {
   filterDimensions,
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
+import { exportCoreDocument, type CoreExportTarget } from "../export/coreDocumentExports";
 import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
@@ -817,8 +818,13 @@ export default function BuilderApp() {
     setError
   });
 
-  function exportDashboardSpec() {
-    downloadDashboardExportSpec(dashboard, sortedPages);
+  function exportDashboardSpec(target: CoreExportTarget) {
+    if (target === "json") {
+      downloadDashboardExportSpec(dashboard, sortedPages);
+      return;
+    }
+
+    exportCoreDocument(dashboard, sortedPages, target);
   }
 
   const {

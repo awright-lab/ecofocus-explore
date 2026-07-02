@@ -7,6 +7,7 @@ import {
   type ExportPackageConfirmationView
 } from "../builderPublishModel";
 import { buildDocumentSaveStateView, normalizeDocumentTitle } from "./documentIdentityModel";
+import type { CoreExportTarget } from "../../export/coreDocumentExports";
 
 export type WorkspaceProductMode = "data" | "design" | "story" | "dashboard" | "report" | "present";
 type ChromeIconName =
@@ -149,7 +150,7 @@ export function BuilderHeader({
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onExport: () => void;
+  onExport: (target: CoreExportTarget) => void;
   onOpenPublished: () => void;
   onPublish: () => void;
   onUnpublish: () => void;
@@ -165,9 +166,9 @@ export function BuilderHeader({
     return () => window.clearTimeout(timeout);
   }, [exportConfirmation]);
 
-  function handleExport() {
-    onExport();
-    setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext));
+  function handleExport(target: CoreExportTarget) {
+    onExport(target);
+    setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext, target));
   }
 
   return (
@@ -219,7 +220,15 @@ export function BuilderHeader({
         ) : (
           <button type="button" className="share-action" onClick={onPublish}><ChromeIcon icon="share" />Share</button>
         )}
-        <button type="button" className="export-action" onClick={handleExport}><ChromeIcon icon="export" />Export ▾</button>
+        <details className="export-menu">
+          <summary className="export-action"><ChromeIcon icon="export" />Export ▾</summary>
+          <div>
+            <button type="button" onClick={() => handleExport("pptx")}>PowerPoint (.pptx)</button>
+            <button type="button" onClick={() => handleExport("pdf")}>PDF document (.pdf)</button>
+            <button type="button" onClick={() => handleExport("xlsx")}>Excel tables (.xlsx)</button>
+            <button type="button" onClick={() => handleExport("json")}>JSON package</button>
+          </div>
+        </details>
         <button type="button" className="icon-button header-plain-icon" aria-label="Help" title="Help"><ChromeIcon icon="help" /></button>
         <button type="button" className="icon-button header-plain-icon" aria-label="Notifications" title="Notifications"><ChromeIcon icon="bell" /></button>
         <button type="button" className="icon-button avatar-button" aria-label="Account">AM</button>
