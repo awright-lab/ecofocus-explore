@@ -19,6 +19,7 @@ import { backgroundStyle, effectShadow, gradientCss, normalizeGradientStops, svg
 import type { AnalyticsAnnotation, AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, DatasetId, QuestionId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, GradientStop, TileAppearance } from "../../../../shared/types/dashboard";
 import { buildExecutedColumnComparisonPresentation, getExecutedSignificanceCell } from "./analysisSignificancePresentationModel";
+import { buildImportedResultProvenance, formatImportedMeasureValue } from "../../data/importedDatasetAnalytics";
 
 export function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
   const defaultGradientColor = appearance.barFillMode === "gradient" ? appearance.primaryColor : fallbackColor;
@@ -73,8 +74,9 @@ export function SvgBarGradientDef({
   );
 }
 
-export function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"]) {
-  return format === "percent" ? `${value}%` : value.toLocaleString();
+export function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"], metricId?: AnalyticsQueryResponse["metric"]["id"]) {
+  if (format === "percent") return `${value}%`;
+  return formatImportedMeasureValue(value, metricId ?? "count");
 }
 
 export function wrapWords(value: string, maxChars: number, maxLines: number) {
@@ -118,9 +120,9 @@ export function getQuestionLabel(questionId: QuestionId) {
 }
 
 export function resultSourceLabel(result: AnalyticsQueryResponse) {
-  return result.metadataRefs.source?.kind === "imported"
-    ? result.metadataRefs.source.primaryFieldLabel
-    : getQuestionLabel(result.metadataRefs.question);
+  const imported = buildImportedResultProvenance(result);
+  if (imported) return imported.summaryLabel;
+  return getQuestionLabel(result.metadataRefs.question);
 }
 
 export function resultDatasetLabel(result: AnalyticsQueryResponse) {
@@ -230,6 +232,8 @@ export function getAnnotation(annotations: AnalyticsAnnotation[], rowId: string,
 }
 
 export function sampleSizeLabel(result: AnalyticsQueryResponse) {
+  const imported = buildImportedResultProvenance(result);
+  if (imported) return imported.baseLabel;
   const bases = result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0);
   const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
   if (uniqueBases.length === 0) return "Sample n/a";
@@ -289,6 +293,17 @@ export function pageSummary(page: DashboardPage) {
 }
 
 export function tilePresentationNotes(tile: DashboardTile) {
+  const imported = buildImportedResultProvenance(tile.result);
+  if (imported) {
+    return [
+      `${imported.queryKindLabel}: ${imported.summaryLabel}`,
+      `Dataset: ${imported.datasetLabel}`,
+      `Banner: ${imported.bannerLabel}; Filter: ${imported.filterLabel}`,
+      `${imported.metricLabel}; ${imported.baseLabel}`,
+      ...tile.result.notes.slice(0, 2)
+    ];
+  }
+
   return [
     `${resultSourceLabel(tile.result)} (${tileSourceKindLabel(tile.source)})`,
     ...(trendSpanLabel(tile.query) ? [trendSpanLabel(tile.query)!] : []),
@@ -335,7 +350,7 @@ export function ValueLabel(props: {
       className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}
       style={{ fill: annotation ? undefined : appearance.labelColor, fontSize: appearance.labelFontSize }}
     >
-      {formatValue(value, result.metric.valueFormat)}
+      {formatValue(value, result.metric.valueFormat, result.metric.id)}
       {annotation ? (annotation.direction === "up" ? "↑" : "↓") : ""}
     </text>
   );
@@ -387,7 +402,7 @@ export function HorizontalValueLabel(props: {
       className="chart-value"
       style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize }}
     >
-      {formatValue(value, result.metric.valueFormat)}
+      {formatValue(value, result.metric.valueFormat, result.metric.id)}
     </text>
   );
 }
@@ -459,7 +474,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
             {chartData.map((item, index) => (
               <Cell
@@ -499,7 +514,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
             <Bar
@@ -552,7 +567,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             tickLine={false}
             axisLine={false}
           />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Bar dataKey="value" radius={[0, appearance.barRadius, appearance.barRadius, 0]} barSize={appearance.barSize}>
             <LabelList dataKey="axisLabel" content={(props) => <HorizontalCategoryLabel {...props} appearance={appearance} />} />
             {chartData.map((item, index) => (
@@ -592,7 +607,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
             <Bar
@@ -627,7 +642,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
             <Line
@@ -661,7 +676,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven donut chart">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat), result.metric.label]} />
+          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="bottom" height={84} />
           <Pie
             data={chartData}
@@ -670,7 +685,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
             innerRadius="48%"
             outerRadius="78%"
             paddingAngle={2}
-            label={appearance.showValueLabels ? (entry) => formatValue(Number(entry.value ?? 0), result.metric.valueFormat) : false}
+            label={appearance.showValueLabels ? (entry) => formatValue(Number(entry.value ?? 0), result.metric.valueFormat, result.metric.id) : false}
           >
             {chartData.map((item) => (
               <Cell key={item.optionId} fill={item.fill} />
@@ -737,7 +752,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                       <div className="table-cell-stack">
                         {appearance.showValueLabels && (
                           <span className={annotation ? `table-value ${annotation.direction}` : significanceCell ? `table-value significance-${significanceCell.direction}` : "table-value"}>
-                            {formatValue(row.values[column.id], result.metric.valueFormat)}
+                            {formatValue(row.values[column.id], result.metric.valueFormat, result.metric.id)}
                             {annotation && <span className={`direction direction-${annotation.direction}`}>{annotation.direction === "up" ? "↑" : "↓"}</span>}
                           </span>
                         )}
@@ -804,6 +819,7 @@ export function ChartView({ tile }: { tile: DashboardTile }) {
 
 export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selected: boolean; onSelect: () => void }) {
   const result = tile.result;
+  const imported = buildImportedResultProvenance(result);
 
   return (
     <article
@@ -834,11 +850,23 @@ export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile
       <div className="tile-scroll-area">
         <ChartView tile={tile} />
         <div className="tile-meta">
-          <span>{resultSourceLabel(result)}</span>
-          <span>{sampleSizeLabel(result)}</span>
-          <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
-          <span>{result.metric.label}</span>
-          <span>{confidenceLevelLabel(resultConfidenceLevel(result))}</span>
+          {imported ? (
+            <>
+              <span>{imported.queryKindLabel}</span>
+              <span>{imported.metricLabel}</span>
+              <span>Group: {imported.groupingLabel}</span>
+              {imported.measureLabel && <span>Measure: {imported.measureLabel}</span>}
+              <span>{imported.baseLabel}</span>
+            </>
+          ) : (
+            <>
+              <span>{resultSourceLabel(result)}</span>
+              <span>{sampleSizeLabel(result)}</span>
+              <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
+              <span>{result.metric.label}</span>
+              <span>{confidenceLevelLabel(resultConfidenceLevel(result))}</span>
+            </>
+          )}
         </div>
         {tile.appearance.showNotes && result.warnings.length > 0 && (
           <div className="notes">

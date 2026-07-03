@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import { getImportedDatasetQuerySupport, importedFieldValues, runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
+import { buildImportedResultProvenance, getImportedDatasetQuerySupport, importedFieldValues, runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
@@ -649,6 +649,7 @@ function ImportedTileQueryEditor({
     chartType: selectedChartType
   });
   const canApply = Boolean(dataset && primaryField && support.executable && !isLoading);
+  const provenance = buildImportedResultProvenance(tile.result);
 
   function changeDataset(nextDatasetId: string) {
     const nextDataset = importedDatasets.find((item) => item.id === nextDatasetId) ?? null;
@@ -685,7 +686,7 @@ function ImportedTileQueryEditor({
       source: {
         kind: "importedField",
         id: `${dataset.id}:${primaryField.id}`,
-        label: primaryField.label,
+        label: title,
         datasetId: dataset.id,
         fieldId: primaryField.id
       },
@@ -703,6 +704,17 @@ function ImportedTileQueryEditor({
         <strong>Imported query</strong>
         <small>{support.reason}</small>
       </div>
+      {provenance && (
+        <div className="empty-state compact">
+          <strong>{provenance.summaryLabel}</strong>
+          <small>{provenance.queryKindLabel} · {provenance.metricLabel} · {provenance.baseLabel}</small>
+          <div className="explorer-chip-row">
+            {provenance.chips.slice(1, 6).map((chip) => (
+              <span className="explorer-chip" key={chip}>{chip}</span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="guided-query-field-grid">
         <label>
           Dataset

@@ -5,6 +5,7 @@ import {
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { comparisonSummaryLabel, resultBannerLabel, resultDatasetLabel, resultFilterLabel, resultSourceLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
+import { buildImportedResultProvenance } from "../../data/importedDatasetAnalytics";
 
 export interface InspectorTileSummaryView {
   sourceKind: string;
@@ -43,7 +44,11 @@ function sourceDescription(tile: DashboardTile) {
     return `Derived ${outputLabel} from ${tile.derivedOutput.sourceTitle}.`;
   }
   if (tile.source?.kind === "variableSet") return "Based on a saved variable set. Row structure and saved defaults can be refined from the source library.";
-  if (tile.source?.kind === "importedField") return "Based on an imported dataset field. Imported filters and banners are stored with this local analytical result.";
+  if (tile.source?.kind === "importedField") {
+    const imported = buildImportedResultProvenance(tile.result);
+    if (imported?.isMeasure) return `Imported measure result: ${imported.summaryLabel}. Values reflect local ${imported.metricLabel.toLowerCase()} aggregation, not seeded survey metadata.`;
+    return "Based on an imported dataset field. Imported filters and banners are stored with this local analytical result.";
+  }
   if (tile.source?.kind === "question") return "Based on a dataset question. Query settings can be edited below for this report object.";
   return "Based on an ad hoc query. Query settings can be edited below for this report object.";
 }
@@ -73,6 +78,7 @@ function lifecycleSummary(tile: DashboardTile) {
 }
 
 export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSummaryView {
+  const imported = buildImportedResultProvenance(tile.result);
   const bannerLabel = tile.result.metadataRefs.source?.kind === "imported"
     ? resultBannerLabel(tile.result)
     : bannerDimensions.find((item) => item.id === tile.query.breakBy)?.label ?? tile.query.breakBy;
@@ -91,6 +97,26 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
       ...(tile.derivedOutput.baseLabel ? [tile.derivedOutput.baseLabel] : [])
     ]
     : [];
+  const importedChips = imported
+    ? imported.isMeasure
+      ? [
+        `Imported measure: ${imported.measureLabel ?? "Measure"}`,
+        `Group by: ${imported.groupingLabel}`,
+        `Metric: ${imported.metricLabel}`,
+        `Banner: ${imported.bannerLabel}`,
+        `Filter: ${imported.filterLabel}`,
+        imported.baseLabel,
+        `Dataset: ${imported.datasetLabel}`
+      ]
+      : [
+        `Imported field: ${imported.groupingLabel}`,
+        `Metric: ${imported.metricLabel}`,
+        `Banner: ${imported.bannerLabel}`,
+        `Filter: ${imported.filterLabel}`,
+        imported.baseLabel,
+        `Dataset: ${imported.datasetLabel}`
+      ]
+    : [];
 
   return {
     sourceKind: tileSourceKindLabel(tile.source),
@@ -100,19 +126,25 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
     lifecycleDescription: lifecycle.description,
     lifecycleChips: lifecycle.chips,
     title: tile.title || tile.name,
-    subtitle: `${visualizationLabel} from ${tileSourceKindLabel(tile.source).toLowerCase()}`,
+    subtitle: imported ? `${visualizationLabel} from ${imported.queryKindLabel.toLowerCase()}` : `${visualizationLabel} from ${tileSourceKindLabel(tile.source).toLowerCase()}`,
     chips: [
       ...derivedOutputChips,
-      `${tile.result.metadataRefs.source?.kind === "imported" ? "Imported field" : "Question"}: ${questionLabel}`,
-      `Source: ${tile.source?.label ?? "Ad hoc query"}`,
-      `Visualization: ${visualizationLabel}`,
-      `Banner: ${bannerLabel}`,
-      `Metric: ${metricLabel}`,
-      `Filter: ${filterLabel}`,
-      `Weight: ${weightLabel}`,
-      `Compare: ${comparisonSummaryLabel(tile.query)}`,
-      `Dataset: ${datasetWave}`
+      ...(importedChips.length
+        ? importedChips
+        : [
+          `Question: ${questionLabel}`,
+          `Source: ${tile.source?.label ?? "Ad hoc query"}`,
+          `Visualization: ${visualizationLabel}`,
+          `Banner: ${bannerLabel}`,
+          `Metric: ${metricLabel}`,
+          `Filter: ${filterLabel}`,
+          `Weight: ${weightLabel}`,
+          `Compare: ${comparisonSummaryLabel(tile.query)}`,
+          `Dataset: ${datasetWave}`
+        ])
     ],
-    editCue: "Use Edit analysis below to change the question, banner, metric, filters, weights, comparison, or refresh this selected object."
+    editCue: imported
+      ? "Use Imported query below to change the grouping field, measure, banner, filter, metric, or rerun this local imported result."
+      : "Use Edit analysis below to change the question, banner, metric, filters, weights, comparison, or refresh this selected object."
   };
 }

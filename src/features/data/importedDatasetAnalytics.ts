@@ -20,6 +20,21 @@ export interface ImportedDatasetQuerySupport {
   reason: string;
 }
 
+export interface ImportedResultProvenanceView {
+  isImported: boolean;
+  isMeasure: boolean;
+  queryKindLabel: string;
+  summaryLabel: string;
+  datasetLabel: string;
+  groupingLabel: string;
+  measureLabel: string | null;
+  metricLabel: string;
+  bannerLabel: string;
+  filterLabel: string;
+  baseLabel: string;
+  chips: string[];
+}
+
 function isExecutableDimension(field: ImportedDatasetField | null | undefined) {
   return Boolean(field && (field.type === "categorical" || field.modelingRole === "candidate_dimension"));
 }
@@ -30,6 +45,69 @@ function isExecutableMeasure(field: ImportedDatasetField | null | undefined) {
 
 function isMeasureMetric(metric: Metric | undefined) {
   return metric === "average" || metric === "sum";
+}
+
+function uniquePositiveBases(result: AnalyticsQueryResponse) {
+  return [...new Set(result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0))].sort((a, b) => a - b);
+}
+
+function baseRangeLabel(prefix: string, bases: number[]) {
+  if (bases.length === 0) return `${prefix} n/a`;
+  if (bases.length === 1) return `${prefix} n=${bases[0].toLocaleString()}`;
+  return `${prefix} n=${bases[0].toLocaleString()}-${bases[bases.length - 1].toLocaleString()}`;
+}
+
+export function importedMetricLabel(metric: Metric) {
+  if (metric === "average") return "Average";
+  if (metric === "sum") return "Sum";
+  if (metric === "count") return "Count";
+  return "% of rows";
+}
+
+export function formatImportedMeasureValue(value: number, metric: Metric) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: metric === "average" || metric === "sum" ? 1 : 0
+  }).format(value);
+}
+
+export function buildImportedResultProvenance(result: AnalyticsQueryResponse): ImportedResultProvenanceView | null {
+  const source = result.metadataRefs.source;
+  if (source?.kind !== "imported") return null;
+
+  const isMeasure = source.queryKind === "measure" || isMeasureMetric(result.metric.id);
+  const metricLabel = importedMetricLabel(result.metric.id);
+  const groupingLabel = source.primaryFieldLabel;
+  const measureLabel = source.measureFieldLabel ?? null;
+  const bannerLabel = source.bannerFieldLabel ?? "No banner";
+  const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel}: ${source.filterValue}` : "No filter";
+  const baseLabel = baseRangeLabel(isMeasure ? "Valid measure" : "Rows", uniquePositiveBases(result));
+  const summaryLabel = isMeasure && measureLabel
+    ? `${metricLabel} ${measureLabel} by ${groupingLabel}`
+    : `${groupingLabel}${source.bannerFieldLabel ? ` by ${source.bannerFieldLabel}` : ""}`;
+
+  return {
+    isImported: true,
+    isMeasure,
+    queryKindLabel: isMeasure ? "Imported measure" : source.bannerFieldLabel ? "Imported crosstab" : "Imported categorical",
+    summaryLabel,
+    datasetLabel: source.datasetLabel,
+    groupingLabel,
+    measureLabel,
+    metricLabel,
+    bannerLabel,
+    filterLabel,
+    baseLabel,
+    chips: [
+      `Dataset: ${source.datasetLabel}`,
+      `Group: ${groupingLabel}`,
+      ...(isMeasure && measureLabel ? [`Measure: ${measureLabel}`] : []),
+      `Metric: ${metricLabel}`,
+      `Banner: ${bannerLabel}`,
+      `Filter: ${filterLabel}`,
+      baseLabel
+    ]
+  };
 }
 
 export function getImportedDatasetQuerySupport(

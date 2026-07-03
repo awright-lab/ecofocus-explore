@@ -101,11 +101,14 @@ export function GuidedDataQueryModal({
     chartType: selectedChart
   });
   const canCreate = datasetMode === "seeded" || importedSupport.executable;
+  const importedQueryLabel = importedQueryMode === "measure" && importedMeasureField
+    ? `${effectiveImportedMetric === "sum" ? "Sum of" : "Average"} ${importedMeasureField.label} by ${importedField?.label ?? "selected imported field"}`
+    : importedField?.label ?? "selected imported field";
   const querySummary =
     datasetMode === "seeded"
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
       : importedSupport.executable
-        ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedField?.label ?? "selected imported field"} from ${importedDataset?.title ?? "imported data"}`
+        ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedQueryLabel} from ${importedDataset?.title ?? "imported data"}`
         : `Imported field ${importedField?.label ?? "selected variable"} is modeled, but not executable for the first imported-query path.`;
   const filterSummary =
     selectedFilterDimension && filterValue !== "all"
@@ -448,6 +451,8 @@ export function GuidedDataQueryModal({
             <span>Summary</span>
             <strong>{querySummary}</strong>
             <ul>
+              {datasetMode === "imported" && importedQueryMode === "measure" && importedMeasureField && <li>Measure: {importedMeasureField.label}</li>}
+              {datasetMode === "imported" && <li>Group by: {importedField?.label ?? "Selected field"}</li>}
               <li>Banner: {datasetMode === "seeded" ? bannerSummary : importedBannerField?.label ?? "No banner"}</li>
               <li>Filter: {datasetMode === "seeded" ? filterSummary : importedFilter ? `${importedFilter.field.label}: ${importedFilter.value}` : "No filter"}</li>
               <li>Metric: {datasetMode === "seeded" ? metricSummary : effectiveImportedMetric === "average" ? "Average" : effectiveImportedMetric === "sum" ? "Sum" : effectiveImportedMetric === "count" ? "Count" : "% of rows"}</li>
