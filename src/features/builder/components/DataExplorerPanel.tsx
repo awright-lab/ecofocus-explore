@@ -203,22 +203,39 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             {modeledVariables.length > 0
               ? modeledVariables.slice(0, 5).map((field) => {
                 const suitability = buildImportedFieldSuitability(field);
+                const isSelectedForModeling = activeImportedField?.id === field.id;
+                const analysisLabel = suitability.recommendedQueryMode === "measure" ? "Measure" : suitability.recommendedQueryMode === "modeling" ? "Review" : "Analyze";
                 return (
-                  <button
-                    type="button"
-                    className={activeImportedField?.id === field.id ? "mockup-library-row compact modeled-variable-row active" : "mockup-library-row compact modeled-variable-row"}
+                  <div
+                    className={isSelectedForModeling ? "mockup-library-row compact modeled-variable-row split active" : "mockup-library-row compact modeled-variable-row split"}
                     key={field.id}
-                    onClick={() => openQueryForImportedField(field)}
                   >
                     <span><DataLibraryIcon icon="variable" /></span>
-                    <strong>{field.label}</strong>
-                    <small>{importedFieldTypeLabel(field.type)}</small>
-                    <span className="data-library-badge-row">
-                      {suitability.badges.slice(0, 3).map((badge) => (
-                        <em key={badge}>{badge}</em>
-                      ))}
-                    </span>
-                  </button>
+                    <div className="modeled-variable-row__body">
+                      <strong>{field.label}</strong>
+                      <small>{importedFieldTypeLabel(field.type)} · {suitability.helperText}</small>
+                      <span className="data-library-badge-row">
+                        {suitability.badges.slice(0, 3).map((badge) => (
+                          <em key={badge}>{badge}</em>
+                        ))}
+                      </span>
+                    </div>
+                    <div className="modeled-variable-row__actions" aria-label={`Actions for ${field.label}`}>
+                      <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
+                        {analysisLabel}
+                      </button>
+                      <button
+                        type="button"
+                        className="model"
+                        onClick={() => {
+                          setSelectedImportedFieldId(field.id);
+                          setExploreView("source");
+                        }}
+                      >
+                        {isSelectedForModeling ? "Modeling" : "Model"}
+                      </button>
+                    </div>
+                  </div>
                 );
               })
               : filteredQuestions.slice(0, 4).map((question) => (
@@ -242,7 +259,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <section className="imported-variable-model-card" aria-label="Imported variable modeling">
               <div className="imported-variable-model-card__header">
                 <span>Variable model</span>
-                <strong>{activeImportedField.sourceColumn}</strong>
+                <strong>{activeImportedField.label}</strong>
+                <small>Field settings for {activeImportedField.sourceColumn}. Modeling controls how this field can be used for grouping, measures, filters, and banners.</small>
               </div>
               <label>
                 Display label
