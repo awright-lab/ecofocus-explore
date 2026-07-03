@@ -1315,6 +1315,7 @@ export default function BuilderApp() {
           savedWeights={savedWeights}
           savedSegmentProfiles={savedSegmentProfiles}
           savedDerivedDefinitions={savedDerivedDefinitions}
+          importedDatasets={workspaceImportedDatasets}
           selectedTileQuestion={selectedTileQuestion}
           selectedTileFilterDimension={selectedTileFilterDimension}
           selectedChartPart={selectedChartPart}

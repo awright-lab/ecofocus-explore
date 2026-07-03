@@ -28,6 +28,7 @@ import type {
   DashboardPage,
   DashboardTile,
   DesignColorPalette,
+  ImportedDatasetRecord,
   PageMasterPreset,
   PageThemePreset,
   SavedBanner,
@@ -89,6 +90,7 @@ export type BuilderInspectorProps = {
   savedWeights: SavedWeightProfile[];
   savedSegmentProfiles: SavedSegmentProfile[];
   savedDerivedDefinitions: SavedDerivedDefinition[];
+  importedDatasets: ImportedDatasetRecord[];
   selectedTileQuestion: typeof defaultDataset.questions[number] | null;
   selectedTileFilterDimension?: typeof filterDimensions[number];
   selectedChartPart: { id: string; label: string } | null;

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import type { ChartType, ConfidenceLevel } from "../../../../shared/types/analytics";
+import { getImportedDatasetQuerySupport, importedFieldValues, runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
+import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
   buildSettingProvenancePickerView,
@@ -72,6 +73,7 @@ import { buildSegmentProfileProvenanceView, type SegmentProfileProvenanceView } 
 import { buildAnalysisStatisticsContext, confidenceLevelLabel, supportedConfidenceLevels, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
 import { buildExecutedSignificanceExplanationView, type ExecutedSignificanceExplanationView } from "./analysisSignificancePresentationModel";
 import { buildCompositionStarterProvenanceHelper } from "./compositionBlockModel";
+import type { DashboardTile, ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -581,6 +583,196 @@ function RelatedAnalyticalObjectsCard({
   );
 }
 
+function importedExecutableFields(dataset: ImportedDatasetRecord | null) {
+  return (dataset?.fields ?? []).filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
+}
+
+function importedBannerFields(dataset: ImportedDatasetRecord | null, primaryFieldId: string) {
+  return (dataset?.fields ?? []).filter((field) =>
+    field.id !== primaryFieldId && field.eligibleForBanner && (field.type === "categorical" || field.modelingRole === "candidate_dimension")
+  );
+}
+
+function importedFilterFields(dataset: ImportedDatasetRecord | null) {
+  return (dataset?.fields ?? []).filter((field) =>
+    field.eligibleForFilter && (field.type === "categorical" || field.modelingRole === "candidate_dimension")
+  );
+}
+
+function ImportedTileQueryEditor({
+  tile,
+  importedDatasets,
+  updateSelectedTile,
+  isLoading
+}: {
+  tile: DashboardTile;
+  importedDatasets: ImportedDatasetRecord[];
+  updateSelectedTile: (updates: Partial<DashboardTile>) => void;
+  isLoading: boolean;
+}) {
+  const source = tile.result.metadataRefs.source?.kind === "imported" ? tile.result.metadataRefs.source : null;
+  const initialDataset = importedDatasets.find((dataset) => dataset.id === source?.datasetId) ?? importedDatasets[0] ?? null;
+  const [datasetId, setDatasetId] = useState(source?.datasetId ?? initialDataset?.id ?? "");
+  const dataset = importedDatasets.find((item) => item.id === datasetId) ?? initialDataset;
+  const [primaryFieldId, setPrimaryFieldId] = useState(source?.primaryFieldId ?? dataset?.fields[0]?.id ?? "");
+  const [bannerFieldId, setBannerFieldId] = useState(source?.bannerFieldId ?? "none");
+  const [filterFieldId, setFilterFieldId] = useState(source?.filterFieldId ?? "none");
+  const [filterValue, setFilterValue] = useState(source?.filterValue ?? "all");
+  const [metric, setMetric] = useState<Metric>(tile.result.metric.id);
+  const [chartType, setChartType] = useState<ChartType>(tile.visualization);
+  const primaryFields = importedExecutableFields(dataset);
+  const primaryField = primaryFields.find((field) => field.id === primaryFieldId) ?? primaryFields[0] ?? null;
+  const bannerOptions = importedBannerFields(dataset, primaryField?.id ?? "");
+  const bannerField = bannerOptions.find((field) => field.id === bannerFieldId) ?? null;
+  const filterOptions = importedFilterFields(dataset);
+  const filterField = filterOptions.find((field) => field.id === filterFieldId) ?? null;
+  const values = importedFieldValues(dataset, filterField);
+  const filter = filterField && filterValue !== "all" ? { field: filterField, value: filterValue } : null;
+  const selectedChartType = bannerField && chartType === "donut" ? "vertical_bar" : chartType;
+  const support = getImportedDatasetQuerySupport(dataset, primaryField, {
+    bannerField,
+    filter,
+    chartType: selectedChartType
+  });
+  const canApply = Boolean(dataset && primaryField && support.executable && !isLoading);
+
+  function changeDataset(nextDatasetId: string) {
+    const nextDataset = importedDatasets.find((item) => item.id === nextDatasetId) ?? null;
+    setDatasetId(nextDatasetId);
+    setPrimaryFieldId(nextDataset?.fields[0]?.id ?? "");
+    setBannerFieldId("none");
+    setFilterFieldId("none");
+    setFilterValue("all");
+  }
+
+  function changePrimaryField(nextFieldId: string) {
+    setPrimaryFieldId(nextFieldId);
+    if (nextFieldId === bannerFieldId) setBannerFieldId("none");
+  }
+
+  function applyImportedQuery() {
+    if (!dataset || !primaryField || !canApply) return;
+    const result = runImportedDatasetQuery({
+      dataset,
+      field: primaryField,
+      bannerField,
+      filter,
+      chartType: selectedChartType,
+      metric
+    });
+    updateSelectedTile({
+      name: primaryField.label,
+      title: primaryField.label,
+      source: {
+        kind: "importedField",
+        id: `${dataset.id}:${primaryField.id}`,
+        label: primaryField.label,
+        datasetId: dataset.id,
+        fieldId: primaryField.id
+      },
+      query: result.query,
+      visualization: selectedChartType,
+      result
+    });
+  }
+
+  if (!source) return null;
+
+  return (
+    <div className="imported-query-editor">
+      <div className="explorer-section-header">
+        <strong>Imported query</strong>
+        <small>{support.reason}</small>
+      </div>
+      <div className="guided-query-field-grid">
+        <label>
+          Dataset
+          <select value={dataset?.id ?? ""} onChange={(event) => changeDataset(event.target.value)}>
+            {importedDatasets.map((item) => (
+              <option value={item.id} key={item.id}>{item.title}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Imported field
+          <select value={primaryField?.id ?? ""} onChange={(event) => changePrimaryField(event.target.value)}>
+            {primaryFields.map((field) => (
+              <option value={field.id} key={field.id}>{field.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="guided-query-field-grid">
+        <label>
+          Banner
+          <select value={bannerField?.id ?? "none"} onChange={(event) => setBannerFieldId(event.target.value)}>
+            <option value="none">No banner</option>
+            {bannerOptions.map((field) => (
+              <option value={field.id} key={field.id}>{field.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Metric
+          <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
+            <option value="percent_selected">% of rows</option>
+            <option value="count">Count</option>
+          </select>
+        </label>
+      </div>
+      <div className="guided-query-field-grid">
+        <label>
+          Filter field
+          <select
+            value={filterField?.id ?? "none"}
+            onChange={(event) => {
+              setFilterFieldId(event.target.value);
+              setFilterValue("all");
+            }}
+          >
+            <option value="none">No filter</option>
+            {filterOptions.map((field) => (
+              <option value={field.id} key={field.id}>{field.label}</option>
+            ))}
+          </select>
+        </label>
+        {filterField && (
+          <label>
+            Filter value
+            <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
+              <option value="all">Choose value...</option>
+              {values.map((value) => (
+                <option value={value} key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="guided-query-field-grid">
+        <label>
+          Output
+          <select value={selectedChartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+            <option value="table">Table</option>
+            <option value="vertical_bar">Column</option>
+            <option value="horizontal_bar">Horizontal bar</option>
+            {!bannerField && <option value="donut">Donut</option>}
+            {bannerField && <option value="grouped_bar">Grouped bar</option>}
+            {bannerField && <option value="stacked_bar">Stacked bar</option>}
+            {bannerField && <option value="line_chart">Line chart</option>}
+          </select>
+        </label>
+      </div>
+      <div className={support.executable ? "guided-query-supported" : "guided-query-unsupported"}>
+        <strong>{support.executable ? "Ready to rerun imported result" : "Unsupported imported edit"}</strong>
+        <small>{support.reason}</small>
+      </div>
+      <button type="button" onClick={applyImportedQuery} disabled={!canApply}>
+        {isLoading ? "Updating..." : "Update imported result"}
+      </button>
+    </div>
+  );
+}
+
 export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   const {
     selectedTile,
@@ -807,10 +999,12 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <span className="explorer-chip">Compare: {queryStatus.comparisonLabel}</span>
         </div>
         {queryStatus.isImported ? (
-          <div className="guided-query-supported">
-            <strong>Imported local analysis</strong>
-            <small>Use Guided Data Query to create a new imported field, banner, or filter view. This selected tile keeps its imported-data identity and local result.</small>
-          </div>
+          <ImportedTileQueryEditor
+            tile={tile}
+            importedDatasets={props.importedDatasets}
+            updateSelectedTile={updateSelectedTile}
+            isLoading={isLoading}
+          />
         ) : (
           <TileQuestionConfigSection {...props} />
         )}
