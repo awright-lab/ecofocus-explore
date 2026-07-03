@@ -112,6 +112,20 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     });
   }
 
+  function applyModelingRecommendation(
+    field: ImportedDatasetField,
+    recommendation: NonNullable<ReturnType<typeof buildImportedFieldSuitability>["recommendations"][number]>,
+    options?: { analyze?: boolean }
+  ) {
+    if (!activeImportedDataset || !recommendation.suggestedUpdates) return;
+    updateImportedDatasetField(activeImportedDataset.id, field.id, recommendation.suggestedUpdates);
+    setSelectedImportedFieldId(field.id);
+    setExploreView("source");
+    if (options?.analyze && recommendation.workflowAction) {
+      window.setTimeout(() => openQueryForImportedField(field, "table"), 0);
+    }
+  }
+
   async function handleImportFile(file: File | undefined) {
     if (!file) return;
     setIsImporting(true);
@@ -294,16 +308,30 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                           <strong>{recommendation.label}</strong>
                           <small>{recommendation.description}</small>
                           <small>{recommendation.impact}</small>
+                          {recommendation.workflowAction && <small className="workflow-handoff-note">{recommendation.workflowAction.description}</small>}
                         </div>
                         {recommendation.suggestedUpdates && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (recommendation.suggestedUpdates) updateActiveImportedField(recommendation.suggestedUpdates);
-                            }}
-                          >
-                            Apply
-                          </button>
+                          <div className="imported-field-recommendation-actions">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                applyModelingRecommendation(activeImportedField, recommendation);
+                              }}
+                            >
+                              Apply
+                            </button>
+                            {recommendation.workflowAction && (
+                              <button
+                                type="button"
+                                className="analyze"
+                                onClick={() => {
+                                  applyModelingRecommendation(activeImportedField, recommendation, { analyze: true });
+                                }}
+                              >
+                                {recommendation.workflowAction.label}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}

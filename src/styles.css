@@ -932,7 +932,13 @@ textarea {
   font-weight: 950;
 }
 
-.imported-field-recommendation-item button {
+.imported-field-recommendation-actions {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+}
+
+.imported-field-recommendation-actions button {
   border: 1px solid rgba(0, 139, 137, 0.2);
   border-radius: 999px;
   background: #eef8f7;
@@ -940,6 +946,19 @@ textarea {
   padding: 5px 8px;
   font-size: 0.62rem;
   font-weight: 950;
+  white-space: nowrap;
+}
+
+.imported-field-recommendation-actions button.analyze {
+  border-color: rgba(67, 86, 176, 0.22);
+  background: #4356b0;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(67, 86, 176, 0.16);
+}
+
+.imported-field-recommendation-item small.workflow-handoff-note {
+  color: #4356b0;
+  font-weight: 880;
 }
 
 .imported-variable-model-card label {

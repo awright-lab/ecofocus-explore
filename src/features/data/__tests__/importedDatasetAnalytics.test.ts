@@ -216,6 +216,11 @@ describe("imported dataset measure analytics", () => {
         expect.objectContaining({
           id: "mark_dimension",
           label: "Mark as dimension",
+          workflowAction: {
+            label: "Apply and analyze",
+            queryMode: "categorical",
+            description: "Applies the dimension model and opens the guided query for a categorical tabulation."
+          },
           suggestedUpdates: {
             type: "categorical",
             modelingRole: "candidate_dimension",
@@ -238,6 +243,11 @@ describe("imported dataset measure analytics", () => {
         expect.objectContaining({
           id: "mark_measure",
           label: "Mark as measure",
+          workflowAction: {
+            label: "Apply and build measure view",
+            queryMode: "measure",
+            description: "Applies the measure model and opens the guided query with this field as the selected measure."
+          },
           suggestedUpdates: {
             modelingRole: "candidate_measure",
             eligibleForFilter: false,
@@ -259,6 +269,31 @@ describe("imported dataset measure analytics", () => {
       recommendations: expect.arrayContaining([
         expect.objectContaining({ id: "enable_filter", suggestedUpdates: { eligibleForFilter: true } }),
         expect.objectContaining({ id: "enable_banner", suggestedUpdates: { eligibleForBanner: true } })
+      ])
+    });
+
+    const highCardinalityRecommendation = buildImportedFieldSuitability(field("zip", "ZIP code", "zip", {
+      type: "categorical",
+      modelingRole: "candidate_dimension",
+      distinctCount: 96,
+      eligibleForBanner: true
+    })).recommendations.find((recommendation) => recommendation.id === "avoid_banner");
+
+    expect(highCardinalityRecommendation).toMatchObject({
+      suggestedUpdates: { eligibleForBanner: false }
+    });
+    expect(highCardinalityRecommendation?.workflowAction).toBeUndefined();
+    expect(buildImportedFieldSuitability(field("zip", "ZIP code", "zip", {
+      type: "categorical",
+      modelingRole: "candidate_dimension",
+      distinctCount: 96,
+      eligibleForBanner: true
+    }))).toMatchObject({
+      recommendations: expect.arrayContaining([
+        expect.objectContaining({
+          id: "avoid_banner",
+          suggestedUpdates: { eligibleForBanner: false }
+        })
       ])
     });
   });

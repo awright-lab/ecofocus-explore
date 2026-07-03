@@ -88,6 +88,11 @@ export interface ImportedFieldModelingRecommendation {
   description: string;
   impact: string;
   suggestedUpdates?: Partial<Pick<ImportedDatasetField, "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>;
+  workflowAction?: {
+    label: string;
+    description: string;
+    queryMode: "categorical" | "measure";
+  };
 }
 
 function isExecutableDimension(field: ImportedDatasetField | null | undefined) {
@@ -309,6 +314,11 @@ function buildImportedFieldModelingRecommendations(
         eligibleForFilter: false,
         eligibleForSegment: false,
         eligibleForBanner: false
+      },
+      workflowAction: {
+        label: "Apply and build measure view",
+        description: "Applies the measure model and opens the guided query with this field as the selected measure.",
+        queryMode: "measure"
       }
     });
   }
@@ -325,6 +335,11 @@ function buildImportedFieldModelingRecommendations(
           eligibleForFilter: false,
           eligibleForSegment: false,
           eligibleForBanner: false
+        },
+        workflowAction: {
+          label: "Apply and build measure view",
+          description: "Applies the measure model and opens the guided query with this field as the selected measure.",
+          queryMode: "measure"
         }
       });
     } else if (context.lowCardinality) {
@@ -339,6 +354,11 @@ function buildImportedFieldModelingRecommendations(
           eligibleForFilter: true,
           eligibleForSegment: true,
           eligibleForBanner: true
+        },
+        workflowAction: {
+          label: "Apply and analyze",
+          description: "Applies the dimension model and opens the guided query for a categorical tabulation.",
+          queryMode: "categorical"
         }
       });
     } else {
@@ -362,6 +382,11 @@ function buildImportedFieldModelingRecommendations(
         modelingRole: "candidate_dimension",
         eligibleForFilter: true,
         eligibleForSegment: true
+      },
+      workflowAction: {
+        label: "Apply and analyze",
+        description: "Treats this field as categorical and opens the guided query for supported imported analysis.",
+        queryMode: "categorical"
       }
     });
   }
