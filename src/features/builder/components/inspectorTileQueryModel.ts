@@ -1,6 +1,6 @@
 import { waveComparisonChartTypes } from "../builderConstants";
-import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
-import { comparisonSummaryLabel, tileSourceKindLabel } from "./CanvasRenderers";
+import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import { comparisonSummaryLabel, resultSourceLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import type { AnalyticsQueryRequest, BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, SavedSettingOriginCue } from "../builderTypes";
@@ -13,6 +13,8 @@ export interface TileQueryStatusView {
   questionLabel: string;
   visualizationLabel: string;
   comparisonLabel: string;
+  primarySourceLabel: string;
+  isImported: boolean;
 }
 
 export interface TileQueryActionState {
@@ -132,31 +134,40 @@ function normalizedQuery(query: AnalyticsQueryRequest) {
 }
 
 export function buildTileQueryStatus(tile: DashboardTile): TileQueryStatusView {
+  const isImported = tile.result.metadataRefs.source?.kind === "imported";
   const refreshQuery = tileRefreshQuery(tile);
-  const hasPendingChanges = JSON.stringify(normalizedQuery(refreshQuery)) !== JSON.stringify(normalizedQuery(tile.result.query));
+  const hasPendingChanges = !isImported && JSON.stringify(normalizedQuery(refreshQuery)) !== JSON.stringify(normalizedQuery(tile.result.query));
 
   return {
     hasPendingChanges,
-    label: hasPendingChanges ? "Refresh needed" : "Results current",
-    description: hasPendingChanges
+    label: isImported ? "Imported result current" : hasPendingChanges ? "Refresh needed" : "Results current",
+    description: isImported
+      ? "This tile reflects a local imported-data tabulation. Imported rerun editing is not available in this seeded query panel yet."
+      : hasPendingChanges
       ? "Source settings have changed. Refresh analysis to update the selected object."
       : "The selected object reflects the current source settings.",
     sourceLabel: `${tileSourceKindLabel(tile.source)}: ${tile.source?.label ?? "Ad hoc query"}`,
-    questionLabel: getQuestionLabel(tile.query.question),
+    questionLabel: resultSourceLabel(tile.result),
     visualizationLabel: getChartTypeLabel(tile.visualization),
-    comparisonLabel: comparisonSummaryLabel(tile.query)
+    comparisonLabel: comparisonSummaryLabel(tile.query),
+    primarySourceLabel: isImported ? "Imported field" : "Question",
+    isImported
   };
 }
 
 export function buildTileQueryActionState(status: TileQueryStatusView, isLoading: boolean): TileQueryActionState {
   return {
-    canRefresh: !isLoading,
-    canSaveSettings: !isLoading && !status.hasPendingChanges,
-    refreshLabel: isLoading ? "Refreshing..." : status.hasPendingChanges ? "Refresh analysis" : "Refresh again",
-    refreshHelperText: status.hasPendingChanges
+    canRefresh: !isLoading && !status.isImported,
+    canSaveSettings: !isLoading && !status.hasPendingChanges && !status.isImported,
+    refreshLabel: status.isImported ? "Imported local result" : isLoading ? "Refreshing..." : status.hasPendingChanges ? "Refresh analysis" : "Refresh again",
+    refreshHelperText: status.isImported
+      ? "Imported tiles use local query identity and are not refreshed through the seeded survey provider."
+      : status.hasPendingChanges
       ? "Apply the edited source settings to the selected object."
       : "Results already match these settings; refresh again only if the underlying data changed.",
-    saveHelperText: status.hasPendingChanges
+    saveHelperText: status.isImported
+      ? "Seeded reusable settings do not apply to imported local results yet."
+      : status.hasPendingChanges
       ? "Refresh before saving reusable settings so saved items match the updated result."
       : "Reusable settings can be saved from the current result."
   };

@@ -19,7 +19,7 @@ import {
   type EffectPreset
 } from "../builderConstants";
 import { effectShadow, gradientCss } from "../builderHelpers";
-import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, tileSourceKindLabel } from "./CanvasRenderers";
+import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, resultSourceLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type {
@@ -236,7 +236,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   const storyGuidance = buildStoryGuidanceView(activePage, selectedTile, selectedElement, dashboardPageCount);
   const dataContext = selectedTile
     ? {
-        source: getQuestionLabel(selectedTile.query.question),
+        source: resultSourceLabel(selectedTile.result),
         banner: comparisonSummaryLabel(selectedTile.query),
         chart: getChartTypeLabel(selectedTile.visualization),
         rows: selectedTile.result.table.length,
@@ -277,7 +277,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   const groundedTakeaway = selectedTile
     ? leadValueLabel && leadRow
       ? `${leadRow.label} is the lead visible result at ${leadValueLabel}. Use the surrounding section to explain why that signal matters and what action it implies.`
-      : `This ${getChartTypeLabel(selectedTile.visualization).toLowerCase()} frames ${getQuestionLabel(selectedTile.query.question)}. Pair it with one clear interpretation and a short context note.`
+      : `This ${getChartTypeLabel(selectedTile.visualization).toLowerCase()} frames ${resultSourceLabel(selectedTile.result)}. Pair it with one clear interpretation and a short context note.`
     : selectedElement
       ? "Use this object to support the page narrative. Pair decorative or text elements with nearby analytical evidence when possible."
       : "Start with a section pattern, then add one analytical object and one interpretation block to keep the page story focused.";

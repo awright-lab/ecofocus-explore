@@ -702,7 +702,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       emptyState: bannerDisabled ? { label: "Wave comparison uses Summary", helper: "Turn off wave comparison before applying a saved banner." } : pickerView.bannerEmptyState,
       placeholder: bannerDisabled ? "Wave comparison" : pickerView.bannerOptions.length === 0 ? "No saved banners" : "Apply saved banner",
       selectLabel: "Apply saved banner",
-      disabled: bannerDisabled || pickerView.bannerOptions.length === 0,
+      disabled: queryStatus.isImported || bannerDisabled || pickerView.bannerOptions.length === 0,
       onApply: applySavedBanner,
       action:
         !bannerDisabled && pickerView.bannerOptions.length === 0
@@ -723,7 +723,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       emptyState: pickerView.filterEmptyState,
       placeholder: pickerView.filterOptions.length === 0 ? "No saved filters" : "Apply saved filter",
       selectLabel: "Apply saved filter",
-      disabled: pickerView.filterOptions.length === 0,
+      disabled: queryStatus.isImported || pickerView.filterOptions.length === 0,
       onApply: applySavedFilter,
       action:
         pickerView.filterOptions.length === 0
@@ -744,7 +744,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       emptyState: pickerView.weightEmptyState,
       placeholder: pickerView.weightOptions.length === 0 ? "No saved weights" : "Apply saved weight",
       selectLabel: "Apply saved weight",
-      disabled: pickerView.weightOptions.length === 0,
+      disabled: queryStatus.isImported || pickerView.weightOptions.length === 0,
       onApply: applySavedWeight,
       action:
         pickerView.weightOptions.length === 0
@@ -803,17 +803,24 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <small>{queryStatus.sourceLabel}</small>
         </div>
         <div className="explorer-chip-row">
-          <span className="explorer-chip">Question: {queryStatus.questionLabel}</span>
+          <span className="explorer-chip">{queryStatus.primarySourceLabel}: {queryStatus.questionLabel}</span>
           <span className="explorer-chip">Compare: {queryStatus.comparisonLabel}</span>
         </div>
-        <TileQuestionConfigSection {...props} />
+        {queryStatus.isImported ? (
+          <div className="guided-query-supported">
+            <strong>Imported local analysis</strong>
+            <small>Use Guided Data Query to create a new imported field, banner, or filter view. This selected tile keeps its imported-data identity and local result.</small>
+          </div>
+        ) : (
+          <TileQuestionConfigSection {...props} />
+        )}
       </div>
       <details className="tile-query-group disclosure">
         <summary>
           <strong>Comparison settings</strong>
           <small>Trend or compare waves</small>
         </summary>
-        <TileComparisonControls {...props} />
+        {queryStatus.isImported ? <div className="empty-state compact">Wave comparison is not supported for imported local results yet.</div> : <TileComparisonControls {...props} />}
       </details>
       <details className="tile-query-group disclosure">
         <summary>
@@ -821,7 +828,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           <small>Analysis base</small>
         </summary>
         <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
-        <TileFilterWeightControls {...props} />
+        {queryStatus.isImported ? <div className="empty-state compact">Imported filters are captured in the local result; seeded saved filters and weights do not apply.</div> : <TileFilterWeightControls {...props} />}
       </details>
       <details className="tile-query-group disclosure">
         <summary>

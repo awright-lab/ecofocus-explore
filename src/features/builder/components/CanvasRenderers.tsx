@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { datasets, defaultDataset, palettes } from "../builderConstants";
+import { bannerDimensions, datasets, defaultDataset, palettes } from "../builderConstants";
 import { backgroundStyle, effectShadow, gradientCss, normalizeGradientStops, svgLinearGradientVector } from "../builderHelpers";
 import type { AnalyticsAnnotation, AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, DatasetId, QuestionId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, GradientStop, TileAppearance } from "../../../../shared/types/dashboard";
@@ -115,6 +115,33 @@ export function getChartTypeLabel(chartType: ChartType) {
 
 export function getQuestionLabel(questionId: QuestionId) {
   return defaultDataset.questions.find((question) => question.id === questionId)?.shortLabel ?? questionId;
+}
+
+export function resultSourceLabel(result: AnalyticsQueryResponse) {
+  return result.metadataRefs.source?.kind === "imported"
+    ? result.metadataRefs.source.primaryFieldLabel
+    : getQuestionLabel(result.metadataRefs.question);
+}
+
+export function resultDatasetLabel(result: AnalyticsQueryResponse) {
+  return result.metadataRefs.source?.kind === "imported"
+    ? result.metadataRefs.source.datasetLabel
+    : datasets.find((dataset) => dataset.id === result.metadataRefs.dataset)?.wave ?? result.metadataRefs.dataset;
+}
+
+export function resultBannerLabel(result: AnalyticsQueryResponse) {
+  if (result.metadataRefs.source?.kind === "imported") {
+    return result.metadataRefs.source.bannerFieldLabel ?? "No banner";
+  }
+  return bannerDimensions.find((item) => item.id === result.metadataRefs.breakBy)?.label ?? result.metadataRefs.breakBy;
+}
+
+export function resultFilterLabel(result: AnalyticsQueryResponse) {
+  const source = result.metadataRefs.source;
+  if (source?.kind === "imported") {
+    return source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel}: ${source.filterValue}` : "No filter";
+  }
+  return "See query settings";
 }
 
 export function getPaletteId(colors: string[]) {
@@ -257,13 +284,13 @@ export function pageSummary(page: DashboardPage) {
     chartCount: visibleTiles.filter((tile) => tile.visualization !== "table").length,
     tableCount: visibleTiles.filter((tile) => tile.visualization === "table").length,
     trendTileCount: visibleTiles.filter((tile) => tile.query.comparisonMode === "wave").length,
-    primaryTopics: [...new Set(visibleTiles.map((tile) => getQuestionLabel(tile.result.metadataRefs.question)))].slice(0, 4)
+    primaryTopics: [...new Set(visibleTiles.map((tile) => resultSourceLabel(tile.result)))].slice(0, 4)
   };
 }
 
 export function tilePresentationNotes(tile: DashboardTile) {
   return [
-    `${getQuestionLabel(tile.result.metadataRefs.question)} (${tileSourceKindLabel(tile.source)})`,
+    `${resultSourceLabel(tile.result)} (${tileSourceKindLabel(tile.source)})`,
     ...(trendSpanLabel(tile.query) ? [trendSpanLabel(tile.query)!] : []),
     `Comparison: ${comparisonSummaryLabel(tile.query)}`,
     `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
@@ -807,7 +834,7 @@ export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile
       <div className="tile-scroll-area">
         <ChartView tile={tile} />
         <div className="tile-meta">
-          <span>{getQuestionLabel(result.metadataRefs.question)}</span>
+          <span>{resultSourceLabel(result)}</span>
           <span>{sampleSizeLabel(result)}</span>
           <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
           <span>{result.metric.label}</span>

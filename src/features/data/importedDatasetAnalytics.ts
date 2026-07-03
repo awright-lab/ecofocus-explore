@@ -1,5 +1,5 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
-import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, Metric } from "../../../shared/types/analytics";
+import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 
 export interface ImportedDatasetQueryConfig {
@@ -72,7 +72,22 @@ function slug(value: string, fallback: string) {
   return normalized || fallback;
 }
 
-function importedQuery(chartType: ChartType, metric: Metric): AnalyticsQueryRequest {
+function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAnalyticsSourceIdentity {
+  return {
+    kind: "imported",
+    datasetId: config.dataset.id,
+    datasetLabel: config.dataset.title,
+    primaryFieldId: config.field.id,
+    primaryFieldLabel: config.field.label,
+    bannerFieldId: config.bannerField?.id,
+    bannerFieldLabel: config.bannerField?.label,
+    filterFieldId: config.filter?.field.id,
+    filterFieldLabel: config.filter?.field.label,
+    filterValue: config.filter?.value
+  };
+}
+
+function importedQuery(chartType: ChartType, metric: Metric, sourceIdentity: ImportedAnalyticsSourceIdentity): AnalyticsQueryRequest {
   return {
     dataset: "ecofocus_2025",
     question: "Q_PACKAGING_TRUST",
@@ -83,7 +98,8 @@ function importedQuery(chartType: ChartType, metric: Metric): AnalyticsQueryRequ
     chartType,
     confidenceLevel: 0.95,
     comparisonMode: "none",
-    comparisonDatasets: []
+    comparisonDatasets: [],
+    sourceIdentity
   };
 }
 
@@ -128,7 +144,8 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   const metric = config.metric === "count"
     ? { id: "count" as const, label: "Count", valueFormat: "number" as const }
     : { id: "percent_selected" as const, label: "% of rows", valueFormat: "percent" as const };
-  const query = importedQuery(config.chartType, metric.id);
+  const sourceIdentity = importedSourceIdentity(config);
+  const query = importedQuery(config.chartType, metric.id, sourceIdentity);
   const columns = bannerValues.map((label, index) => ({
     id: config.bannerField ? `${slug(label, "banner")}_${index + 1}` : "summary",
     label
@@ -204,6 +221,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
       dataset: query.dataset,
       question: query.question,
       breakBy: query.breakBy,
+      source: sourceIdentity,
       comparisonMode: "none",
       comparisonDatasets: []
     }

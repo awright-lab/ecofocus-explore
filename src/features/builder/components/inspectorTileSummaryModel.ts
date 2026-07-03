@@ -2,9 +2,8 @@ import {
   bannerDimensions,
   filterDimensions
 } from "../builderConstants";
-import { datasets } from "../../../lib/metadata";
-import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
-import { comparisonSummaryLabel, tileSourceKindLabel } from "./CanvasRenderers";
+import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import { comparisonSummaryLabel, resultBannerLabel, resultDatasetLabel, resultFilterLabel, resultSourceLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 
 export interface InspectorTileSummaryView {
@@ -44,6 +43,7 @@ function sourceDescription(tile: DashboardTile) {
     return `Derived ${outputLabel} from ${tile.derivedOutput.sourceTitle}.`;
   }
   if (tile.source?.kind === "variableSet") return "Based on a saved variable set. Row structure and saved defaults can be refined from the source library.";
+  if (tile.source?.kind === "importedField") return "Based on an imported dataset field. Imported filters and banners are stored with this local analytical result.";
   if (tile.source?.kind === "question") return "Based on a dataset question. Query settings can be edited below for this report object.";
   return "Based on an ad hoc query. Query settings can be edited below for this report object.";
 }
@@ -73,12 +73,15 @@ function lifecycleSummary(tile: DashboardTile) {
 }
 
 export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSummaryView {
-  const bannerLabel = bannerDimensions.find((item) => item.id === tile.query.breakBy)?.label ?? tile.query.breakBy;
+  const bannerLabel = tile.result.metadataRefs.source?.kind === "imported"
+    ? resultBannerLabel(tile.result)
+    : bannerDimensions.find((item) => item.id === tile.query.breakBy)?.label ?? tile.query.breakBy;
   const metricLabel = tile.result.metric.label;
-  const questionLabel = getQuestionLabel(tile.result.metadataRefs.question);
+  const questionLabel = resultSourceLabel(tile.result);
   const weightLabel = tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted";
   const visualizationLabel = getChartTypeLabel(tile.visualization);
-  const datasetWave = datasets.find((dataset) => dataset.id === tile.query.dataset)?.wave ?? tile.query.dataset;
+  const datasetWave = resultDatasetLabel(tile.result);
+  const filterLabel = tile.result.metadataRefs.source?.kind === "imported" ? resultFilterLabel(tile.result) : filterSummary(tile);
   const lifecycle = lifecycleSummary(tile);
   const derivedOutputChips = tile.derivedOutput
     ? [
@@ -100,12 +103,12 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
     subtitle: `${visualizationLabel} from ${tileSourceKindLabel(tile.source).toLowerCase()}`,
     chips: [
       ...derivedOutputChips,
-      `Question: ${questionLabel}`,
+      `${tile.result.metadataRefs.source?.kind === "imported" ? "Imported field" : "Question"}: ${questionLabel}`,
       `Source: ${tile.source?.label ?? "Ad hoc query"}`,
       `Visualization: ${visualizationLabel}`,
       `Banner: ${bannerLabel}`,
       `Metric: ${metricLabel}`,
-      `Filter: ${filterSummary(tile)}`,
+      `Filter: ${filterLabel}`,
       `Weight: ${weightLabel}`,
       `Compare: ${comparisonSummaryLabel(tile.query)}`,
       `Dataset: ${datasetWave}`

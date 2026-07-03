@@ -23,6 +23,29 @@ export interface AnalyticsFilter {
   values: string[];
 }
 
+export interface ImportedAnalyticsSourceIdentity {
+  kind: "imported";
+  datasetId: string;
+  datasetLabel: string;
+  primaryFieldId: string;
+  primaryFieldLabel: string;
+  bannerFieldId?: string;
+  bannerFieldLabel?: string;
+  filterFieldId?: string;
+  filterFieldLabel?: string;
+  filterValue?: string;
+}
+
+export interface SeededAnalyticsSourceIdentity {
+  kind: "seeded";
+  datasetId: DatasetId;
+  datasetLabel?: string;
+  questionId: QuestionId;
+  questionLabel?: string;
+}
+
+export type AnalyticsSourceIdentity = ImportedAnalyticsSourceIdentity | SeededAnalyticsSourceIdentity;
+
 export type AnalyticsAuthoredRowKind = "option" | "net" | "topbox" | "bottombox";
 
 export interface AnalyticsAuthoredVariableSetRow {
@@ -54,6 +77,7 @@ export interface AnalyticsQueryRequest {
   comparisonMode?: ComparisonMode;
   comparisonDatasets?: DatasetId[];
   authoredVariableSet?: AnalyticsAuthoredVariableSet;
+  sourceIdentity?: AnalyticsSourceIdentity;
 }
 
 export interface AnalyticsSeries {
@@ -322,6 +346,7 @@ export interface AnalyticsQueryResponse {
     dataset: DatasetId;
     question: QuestionId;
     breakBy: BreakById;
+    source?: AnalyticsSourceIdentity;
     comparisonMode?: ComparisonMode;
     comparisonDatasets?: DatasetId[];
     authoredVariableSet?: {

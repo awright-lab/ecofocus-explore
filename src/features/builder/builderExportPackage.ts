@@ -4,12 +4,12 @@ import {
   confidenceLevelLabel,
   pageSummary,
   resultConfidenceLevel,
+  resultSourceLabel,
   sampleSizeLabel,
   slugifyFileName,
   tilePresentationNotes,
   trendSpanLabel
 } from "./components/CanvasRenderers";
-import { getQuestionLabel } from "../analytics/analyticsDisplay";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
 
 export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages: DashboardPage[]) {
@@ -85,7 +85,7 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
           exportHints: {
             slideTitle: tile.title,
             metricLabel: tile.result.metric.label,
-            questionLabel: getQuestionLabel(tile.result.metadataRefs.question),
+            questionLabel: resultSourceLabel(tile.result),
             comparison: comparisonSummaryLabel(tile.query),
             trendSpan: trendSpanLabel(tile.query),
             sampleSize: sampleSizeLabel(tile.result),
