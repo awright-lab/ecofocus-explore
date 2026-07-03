@@ -20,6 +20,7 @@ import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
 import { GuidedDataQueryModal } from "./components/GuidedDataQueryModal";
+import type { GuidedDataQueryLaunchOptions } from "./components/AnalysisAuthoringPanel";
 import {
   CanvasElementRenderer,
   TileRenderer,
@@ -190,7 +191,7 @@ export default function BuilderApp() {
     setError
   } = useEditorSessionState();
   const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
-  const [guidedDataQuery, setGuidedDataQuery] = useState<{ outputMode: "table" | "chart" } | null>(null);
+  const [guidedDataQuery, setGuidedDataQuery] = useState<Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> & Omit<GuidedDataQueryLaunchOptions, "outputMode"> | null>(null);
   const activeOutcomeMode = outcomeModeView(activeProductMode);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
   const importedDatasetMap = new Map([
@@ -876,10 +877,13 @@ export default function BuilderApp() {
     setError(null);
   }
 
-  function openGuidedDataQuery(options?: { outputMode?: "table" | "chart" }) {
+  function openGuidedDataQuery(options?: GuidedDataQueryLaunchOptions) {
     setLeftPanelView("data");
     setExploreView("source");
-    setGuidedDataQuery({ outputMode: options?.outputMode ?? "table" });
+    setGuidedDataQuery({
+      ...options,
+      outputMode: options?.outputMode ?? "table"
+    });
   }
 
   const {
@@ -1558,6 +1562,7 @@ export default function BuilderApp() {
             error
           }}
           initialOutputMode={guidedDataQuery.outputMode}
+          launchContext={guidedDataQuery}
           onClose={() => setGuidedDataQuery(null)}
         />
       )}

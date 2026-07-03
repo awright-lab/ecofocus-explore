@@ -100,6 +100,17 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     updateImportedDatasetField(activeImportedDataset.id, activeImportedField.id, updates);
   }
 
+  function openQueryForImportedField(field: ImportedDatasetField, outputMode: "table" | "chart" = "table") {
+    if (!activeImportedDataset) return;
+    setSelectedImportedFieldId(field.id);
+    openGuidedDataQuery({
+      outputMode,
+      importedDatasetId: activeImportedDataset.id,
+      importedFieldId: field.id,
+      launchSource: "field"
+    });
+  }
+
   async function handleImportFile(file: File | undefined) {
     if (!file) return;
     setIsImporting(true);
@@ -197,10 +208,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                     type="button"
                     className={activeImportedField?.id === field.id ? "mockup-library-row compact modeled-variable-row active" : "mockup-library-row compact modeled-variable-row"}
                     key={field.id}
-                    onClick={() => {
-                      setSelectedImportedFieldId(field.id);
-                      setExploreView("source");
-                    }}
+                    onClick={() => openQueryForImportedField(field)}
                   >
                     <span><DataLibraryIcon icon="variable" /></span>
                     <strong>{field.label}</strong>
@@ -222,8 +230,12 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <button type="button" className="mockup-library-link" onClick={() => setExploreView("source")}>
               Browse variables ({modeledVariables.length || filteredQuestions.length})
             </button>
-            <button type="button" className="mockup-library-link primary-link" onClick={() => openGuidedDataQuery({ outputMode: "table" })}>
-              Use variable in query
+            <button
+              type="button"
+              className="mockup-library-link primary-link"
+              onClick={() => activeImportedDataset && activeImportedField ? openQueryForImportedField(activeImportedField) : openGuidedDataQuery({ outputMode: "table" })}
+            >
+              {activeImportedField && buildImportedFieldSuitability(activeImportedField).recommendedQueryMode === "measure" ? "Build measure view" : "Create analysis from field"}
             </button>
           </section>
           {activeImportedDataset && activeImportedField && activeImportedFieldView && (

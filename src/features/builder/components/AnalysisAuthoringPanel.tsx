@@ -29,6 +29,13 @@ import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Me
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, ImportedDatasetField, ImportedDatasetRecord, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
+export type GuidedDataQueryLaunchOptions = {
+  outputMode?: "table" | "chart";
+  importedDatasetId?: string;
+  importedFieldId?: string;
+  launchSource?: "field" | "general";
+};
+
 export type AnalysisAuthoringPanelProps = {
   leftPanelView: LeftPanelView;
   setLeftPanelView: (view: LeftPanelView) => void;
@@ -98,7 +105,7 @@ export type AnalysisAuthoringPanelProps = {
     fieldId: string,
     updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
   ) => void;
-  openGuidedDataQuery: (options?: { outputMode?: "table" | "chart" }) => void;
+  openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
   selectedDataSource: { kind: "question" | "variableSet"; id: string };

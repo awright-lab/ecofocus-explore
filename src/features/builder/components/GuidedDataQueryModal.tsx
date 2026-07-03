@@ -13,7 +13,7 @@ import {
   getImportedDatasetQuerySupport as getImportedExecutionSupport,
   importedFieldValues
 } from "../../data/importedDatasetAnalytics";
-import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
+import type { AnalysisAuthoringPanelProps, GuidedDataQueryLaunchOptions } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
 type GuidedOutputMode = "table" | "chart";
@@ -26,10 +26,12 @@ function supportedChartType(chartTypes: ChartType[]) {
 export function GuidedDataQueryModal({
   props,
   initialOutputMode = "table",
+  launchContext,
   onClose
 }: {
   props: AnalysisAuthoringPanelProps;
   initialOutputMode?: GuidedOutputMode;
+  launchContext?: GuidedDataQueryLaunchOptions;
   onClose: () => void;
 }) {
   const {
@@ -63,15 +65,25 @@ export function GuidedDataQueryModal({
     addTileFromImportedDatasetField,
     isLoading
   } = props;
-  const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(importedDatasets.length ? "imported" : "seeded");
-  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(importedDatasets[0]?.id ?? "");
-  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(firstImportedDimensionField(importedDatasets[0])?.id ?? "");
+  const launchDataset = importedDatasets.find((dataset) => dataset.id === launchContext?.importedDatasetId) ?? importedDatasets[0] ?? null;
+  const launchField = launchDataset?.fields.find((field) => field.id === launchContext?.importedFieldId) ?? null;
+  const launchFieldSuitability = launchField ? buildImportedFieldSuitability(launchField) : null;
+  const launchPrimaryField = launchFieldSuitability?.recommendedQueryMode === "categorical"
+    ? launchField
+    : firstImportedDimensionField(launchDataset);
+  const launchMeasureField = launchFieldSuitability?.recommendedQueryMode === "measure"
+    ? launchField
+    : firstImportedMeasureField(launchDataset);
+  const launchQueryMode: ImportedQueryMode = launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
+  const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
+  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? "");
+  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchPrimaryField?.id ?? "");
   const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
   const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
   const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState("all");
-  const [importedMetric, setImportedMetric] = useState<Metric>("percent_selected");
-  const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>("categorical");
-  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(firstImportedMeasureField(importedDatasets[0])?.id ?? "none");
+  const [importedMetric, setImportedMetric] = useState<Metric>(launchQueryMode === "measure" ? "average" : "percent_selected");
+  const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>(launchQueryMode);
+  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(launchMeasureField?.id ?? "none");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
   const importedDataset = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
@@ -169,8 +181,12 @@ export function GuidedDataQueryModal({
         <header className="guided-query-header">
           <div>
             <p className="workspace-home-kicker">Guided Data Query</p>
-            <h2>Start with a table, then design the view.</h2>
-            <small>Choose the data source and analytical shape before placing it on the canvas.</small>
+            <h2>{launchContext?.launchSource === "field" && launchField ? `Building analysis from: ${launchField.label}` : "Start with a table, then design the view."}</h2>
+            <small>
+              {launchContext?.launchSource === "field" && launchFieldSuitability
+                ? `${launchFieldSuitability.helperText} You can still change the query shape before placing it on the canvas.`
+                : "Choose the data source and analytical shape before placing it on the canvas."}
+            </small>
           </div>
           <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query">×</button>
         </header>
