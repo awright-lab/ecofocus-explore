@@ -202,4 +202,64 @@ describe("imported dataset measure analytics", () => {
       }
     });
   });
+
+  it("recommends concrete modeling changes for imported fields", () => {
+    expect(buildImportedFieldSuitability(field("raw_segment", "Raw segment", "raw_segment", {
+      type: "text",
+      modelingRole: "raw_variable",
+      distinctCount: 4,
+      eligibleForFilter: false,
+      eligibleForSegment: false,
+      eligibleForBanner: false
+    }))).toMatchObject({
+      recommendations: expect.arrayContaining([
+        expect.objectContaining({
+          id: "mark_dimension",
+          label: "Mark as dimension",
+          suggestedUpdates: {
+            type: "categorical",
+            modelingRole: "candidate_dimension",
+            eligibleForFilter: true,
+            eligibleForSegment: true,
+            eligibleForBanner: true
+          }
+        })
+      ])
+    });
+
+    expect(buildImportedFieldSuitability(field("raw_spend", "Raw spend", "raw_spend", {
+      type: "numeric",
+      modelingRole: "raw_variable",
+      eligibleForFilter: true,
+      eligibleForSegment: true,
+      eligibleForBanner: true
+    }))).toMatchObject({
+      recommendations: expect.arrayContaining([
+        expect.objectContaining({
+          id: "mark_measure",
+          label: "Mark as measure",
+          suggestedUpdates: {
+            modelingRole: "candidate_measure",
+            eligibleForFilter: false,
+            eligibleForSegment: false,
+            eligibleForBanner: false
+          }
+        })
+      ])
+    });
+
+    expect(buildImportedFieldSuitability(field("small_dimension", "Small dimension", "small_dimension", {
+      type: "categorical",
+      modelingRole: "candidate_dimension",
+      distinctCount: 6,
+      eligibleForFilter: false,
+      eligibleForSegment: true,
+      eligibleForBanner: false
+    }))).toMatchObject({
+      recommendations: expect.arrayContaining([
+        expect.objectContaining({ id: "enable_filter", suggestedUpdates: { eligibleForFilter: true } }),
+        expect.objectContaining({ id: "enable_banner", suggestedUpdates: { eligibleForBanner: true } })
+      ])
+    });
+  });
 });

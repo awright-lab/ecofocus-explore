@@ -877,6 +877,71 @@ textarea {
   line-height: 1.35;
 }
 
+.imported-field-recommendations-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(67, 86, 176, 0.14);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  padding: 9px;
+}
+
+.imported-field-recommendations-card__header {
+  display: grid;
+  gap: 2px;
+}
+
+.imported-field-recommendations-card__header span {
+  color: #4356b0;
+  font-size: 0.62rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.imported-field-recommendations-card__header strong {
+  color: #182934;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.imported-field-recommendation-list {
+  display: grid;
+  gap: 7px;
+}
+
+.imported-field-recommendation-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  border: 1px solid rgba(220, 232, 234, 0.95);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.imported-field-recommendation-item div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.imported-field-recommendation-item strong {
+  color: #263945;
+  font-size: 0.7rem;
+  font-weight: 950;
+}
+
+.imported-field-recommendation-item button {
+  border: 1px solid rgba(0, 139, 137, 0.2);
+  border-radius: 999px;
+  background: #eef8f7;
+  color: #007a73;
+  padding: 5px 8px;
+  font-size: 0.62rem;
+  font-weight: 950;
+}
+
 .imported-variable-model-card label {
   display: grid;
   gap: 5px;
@@ -4344,6 +4409,15 @@ h2 {
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.modeled-variable-row__body > small.field-modeling-recommendation {
+  overflow: hidden;
+  color: #4356b0;
+  font-size: 0.55rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modeled-variable-row__actions {

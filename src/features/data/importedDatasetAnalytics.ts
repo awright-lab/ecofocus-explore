@@ -40,6 +40,7 @@ export interface ImportedFieldSuitabilityView {
   helperText: string;
   recommendedQueryMode: "categorical" | "measure" | "modeling";
   readiness: ImportedFieldReadinessView;
+  recommendations: ImportedFieldModelingRecommendation[];
 }
 
 export interface ImportedQueryRecommendationView {
@@ -68,6 +69,25 @@ export interface ImportedFieldReadinessView {
   reason: string;
   bestUse: string;
   recommendedAction: string;
+}
+
+export interface ImportedFieldModelingRecommendation {
+  id:
+    | "mark_dimension"
+    | "mark_measure"
+    | "change_type_categorical"
+    | "change_type_numeric"
+    | "enable_filter"
+    | "enable_banner"
+    | "avoid_measure"
+    | "avoid_banner"
+    | "use_grouping"
+    | "unsupported_date"
+    | "review_values";
+  label: string;
+  description: string;
+  impact: string;
+  suggestedUpdates?: Partial<Pick<ImportedDatasetField, "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>;
 }
 
 function isExecutableDimension(field: ImportedDatasetField | null | undefined) {
@@ -150,6 +170,14 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
   const isMeasure = isExecutableMeasure(field);
   const hasRows = field.nonEmptyCount > 0;
   const isHighCardinalityDimension = isDimension && field.distinctCount > 40;
+  const lowCardinality = field.distinctCount > 0 && field.distinctCount <= 20;
+  const recommendations = buildImportedFieldModelingRecommendations(field, {
+    isDimension,
+    isMeasure,
+    hasRows,
+    isHighCardinalityDimension,
+    lowCardinality
+  });
   const badges = [
     ...(isDimension ? ["Dimension"] : []),
     ...(isMeasure ? ["Measure"] : []),
@@ -162,6 +190,7 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
       badges,
       helperText: "Best used as a numeric measure with a categorical grouping field.",
       recommendedQueryMode: "measure",
+      recommendations,
       readiness: {
         status: hasRows ? "ready_measure" : "unsupported",
         label: hasRows ? "Ready for measure views" : "No usable values",
@@ -181,6 +210,7 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
         badges: badges.length ? badges : ["Dimension"],
         helperText: "Usable as a grouping field, but many distinct values may make simple charts harder to read.",
         recommendedQueryMode: "categorical",
+        recommendations,
         readiness: {
           status: "limited",
           label: "Limited query support",
@@ -198,6 +228,7 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
         ? "Best used as a grouping field or one-banner crosstab dimension."
         : "Best used as a grouping field for imported tabulations.",
       recommendedQueryMode: "categorical",
+      recommendations,
       readiness: {
         status: hasRows ? "ready_dimension" : "unsupported",
         label: hasRows ? "Ready for analysis" : "No usable values",
@@ -221,6 +252,7 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
       ? "Date fields need additional modeling before imported analysis can use them."
       : "Refine this field's type or role before using it in an imported query.",
     recommendedQueryMode: "modeling",
+    recommendations,
     readiness: {
       status: unsupportedDate ? "unsupported" : "needs_modeling",
       label: unsupportedDate ? "Not suitable yet" : "Needs modeling review",
@@ -234,6 +266,161 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
       recommendedAction: "Model field"
     }
   };
+}
+
+function buildImportedFieldModelingRecommendations(
+  field: ImportedDatasetField,
+  context: {
+    isDimension: boolean;
+    isMeasure: boolean;
+    hasRows: boolean;
+    isHighCardinalityDimension: boolean;
+    lowCardinality: boolean;
+  }
+): ImportedFieldModelingRecommendation[] {
+  if (!context.hasRows) {
+    return [{
+      id: "review_values",
+      label: "Review source values",
+      description: "This field has no non-empty values, so imported analysis cannot calculate a useful result yet.",
+      impact: "Check the imported file or choose another field before creating analysis."
+    }];
+  }
+
+  if (field.type === "date" || field.modelingRole === "candidate_date") {
+    return [{
+      id: "unsupported_date",
+      label: "Keep as source metadata",
+      description: "Date fields are not yet supported by the imported query engine for trends or date grouping.",
+      impact: "Use a categorical period field for now, or keep this field out of imported analysis."
+    }];
+  }
+
+  const recommendations: ImportedFieldModelingRecommendation[] = [];
+
+  if (field.type === "numeric" && field.modelingRole !== "candidate_measure") {
+    recommendations.push({
+      id: "mark_measure",
+      label: "Mark as measure",
+      description: "This numeric field can become an average or sum when grouped by a categorical field.",
+      impact: "Clarifies that this field should be aggregated, not used as a banner or segment.",
+      suggestedUpdates: {
+        modelingRole: "candidate_measure",
+        eligibleForFilter: false,
+        eligibleForSegment: false,
+        eligibleForBanner: false
+      }
+    });
+  }
+
+  if (!context.isDimension && !context.isMeasure) {
+    if (field.type === "numeric") {
+      recommendations.push({
+        id: "mark_measure",
+        label: "Mark as measure",
+        description: "This numeric field can become an average or sum when grouped by a categorical field.",
+        impact: "Unlocks imported measure views for averages and sums.",
+        suggestedUpdates: {
+          modelingRole: "candidate_measure",
+          eligibleForFilter: false,
+          eligibleForSegment: false,
+          eligibleForBanner: false
+        }
+      });
+    } else if (context.lowCardinality) {
+      recommendations.push({
+        id: "mark_dimension",
+        label: "Mark as dimension",
+        description: "This field has a manageable number of values, so it can work as a grouping field.",
+        impact: "Unlocks tabulations, simple charts, filters, segments, and one-banner crosstabs.",
+        suggestedUpdates: {
+          type: "categorical",
+          modelingRole: "candidate_dimension",
+          eligibleForFilter: true,
+          eligibleForSegment: true,
+          eligibleForBanner: true
+        }
+      });
+    } else {
+      recommendations.push({
+        id: "avoid_measure",
+        label: "Do not use as a measure",
+        description: "This text field has many distinct values and is not a numeric measure candidate.",
+        impact: "Use it as reference text, or recode it into fewer categories before analysis."
+      });
+    }
+  }
+
+  if (field.type === "text" && context.lowCardinality && field.modelingRole !== "candidate_dimension") {
+    recommendations.push({
+      id: "change_type_categorical",
+      label: "Treat as categorical",
+      description: "Low-cardinality text fields usually work best as categories, not raw text.",
+      impact: "Makes this field query-ready for grouping and filtering.",
+      suggestedUpdates: {
+        type: "categorical",
+        modelingRole: "candidate_dimension",
+        eligibleForFilter: true,
+        eligibleForSegment: true
+      }
+    });
+  }
+
+  if (field.type === "text" && field.distinctCount > 40) {
+    recommendations.push({
+      id: "use_grouping",
+      label: "Refine categories first",
+      description: "This field has many distinct text values, which can make imported charts noisy.",
+      impact: "Use a table for review or recode into fewer categories before charting."
+    });
+  }
+
+  if (context.isDimension && !context.isHighCardinalityDimension) {
+    if (!field.eligibleForFilter) {
+      recommendations.push({
+        id: "enable_filter",
+        label: "Enable filter use",
+        description: "This modeled dimension can safely narrow imported queries.",
+        impact: "Lets users filter imported tabulations by this field.",
+        suggestedUpdates: { eligibleForFilter: true }
+      });
+    }
+    if (!field.eligibleForBanner && field.distinctCount <= 12) {
+      recommendations.push({
+        id: "enable_banner",
+        label: "Enable banner use",
+        description: "This field has few enough categories to work as a one-banner crosstab.",
+        impact: "Lets users compare imported results across this field.",
+        suggestedUpdates: { eligibleForBanner: true }
+      });
+    }
+  }
+
+  if (context.isHighCardinalityDimension && field.eligibleForBanner) {
+    recommendations.push({
+      id: "avoid_banner",
+      label: "Avoid banner use",
+      description: "High-cardinality banner fields create wide, hard-to-read crosstabs.",
+      impact: "Keeps imported crosstabs readable; use this field as a table grouping instead.",
+      suggestedUpdates: { eligibleForBanner: false }
+    });
+  }
+
+  if (context.isMeasure && (field.eligibleForBanner || field.eligibleForFilter || field.eligibleForSegment)) {
+    recommendations.push({
+      id: "use_grouping",
+      label: "Use as measure, not grouping",
+      description: "Numeric measure fields should be aggregated by a separate dimension rather than used as filters or banners.",
+      impact: "Keeps imported measure views clean and avoids misleading crosstabs.",
+      suggestedUpdates: {
+        eligibleForFilter: false,
+        eligibleForSegment: false,
+        eligibleForBanner: false
+      }
+    });
+  }
+
+  return recommendations.slice(0, 3);
 }
 
 export function firstImportedDimensionField(dataset: ImportedDatasetRecord | null | undefined) {

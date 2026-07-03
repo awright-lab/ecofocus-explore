@@ -206,6 +206,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 const suitability = buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const analysisLabel = suitability.recommendedQueryMode === "measure" ? "Measure" : suitability.recommendedQueryMode === "modeling" ? "Review" : "Analyze";
+                const topRecommendation = suitability.recommendations[0];
                 return (
                   <div
                     className={isSelectedForModeling ? "mockup-library-row compact modeled-variable-row split active" : "mockup-library-row compact modeled-variable-row split"}
@@ -223,6 +224,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                       </span>
                       {suitability.readiness.tone !== "ready" && suitability.readiness.tone !== "measure" && (
                         <small className="field-readiness-reason">{suitability.readiness.recommendedAction}: {suitability.readiness.reason}</small>
+                      )}
+                      {topRecommendation && (
+                        <small className="field-modeling-recommendation">Try: {topRecommendation.label}</small>
                       )}
                     </div>
                     <div className="modeled-variable-row__actions" aria-label={`Actions for ${field.label}`}>
@@ -275,6 +279,35 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   </div>
                   <p>{activeImportedFieldSuitability.readiness.reason}</p>
                   <small>Best used as: {activeImportedFieldSuitability.readiness.bestUse}</small>
+                </div>
+              )}
+              {activeImportedFieldSuitability && activeImportedFieldSuitability.recommendations.length > 0 && (
+                <div className="imported-field-recommendations-card">
+                  <div className="imported-field-recommendations-card__header">
+                    <span>Recommended next step</span>
+                    <strong>{activeImportedFieldSuitability.recommendations[0].label}</strong>
+                  </div>
+                  <div className="imported-field-recommendation-list">
+                    {activeImportedFieldSuitability.recommendations.map((recommendation) => (
+                      <div className="imported-field-recommendation-item" key={recommendation.id}>
+                        <div>
+                          <strong>{recommendation.label}</strong>
+                          <small>{recommendation.description}</small>
+                          <small>{recommendation.impact}</small>
+                        </div>
+                        {recommendation.suggestedUpdates && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (recommendation.suggestedUpdates) updateActiveImportedField(recommendation.suggestedUpdates);
+                            }}
+                          >
+                            Apply
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <label>
