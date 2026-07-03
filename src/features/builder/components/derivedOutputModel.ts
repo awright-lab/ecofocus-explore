@@ -936,11 +936,17 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
   const metadata = buildDerivedOutputMetadata(tile, kind, config);
   if (!metadata) return null;
 
-  const source = tile.source ?? {
+  const fallbackSource = {
     kind: "question" as const,
     id: tile.query.question,
     label: tile.title || tile.name || tile.query.question
   };
+  const source =
+    tile.source?.kind === "variableSet"
+      ? { kind: "variableSet" as const, id: tile.source.id, label: tile.source.label }
+      : tile.source?.kind === "question"
+        ? { kind: "question" as const, id: tile.source.id, label: tile.source.label }
+        : fallbackSource;
   const outputLabel = derivedOutputKindLabel(kind);
   const structureLabel = kind === "top_n_extract" || kind === "bottom_n_extract"
     ? `${metadata.rowCount ?? 0} rows from ${metadata.columnLabel}`
@@ -990,11 +996,17 @@ export function buildDerivedDefinitionFromDerivedTile(
 ): SavedDerivedDefinition | null {
   const output = tile.derivedOutput;
   if (!output) return null;
-  const source = tile.source ?? {
+  const fallbackSource = {
     kind: "question" as const,
     id: tile.query.question,
     label: output.sourceTitle || tile.query.question
   };
+  const source =
+    tile.source?.kind === "variableSet"
+      ? { kind: "variableSet" as const, id: tile.source.id, label: tile.source.label }
+      : tile.source?.kind === "question"
+        ? { kind: "question" as const, id: tile.source.id, label: tile.source.label }
+        : fallbackSource;
   const outputLabel = derivedOutputKindLabel(output.kind);
   const structureLabel = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`

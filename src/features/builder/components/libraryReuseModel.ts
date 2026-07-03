@@ -233,11 +233,17 @@ export function buildAnalyticalTemplateFromTile(
 ): SavedAnalyticalTemplate {
   const question = defaultDataset.questions.find((item) => item.id === tile.query.question) ?? defaultQuestion;
   const title = tile.title.trim() || tile.name.trim() || question.shortLabel;
-  const source = tile.source ?? {
+  const fallbackSource = {
     kind: "question" as const,
     id: question.id,
     label: question.shortLabel
   };
+  const source =
+    tile.source?.kind === "variableSet"
+      ? { kind: "variableSet" as const, id: tile.source.id, label: tile.source.label }
+      : tile.source?.kind === "question"
+        ? { kind: "question" as const, id: tile.source.id, label: tile.source.label }
+        : fallbackSource;
   const query = {
     ...tile.query,
     chartType: tile.visualization,

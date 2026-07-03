@@ -195,6 +195,7 @@ export function normalizeImportedDataset(dataset: Partial<ImportedDatasetRecord>
     rowCount: dataset.rowCount ?? dataset.previewRows?.length ?? 0,
     fieldCount: dataset.fieldCount ?? dataset.fields?.length ?? 0,
     fields: (dataset.fields ?? []).map(normalizeImportedDatasetField),
+    rows: dataset.rows ?? dataset.previewRows ?? [],
     previewRows: dataset.previewRows ?? [],
     modelingStatus: dataset.modelingStatus ?? "initial_model",
     notes: dataset.notes ?? []

@@ -124,6 +124,7 @@ export async function importDatasetFile(file: File): Promise<DatasetImportResult
     dataRows.length
   ));
   const previewRows = dataRows.slice(0, 25).map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
+  const rows = dataRows.map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
 
   return {
     dataset: {
@@ -136,6 +137,7 @@ export async function importDatasetFile(file: File): Promise<DatasetImportResult
       rowCount: dataRows.length,
       fieldCount: fields.length,
       fields,
+      rows,
       previewRows,
       modelingStatus: "initial_model",
       notes: [

@@ -239,7 +239,9 @@ export function trendSpanLabel(query: AnalyticsQueryRequest) {
 
 export function tileSourceKindLabel(source: DashboardTile["source"]) {
   if (!source) return "Query";
-  return source.kind === "variableSet" ? "Variable set" : "Question";
+  if (source.kind === "variableSet") return "Variable set";
+  if (source.kind === "importedField") return "Imported field";
+  return "Question";
 }
 
 export function slugifyFileName(value: string) {

@@ -166,6 +166,12 @@ export type AnalysisAuthoringPanelProps = {
   addTileFromQuery: () => void;
   addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
+  addTileFromImportedDatasetField: (
+    dataset: ImportedDatasetRecord,
+    field: ImportedDatasetField,
+    chartType: ChartType,
+    metric: Metric
+  ) => Promise<string | null>;
   createSourceDrivenSmartStarter: (starterId: SmartCompositionStarterId) => Promise<{ tileId: string | null; label: string; contextLabel: string; placement: CompositionPlacementSummary } | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;
   addTileFromSegmentProfile: (segment: SavedSegmentProfile) => Promise<string | null>;

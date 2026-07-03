@@ -5,6 +5,7 @@ import {
   buildImportedDatasetStructureSummary,
   importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
+import { getImportedDatasetQuerySupport as getImportedExecutionSupport } from "../../data/importedDatasetAnalytics";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
@@ -51,22 +52,27 @@ export function GuidedDataQueryModal({
     chartType,
     setChartType,
     addTileFromSourceWithVisualization,
+    addTileFromImportedDatasetField,
     isLoading
   } = props;
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(importedDatasets.length ? "imported" : "seeded");
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(importedDatasets[0]?.id ?? "");
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(importedDatasets[0]?.fields[0]?.id ?? "");
+  const [importedMetric, setImportedMetric] = useState<Metric>("percent_selected");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
   const importedDataset = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
   const importedField = importedDataset?.fields.find((field) => field.id === selectedImportedFieldId) ?? importedDataset?.fields[0] ?? null;
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
+  const importedSupport = getImportedExecutionSupport(importedDataset, importedField);
   const questionOptions = useMemo(() => filteredQuestions.slice(0, 60), [filteredQuestions]);
   const selectedChart = outputMode === "table" ? "table" : chartType === "table" ? supportedChartType(selectedChartTypes) : chartType;
-  const canCreate = datasetMode === "seeded";
+  const canCreate = datasetMode === "seeded" || importedSupport.executable;
   const querySummary =
     datasetMode === "seeded"
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
-      : `Imported field ${importedField?.label ?? "selected variable"} is modeled, but imported-dataset query execution is not enabled yet.`;
+      : importedSupport.executable
+        ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedField?.label ?? "selected imported field"} from ${importedDataset?.title ?? "imported data"}`
+        : `Imported field ${importedField?.label ?? "selected variable"} is modeled, but not executable for the first imported-query path.`;
   const filterSummary =
     selectedFilterDimension && filterValue !== "all"
       ? `${selectedFilterDimension.label}: ${selectedFilterDimension.values.find((item) => item.id === filterValue)?.label ?? filterValue}`
@@ -78,6 +84,12 @@ export function GuidedDataQueryModal({
   async function createOutput(mode: GuidedOutputMode) {
     if (!canCreate) return;
     const nextChartType = mode === "table" ? "table" : selectedChart;
+    if (datasetMode === "imported") {
+      if (!importedDataset || !importedField) return;
+      const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, importedMetric);
+      if (created) onClose();
+      return;
+    }
     const created = await addTileFromSourceWithVisualization(nextChartType);
     if (created) onClose();
   }
@@ -270,10 +282,40 @@ export function GuidedDataQueryModal({
                 )}
               </>
             ) : (
-              <div className="guided-query-unsupported">
-                <strong>Imported data query execution is coming next.</strong>
-                <small>This field is modeled for filters, segments, and banners, but canvas table/chart creation still uses the supported EcoFocus query engine in this pass.</small>
-              </div>
+              <>
+                {importedSupport.executable ? (
+                  <>
+                    <div className="guided-query-field-grid">
+                      <label>
+                        Metric
+                        <select value={importedMetric} onChange={(event) => setImportedMetric(event.target.value as Metric)}>
+                          <option value="percent_selected">% of rows</option>
+                          <option value="count">Count</option>
+                        </select>
+                      </label>
+                      {outputMode === "chart" && (
+                        <label>
+                          Chart type
+                          <select value={selectedChart} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                            <option value="vertical_bar">Column</option>
+                            <option value="horizontal_bar">Horizontal bar</option>
+                            <option value="donut">Donut</option>
+                          </select>
+                        </label>
+                      )}
+                    </div>
+                    <div className="guided-query-supported">
+                      <strong>{importedSupport.reason}</strong>
+                      <small>Filters, banners, weights, wave comparisons, and significance remain unavailable for imported datasets in this first executable path.</small>
+                    </div>
+                  </>
+                ) : (
+                  <div className="guided-query-unsupported">
+                    <strong>Modeled-only for now.</strong>
+                    <small>{importedSupport.reason}</small>
+                  </div>
+                )}
+              </>
             )}
           </section>
 
@@ -283,14 +325,14 @@ export function GuidedDataQueryModal({
             <ul>
               <li>Banner: {datasetMode === "seeded" ? bannerSummary : importedSummary.bannerLabel}</li>
               <li>Filter: {datasetMode === "seeded" ? filterSummary : importedSummary.filterLabel}</li>
-              <li>Metric: {datasetMode === "seeded" ? metricSummary : "Not executable yet"}</li>
-              <li>Weight: {datasetMode === "seeded" ? weightSummary : "Not executable yet"}</li>
+              <li>Metric: {datasetMode === "seeded" ? metricSummary : importedMetric === "count" ? "Count" : "% of rows"}</li>
+              <li>Weight: {datasetMode === "seeded" ? weightSummary : "Unweighted local rows"}</li>
             </ul>
           </aside>
         </div>
 
         <footer className="guided-query-footer">
-          <small>{canCreate ? "The table/chart will be placed on the current slide and selected for editing." : "Imported datasets are modeled here; execution support arrives in a later imported-query pass."}</small>
+          <small>{canCreate ? "The table/chart will be placed on the current slide and selected for editing." : importedSupport.reason}</small>
           <div>
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button type="button" className="secondary" onClick={() => void createOutput("table")} disabled={!canCreate || isLoading}>

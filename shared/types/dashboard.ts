@@ -96,9 +96,11 @@ export interface DashboardTile {
   name: string;
   title: string;
   source?: {
-    kind: "question" | "variableSet";
+    kind: "question" | "variableSet" | "importedField";
     id: string;
     label: string;
+    datasetId?: string;
+    fieldId?: string;
   };
   analysisLifecycle?: {
     role: "canonical" | "derived";
@@ -572,6 +574,7 @@ export interface ImportedDatasetRecord {
   rowCount: number;
   fieldCount: number;
   fields: ImportedDatasetField[];
+  rows: Array<Record<string, string>>;
   previewRows: Array<Record<string, string>>;
   modelingStatus: "initial_model";
   notes: string[];

@@ -384,11 +384,17 @@ export default function BuilderApp() {
             .map((datasetId) => comparisonDatasetOptions.find((item) => item.id === datasetId)?.label ?? datasetId)
             .join(", ")
         : "";
-    const source = selectedTile.source ?? {
+    const fallbackSource = {
       kind: "question" as const,
       id: selectedTileQuestion.id,
       label: selectedTileQuestion.shortLabel
     };
+    const source =
+      selectedTile.source?.kind === "variableSet"
+        ? { kind: "variableSet" as const, id: selectedTile.source.id, label: selectedTile.source.label }
+        : selectedTile.source?.kind === "question"
+          ? { kind: "question" as const, id: selectedTile.source.id, label: selectedTile.source.label }
+          : fallbackSource;
     const nextTemplate: SavedAnalyticalTemplate = {
       id: `analysis_template_${Date.now()}`,
       datasetId: selectedTile.query.dataset,
@@ -802,6 +808,7 @@ export default function BuilderApp() {
     addTileFromQuery,
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
+    addTileFromImportedDatasetField,
     addTileFromAnalyticalTemplate,
     addTileFromSegmentProfile,
     createSourceDrivenSmartStarter,
@@ -1224,6 +1231,7 @@ export default function BuilderApp() {
           addTileFromQuery={addTileFromQuery}
           addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
           addTileFromVariableSet={addTileFromVariableSet}
+          addTileFromImportedDatasetField={addTileFromImportedDatasetField}
           createSourceDrivenSmartStarter={createSourceDrivenSmartStarter}
           addTileFromAnalyticalTemplate={addTileFromAnalyticalTemplate}
           addTileFromSegmentProfile={addTileFromSegmentProfile}
@@ -1526,6 +1534,7 @@ export default function BuilderApp() {
             addTileFromQuery,
             addTileFromSourceWithVisualization,
             addTileFromVariableSet,
+            addTileFromImportedDatasetField,
             createSourceDrivenSmartStarter,
             addTileFromAnalyticalTemplate,
             addTileFromSegmentProfile,

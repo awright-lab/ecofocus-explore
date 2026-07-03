@@ -1096,7 +1096,8 @@ textarea {
 }
 
 .guided-query-variable-card,
-.guided-query-unsupported {
+.guided-query-unsupported,
+.guided-query-supported {
   display: grid;
   gap: 4px;
   border: 1px solid rgba(214, 225, 232, 0.95);
@@ -1105,8 +1106,14 @@ textarea {
   padding: 10px;
 }
 
+.guided-query-supported {
+  border-color: rgba(20, 184, 166, 0.24);
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.95), rgba(240, 253, 250, 0.9));
+}
+
 .guided-query-variable-card strong,
-.guided-query-unsupported strong {
+.guided-query-unsupported strong,
+.guided-query-supported strong {
   color: #192a34;
   font-size: 0.82rem;
   font-weight: 950;
@@ -1114,7 +1121,8 @@ textarea {
 
 .guided-query-variable-card span,
 .guided-query-variable-card small,
-.guided-query-unsupported small {
+.guided-query-unsupported small,
+.guided-query-supported small {
   color: #637482;
   font-size: 0.72rem;
   font-weight: 760;

@@ -9,6 +9,7 @@ import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } fro
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
+import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 import {
   buildSmartCompositionBlockFromTile,
   createObjectsFromCompositionBlock,
@@ -16,8 +17,8 @@ import {
   type CompositionStarterContext,
   type SmartCompositionStarterId
 } from "../components/compositionBlockModel";
-import type { AnalyticsQueryRequest, ChartType, FilterFieldId } from "../../../../shared/types/analytics";
-import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
+import type { AnalyticsQueryRequest, ChartType, FilterFieldId, Metric } from "../../../../shared/types/analytics";
+import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, ImportedDatasetField, ImportedDatasetRecord, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
 
 type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
@@ -272,6 +273,65 @@ export function useBuilderTileCommands({
       undefined,
       { kind: "variableSet", id: variableSet.id, label: variableSet.label }
     );
+  }
+
+  async function addTileFromImportedDatasetField(
+    dataset: ImportedDatasetRecord,
+    field: ImportedDatasetField,
+    nextVisualization: ChartType,
+    nextMetric: Metric
+  ) {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = runImportedDatasetQuery({
+        dataset,
+        field,
+        chartType: nextVisualization,
+        metric: nextMetric
+      });
+      const tileId = makeTileId();
+      const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
+      const sourceLabel = `${dataset.title}: ${field.label}`;
+      const tile: DashboardTile = {
+        id: tileId,
+        name: field.label,
+        title: field.label,
+        source: {
+          kind: "importedField",
+          id: `${dataset.id}:${field.id}`,
+          label: field.label,
+          datasetId: dataset.id,
+          fieldId: field.id
+        },
+        analysisLifecycle: {
+          role: "canonical",
+          canonicalTileId: tileId,
+          canonicalLabel: sourceLabel
+        },
+        locked: false,
+        hidden: false,
+        layout: tileInsertionLayout(activePage, undefined, selectedLayout),
+        query: response.query,
+        visualization: nextVisualization,
+        appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
+        result: response
+      };
+
+      setDashboard((current) => ({
+        ...current,
+        status: "draft",
+        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
+      }));
+      selectTile(tile.id);
+      return tile.id;
+    } catch (queryError) {
+      setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this imported-data view.");
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function addTileFromAnalyticalTemplate(template: SavedAnalyticalTemplate) {
@@ -730,6 +790,7 @@ export function useBuilderTileCommands({
     addTileFromQuery,
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
+    addTileFromImportedDatasetField,
     addTileFromAnalyticalTemplate,
     addTileFromSegmentProfile,
     createSourceDrivenSmartStarter,
