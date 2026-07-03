@@ -39,6 +39,7 @@ export interface ImportedFieldSuitabilityView {
   badges: string[];
   helperText: string;
   recommendedQueryMode: "categorical" | "measure" | "modeling";
+  readiness: ImportedFieldReadinessView;
 }
 
 export interface ImportedQueryRecommendationView {
@@ -51,6 +52,22 @@ export interface ImportedQueryRecommendationView {
   bannerFieldId: string | null;
   measureFieldId: string | null;
   recommended: boolean;
+}
+
+export type ImportedFieldReadinessStatus =
+  | "ready_dimension"
+  | "ready_measure"
+  | "needs_modeling"
+  | "limited"
+  | "unsupported";
+
+export interface ImportedFieldReadinessView {
+  status: ImportedFieldReadinessStatus;
+  label: string;
+  tone: "ready" | "measure" | "attention" | "limited" | "blocked";
+  reason: string;
+  bestUse: string;
+  recommendedAction: string;
 }
 
 function isExecutableDimension(field: ImportedDatasetField | null | undefined) {
@@ -131,6 +148,8 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
 export function buildImportedFieldSuitability(field: ImportedDatasetField): ImportedFieldSuitabilityView {
   const isDimension = isExecutableDimension(field);
   const isMeasure = isExecutableMeasure(field);
+  const hasRows = field.nonEmptyCount > 0;
+  const isHighCardinalityDimension = isDimension && field.distinctCount > 40;
   const badges = [
     ...(isDimension ? ["Dimension"] : []),
     ...(isMeasure ? ["Measure"] : []),
@@ -142,24 +161,78 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
     return {
       badges,
       helperText: "Best used as a numeric measure with a categorical grouping field.",
-      recommendedQueryMode: "measure"
+      recommendedQueryMode: "measure",
+      readiness: {
+        status: hasRows ? "ready_measure" : "unsupported",
+        label: hasRows ? "Ready for measure views" : "No usable values",
+        tone: hasRows ? "measure" : "blocked",
+        reason: hasRows
+          ? "This field is modeled as numeric, so imported queries can aggregate it as an average or sum."
+          : "This field has no non-empty values to aggregate.",
+        bestUse: "Use as the measure in a grouped imported metric view.",
+        recommendedAction: hasRows ? "Build measure view" : "Review source values"
+      }
     };
   }
 
   if (isDimension) {
+    if (isHighCardinalityDimension) {
+      return {
+        badges: badges.length ? badges : ["Dimension"],
+        helperText: "Usable as a grouping field, but many distinct values may make simple charts harder to read.",
+        recommendedQueryMode: "categorical",
+        readiness: {
+          status: "limited",
+          label: "Limited query support",
+          tone: "limited",
+          reason: `This field has ${field.distinctCount.toLocaleString()} distinct values; simple imported charts work best with fewer categories.`,
+          bestUse: "Use as a table or refine the field before using it as a chart grouping.",
+          recommendedAction: "Review model"
+        }
+      };
+    }
+
     return {
       badges,
       helperText: field.eligibleForBanner
         ? "Best used as a grouping field or one-banner crosstab dimension."
         : "Best used as a grouping field for imported tabulations.",
-      recommendedQueryMode: "categorical"
+      recommendedQueryMode: "categorical",
+      readiness: {
+        status: hasRows ? "ready_dimension" : "unsupported",
+        label: hasRows ? "Ready for analysis" : "No usable values",
+        tone: hasRows ? "ready" : "blocked",
+        reason: hasRows
+          ? "This field is modeled as a usable dimension for imported tabulations and one-banner crosstabs."
+          : "This field has no non-empty values to tabulate.",
+        bestUse: field.eligibleForBanner
+          ? "Use as a grouping field, filter, segment, or one-banner crosstab input."
+          : "Use as the primary grouping field for a simple imported tabulation.",
+        recommendedAction: hasRows ? "Create analysis" : "Review source values"
+      }
     };
   }
 
+  const unsupportedDate = field.type === "date" && field.modelingRole === "candidate_date";
+
   return {
     badges: badges.length ? badges : ["Modeling needed"],
-    helperText: "Refine this field's type or role before using it in an imported query.",
-    recommendedQueryMode: "modeling"
+    helperText: unsupportedDate
+      ? "Date fields need additional modeling before imported analysis can use them."
+      : "Refine this field's type or role before using it in an imported query.",
+    recommendedQueryMode: "modeling",
+    readiness: {
+      status: unsupportedDate ? "unsupported" : "needs_modeling",
+      label: unsupportedDate ? "Not suitable yet" : "Needs modeling review",
+      tone: unsupportedDate ? "blocked" : "attention",
+      reason: unsupportedDate
+        ? "The current imported query engine does not yet support date trend or date grouping analysis."
+        : "This field is not marked as a usable dimension or numeric measure yet.",
+      bestUse: unsupportedDate
+        ? "Keep as source metadata until imported date analysis is added."
+        : "Choose whether this should behave as a dimension, measure, filter, banner, or raw field.",
+      recommendedAction: "Model field"
+    }
   };
 }
 

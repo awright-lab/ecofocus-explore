@@ -136,7 +136,11 @@ describe("imported dataset measure analytics", () => {
     expect(buildImportedFieldSuitability(spendField)).toMatchObject({
       badges: ["Measure"],
       helperText: "Best used as a numeric measure with a categorical grouping field.",
-      recommendedQueryMode: "measure"
+      recommendedQueryMode: "measure",
+      readiness: {
+        label: "Ready for measure views",
+        recommendedAction: "Build measure view"
+      }
     });
 
     const recommendations = buildImportedQueryRecommendations(dataset, segmentField, {
@@ -162,5 +166,40 @@ describe("imported dataset measure analytics", () => {
         measureFieldId: "spend"
       })
     ]);
+  });
+
+  it("explains imported field readiness and modeling gaps", () => {
+    expect(buildImportedFieldSuitability(segmentField)).toMatchObject({
+      recommendedQueryMode: "categorical",
+      readiness: {
+        status: "ready_dimension",
+        label: "Ready for analysis",
+        recommendedAction: "Create analysis"
+      }
+    });
+
+    expect(buildImportedFieldSuitability(field("zip", "ZIP code", "zip", { distinctCount: 96 }))).toMatchObject({
+      recommendedQueryMode: "categorical",
+      readiness: {
+        status: "limited",
+        label: "Limited query support",
+        recommendedAction: "Review model"
+      }
+    });
+
+    expect(buildImportedFieldSuitability(field("raw", "Raw note", "raw_note", {
+      type: "text",
+      modelingRole: "raw_variable",
+      eligibleForFilter: false,
+      eligibleForSegment: false,
+      eligibleForBanner: false
+    }))).toMatchObject({
+      recommendedQueryMode: "modeling",
+      readiness: {
+        status: "needs_modeling",
+        label: "Needs modeling review",
+        recommendedAction: "Model field"
+      }
+    });
   });
 });

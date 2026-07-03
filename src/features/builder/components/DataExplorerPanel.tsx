@@ -86,6 +86,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const activeImportedField =
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
   const activeImportedFieldView = activeImportedField ? describeFieldModeling(activeImportedField) : null;
+  const activeImportedFieldSuitability = activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null;
 
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
@@ -215,10 +216,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                       <strong>{field.label}</strong>
                       <small>{importedFieldTypeLabel(field.type)} · {suitability.helperText}</small>
                       <span className="data-library-badge-row">
+                        <em className={`readiness ${suitability.readiness.tone}`}>{suitability.readiness.label}</em>
                         {suitability.badges.slice(0, 3).map((badge) => (
                           <em key={badge}>{badge}</em>
                         ))}
                       </span>
+                      {suitability.readiness.tone !== "ready" && suitability.readiness.tone !== "measure" && (
+                        <small className="field-readiness-reason">{suitability.readiness.recommendedAction}: {suitability.readiness.reason}</small>
+                      )}
                     </div>
                     <div className="modeled-variable-row__actions" aria-label={`Actions for ${field.label}`}>
                       <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
@@ -262,6 +267,16 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 <strong>{activeImportedField.label}</strong>
                 <small>Field settings for {activeImportedField.sourceColumn}. Modeling controls how this field can be used for grouping, measures, filters, and banners.</small>
               </div>
+              {activeImportedFieldSuitability && (
+                <div className={`imported-field-readiness-card ${activeImportedFieldSuitability.readiness.tone}`}>
+                  <div>
+                    <span>{activeImportedFieldSuitability.readiness.label}</span>
+                    <strong>{activeImportedFieldSuitability.readiness.recommendedAction}</strong>
+                  </div>
+                  <p>{activeImportedFieldSuitability.readiness.reason}</p>
+                  <small>Best used as: {activeImportedFieldSuitability.readiness.bestUse}</small>
+                </div>
+              )}
               <label>
                 Display label
                 <input value={activeImportedField.label} onChange={(event) => updateActiveImportedField({ label: event.target.value })} />
@@ -293,20 +308,24 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <div className="imported-variable-model-toggles">
                 <label>
                   <input type="checkbox" checked={activeImportedField.eligibleForFilter} onChange={(event) => updateActiveImportedField({ eligibleForFilter: event.target.checked })} />
-                  Filter
+                  Filter-ready
                 </label>
                 <label>
                   <input type="checkbox" checked={activeImportedField.eligibleForSegment} onChange={(event) => updateActiveImportedField({ eligibleForSegment: event.target.checked })} />
-                  Segment
+                  Segment-ready
                 </label>
                 <label>
                   <input type="checkbox" checked={activeImportedField.eligibleForBanner} onChange={(event) => updateActiveImportedField({ eligibleForBanner: event.target.checked })} />
-                  Banner
+                  Banner-ready
                 </label>
+              </div>
+              <div className="imported-field-modeling-guidance">
+                <strong>What these settings affect</strong>
+                <small>Dimension fields can become tables, charts, filters, segments, or one-banner crosstabs. Measure fields can be averaged or summed by a separate dimension. Imported data still does not support weights, significance, waves, multi-filter queries, or provider-backed execution.</small>
               </div>
               <p>{activeImportedFieldView.completenessLabel}</p>
               <small>{activeImportedFieldView.eligibilityLabel}</small>
-              <small>{buildImportedFieldSuitability(activeImportedField).helperText}</small>
+              {activeImportedFieldSuitability && <small>{activeImportedFieldSuitability.helperText}</small>}
               <small>Samples: {activeImportedFieldView.sampleLabel}</small>
             </section>
           )}
