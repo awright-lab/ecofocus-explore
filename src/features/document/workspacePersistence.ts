@@ -160,8 +160,59 @@ export function loadDashboardWorkspace(): DashboardWorkspace {
   return migrateLegacyDashboard() ?? defaultWorkspace();
 }
 
+function compactImportedDatasetForDraft(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
+  return {
+    ...dataset,
+    rows: [],
+    previewRows: dataset.previewRows.slice(0, 25),
+    notes: [...dataset.notes, "Stored compactly in report drafts; full imported rows are kept at workspace level."]
+  };
+}
+
+function compactDashboardForWorkspaceStorage(dashboard: DashboardDraft): DashboardDraft {
+  return {
+    ...dashboard,
+    importedDatasets: dashboard.importedDatasets.map(compactImportedDatasetForDraft)
+  };
+}
+
+function compactWorkspaceForStorage(workspace: DashboardWorkspace): DashboardWorkspace {
+  return {
+    ...workspace,
+    reports: workspace.reports.map((report) => ({
+      ...report,
+      draft: compactDashboardForWorkspaceStorage(report.draft)
+    })),
+    publishedSnapshots: workspace.publishedSnapshots.map((snapshot) => ({
+      ...snapshot,
+      dashboard: compactDashboardForWorkspaceStorage(snapshot.dashboard)
+    }))
+  };
+}
+
+function isStorageQuotaError(error: unknown) {
+  return error instanceof DOMException && (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
+}
+
 export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
-  window.localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+  try {
+    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+    return true;
+  } catch (error) {
+    if (!isStorageQuotaError(error)) {
+      console.warn("Unable to save InsightCanvas workspace.", error);
+      return false;
+    }
+  }
+
+  try {
+    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspaceForStorage(workspace)));
+    console.warn("Saved compact InsightCanvas workspace after local storage quota was exceeded.");
+    return true;
+  } catch (error) {
+    console.warn("Unable to save InsightCanvas workspace because local browser storage is full.", error);
+    return false;
+  }
 }
 
 export function upsertWorkspaceImportedDataset(workspace: DashboardWorkspace, dataset: ImportedDatasetRecord): DashboardWorkspace {

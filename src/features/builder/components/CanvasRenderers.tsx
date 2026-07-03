@@ -462,7 +462,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven vertical bar chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {chartData.map((item, index) => {
@@ -502,7 +502,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven grouped bar chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {result.columns.map((column, index) => {
@@ -548,7 +548,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven horizontal bar chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 34, left: 18, bottom: 22 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
             {chartData.map((item, index) => {
@@ -595,7 +595,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven stacked bar chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
           <defs>
             {result.columns.map((column, index) => {
@@ -637,7 +637,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven line chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
@@ -674,7 +674,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven donut chart">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <PieChart>
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="bottom" height={84} />
