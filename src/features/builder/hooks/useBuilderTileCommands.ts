@@ -279,7 +279,14 @@ export function useBuilderTileCommands({
     dataset: ImportedDatasetRecord,
     field: ImportedDatasetField,
     nextVisualization: ChartType,
-    nextMetric: Metric
+    nextMetric: Metric,
+    options?: {
+      bannerField?: ImportedDatasetField | null;
+      filter?: {
+        field: ImportedDatasetField;
+        value: string;
+      } | null;
+    }
   ) {
     setIsLoading(true);
     setError(null);
@@ -288,6 +295,8 @@ export function useBuilderTileCommands({
       const response = runImportedDatasetQuery({
         dataset,
         field,
+        bannerField: options?.bannerField,
+        filter: options?.filter,
         chartType: nextVisualization,
         metric: nextMetric
       });

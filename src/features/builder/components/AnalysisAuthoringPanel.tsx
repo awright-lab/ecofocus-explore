@@ -170,7 +170,14 @@ export type AnalysisAuthoringPanelProps = {
     dataset: ImportedDatasetRecord,
     field: ImportedDatasetField,
     chartType: ChartType,
-    metric: Metric
+    metric: Metric,
+    options?: {
+      bannerField?: ImportedDatasetField | null;
+      filter?: {
+        field: ImportedDatasetField;
+        value: string;
+      } | null;
+    }
   ) => Promise<string | null>;
   createSourceDrivenSmartStarter: (starterId: SmartCompositionStarterId) => Promise<{ tileId: string | null; label: string; contextLabel: string; placement: CompositionPlacementSummary } | null>;
   addTileFromAnalyticalTemplate: (template: SavedAnalyticalTemplate) => Promise<string | null>;

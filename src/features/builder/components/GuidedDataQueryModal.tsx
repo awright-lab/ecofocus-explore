@@ -5,7 +5,7 @@ import {
   buildImportedDatasetStructureSummary,
   importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
-import { getImportedDatasetQuerySupport as getImportedExecutionSupport } from "../../data/importedDatasetAnalytics";
+import { getImportedDatasetQuerySupport as getImportedExecutionSupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
@@ -58,14 +58,36 @@ export function GuidedDataQueryModal({
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(importedDatasets.length ? "imported" : "seeded");
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(importedDatasets[0]?.id ?? "");
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(importedDatasets[0]?.fields[0]?.id ?? "");
+  const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
+  const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
+  const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState("all");
   const [importedMetric, setImportedMetric] = useState<Metric>("percent_selected");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
   const importedDataset = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
   const importedField = importedDataset?.fields.find((field) => field.id === selectedImportedFieldId) ?? importedDataset?.fields[0] ?? null;
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
-  const importedSupport = getImportedExecutionSupport(importedDataset, importedField);
+  const importedBannerFields = importedSummary.banners.filter((field) => field.id !== importedField?.id);
+  const importedFilterFields = importedSummary.filters;
+  const importedBannerField = importedBannerFields.find((field) => field.id === selectedImportedBannerFieldId) ?? null;
+  const importedFilterField = importedFilterFields.find((field) => field.id === selectedImportedFilterFieldId) ?? null;
+  const importedFilterValues = importedFieldValues(importedDataset, importedFilterField);
+  const importedFilter =
+    importedFilterField && selectedImportedFilterValue !== "all"
+      ? { field: importedFilterField, value: selectedImportedFilterValue }
+      : null;
   const questionOptions = useMemo(() => filteredQuestions.slice(0, 60), [filteredQuestions]);
-  const selectedChart = outputMode === "table" ? "table" : chartType === "table" ? supportedChartType(selectedChartTypes) : chartType;
+  const selectedChart = outputMode === "table"
+    ? "table"
+    : importedBannerField && chartType === "donut"
+      ? "vertical_bar"
+      : chartType === "table"
+        ? supportedChartType(selectedChartTypes)
+        : chartType;
+  const importedSupport = getImportedExecutionSupport(importedDataset, importedField, {
+    bannerField: importedBannerField,
+    filter: importedFilter,
+    chartType: selectedChart
+  });
   const canCreate = datasetMode === "seeded" || importedSupport.executable;
   const querySummary =
     datasetMode === "seeded"
@@ -86,7 +108,10 @@ export function GuidedDataQueryModal({
     const nextChartType = mode === "table" ? "table" : selectedChart;
     if (datasetMode === "imported") {
       if (!importedDataset || !importedField) return;
-      const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, importedMetric);
+      const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, importedMetric, {
+        bannerField: importedBannerField,
+        filter: importedFilter
+      });
       if (created) onClose();
       return;
     }
@@ -137,6 +162,9 @@ export function GuidedDataQueryModal({
                     const dataset = importedDatasets.find((item) => item.id === event.target.value);
                     setSelectedImportedDatasetId(event.target.value);
                     setSelectedImportedFieldId(dataset?.fields[0]?.id ?? "");
+                    setSelectedImportedBannerFieldId("none");
+                    setSelectedImportedFilterFieldId("none");
+                    setSelectedImportedFilterValue("all");
                   }}
                 >
                   {importedDatasets.map((dataset) => (
@@ -165,7 +193,13 @@ export function GuidedDataQueryModal({
               <>
                 <label>
                   Imported field
-                  <select value={importedField?.id ?? ""} onChange={(event) => setSelectedImportedFieldId(event.target.value)}>
+                  <select
+                    value={importedField?.id ?? ""}
+                    onChange={(event) => {
+                      setSelectedImportedFieldId(event.target.value);
+                      if (event.target.value === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId("none");
+                    }}
+                  >
                     {importedDataset.fields.map((field) => (
                       <option value={field.id} key={field.id}>{field.label}</option>
                     ))}
@@ -287,6 +321,15 @@ export function GuidedDataQueryModal({
                   <>
                     <div className="guided-query-field-grid">
                       <label>
+                        Banner
+                        <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
+                          <option value="none">No banner</option>
+                          {importedBannerFields.map((field) => (
+                            <option value={field.id} key={field.id}>{field.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
                         Metric
                         <select value={importedMetric} onChange={(event) => setImportedMetric(event.target.value as Metric)}>
                           <option value="percent_selected">% of rows</option>
@@ -299,14 +342,42 @@ export function GuidedDataQueryModal({
                           <select value={selectedChart} onChange={(event) => setChartType(event.target.value as ChartType)}>
                             <option value="vertical_bar">Column</option>
                             <option value="horizontal_bar">Horizontal bar</option>
-                            <option value="donut">Donut</option>
+                            {!importedBannerField && <option value="donut">Donut</option>}
+                          </select>
+                        </label>
+                      )}
+                    </div>
+                    <div className="guided-query-field-grid">
+                      <label>
+                        Filter field
+                        <select
+                          value={selectedImportedFilterFieldId}
+                          onChange={(event) => {
+                            setSelectedImportedFilterFieldId(event.target.value);
+                            setSelectedImportedFilterValue("all");
+                          }}
+                        >
+                          <option value="none">No filter</option>
+                          {importedFilterFields.map((field) => (
+                            <option value={field.id} key={field.id}>{field.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      {importedFilterField && (
+                        <label>
+                          Filter value
+                          <select value={selectedImportedFilterValue} onChange={(event) => setSelectedImportedFilterValue(event.target.value)}>
+                            <option value="all">Choose value...</option>
+                            {importedFilterValues.map((value) => (
+                              <option value={value} key={value}>{value}</option>
+                            ))}
                           </select>
                         </label>
                       )}
                     </div>
                     <div className="guided-query-supported">
                       <strong>{importedSupport.reason}</strong>
-                      <small>Filters, banners, weights, wave comparisons, and significance remain unavailable for imported datasets in this first executable path.</small>
+                      <small>Weights, multi-filter queries, multi-banner queries, wave comparisons, and significance remain unavailable for imported datasets.</small>
                     </div>
                   </>
                 ) : (
@@ -323,8 +394,8 @@ export function GuidedDataQueryModal({
             <span>Summary</span>
             <strong>{querySummary}</strong>
             <ul>
-              <li>Banner: {datasetMode === "seeded" ? bannerSummary : importedSummary.bannerLabel}</li>
-              <li>Filter: {datasetMode === "seeded" ? filterSummary : importedSummary.filterLabel}</li>
+              <li>Banner: {datasetMode === "seeded" ? bannerSummary : importedBannerField?.label ?? "No banner"}</li>
+              <li>Filter: {datasetMode === "seeded" ? filterSummary : importedFilter ? `${importedFilter.field.label}: ${importedFilter.value}` : "No filter"}</li>
               <li>Metric: {datasetMode === "seeded" ? metricSummary : importedMetric === "count" ? "Count" : "% of rows"}</li>
               <li>Weight: {datasetMode === "seeded" ? weightSummary : "Unweighted local rows"}</li>
             </ul>
