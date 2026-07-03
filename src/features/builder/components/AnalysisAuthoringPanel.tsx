@@ -172,6 +172,7 @@ export type AnalysisAuthoringPanelProps = {
     chartType: ChartType,
     metric: Metric,
     options?: {
+      measureField?: ImportedDatasetField | null;
       bannerField?: ImportedDatasetField | null;
       filter?: {
         field: ImportedDatasetField;

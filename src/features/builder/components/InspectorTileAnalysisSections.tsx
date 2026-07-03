@@ -599,6 +599,10 @@ function importedFilterFields(dataset: ImportedDatasetRecord | null) {
   );
 }
 
+function importedMeasureFields(dataset: ImportedDatasetRecord | null) {
+  return (dataset?.fields ?? []).filter((field) => field.type === "numeric" || field.modelingRole === "candidate_measure");
+}
+
 function ImportedTileQueryEditor({
   tile,
   importedDatasets,
@@ -619,19 +623,29 @@ function ImportedTileQueryEditor({
   const [filterFieldId, setFilterFieldId] = useState(source?.filterFieldId ?? "none");
   const [filterValue, setFilterValue] = useState(source?.filterValue ?? "all");
   const [metric, setMetric] = useState<Metric>(tile.result.metric.id);
+  const [queryMode, setQueryMode] = useState<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical");
+  const [measureFieldId, setMeasureFieldId] = useState(source?.measureFieldId ?? "none");
   const [chartType, setChartType] = useState<ChartType>(tile.visualization);
   const primaryFields = importedExecutableFields(dataset);
   const primaryField = primaryFields.find((field) => field.id === primaryFieldId) ?? primaryFields[0] ?? null;
+  const measureOptions = importedMeasureFields(dataset);
+  const measureField = measureOptions.find((field) => field.id === measureFieldId) ?? null;
   const bannerOptions = importedBannerFields(dataset, primaryField?.id ?? "");
   const bannerField = bannerOptions.find((field) => field.id === bannerFieldId) ?? null;
   const filterOptions = importedFilterFields(dataset);
   const filterField = filterOptions.find((field) => field.id === filterFieldId) ?? null;
   const values = importedFieldValues(dataset, filterField);
   const filter = filterField && filterValue !== "all" ? { field: filterField, value: filterValue } : null;
-  const selectedChartType = bannerField && chartType === "donut" ? "vertical_bar" : chartType;
+  const effectiveMetric: Metric =
+    queryMode === "measure"
+      ? metric === "sum" ? "sum" : "average"
+      : metric === "count" ? "count" : "percent_selected";
+  const selectedChartType = (bannerField || queryMode === "measure") && chartType === "donut" ? "vertical_bar" : chartType;
   const support = getImportedDatasetQuerySupport(dataset, primaryField, {
     bannerField,
     filter,
+    measureField: queryMode === "measure" ? measureField : null,
+    metric: effectiveMetric,
     chartType: selectedChartType
   });
   const canApply = Boolean(dataset && primaryField && support.executable && !isLoading);
@@ -639,7 +653,8 @@ function ImportedTileQueryEditor({
   function changeDataset(nextDatasetId: string) {
     const nextDataset = importedDatasets.find((item) => item.id === nextDatasetId) ?? null;
     setDatasetId(nextDatasetId);
-    setPrimaryFieldId(nextDataset?.fields[0]?.id ?? "");
+    setPrimaryFieldId(nextDataset?.fields.find((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension")?.id ?? "");
+    setMeasureFieldId(nextDataset?.fields.find((field) => field.type === "numeric" || field.modelingRole === "candidate_measure")?.id ?? "none");
     setBannerFieldId("none");
     setFilterFieldId("none");
     setFilterValue("all");
@@ -655,14 +670,18 @@ function ImportedTileQueryEditor({
     const result = runImportedDatasetQuery({
       dataset,
       field: primaryField,
+      measureField: queryMode === "measure" ? measureField : null,
       bannerField,
       filter,
       chartType: selectedChartType,
-      metric
+      metric: effectiveMetric
     });
+    const title = queryMode === "measure" && measureField
+      ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${measureField.label} by ${primaryField.label}`
+      : primaryField.label;
     updateSelectedTile({
-      name: primaryField.label,
-      title: primaryField.label,
+      name: title,
+      title,
       source: {
         kind: "importedField",
         id: `${dataset.id}:${primaryField.id}`,
@@ -704,6 +723,34 @@ function ImportedTileQueryEditor({
       </div>
       <div className="guided-query-field-grid">
         <label>
+          Query type
+          <select
+            value={queryMode}
+            onChange={(event) => {
+              const nextMode = event.target.value as "categorical" | "measure";
+              setQueryMode(nextMode);
+              setMetric(nextMode === "measure" ? "average" : "percent_selected");
+              if (nextMode === "measure") setMeasureFieldId(measureOptions[0]?.id ?? "none");
+            }}
+          >
+            <option value="categorical">Categorical crosstab</option>
+            <option value="measure">Numeric measure</option>
+          </select>
+        </label>
+        {queryMode === "measure" && (
+          <label>
+            Measure
+            <select value={measureField?.id ?? "none"} onChange={(event) => setMeasureFieldId(event.target.value)}>
+              <option value="none">Choose measure...</option>
+              {measureOptions.map((field) => (
+                <option value={field.id} key={field.id}>{field.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="guided-query-field-grid">
+        <label>
           Banner
           <select value={bannerField?.id ?? "none"} onChange={(event) => setBannerFieldId(event.target.value)}>
             <option value="none">No banner</option>
@@ -714,9 +761,18 @@ function ImportedTileQueryEditor({
         </label>
         <label>
           Metric
-          <select value={metric} onChange={(event) => setMetric(event.target.value as Metric)}>
-            <option value="percent_selected">% of rows</option>
-            <option value="count">Count</option>
+          <select value={effectiveMetric} onChange={(event) => setMetric(event.target.value as Metric)}>
+            {queryMode === "measure" ? (
+              <>
+                <option value="average">Average</option>
+                <option value="sum">Sum</option>
+              </>
+            ) : (
+              <>
+                <option value="percent_selected">% of rows</option>
+                <option value="count">Count</option>
+              </>
+            )}
           </select>
         </label>
       </div>
@@ -755,7 +811,7 @@ function ImportedTileQueryEditor({
             <option value="table">Table</option>
             <option value="vertical_bar">Column</option>
             <option value="horizontal_bar">Horizontal bar</option>
-            {!bannerField && <option value="donut">Donut</option>}
+            {!bannerField && queryMode === "categorical" && <option value="donut">Donut</option>}
             {bannerField && <option value="grouped_bar">Grouped bar</option>}
             {bannerField && <option value="stacked_bar">Stacked bar</option>}
             {bannerField && <option value="line_chart">Line chart</option>}

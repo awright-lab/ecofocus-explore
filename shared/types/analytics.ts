@@ -8,7 +8,7 @@ export type FilterFieldId = BreakById | "SHOPPER_SEGMENT";
 
 export type DimensionId = FilterFieldId;
 
-export type Metric = "column_percent" | "percent_selected" | "count";
+export type Metric = "column_percent" | "percent_selected" | "count" | "average" | "sum";
 
 export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "stacked_bar" | "line_chart" | "donut" | "table";
 
@@ -25,10 +25,13 @@ export interface AnalyticsFilter {
 
 export interface ImportedAnalyticsSourceIdentity {
   kind: "imported";
+  queryKind?: "categorical" | "measure";
   datasetId: string;
   datasetLabel: string;
   primaryFieldId: string;
   primaryFieldLabel: string;
+  measureFieldId?: string;
+  measureFieldLabel?: string;
   bannerFieldId?: string;
   bannerFieldLabel?: string;
   filterFieldId?: string;

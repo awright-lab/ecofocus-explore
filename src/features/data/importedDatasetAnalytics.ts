@@ -5,6 +5,7 @@ import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../share
 export interface ImportedDatasetQueryConfig {
   dataset: ImportedDatasetRecord;
   field: ImportedDatasetField;
+  measureField?: ImportedDatasetField | null;
   bannerField?: ImportedDatasetField | null;
   filter?: {
     field: ImportedDatasetField;
@@ -23,6 +24,14 @@ function isExecutableDimension(field: ImportedDatasetField | null | undefined) {
   return Boolean(field && (field.type === "categorical" || field.modelingRole === "candidate_dimension"));
 }
 
+function isExecutableMeasure(field: ImportedDatasetField | null | undefined) {
+  return Boolean(field && (field.type === "numeric" || field.modelingRole === "candidate_measure"));
+}
+
+function isMeasureMetric(metric: Metric | undefined) {
+  return metric === "average" || metric === "sum";
+}
+
 export function getImportedDatasetQuerySupport(
   dataset: ImportedDatasetRecord | null | undefined,
   field: ImportedDatasetField | null | undefined,
@@ -32,13 +41,29 @@ export function getImportedDatasetQuerySupport(
       field: ImportedDatasetField | null;
       value: string;
     } | null;
+    measureField?: ImportedDatasetField | null;
+    metric?: Metric;
     chartType?: ChartType;
   }
 ): ImportedDatasetQuerySupport {
   if (!dataset) return { executable: false, reason: "Choose an imported dataset." };
   if (!field) return { executable: false, reason: "Choose an imported field." };
   if (!isExecutableDimension(field)) {
-    return { executable: false, reason: "First imported-query support is limited to categorical dimension fields." };
+    return { executable: false, reason: "Imported queries require a categorical grouping field." };
+  }
+  if (isMeasureMetric(options?.metric)) {
+    if (!options?.measureField) {
+      return { executable: false, reason: "Choose a numeric imported measure field." };
+    }
+    if (!isExecutableMeasure(options.measureField)) {
+      return { executable: false, reason: "Measure aggregation is limited to numeric measure fields." };
+    }
+    if (options.measureField.id === field.id || options.measureField.id === options.bannerField?.id || options.measureField.id === options.filter?.field?.id) {
+      return { executable: false, reason: "Choose a different numeric field for the imported measure." };
+    }
+    if (options.chartType === "donut") {
+      return { executable: false, reason: "Donut charts are only supported for categorical count/percent queries." };
+    }
   }
   if (options?.bannerField) {
     if (options.bannerField.id === field.id) {
@@ -61,8 +86,14 @@ export function getImportedDatasetQuerySupport(
   }
   const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
   if (!rows.length) return { executable: false, reason: "This dataset has no stored rows to tabulate." };
-  if (options?.bannerField && options?.filter?.field) return { executable: true, reason: "Supported: filtered categorical field tabulation by one banner." };
-  if (options?.bannerField) return { executable: true, reason: "Supported: categorical field tabulation by one banner." };
+  if (isMeasureMetric(options?.metric)) {
+    if (options?.bannerField && options?.filter?.field) return { executable: true, reason: `Supported: filtered ${options.metric} of one numeric measure by grouping and banner.` };
+    if (options?.bannerField) return { executable: true, reason: `Supported: ${options.metric} of one numeric measure by grouping and banner.` };
+    if (options?.filter?.field) return { executable: true, reason: `Supported: filtered ${options.metric} of one numeric measure by grouping.` };
+    return { executable: true, reason: `Supported: ${options?.metric} of one numeric measure by grouping.` };
+  }
+  if (options?.bannerField && options?.filter?.field) return { executable: true, reason: "Supported: filtered categorical crosstab by one banner." };
+  if (options?.bannerField) return { executable: true, reason: "Supported: categorical crosstab by one banner." };
   if (options?.filter?.field) return { executable: true, reason: "Supported: filtered categorical field tabulation." };
   return { executable: true, reason: "Supported: categorical field tabulation." };
 }
@@ -75,10 +106,13 @@ function slug(value: string, fallback: string) {
 function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAnalyticsSourceIdentity {
   return {
     kind: "imported",
+    queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",
     datasetId: config.dataset.id,
     datasetLabel: config.dataset.title,
     primaryFieldId: config.field.id,
     primaryFieldLabel: config.field.label,
+    measureFieldId: config.measureField?.id,
+    measureFieldLabel: config.measureField?.label,
     bannerFieldId: config.bannerField?.id,
     bannerFieldLabel: config.bannerField?.label,
     filterFieldId: config.filter?.field.id,
@@ -115,6 +149,8 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   const support = getImportedDatasetQuerySupport(config.dataset, config.field, {
     bannerField: config.bannerField,
     filter: config.filter,
+    measureField: config.measureField,
+    metric: config.metric,
     chartType: config.chartType
   });
   if (!support.executable) throw new Error(support.reason);
@@ -125,25 +161,35 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     : sourceRows;
   const bannerValues = config.bannerField ? importedFieldValues(config.dataset, config.bannerField) : ["Total"];
   const columnBases = new Map<string, number>(bannerValues.map((value) => [value, 0]));
-  const counts = new Map<string, Map<string, number>>();
+  const counts = new Map<string, Map<string, { count: number; sum: number }>>();
   rows.forEach((row) => {
     const rawValue = row[config.field.sourceColumn] ?? "";
     const value = rawValue.trim() || "(blank)";
     const bannerValue = config.bannerField ? (row[config.bannerField.sourceColumn] ?? "").trim() || "(blank)" : "Total";
+    const numericValue = config.measureField ? Number.parseFloat((row[config.measureField.sourceColumn] ?? "").replace(/,/g, "")) : null;
+    const usableMeasureValue = numericValue !== null && Number.isFinite(numericValue);
+    if (isMeasureMetric(config.metric) && !usableMeasureValue) return;
     columnBases.set(bannerValue, (columnBases.get(bannerValue) ?? 0) + 1);
-    const rowCounts = counts.get(value) ?? new Map<string, number>();
-    rowCounts.set(bannerValue, (rowCounts.get(bannerValue) ?? 0) + 1);
+    const rowCounts = counts.get(value) ?? new Map<string, { count: number; sum: number }>();
+    const current = rowCounts.get(bannerValue) ?? { count: 0, sum: 0 };
+    rowCounts.set(bannerValue, {
+      count: current.count + 1,
+      sum: current.sum + (usableMeasureValue ? numericValue! : 0)
+    });
     counts.set(value, rowCounts);
   });
-  const total = rows.length;
   const entries = Array.from(counts.entries()).sort((a, b) => {
-    const aTotal = Array.from(a[1].values()).reduce((sum, count) => sum + count, 0);
-    const bTotal = Array.from(b[1].values()).reduce((sum, count) => sum + count, 0);
+    const aTotal = Array.from(a[1].values()).reduce((sum, cell) => sum + cell.count, 0);
+    const bTotal = Array.from(b[1].values()).reduce((sum, cell) => sum + cell.count, 0);
     return bTotal - aTotal || a[0].localeCompare(b[0]);
   });
-  const metric = config.metric === "count"
-    ? { id: "count" as const, label: "Count", valueFormat: "number" as const }
-    : { id: "percent_selected" as const, label: "% of rows", valueFormat: "percent" as const };
+  const metric = config.metric === "average"
+    ? { id: "average" as const, label: `Average ${config.measureField?.label ?? "measure"}`, valueFormat: "number" as const }
+    : config.metric === "sum"
+      ? { id: "sum" as const, label: `Sum of ${config.measureField?.label ?? "measure"}`, valueFormat: "number" as const }
+      : config.metric === "count"
+        ? { id: "count" as const, label: "Count", valueFormat: "number" as const }
+        : { id: "percent_selected" as const, label: "% of rows", valueFormat: "percent" as const };
   const sourceIdentity = importedSourceIdentity(config);
   const query = importedQuery(config.chartType, metric.id, sourceIdentity);
   const columns = bannerValues.map((label, index) => ({
@@ -154,9 +200,11 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     id: `${slug(label, "value")}_${index + 1}`,
     label,
     values: columns.map((column) => {
-      const count = rowCounts.get(column.label) ?? 0;
+      const cell = rowCounts.get(column.label) ?? { count: 0, sum: 0 };
       const base = columnBases.get(column.label) ?? 0;
-      return metric.id === "count" ? count : base > 0 ? Math.round((count / base) * 1000) / 10 : 0;
+      if (metric.id === "average") return cell.count > 0 ? Math.round((cell.sum / cell.count) * 10) / 10 : 0;
+      if (metric.id === "sum") return Math.round(cell.sum * 10) / 10;
+      return metric.id === "count" ? cell.count : base > 0 ? Math.round((cell.count / base) * 1000) / 10 : 0;
     }),
     bases: columns.map((column) => columnBases.get(column.label) ?? 0)
   }));
@@ -212,10 +260,12 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     ],
     notes: [
       `Imported dataset: ${config.dataset.title}.`,
-      `Tabulated categorical field: ${config.field.label}.`,
+      isMeasureMetric(config.metric)
+        ? `Aggregated ${config.measureField?.label ?? "numeric measure"} by ${config.field.label}.`
+        : `Tabulated categorical field: ${config.field.label}.`,
       ...(config.bannerField ? [`Banner: ${config.bannerField.label}.`] : []),
       ...(config.filter?.field ? [`Filter: ${config.filter.field.label} = ${config.filter.value}.`] : []),
-      "Imported-data support is currently limited to one categorical field, one optional banner, and one optional filter."
+      "Imported-data support is currently limited to one categorical grouping field, one optional banner, one optional filter, and one optional numeric measure."
     ],
     metadataRefs: {
       dataset: query.dataset,

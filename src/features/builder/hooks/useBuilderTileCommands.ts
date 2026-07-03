@@ -281,6 +281,7 @@ export function useBuilderTileCommands({
     nextVisualization: ChartType,
     nextMetric: Metric,
     options?: {
+      measureField?: ImportedDatasetField | null;
       bannerField?: ImportedDatasetField | null;
       filter?: {
         field: ImportedDatasetField;
@@ -295,6 +296,7 @@ export function useBuilderTileCommands({
       const response = runImportedDatasetQuery({
         dataset,
         field,
+        measureField: options?.measureField,
         bannerField: options?.bannerField,
         filter: options?.filter,
         chartType: nextVisualization,
@@ -302,15 +304,20 @@ export function useBuilderTileCommands({
       });
       const tileId = makeTileId();
       const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
-      const sourceLabel = `${dataset.title}: ${field.label}`;
+      const measureField = options?.measureField ?? null;
+      const isMeasureTile = (nextMetric === "average" || nextMetric === "sum") && measureField;
+      const tileLabel = isMeasureTile
+        ? `${nextMetric === "sum" ? "Sum of" : "Average"} ${measureField.label} by ${field.label}`
+        : field.label;
+      const sourceLabel = `${dataset.title}: ${tileLabel}`;
       const tile: DashboardTile = {
         id: tileId,
-        name: field.label,
-        title: field.label,
+        name: tileLabel,
+        title: tileLabel,
         source: {
           kind: "importedField",
           id: `${dataset.id}:${field.id}`,
-          label: field.label,
+          label: tileLabel,
           datasetId: dataset.id,
           fieldId: field.id
         },
