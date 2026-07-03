@@ -5,7 +5,14 @@ import {
   buildImportedDatasetStructureSummary,
   importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
-import { getImportedDatasetQuerySupport as getImportedExecutionSupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
+import {
+  buildImportedFieldSuitability,
+  buildImportedQueryRecommendations,
+  firstImportedDimensionField,
+  firstImportedMeasureField,
+  getImportedDatasetQuerySupport as getImportedExecutionSupport,
+  importedFieldValues
+} from "../../data/importedDatasetAnalytics";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
@@ -58,13 +65,13 @@ export function GuidedDataQueryModal({
   } = props;
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(importedDatasets.length ? "imported" : "seeded");
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(importedDatasets[0]?.id ?? "");
-  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(importedDatasets[0]?.fields[0]?.id ?? "");
+  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(firstImportedDimensionField(importedDatasets[0])?.id ?? "");
   const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
   const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
   const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState("all");
   const [importedMetric, setImportedMetric] = useState<Metric>("percent_selected");
   const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>("categorical");
-  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState("none");
+  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(firstImportedMeasureField(importedDatasets[0])?.id ?? "none");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
   const importedDataset = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
@@ -81,6 +88,12 @@ export function GuidedDataQueryModal({
       ? { field: importedFilterField, value: selectedImportedFilterValue }
       : null;
   const importedMeasureField = importedMeasureFields.find((field) => field.id === selectedImportedMeasureFieldId) ?? null;
+  const importedFieldSuitability = importedField ? buildImportedFieldSuitability(importedField) : null;
+  const importedRecommendations = buildImportedQueryRecommendations(importedDataset, importedField, {
+    selectedQueryMode: importedQueryMode,
+    measureField: importedMeasureField,
+    bannerFields: importedBannerFields
+  });
   const effectiveImportedMetric: Metric =
     importedQueryMode === "measure"
       ? importedMetric === "sum" ? "sum" : "average"
@@ -141,6 +154,15 @@ export function GuidedDataQueryModal({
     if (nextQuestion) applyQuestionSelection(nextQuestion);
   }
 
+  function applyImportedRecommendation(recommendation: typeof importedRecommendations[number]) {
+    setImportedQueryMode(recommendation.id);
+    setImportedMetric(recommendation.metric);
+    setSelectedImportedBannerFieldId(recommendation.bannerFieldId ?? "none");
+    setSelectedImportedMeasureFieldId(recommendation.measureFieldId ?? "none");
+    setOutputMode("chart");
+    setChartType(recommendation.chartType);
+  }
+
   return (
     <div className="guided-query-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="guided-query-modal" role="dialog" aria-modal="true" aria-label="Create data object" onMouseDown={(event) => event.stopPropagation()}>
@@ -176,8 +198,8 @@ export function GuidedDataQueryModal({
                   value={importedDataset?.id ?? ""}
                   onChange={(event) => {
                     const dataset = importedDatasets.find((item) => item.id === event.target.value);
-                    const primaryField = dataset?.fields.find((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
-                    const measureField = dataset?.fields.find((field) => field.type === "numeric" || field.modelingRole === "candidate_measure");
+                    const primaryField = firstImportedDimensionField(dataset);
+                    const measureField = firstImportedMeasureField(dataset);
                     setSelectedImportedDatasetId(event.target.value);
                     setSelectedImportedFieldId(primaryField?.id ?? "");
                     setSelectedImportedBannerFieldId("none");
@@ -228,6 +250,16 @@ export function GuidedDataQueryModal({
                   <div className="guided-query-variable-card">
                     <strong>{importedField.label}</strong>
                     <span>{importedFieldTypeLabel(importedField.type)} · {importedField.distinctCount.toLocaleString()} distinct values</span>
+                    {importedFieldSuitability && (
+                      <>
+                        <div className="guided-query-mini-chips">
+                          {importedFieldSuitability.badges.map((badge) => (
+                            <span key={badge}>{badge}</span>
+                          ))}
+                        </div>
+                        <small>{importedFieldSuitability.helperText}</small>
+                      </>
+                    )}
                     <small>Modeled structures: {importedSummary.filterLabel}, {importedSummary.segmentLabel}, {importedSummary.bannerLabel}</small>
                   </div>
                 )}
@@ -336,8 +368,30 @@ export function GuidedDataQueryModal({
               </>
             ) : (
               <>
-                {importedSupport.executable ? (
+                {importedField ? (
                   <>
+                    {importedRecommendations.length > 0 && (
+                      <div className="guided-query-recommendations" aria-label="Imported query recommendations">
+                        <div className="guided-query-step__header compact">
+                          <span>★</span>
+                          <strong>Recommended paths</strong>
+                        </div>
+                        {importedRecommendations.map((recommendation) => (
+                          <button
+                            type="button"
+                            className={recommendation.recommended && recommendation.id === importedQueryMode ? "guided-query-recommendation active" : "guided-query-recommendation"}
+                            key={recommendation.id}
+                            onClick={() => applyImportedRecommendation(recommendation)}
+                          >
+                            <div>
+                              <strong>{recommendation.label}</strong>
+                              <small>{recommendation.description}</small>
+                            </div>
+                            <span>{recommendation.actionLabel}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="guided-query-field-grid">
                       <label>
                         Query type
@@ -432,9 +486,9 @@ export function GuidedDataQueryModal({
                         </label>
                       )}
                     </div>
-                    <div className="guided-query-supported">
+                    <div className={importedSupport.executable ? "guided-query-supported" : "guided-query-unsupported"}>
                       <strong>{importedSupport.reason}</strong>
-                      <small>Weights, multi-filter queries, multi-banner queries, wave comparisons, and significance remain unavailable for imported datasets.</small>
+                      <small>{importedSupport.executable ? "Weights, multi-filter queries, multi-banner queries, wave comparisons, and significance remain unavailable for imported datasets." : "Adjust the query type, measure, banner, filter, or chart type above to return to a supported imported-data path."}</small>
                     </div>
                   </>
                 ) : (

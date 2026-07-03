@@ -35,6 +35,24 @@ export interface ImportedResultProvenanceView {
   chips: string[];
 }
 
+export interface ImportedFieldSuitabilityView {
+  badges: string[];
+  helperText: string;
+  recommendedQueryMode: "categorical" | "measure" | "modeling";
+}
+
+export interface ImportedQueryRecommendationView {
+  id: "categorical" | "measure";
+  label: string;
+  description: string;
+  actionLabel: string;
+  chartType: ChartType;
+  metric: Metric;
+  bannerFieldId: string | null;
+  measureFieldId: string | null;
+  recommended: boolean;
+}
+
 function isExecutableDimension(field: ImportedDatasetField | null | undefined) {
   return Boolean(field && (field.type === "categorical" || field.modelingRole === "candidate_dimension"));
 }
@@ -108,6 +126,95 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
       baseLabel
     ]
   };
+}
+
+export function buildImportedFieldSuitability(field: ImportedDatasetField): ImportedFieldSuitabilityView {
+  const isDimension = isExecutableDimension(field);
+  const isMeasure = isExecutableMeasure(field);
+  const badges = [
+    ...(isDimension ? ["Dimension"] : []),
+    ...(isMeasure ? ["Measure"] : []),
+    ...(field.eligibleForBanner ? ["Banner"] : []),
+    ...(field.eligibleForFilter ? ["Filter"] : [])
+  ];
+
+  if (isMeasure && !isDimension) {
+    return {
+      badges,
+      helperText: "Best used as a numeric measure with a categorical grouping field.",
+      recommendedQueryMode: "measure"
+    };
+  }
+
+  if (isDimension) {
+    return {
+      badges,
+      helperText: field.eligibleForBanner
+        ? "Best used as a grouping field or one-banner crosstab dimension."
+        : "Best used as a grouping field for imported tabulations.",
+      recommendedQueryMode: "categorical"
+    };
+  }
+
+  return {
+    badges: badges.length ? badges : ["Modeling needed"],
+    helperText: "Refine this field's type or role before using it in an imported query.",
+    recommendedQueryMode: "modeling"
+  };
+}
+
+export function firstImportedDimensionField(dataset: ImportedDatasetRecord | null | undefined) {
+  return (dataset?.fields ?? []).find((field) => isExecutableDimension(field)) ?? null;
+}
+
+export function firstImportedMeasureField(dataset: ImportedDatasetRecord | null | undefined) {
+  return (dataset?.fields ?? []).find((field) => isExecutableMeasure(field)) ?? null;
+}
+
+export function buildImportedQueryRecommendations(
+  dataset: ImportedDatasetRecord | null | undefined,
+  field: ImportedDatasetField | null | undefined,
+  options?: {
+    selectedQueryMode?: "categorical" | "measure";
+    measureField?: ImportedDatasetField | null;
+    bannerFields?: ImportedDatasetField[];
+  }
+): ImportedQueryRecommendationView[] {
+  if (!dataset || !field || !isExecutableDimension(field)) return [];
+
+  const bannerField = options?.bannerFields?.find((item) => item.id !== field.id) ?? null;
+  const measureField = options?.measureField ?? firstImportedMeasureField(dataset);
+  const recommendations: ImportedQueryRecommendationView[] = [
+    {
+      id: "categorical",
+      label: bannerField ? "Categorical crosstab" : "Categorical tabulation",
+      description: bannerField
+        ? `Show ${field.label} by ${bannerField.label}.`
+        : `Show row counts or % of rows for ${field.label}.`,
+      actionLabel: bannerField ? "Use crosstab" : "Use tabulation",
+      chartType: bannerField ? "grouped_bar" : "vertical_bar",
+      metric: "percent_selected",
+      bannerFieldId: bannerField?.id ?? null,
+      measureFieldId: null,
+      recommended: options?.selectedQueryMode !== "measure"
+    }
+  ];
+
+  if (measureField && measureField.id !== field.id && measureField.id !== bannerField?.id) {
+    recommendations.push({
+      id: "measure",
+      label: "Numeric measure",
+      description: `Average ${measureField.label} by ${field.label}.`,
+      actionLabel: "Use measure",
+      chartType: bannerField ? "grouped_bar" : "vertical_bar",
+      metric: "average",
+      bannerFieldId: bannerField?.id ?? null,
+      measureFieldId: measureField.id,
+      recommended: options?.selectedQueryMode === "measure" || buildImportedFieldSuitability(measureField).recommendedQueryMode === "measure"
+    });
+  }
+
+  return recommendations;
 }
 
 export function getImportedDatasetQuerySupport(

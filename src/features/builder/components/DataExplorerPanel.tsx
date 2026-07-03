@@ -9,6 +9,7 @@ import {
   importedFieldRoleLabel,
   importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
+import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
 
@@ -89,7 +90,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
     setSelectedImportedDatasetId(datasetId);
-    setSelectedImportedFieldId(dataset?.fields[0]?.id ?? null);
+    setSelectedImportedFieldId(firstImportedDimensionField(dataset)?.id ?? dataset?.fields[0]?.id ?? null);
   }
 
   function updateActiveImportedField(
@@ -189,21 +190,29 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <button type="button" onClick={() => setExploreView("source")}>+</button>
             </div>
             {modeledVariables.length > 0
-              ? modeledVariables.slice(0, 5).map((field) => (
-                <button
-                  type="button"
-                  className={activeImportedField?.id === field.id ? "mockup-library-row compact modeled-variable-row active" : "mockup-library-row compact modeled-variable-row"}
-                  key={field.id}
-                  onClick={() => {
-                    setSelectedImportedFieldId(field.id);
-                    setExploreView("source");
-                  }}
-                >
-                  <span><DataLibraryIcon icon="variable" /></span>
-                  <strong>{field.label}</strong>
-                  <small>{importedFieldTypeLabel(field.type)}</small>
-                </button>
-              ))
+              ? modeledVariables.slice(0, 5).map((field) => {
+                const suitability = buildImportedFieldSuitability(field);
+                return (
+                  <button
+                    type="button"
+                    className={activeImportedField?.id === field.id ? "mockup-library-row compact modeled-variable-row active" : "mockup-library-row compact modeled-variable-row"}
+                    key={field.id}
+                    onClick={() => {
+                      setSelectedImportedFieldId(field.id);
+                      setExploreView("source");
+                    }}
+                  >
+                    <span><DataLibraryIcon icon="variable" /></span>
+                    <strong>{field.label}</strong>
+                    <small>{importedFieldTypeLabel(field.type)}</small>
+                    <span className="data-library-badge-row">
+                      {suitability.badges.slice(0, 3).map((badge) => (
+                        <em key={badge}>{badge}</em>
+                      ))}
+                    </span>
+                  </button>
+                );
+              })
               : filteredQuestions.slice(0, 4).map((question) => (
                 <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => setExploreView("source")}>
                   <span><DataLibraryIcon icon="variable" /></span>
@@ -267,6 +276,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               </div>
               <p>{activeImportedFieldView.completenessLabel}</p>
               <small>{activeImportedFieldView.eligibilityLabel}</small>
+              <small>{buildImportedFieldSuitability(activeImportedField).helperText}</small>
               <small>Samples: {activeImportedFieldView.sampleLabel}</small>
             </section>
           )}

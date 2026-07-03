@@ -856,6 +856,25 @@ textarea {
   display: block;
 }
 
+.data-library-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  grid-column: 2;
+  margin-top: 2px;
+}
+
+.data-library-badge-row em {
+  border-radius: 999px;
+  background: rgba(0, 139, 137, 0.08);
+  color: #08715f;
+  padding: 2px 6px;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
 .guided-query-backdrop {
   position: fixed;
   inset: 0;
@@ -982,6 +1001,10 @@ textarea {
   gap: 8px;
 }
 
+.guided-query-step__header.compact {
+  margin-bottom: 2px;
+}
+
 .guided-query-step__header span {
   display: inline-grid;
   place-items: center;
@@ -1093,6 +1116,74 @@ textarea {
   padding: 7px 10px;
   font-size: 0.72rem;
   font-weight: 900;
+}
+
+.guided-query-mini-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.guided-query-mini-chips span {
+  border-radius: 999px;
+  background: #eef8f6;
+  color: #08715f;
+  padding: 3px 7px;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.guided-query-recommendations {
+  display: grid;
+  gap: 8px;
+}
+
+.guided-query-recommendation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(214, 225, 232, 0.95);
+  border-radius: 13px;
+  background: #ffffff;
+  padding: 10px;
+  color: #243642;
+  text-align: left;
+}
+
+.guided-query-recommendation.active {
+  border-color: rgba(0, 139, 137, 0.34);
+  background: linear-gradient(135deg, #eefaf7, #ffffff);
+  box-shadow: 0 0 0 3px rgba(0, 139, 137, 0.07);
+}
+
+.guided-query-recommendation strong,
+.guided-query-recommendation small {
+  display: block;
+}
+
+.guided-query-recommendation strong {
+  color: #192a34;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.guided-query-recommendation small {
+  margin-top: 2px;
+  color: #637482;
+  font-size: 0.68rem;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.guided-query-recommendation > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #edf9f7;
+  color: #08715f;
+  padding: 5px 8px;
+  font-size: 0.64rem;
+  font-weight: 950;
 }
 
 .guided-query-variable-card,

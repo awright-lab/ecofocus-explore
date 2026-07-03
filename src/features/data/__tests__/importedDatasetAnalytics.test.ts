@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 import {
+  buildImportedFieldSuitability,
+  buildImportedQueryRecommendations,
   buildImportedResultProvenance,
   formatImportedMeasureValue,
+  firstImportedDimensionField,
+  firstImportedMeasureField,
   runImportedDatasetQuery
 } from "../importedDatasetAnalytics";
 
@@ -124,5 +128,39 @@ describe("imported dataset measure analytics", () => {
     expect(formatImportedMeasureValue(15, "average")).toBe("15");
     expect(formatImportedMeasureValue(15.4, "average")).toBe("15.4");
     expect(formatImportedMeasureValue(30, "sum")).toBe("30");
+  });
+
+  it("builds grounded imported query recommendations from modeled field roles", () => {
+    expect(firstImportedDimensionField(dataset)?.id).toBe("segment");
+    expect(firstImportedMeasureField(dataset)?.id).toBe("spend");
+    expect(buildImportedFieldSuitability(spendField)).toMatchObject({
+      badges: ["Measure"],
+      helperText: "Best used as a numeric measure with a categorical grouping field.",
+      recommendedQueryMode: "measure"
+    });
+
+    const recommendations = buildImportedQueryRecommendations(dataset, segmentField, {
+      selectedQueryMode: "categorical",
+      measureField: spendField,
+      bannerFields: [regionField]
+    });
+
+    expect(recommendations).toEqual([
+      expect.objectContaining({
+        id: "categorical",
+        label: "Categorical crosstab",
+        chartType: "grouped_bar",
+        metric: "percent_selected",
+        bannerFieldId: "region",
+        recommended: true
+      }),
+      expect.objectContaining({
+        id: "measure",
+        label: "Numeric measure",
+        chartType: "grouped_bar",
+        metric: "average",
+        measureFieldId: "spend"
+      })
+    ]);
   });
 });
