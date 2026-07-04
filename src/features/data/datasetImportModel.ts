@@ -13,6 +13,10 @@ interface ParsedTabularData {
   fieldMetadata?: Record<string, Partial<ImportedDatasetField>>;
 }
 
+interface DatasetBuildSource {
+  name: string;
+}
+
 interface ZipEntry {
   name: string;
   compressionMethod: number;
@@ -126,13 +130,13 @@ function inferField(
   };
 }
 
-function fileExtension(fileName: string): ImportedDatasetRecord["fileType"] {
+export function importedFileExtension(fileName: string): ImportedDatasetRecord["fileType"] {
   const extension = fileName.split(".").pop()?.toLowerCase();
   if (extension === "csv" || extension === "xlsx" || extension === "sav") return extension;
   return "unknown";
 }
 
-function buildDataset(file: File, fileType: ImportedDatasetRecord["fileType"], parsed: ParsedTabularData): ImportedDatasetRecord {
+function buildDataset(file: DatasetBuildSource, fileType: ImportedDatasetRecord["fileType"], parsed: ParsedTabularData): ImportedDatasetRecord {
   const dataRows = parsed.rows.filter((row) => row.some((cell) => cell.length > 0));
   const fields = parsed.headers.map((header, columnIndex) => inferField(
     header,
@@ -627,13 +631,36 @@ function parseSavImport(buffer: ArrayBuffer): ParsedTabularData {
   };
 }
 
-export async function importDatasetFile(file: File): Promise<DatasetImportResult> {
-  const fileType = fileExtension(file.name);
+export async function importDatasetBuffer(
+  buffer: ArrayBuffer,
+  fileName: string,
+  fileType: ImportedDatasetRecord["fileType"] = importedFileExtension(fileName)
+): Promise<DatasetImportResult> {
   try {
     if (fileType === "csv") {
-      const parsed = parseCsvImport(await file.text());
+      const parsed = parseCsvImport(decodeText(new Uint8Array(buffer)));
       if (!parsed) return { error: "CSV import needs a header row and at least one data row." };
-      return { dataset: buildDataset(file, fileType, parsed) };
+      return { dataset: buildDataset({ name: fileName }, fileType, parsed) };
+    }
+
+    if (fileType === "sav") {
+      const parsed = parseSavImport(buffer);
+      return { dataset: buildDataset({ name: fileName }, fileType, parsed) };
+    }
+
+    return { error: fileType === "xlsx"
+      ? "XLSX server-side parsing is not enabled yet; use the browser parse path."
+      : "Unsupported file type. Import CSV, XLSX, or classic SPSS SAV files." };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Dataset import failed." };
+  }
+}
+
+export async function importDatasetFile(file: File): Promise<DatasetImportResult> {
+  const fileType = importedFileExtension(file.name);
+  try {
+    if (fileType === "csv") {
+      return importDatasetBuffer(await file.arrayBuffer(), file.name, fileType);
     }
 
     if (fileType === "xlsx") {
@@ -642,9 +669,7 @@ export async function importDatasetFile(file: File): Promise<DatasetImportResult
     }
 
     if (fileType === "sav") {
-      const buffer = await file.arrayBuffer();
-      const parsed = parseSavImport(buffer);
-      return { dataset: buildDataset(file, fileType, parsed) };
+      return importDatasetBuffer(await file.arrayBuffer(), file.name, fileType);
     }
 
     return { error: "Unsupported file type. Import CSV, XLSX, or classic SPSS SAV files." };

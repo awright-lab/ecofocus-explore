@@ -50,8 +50,8 @@ describe("netlifyDatasetStore", () => {
     const result = await storeImportedDatasetInNetlify(new File(["value\nA"], "test.csv"), dataset());
 
     expect(result.stored).toBe(true);
-    expect(result.dataset.sourceType).toBe("netlify");
-    expect(result.dataset.remote).toMatchObject({ provider: "netlify" });
+    expect(result.dataset?.sourceType).toBe("netlify");
+    expect(result.dataset?.remote).toMatchObject({ provider: "netlify" });
     expect(fetchMock).toHaveBeenCalledWith("/.netlify/functions/dataset-import", expect.objectContaining({
       method: "POST",
       headers: { "Content-Type": "application/json" }
@@ -65,10 +65,39 @@ describe("netlifyDatasetStore", () => {
 
     expect(result.stored).toBe(false);
     expect(result.warning).toContain("offline");
-    expect(result.dataset.importStatus).toMatchObject({
+    expect(result.dataset?.importStatus).toMatchObject({
       status: "local_ready",
       label: "Stored locally"
     });
   });
-});
 
+  it("can upload a SAV file without browser-parsed dataset metadata", async () => {
+    const remoteDataset = {
+      ...dataset({ fileName: "survey.sav", fileType: "sav" }),
+      sourceType: "netlify" as const,
+      remote: {
+        provider: "netlify" as const,
+        projectUrl: "https://example.netlify.app",
+        bucket: "dataset-imports",
+        objectPath: "workspace-imports/dataset_test/survey.sav",
+        uploadedAt: "2026-07-04T00:00:00.000Z"
+      }
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        dataset: remoteDataset,
+        storage: { stored: true, database: "stored" }
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await storeImportedDatasetInNetlify(new File(["sav-bytes"], "survey.sav"));
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as { dataset?: unknown; fileName: string };
+
+    expect(result.stored).toBe(true);
+    expect(result.dataset?.fileType).toBe("sav");
+    expect(requestBody).toMatchObject({ fileName: "survey.sav" });
+    expect(requestBody.dataset).toBeUndefined();
+  });
+});

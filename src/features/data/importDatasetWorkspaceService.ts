@@ -1,5 +1,5 @@
 import type { ImportedDatasetRecord } from "../../../shared/types/dashboard";
-import { importDatasetFile } from "./datasetImportModel";
+import { importedFileExtension, importDatasetFile } from "./datasetImportModel";
 import { storeImportedDatasetInNetlify, type NetlifyDatasetStoreResult } from "./netlifyDatasetStore";
 import { storeImportedDatasetInSupabase, type SupabaseDatasetStoreResult } from "./supabaseDatasetStore";
 
@@ -22,6 +22,38 @@ function importProvider(): "local" | "netlify" | "supabase" {
 }
 
 export async function importDatasetForWorkspace(file: File): Promise<WorkspaceDatasetImportResult> {
+  const provider = importProvider();
+  const fileType = importedFileExtension(file.name);
+
+  if (provider === "netlify" && fileType === "sav") {
+    const stored = await storeImportedDatasetInNetlify(file);
+    if (stored.dataset) {
+      return {
+        dataset: stored.dataset,
+        storage: {
+          provider,
+          stored: stored.stored,
+          warning: stored.warning
+        }
+      };
+    }
+
+    const parsedFallback = await importDatasetFile(file);
+    if (parsedFallback.error || !parsedFallback.dataset) {
+      return {
+        error: stored.warning
+          ? `${parsedFallback.error ?? "SAV import failed."} Netlify upload note: ${stored.warning}`
+          : parsedFallback.error ?? "SAV import failed.",
+        storage: { provider, stored: false, warning: stored.warning }
+      };
+    }
+
+    return {
+      dataset: parsedFallback.dataset,
+      storage: { provider: "local", stored: false, warning: stored.warning }
+    };
+  }
+
   const parsed = await importDatasetFile(file);
   if (parsed.error || !parsed.dataset) {
     return {
@@ -30,7 +62,6 @@ export async function importDatasetForWorkspace(file: File): Promise<WorkspaceDa
     };
   }
 
-  const provider = importProvider();
   if (provider === "local") {
     return {
       dataset: parsed.dataset,
@@ -42,7 +73,7 @@ export async function importDatasetForWorkspace(file: File): Promise<WorkspaceDa
     ? await storeImportedDatasetInSupabase(file, parsed.dataset)
     : await storeImportedDatasetInNetlify(file, parsed.dataset);
   return {
-    dataset: stored.dataset,
+    dataset: stored.dataset ?? parsed.dataset,
     storage: {
       provider,
       stored: stored.stored,

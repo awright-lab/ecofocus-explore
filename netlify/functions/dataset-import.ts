@@ -2,15 +2,16 @@ import { getDatabase, MissingDatabaseConnectionError } from "@netlify/database";
 import { connectLambda, getStore } from "@netlify/blobs";
 import type { Handler } from "@netlify/functions";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../shared/types/dashboard";
+import { importDatasetBuffer, importedFileExtension } from "../../src/features/data/datasetImportModel";
 
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
 
 interface DatasetImportRequest {
-  dataset: ImportedDatasetRecord;
+  dataset?: ImportedDatasetRecord;
   fileName: string;
-  fileType: ImportedDatasetRecord["fileType"];
+  fileType?: ImportedDatasetRecord["fileType"];
   contentType?: string;
   contentBase64: string;
 }
@@ -46,7 +47,6 @@ function status(
 
 function parseRequest(body: string): DatasetImportRequest {
   const payload = JSON.parse(body) as Partial<DatasetImportRequest>;
-  if (!payload.dataset) throw new Error("Missing parsed dataset metadata.");
   if (!payload.fileName) throw new Error("Missing uploaded file name.");
   if (!payload.contentBase64) throw new Error("Missing uploaded file content.");
   return payload as DatasetImportRequest;
@@ -200,6 +200,36 @@ async function writeImportedDatasetToDatabase(dataset: ImportedDatasetRecord) {
   }
 }
 
+async function buildDatasetForUpload(request: DatasetImportRequest, fileBuffer: Buffer) {
+  const fileType = request.fileType ?? request.dataset?.fileType ?? importedFileExtension(request.fileName);
+  const shouldParseServerSide = fileType === "sav" || !request.dataset;
+  const parseResult = shouldParseServerSide
+    ? await importDatasetBuffer(
+        fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength) as ArrayBuffer,
+        request.fileName,
+        fileType
+      )
+    : { dataset: request.dataset };
+
+  if (parseResult.dataset) {
+    return {
+      dataset: parseResult.dataset,
+      parsedServerSide: shouldParseServerSide,
+      parserWarning: undefined
+    };
+  }
+
+  if (request.dataset) {
+    return {
+      dataset: request.dataset,
+      parsedServerSide: false,
+      parserWarning: parseResult.error ?? "Server-side parsing failed; using browser-parsed dataset metadata."
+    };
+  }
+
+  throw new Error(parseResult.error ?? "Server-side dataset parsing failed.");
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return errorResponse(405, "Method not allowed. Use POST.");
@@ -219,20 +249,21 @@ export const handler: Handler = async (event) => {
     );
     const fileStore = getStore(process.env.NETLIFY_DATASET_BLOB_STORE || "dataset-imports");
     const metadataStore = getStore(process.env.NETLIFY_DATASET_METADATA_STORE || "dataset-import-metadata");
-    const path = objectPath(request.dataset, request.fileName);
     const uploadedAt = new Date().toISOString();
+    const parsedUpload = await buildDatasetForUpload(request, fileBuffer);
+    const path = objectPath(parsedUpload.dataset, request.fileName);
 
     await fileStore.set(path, fileArrayBuffer, {
       metadata: {
-        datasetId: request.dataset.id,
+        datasetId: parsedUpload.dataset.id,
         fileName: request.fileName,
-        fileType: request.fileType,
+        fileType: parsedUpload.dataset.fileType,
         contentType: request.contentType || "application/octet-stream"
       }
     });
 
     const dataset: ImportedDatasetRecord = {
-      ...request.dataset,
+      ...parsedUpload.dataset,
       sourceType: "netlify",
       remote: {
         provider: "netlify",
@@ -242,11 +273,18 @@ export const handler: Handler = async (event) => {
         uploadedAt
       },
       importStatus: status(
-        request.dataset.rowCount > 0 ? "ready" : "metadata_only",
-        request.dataset.rowCount > 0 ? "Uploaded to Netlify" : "Uploaded to Netlify, labels only",
-        request.dataset.rowCount > 0
-          ? "The original source file is stored in Netlify Blobs and parsed rows are available in the workspace."
-          : "The original source file is stored in Netlify Blobs for server-side parsing, but this browser pass only read labels/metadata."
+        parsedUpload.dataset.rowCount > 0 ? "ready" : "metadata_only",
+        parsedUpload.dataset.rowCount > 0
+          ? parsedUpload.parsedServerSide ? "Parsed and stored by Netlify" : "Uploaded to Netlify"
+          : "Uploaded to Netlify, labels only",
+        [
+          parsedUpload.dataset.rowCount > 0
+            ? parsedUpload.parsedServerSide
+              ? "The original source file was parsed in the Netlify function, stored in Netlify Blobs, and persisted to Netlify Database when available."
+              : "The original source file is stored in Netlify Blobs and parsed rows are available in the workspace."
+            : "The original source file is stored in Netlify Blobs, but respondent rows were not readable yet.",
+          parsedUpload.parserWarning ? `Parser note: ${parsedUpload.parserWarning}` : null
+        ].filter(Boolean).join(" ")
       )
     };
 

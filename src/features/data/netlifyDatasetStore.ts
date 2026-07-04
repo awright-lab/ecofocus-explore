@@ -2,7 +2,7 @@ import type { ImportedDatasetRecord } from "../../../shared/types/dashboard";
 
 export interface NetlifyDatasetStoreResult {
   stored: boolean;
-  dataset: ImportedDatasetRecord;
+  dataset?: ImportedDatasetRecord;
   warning?: string;
 }
 
@@ -29,7 +29,7 @@ function localStatus(dataset: ImportedDatasetRecord, warning?: string): Imported
   };
 }
 
-export async function storeImportedDatasetInNetlify(file: File, dataset: ImportedDatasetRecord): Promise<NetlifyDatasetStoreResult> {
+export async function storeImportedDatasetInNetlify(file: File, dataset?: ImportedDatasetRecord): Promise<NetlifyDatasetStoreResult> {
   try {
     const response = await fetch("/.netlify/functions/dataset-import", {
       method: "POST",
@@ -39,7 +39,7 @@ export async function storeImportedDatasetInNetlify(file: File, dataset: Importe
       body: JSON.stringify({
         dataset,
         fileName: file.name,
-        fileType: dataset.fileType,
+        fileType: dataset?.fileType,
         contentType: file.type || "application/octet-stream",
         contentBase64: await fileToBase64(file)
       })
@@ -59,6 +59,13 @@ export async function storeImportedDatasetInNetlify(file: File, dataset: Importe
     };
   } catch (error) {
     const warning = error instanceof Error ? error.message : "Netlify import endpoint is unavailable.";
+    if (!dataset) {
+      return {
+        stored: false,
+        warning
+      };
+    }
+
     return {
       stored: false,
       warning,
@@ -69,4 +76,3 @@ export async function storeImportedDatasetInNetlify(file: File, dataset: Importe
     };
   }
 }
-

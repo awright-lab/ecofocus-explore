@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { importDatasetFile } from "../datasetImportModel";
+import { importDatasetBuffer, importDatasetFile } from "../datasetImportModel";
 import { importedFieldValues } from "../importedDatasetAnalytics";
 
 function textBytes(value: string, length: number) {
@@ -132,6 +132,26 @@ describe("datasetImportModel", () => {
     });
     expect(result.dataset?.rows).toEqual([{ Q1: "1" }, { Q1: "2" }]);
     expect(importedFieldValues(result.dataset, result.dataset?.fields[0])).toEqual(["Compostable", "Reusable"]);
+  });
+
+  it("imports classic SAV rows through the server-side buffer parser", async () => {
+    const result = await importDatasetBuffer(minimalSavFile(), "survey.sav", "sav");
+
+    expect(result.error).toBeUndefined();
+    expect(result.dataset).toMatchObject({
+      fileType: "sav",
+      rowCount: 2,
+      fieldCount: 1
+    });
+    expect(result.dataset?.fields[0]).toMatchObject({
+      sourceColumn: "Q1",
+      label: "Preferred package type",
+      valueLabels: {
+        "1": "Reusable",
+        "2": "Compostable"
+      }
+    });
+    expect(result.dataset?.rows).toEqual([{ Q1: "1" }, { Q1: "2" }]);
   });
 
   it("keeps SAV variable metadata when case-data compression is not supported", async () => {
