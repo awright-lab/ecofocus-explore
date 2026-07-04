@@ -100,18 +100,18 @@ export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSum
   const importedChips = imported
     ? imported.isMeasure
       ? [
-        `Imported measure: ${imported.measureLabel ?? "Measure"}`,
-        `Group by: ${imported.groupingLabel}`,
-        `Metric: ${imported.metricLabel}`,
-        `Banner: ${imported.bannerLabel}`,
+        `Number: ${imported.measureLabel ?? "Measure"}`,
+        `Grouped by: ${imported.groupingLabel}`,
+        `Values: ${imported.metricLabel}`,
+        `Breakout: ${imported.bannerLabel}`,
         `Filter: ${imported.filterLabel}`,
         imported.baseLabel,
         `Dataset: ${imported.datasetLabel}`
       ]
       : [
-        `Imported field: ${imported.groupingLabel}`,
-        `Metric: ${imported.metricLabel}`,
-        `Banner: ${imported.bannerLabel}`,
+        `Grouped by: ${imported.groupingLabel}`,
+        `Values: ${imported.metricLabel}`,
+        `Breakout: ${imported.bannerLabel}`,
         `Filter: ${imported.filterLabel}`,
         imported.baseLabel,
         `Dataset: ${imported.datasetLabel}`

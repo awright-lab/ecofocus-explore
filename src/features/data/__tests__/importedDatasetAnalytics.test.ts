@@ -95,7 +95,7 @@ describe("imported dataset measure analytics", () => {
     const provenance = buildImportedResultProvenance(result);
     expect(provenance).toMatchObject({
       isMeasure: true,
-      queryKindLabel: "Imported measure",
+      queryKindLabel: "Imported numeric summary",
       summaryLabel: "Average Annual spend by Segment",
       groupingLabel: "Segment",
       measureLabel: "Annual spend",
@@ -103,7 +103,7 @@ describe("imported dataset measure analytics", () => {
       bannerLabel: "Region",
       baseLabel: "Valid measure n=3"
     });
-    expect(provenance?.chips).toContain("Measure: Annual spend");
+    expect(provenance?.chips).toContain("Number: Annual spend");
   });
 
   it("aggregates imported sums and formats measure values without unnecessary decimals", () => {
@@ -117,12 +117,12 @@ describe("imported dataset measure analytics", () => {
       metric: "sum"
     });
 
-    expect(result.metric.label).toBe("Sum of Annual spend");
+    expect(result.metric.label).toBe("Total Annual spend");
     expect(result.table.find((row) => row.label === "Core")?.values.summary).toBe(30);
     expect(result.table.find((row) => row.label === "Growth")?.values.summary).toBe(5);
     expect(buildImportedResultProvenance(result)).toMatchObject({
       summaryLabel: "Sum Annual spend by Segment",
-      filterLabel: "Region: West",
+      filterLabel: "Region is West",
       baseLabel: "Valid measure n=3"
     });
     expect(formatImportedMeasureValue(15, "average")).toBe("15");
@@ -152,7 +152,7 @@ describe("imported dataset measure analytics", () => {
     expect(recommendations).toEqual([
       expect.objectContaining({
         id: "categorical",
-        label: "Categorical crosstab",
+        label: "Count responses with a breakout",
         chartType: "grouped_bar",
         metric: "percent_selected",
         bannerFieldId: "region",
@@ -160,7 +160,7 @@ describe("imported dataset measure analytics", () => {
       }),
       expect.objectContaining({
         id: "measure",
-        label: "Numeric measure",
+        label: "Average or sum a number",
         chartType: "grouped_bar",
         metric: "average",
         measureFieldId: "spend"

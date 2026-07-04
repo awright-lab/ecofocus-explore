@@ -133,7 +133,7 @@ export function resultDatasetLabel(result: AnalyticsQueryResponse) {
 
 export function resultBannerLabel(result: AnalyticsQueryResponse) {
   if (result.metadataRefs.source?.kind === "imported") {
-    return result.metadataRefs.source.bannerFieldLabel ?? "No banner";
+    return result.metadataRefs.source.bannerFieldLabel ?? "No breakout";
   }
   return bannerDimensions.find((item) => item.id === result.metadataRefs.breakBy)?.label ?? result.metadataRefs.breakBy;
 }

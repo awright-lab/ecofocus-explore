@@ -142,7 +142,7 @@ export function buildTileQueryStatus(tile: DashboardTile): TileQueryStatusView {
     hasPendingChanges,
     label: isImported ? "Imported result current" : hasPendingChanges ? "Refresh needed" : "Results current",
     description: isImported
-      ? "This tile reflects a local imported-data tabulation. Imported rerun editing is not available in this seeded query panel yet."
+      ? "This tile reflects a local imported-data result. Edit and rerun imported grouping, numbers, filters, and breakouts in the imported query panel."
       : hasPendingChanges
       ? "Source settings have changed. Refresh analysis to update the selected object."
       : "The selected object reflects the current source settings.",
@@ -150,7 +150,7 @@ export function buildTileQueryStatus(tile: DashboardTile): TileQueryStatusView {
     questionLabel: resultSourceLabel(tile.result),
     visualizationLabel: getChartTypeLabel(tile.visualization),
     comparisonLabel: comparisonSummaryLabel(tile.query),
-    primarySourceLabel: isImported ? "Imported field" : "Question",
+    primarySourceLabel: isImported ? "Imported grouping" : "Question",
     isImported
   };
 }
@@ -161,7 +161,7 @@ export function buildTileQueryActionState(status: TileQueryStatusView, isLoading
     canSaveSettings: !isLoading && !status.hasPendingChanges && !status.isImported,
     refreshLabel: status.isImported ? "Imported local result" : isLoading ? "Refreshing..." : status.hasPendingChanges ? "Refresh analysis" : "Refresh again",
     refreshHelperText: status.isImported
-      ? "Imported tiles use local query identity and are not refreshed through the seeded survey provider."
+      ? "Imported tiles use local query identity; use the imported query panel to change and rerun them."
       : status.hasPendingChanges
       ? "Apply the edited source settings to the selected object."
       : "Results already match these settings; refresh again only if the underlying data changed.",

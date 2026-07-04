@@ -107,6 +107,11 @@ function isMeasureMetric(metric: Metric | undefined) {
   return metric === "average" || metric === "sum";
 }
 
+function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
+  if (!field) return undefined;
+  return field.variableLabel?.trim() || field.label || field.sourceColumn;
+}
+
 function uniquePositiveBases(result: AnalyticsQueryResponse) {
   return [...new Set(result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0))].sort((a, b) => a - b);
 }
@@ -120,8 +125,8 @@ function baseRangeLabel(prefix: string, bases: number[]) {
 export function importedMetricLabel(metric: Metric) {
   if (metric === "average") return "Average";
   if (metric === "sum") return "Sum";
-  if (metric === "count") return "Count";
-  return "% of rows";
+  if (metric === "count") return "Number of responses";
+  return "% of responses";
 }
 
 export function formatImportedMeasureValue(value: number, metric: Metric) {
@@ -139,17 +144,19 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
   const metricLabel = importedMetricLabel(result.metric.id);
   const groupingLabel = source.primaryFieldLabel;
   const measureLabel = source.measureFieldLabel ?? null;
-  const bannerLabel = source.bannerFieldLabel ?? "No banner";
-  const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel}: ${source.filterValue}` : "No filter";
+  const bannerLabel = source.bannerFieldLabel ?? "No breakout";
+  const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel} is ${source.filterValue}` : "No filter";
   const baseLabel = baseRangeLabel(isMeasure ? "Valid measure" : "Rows", uniquePositiveBases(result));
   const summaryLabel = isMeasure && measureLabel
     ? `${metricLabel} ${measureLabel} by ${groupingLabel}`
-    : `${groupingLabel}${source.bannerFieldLabel ? ` by ${source.bannerFieldLabel}` : ""}`;
+    : source.bannerFieldLabel
+      ? `Count responses for ${groupingLabel}, broken out by ${source.bannerFieldLabel}`
+      : `Count responses for ${groupingLabel}`;
 
   return {
     isImported: true,
     isMeasure,
-    queryKindLabel: isMeasure ? "Imported measure" : source.bannerFieldLabel ? "Imported crosstab" : "Imported categorical",
+    queryKindLabel: isMeasure ? "Imported numeric summary" : source.bannerFieldLabel ? "Imported response count by breakout" : "Imported response count",
     summaryLabel,
     datasetLabel: source.datasetLabel,
     groupingLabel,
@@ -160,10 +167,10 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
     baseLabel,
     chips: [
       `Dataset: ${source.datasetLabel}`,
-      `Group: ${groupingLabel}`,
-      ...(isMeasure && measureLabel ? [`Measure: ${measureLabel}`] : []),
-      `Metric: ${metricLabel}`,
-      `Banner: ${bannerLabel}`,
+      `Grouped by: ${groupingLabel}`,
+      ...(isMeasure && measureLabel ? [`Number: ${measureLabel}`] : []),
+      `Values: ${metricLabel}`,
+      `Breakout: ${bannerLabel}`,
       `Filter: ${filterLabel}`,
       baseLabel
     ]
@@ -239,7 +246,7 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
         label: hasRows ? "Ready for analysis" : "No usable values",
         tone: hasRows ? "ready" : "blocked",
         reason: hasRows
-          ? "This field is modeled as a usable dimension for imported tabulations and one-banner crosstabs."
+          ? "This field is modeled as a usable dimension for imported counts, charts, filters, and one-field breakouts."
           : "This field has no non-empty values to tabulate.",
         bestUse: field.eligibleForBanner
           ? "Use as a grouping field, filter, segment, or one-banner crosstab input."
@@ -347,7 +354,7 @@ function buildImportedFieldModelingRecommendations(
         id: "mark_dimension",
         label: "Mark as dimension",
         description: "This field has a manageable number of values, so it can work as a grouping field.",
-        impact: "Unlocks tabulations, simple charts, filters, segments, and one-banner crosstabs.",
+        impact: "Unlocks response counts, simple charts, filters, segments, and one-field breakouts.",
         suggestedUpdates: {
           type: "categorical",
           modelingRole: "candidate_dimension",
@@ -413,8 +420,8 @@ function buildImportedFieldModelingRecommendations(
     if (!field.eligibleForBanner && field.distinctCount <= 12) {
       recommendations.push({
         id: "enable_banner",
-        label: "Enable banner use",
-        description: "This field has few enough categories to work as a one-banner crosstab.",
+        label: "Enable breakout use",
+        description: "This field has few enough categories to split imported results clearly.",
         impact: "Lets users compare imported results across this field.",
         suggestedUpdates: { eligibleForBanner: true }
       });
@@ -424,9 +431,9 @@ function buildImportedFieldModelingRecommendations(
   if (context.isHighCardinalityDimension && field.eligibleForBanner) {
     recommendations.push({
       id: "avoid_banner",
-      label: "Avoid banner use",
-      description: "High-cardinality banner fields create wide, hard-to-read crosstabs.",
-      impact: "Keeps imported crosstabs readable; use this field as a table grouping instead.",
+      label: "Avoid breakout use",
+      description: "Fields with many categories create wide, hard-to-read breakouts.",
+      impact: "Keeps imported results readable; use this field as a table grouping instead.",
       suggestedUpdates: { eligibleForBanner: false }
     });
   }
@@ -434,9 +441,9 @@ function buildImportedFieldModelingRecommendations(
   if (context.isMeasure && (field.eligibleForBanner || field.eligibleForFilter || field.eligibleForSegment)) {
     recommendations.push({
       id: "use_grouping",
-      label: "Use as measure, not grouping",
-      description: "Numeric measure fields should be aggregated by a separate dimension rather than used as filters or banners.",
-      impact: "Keeps imported measure views clean and avoids misleading crosstabs.",
+      label: "Use as a number, not a grouping",
+      description: "Numeric fields should be averaged or summed by a separate grouping field rather than used as filters or breakouts.",
+      impact: "Keeps imported measure views clean and avoids misleading result splits.",
       suggestedUpdates: {
         eligibleForFilter: false,
         eligibleForSegment: false,
@@ -469,14 +476,17 @@ export function buildImportedQueryRecommendations(
 
   const bannerField = options?.bannerFields?.find((item) => item.id !== field.id) ?? null;
   const measureField = options?.measureField ?? firstImportedMeasureField(dataset);
+  const fieldLabel = importedFieldDisplayLabel(field) ?? field.label;
+  const bannerLabel = importedFieldDisplayLabel(bannerField);
+  const measureLabel = importedFieldDisplayLabel(measureField);
   const recommendations: ImportedQueryRecommendationView[] = [
     {
       id: "categorical",
-      label: bannerField ? "Categorical crosstab" : "Categorical tabulation",
+      label: bannerField ? "Count responses with a breakout" : `Count responses by ${fieldLabel}`,
       description: bannerField
-        ? `Show ${field.label} by ${bannerField.label}.`
-        : `Show row counts or % of rows for ${field.label}.`,
-      actionLabel: bannerField ? "Use crosstab" : "Use tabulation",
+        ? `Count responses for ${fieldLabel}, broken out by ${bannerLabel}.`
+        : `Count responses for ${fieldLabel}.`,
+      actionLabel: bannerField ? "Use breakout" : "Use response count",
       chartType: bannerField ? "grouped_bar" : "vertical_bar",
       metric: "percent_selected",
       bannerFieldId: bannerField?.id ?? null,
@@ -488,9 +498,9 @@ export function buildImportedQueryRecommendations(
   if (measureField && measureField.id !== field.id && measureField.id !== bannerField?.id) {
     recommendations.push({
       id: "measure",
-      label: "Numeric measure",
-      description: `Average ${measureField.label} by ${field.label}.`,
-      actionLabel: "Use measure",
+      label: "Average or sum a number",
+      description: `Show average ${measureLabel} grouped by ${fieldLabel}.`,
+      actionLabel: "Use numeric summary",
       chartType: bannerField ? "grouped_bar" : "vertical_bar",
       metric: "average",
       bannerFieldId: bannerField?.id ?? null,
@@ -540,7 +550,7 @@ export function getImportedDatasetQuerySupport(
       return { executable: false, reason: "Choose a different field for the imported banner." };
     }
     if (!options.bannerField.eligibleForBanner || !isExecutableDimension(options.bannerField)) {
-      return { executable: false, reason: "Imported banners are limited to banner-eligible categorical fields." };
+      return { executable: false, reason: "Imported breakouts are limited to breakout-ready categorical fields." };
     }
     if (options.chartType === "donut") {
       return { executable: false, reason: "Donut charts are only supported for imported queries without a banner." };
@@ -557,15 +567,15 @@ export function getImportedDatasetQuerySupport(
   const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
   if (!rows.length) return { executable: false, reason: "This dataset has no stored rows to tabulate." };
   if (isMeasureMetric(options?.metric)) {
-    if (options?.bannerField && options?.filter?.field) return { executable: true, reason: `Supported: filtered ${options.metric} of one numeric measure by grouping and banner.` };
-    if (options?.bannerField) return { executable: true, reason: `Supported: ${options.metric} of one numeric measure by grouping and banner.` };
-    if (options?.filter?.field) return { executable: true, reason: `Supported: filtered ${options.metric} of one numeric measure by grouping.` };
-    return { executable: true, reason: `Supported: ${options?.metric} of one numeric measure by grouping.` };
+    if (options?.bannerField && options?.filter?.field) return { executable: true, reason: `Ready: ${options.metric} a numeric field, grouped, filtered, and broken out once.` };
+    if (options?.bannerField) return { executable: true, reason: `Ready: ${options.metric} a numeric field, grouped and broken out once.` };
+    if (options?.filter?.field) return { executable: true, reason: `Ready: ${options.metric} a numeric field for the filtered responses.` };
+    return { executable: true, reason: `Ready: ${options?.metric} a numeric field by a grouping field.` };
   }
-  if (options?.bannerField && options?.filter?.field) return { executable: true, reason: "Supported: filtered categorical crosstab by one banner." };
-  if (options?.bannerField) return { executable: true, reason: "Supported: categorical crosstab by one banner." };
-  if (options?.filter?.field) return { executable: true, reason: "Supported: filtered categorical field tabulation." };
-  return { executable: true, reason: "Supported: categorical field tabulation." };
+  if (options?.bannerField && options?.filter?.field) return { executable: true, reason: "Ready: count filtered responses by one field and one breakout." };
+  if (options?.bannerField) return { executable: true, reason: "Ready: count responses by one field and one breakout." };
+  if (options?.filter?.field) return { executable: true, reason: "Ready: count responses for the selected filter." };
+  return { executable: true, reason: "Ready: count responses by this field." };
 }
 
 function slug(value: string, fallback: string) {
@@ -580,13 +590,13 @@ function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAna
     datasetId: config.dataset.id,
     datasetLabel: config.dataset.title,
     primaryFieldId: config.field.id,
-    primaryFieldLabel: config.field.label,
+    primaryFieldLabel: importedFieldDisplayLabel(config.field) ?? config.field.label,
     measureFieldId: config.measureField?.id,
-    measureFieldLabel: config.measureField?.label,
+    measureFieldLabel: importedFieldDisplayLabel(config.measureField),
     bannerFieldId: config.bannerField?.id,
-    bannerFieldLabel: config.bannerField?.label,
+    bannerFieldLabel: importedFieldDisplayLabel(config.bannerField),
     filterFieldId: config.filter?.field.id,
-    filterFieldLabel: config.filter?.field.label,
+    filterFieldLabel: importedFieldDisplayLabel(config.filter?.field),
     filterValue: config.filter?.value
   };
 }
@@ -660,12 +670,12 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     return bTotal - aTotal || a[0].localeCompare(b[0]);
   });
   const metric = config.metric === "average"
-    ? { id: "average" as const, label: `Average ${config.measureField?.label ?? "measure"}`, valueFormat: "number" as const }
+    ? { id: "average" as const, label: `Average ${importedFieldDisplayLabel(config.measureField) ?? "number"}`, valueFormat: "number" as const }
     : config.metric === "sum"
-      ? { id: "sum" as const, label: `Sum of ${config.measureField?.label ?? "measure"}`, valueFormat: "number" as const }
+      ? { id: "sum" as const, label: `Total ${importedFieldDisplayLabel(config.measureField) ?? "number"}`, valueFormat: "number" as const }
       : config.metric === "count"
-        ? { id: "count" as const, label: "Count", valueFormat: "number" as const }
-        : { id: "percent_selected" as const, label: "% of rows", valueFormat: "percent" as const };
+        ? { id: "count" as const, label: "Number of responses", valueFormat: "number" as const }
+        : { id: "percent_selected" as const, label: "% of responses", valueFormat: "percent" as const };
   const sourceIdentity = importedSourceIdentity(config);
   const query = importedQuery(config.chartType, metric.id, sourceIdentity);
   const columns = bannerValues.map((label, index) => ({
@@ -737,11 +747,11 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     notes: [
       `Imported dataset: ${config.dataset.title}.`,
       isMeasureMetric(config.metric)
-        ? `Aggregated ${config.measureField?.label ?? "numeric measure"} by ${config.field.label}.`
-        : `Tabulated categorical field: ${config.field.label}.`,
-      ...(config.bannerField ? [`Banner: ${config.bannerField.label}.`] : []),
-      ...(config.filter?.field ? [`Filter: ${config.filter.field.label} = ${config.filter.value}.`] : []),
-      "Imported-data support is currently limited to one categorical grouping field, one optional banner, one optional filter, and one optional numeric measure."
+        ? `Aggregated ${importedFieldDisplayLabel(config.measureField) ?? "numeric field"} by ${importedFieldDisplayLabel(config.field)}.`
+        : `Counted responses for ${importedFieldDisplayLabel(config.field)}.`,
+      ...(config.bannerField ? [`Broken out by ${importedFieldDisplayLabel(config.bannerField)}.`] : []),
+      ...(config.filter?.field ? [`Filtered to ${importedFieldDisplayLabel(config.filter.field)} is ${config.filter.value}.`] : []),
+      "Imported-data support is currently limited to one categorical grouping field, one optional breakout, one optional filter, and one optional numeric measure."
     ],
     metadataRefs: {
       dataset: query.dataset,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { buildImportedResultProvenance, getImportedDatasetQuerySupport, importedFieldValues, runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
+import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
@@ -725,17 +726,17 @@ function ImportedTileQueryEditor({
           </select>
         </label>
         <label>
-          Imported field
+          Group responses by
           <select value={primaryField?.id ?? ""} onChange={(event) => changePrimaryField(event.target.value)}>
             {primaryFields.map((field) => (
-              <option value={field.id} key={field.id}>{field.label}</option>
+              <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
           </select>
         </label>
       </div>
       <div className="guided-query-field-grid">
         <label>
-          Query type
+          What do you want to do?
           <select
             value={queryMode}
             onChange={(event) => {
@@ -745,17 +746,17 @@ function ImportedTileQueryEditor({
               if (nextMode === "measure") setMeasureFieldId(measureOptions[0]?.id ?? "none");
             }}
           >
-            <option value="categorical">Categorical crosstab</option>
-            <option value="measure">Numeric measure</option>
+            <option value="categorical">Count responses by a field</option>
+            <option value="measure">Average or sum a number</option>
           </select>
         </label>
         {queryMode === "measure" && (
           <label>
-            Measure
+            Number to average or sum
             <select value={measureField?.id ?? "none"} onChange={(event) => setMeasureFieldId(event.target.value)}>
-              <option value="none">Choose measure...</option>
+              <option value="none">Choose a number...</option>
               {measureOptions.map((field) => (
-                <option value={field.id} key={field.id}>{field.label}</option>
+                <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
               ))}
             </select>
           </label>
@@ -763,16 +764,16 @@ function ImportedTileQueryEditor({
       </div>
       <div className="guided-query-field-grid">
         <label>
-          Banner
+          Break out by
           <select value={bannerField?.id ?? "none"} onChange={(event) => setBannerFieldId(event.target.value)}>
-            <option value="none">No banner</option>
+            <option value="none">No breakout</option>
             {bannerOptions.map((field) => (
-              <option value={field.id} key={field.id}>{field.label}</option>
+              <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
           </select>
         </label>
         <label>
-          Metric
+          Result values
           <select value={effectiveMetric} onChange={(event) => setMetric(event.target.value as Metric)}>
             {queryMode === "measure" ? (
               <>
@@ -781,8 +782,8 @@ function ImportedTileQueryEditor({
               </>
             ) : (
               <>
-                <option value="percent_selected">% of rows</option>
-                <option value="count">Count</option>
+                <option value="percent_selected">% of responses</option>
+                <option value="count">Number of responses</option>
               </>
             )}
           </select>
@@ -790,7 +791,7 @@ function ImportedTileQueryEditor({
       </div>
       <div className="guided-query-field-grid">
         <label>
-          Filter field
+          Limit to
           <select
             value={filterField?.id ?? "none"}
             onChange={(event) => {
@@ -800,13 +801,13 @@ function ImportedTileQueryEditor({
           >
             <option value="none">No filter</option>
             {filterOptions.map((field) => (
-              <option value={field.id} key={field.id}>{field.label}</option>
+              <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
           </select>
         </label>
         {filterField && (
           <label>
-            Filter value
+            Keep responses where
             <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
               <option value="all">Choose value...</option>
               {values.map((value) => (

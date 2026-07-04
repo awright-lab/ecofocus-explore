@@ -89,7 +89,7 @@ describe("imported dataset modeling model", () => {
       dimensionLabel: "1 query-ready dimension",
       measureLabel: "1 measure",
       health: expect.objectContaining({
-        chips: ["1 dimensions", "1 measures", "1 filters", "1 banners", "2 review"]
+        chips: ["1 dimensions", "1 measures", "1 filters", "1 breakouts", "2 review"]
       })
     });
   });
@@ -97,7 +97,7 @@ describe("imported dataset modeling model", () => {
   it("builds richer field modeling profiles for dimensions, measures, raw text, and dates", () => {
     expect(buildImportedFieldModelingProfile(field("segment", "Segment"))).toMatchObject({
       analyticalRoleSummary: "Modeled as a categorical dimension for grouping, filters, segments, and crosstabs.",
-      structureSummary: "filter-ready · segment-ready · banner-ready",
+      structureSummary: "can filter results · segment-ready · can break out results",
       chips: expect.arrayContaining(["Categorical", "Dimension", "Ready for analysis", "Grouping field"])
     });
 

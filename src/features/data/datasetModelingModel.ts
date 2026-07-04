@@ -27,6 +27,52 @@ export interface ImportedFieldModelingProfile {
   chips: string[];
 }
 
+export function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
+  if (!field) return "selected field";
+  return field.variableLabel?.trim() || field.label || field.sourceColumn;
+}
+
+export function importedFieldRawNameLabel(field: ImportedDatasetField | null | undefined) {
+  if (!field) return null;
+  const display = importedFieldDisplayLabel(field);
+  return field.sourceColumn && field.sourceColumn !== display ? `Raw field: ${field.sourceColumn}` : null;
+}
+
+export function importedDatasetMetadataQualityLabel(dataset: ImportedDatasetRecord | null | undefined) {
+  const quality = dataset?.importMetadata?.metadataQuality;
+  if (quality === "metadata_rich") return "Survey labels imported";
+  if (quality === "structured") return "Spreadsheet headers cleaned";
+  return "Labels inferred from raw columns";
+}
+
+export function importedFieldValueLabelPreview(field: ImportedDatasetField | null | undefined) {
+  const entries = Object.entries(field?.valueLabels ?? {});
+  if (!entries.length) return null;
+  return entries.slice(0, 4).map(([value, label]) => `${value} means ${label}`).join(" · ");
+}
+
+export function importedGroupingPlainLabel(field: ImportedDatasetField | null | undefined) {
+  return importedFieldDisplayLabel(field);
+}
+
+export function importedMeasurePlainLabel(field: ImportedDatasetField | null | undefined, metric: "average" | "sum" = "average") {
+  const metricLabel = metric === "sum" ? "total" : "average";
+  return `${metricLabel} ${importedFieldDisplayLabel(field)}`;
+}
+
+export function importedQueryModePlainLabel(mode: "categorical" | "measure") {
+  return mode === "measure" ? "Average or sum a number" : "Count responses by a field";
+}
+
+export function importedBannerPlainLabel(field: ImportedDatasetField | null | undefined) {
+  return field ? `Broken out by ${importedFieldDisplayLabel(field)}` : "No breakout";
+}
+
+export function importedFilterPlainLabel(field: ImportedDatasetField | null | undefined, value?: string | null) {
+  if (!field || !value || value === "all") return "No filter";
+  return `Only ${importedFieldDisplayLabel(field)} = ${value}`;
+}
+
 export function importedFieldTypeLabel(type: ImportedDatasetField["type"]) {
   const labels: Record<ImportedDatasetField["type"], string> = {
     text: "Text",
@@ -69,9 +115,9 @@ export function buildImportedDatasetStructureSummary(dataset: ImportedDatasetRec
     measures,
     health,
     dimensionLabel: `${dimensions.length} query-ready dimension${dimensions.length === 1 ? "" : "s"}`,
-    filterLabel: `${filters.length} candidate filter${filters.length === 1 ? "" : "s"}`,
-    segmentLabel: `${segments.length} candidate segment${segments.length === 1 ? "" : "s"}`,
-    bannerLabel: `${banners.length} candidate banner${banners.length === 1 ? "" : "s"}`,
+    filterLabel: `${filters.length} field${filters.length === 1 ? "" : "s"} can filter results`,
+    segmentLabel: `${segments.length} field${segments.length === 1 ? "" : "s"} can define segments`,
+    bannerLabel: `${banners.length} field${banners.length === 1 ? "" : "s"} can break out results`,
     measureLabel: `${measures.length} measure${measures.length === 1 ? "" : "s"}`
   };
 }
@@ -145,7 +191,7 @@ export function buildImportedDatasetModelingHealth(dataset: ImportedDatasetRecor
       `${queryReadyDimensions} dimensions`,
       `${queryReadyMeasures} measures`,
       `${filterReadyFields} filters`,
-      `${bannerReadyFields} banners`,
+      `${bannerReadyFields} breakouts`,
       `${fieldsNeedingReview} review`
     ]
   };
@@ -169,10 +215,10 @@ export function buildImportedFieldModelingProfile(field: ImportedDatasetField): 
         ? "Modeled as a date/time field; imported date analysis is not supported yet."
         : "Still a raw imported field; choose a role before relying on it for analysis.";
   const structureSummary = [
-    field.eligibleForFilter ? "filter-ready" : null,
+    field.eligibleForFilter ? "can filter results" : null,
     field.eligibleForSegment ? "segment-ready" : null,
-    field.eligibleForBanner ? "banner-ready" : null
-  ].filter(Boolean).join(" · ") || "No filter/banner structure enabled";
+    field.eligibleForBanner ? "can break out results" : null
+  ].filter(Boolean).join(" · ") || "No filter/breakout structure enabled";
 
   return {
     analyticalRoleSummary,
@@ -180,11 +226,9 @@ export function buildImportedFieldModelingProfile(field: ImportedDatasetField): 
     suitabilitySummary: suitability.readiness.reason,
     structureSummary,
     dateTreatment: isDate ? "Date fields are preserved as metadata until imported date grouping or trend analysis is added." : null,
-    rawFieldSummary: field.variableLabel && field.variableLabel !== field.sourceColumn
-      ? `Raw field: ${field.sourceColumn}`
-      : `Source field: ${field.sourceColumn}`,
+    rawFieldSummary: importedFieldRawNameLabel(field) ?? `Source field: ${field.sourceColumn}`,
     valueLabelSummary: field.valueLabels && Object.keys(field.valueLabels).length
-      ? `Value labels: ${Object.entries(field.valueLabels).slice(0, 4).map(([value, label]) => `${value} = ${label}`).join(", ")}`
+      ? `Value labels: ${importedFieldValueLabelPreview(field)}`
       : null,
     chips: [
       importedFieldTypeLabel(field.type),

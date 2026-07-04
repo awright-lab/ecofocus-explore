@@ -7,6 +7,8 @@ import {
   buildImportedDatasetStructureSummary,
   buildImportedFieldModelingProfile,
   describeFieldModeling,
+  importedFieldDisplayLabel,
+  importedFieldRawNameLabel,
   importedFieldRoleLabel,
   importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
@@ -242,6 +244,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const analysisLabel = suitability.recommendedQueryMode === "measure" ? "Measure" : suitability.recommendedQueryMode === "modeling" ? "Review" : "Analyze";
                 const topRecommendation = suitability.recommendations[0];
+                const fieldLabel = importedFieldDisplayLabel(field);
+                const rawNameLabel = importedFieldRawNameLabel(field);
                 return (
                   <div
                     className={isSelectedForModeling ? "mockup-library-row compact modeled-variable-row split active" : "mockup-library-row compact modeled-variable-row split"}
@@ -249,8 +253,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   >
                     <span><DataLibraryIcon icon="variable" /></span>
                     <div className="modeled-variable-row__body">
-                      <strong>{field.label}</strong>
+                      <strong>{fieldLabel}</strong>
                       <small>{importedFieldTypeLabel(field.type)} · {suitability.helperText}</small>
+                      {rawNameLabel && <small className="raw-field-name">{rawNameLabel}</small>}
                       <span className="data-library-badge-row">
                         <em className={`readiness ${suitability.readiness.tone}`}>{suitability.readiness.label}</em>
                         {suitability.badges.slice(0, 3).map((badge) => (
@@ -264,7 +269,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         <small className="field-modeling-recommendation">Try: {topRecommendation.label}</small>
                       )}
                     </div>
-                    <div className="modeled-variable-row__actions" aria-label={`Actions for ${field.label}`}>
+                    <div className="modeled-variable-row__actions" aria-label={`Actions for ${fieldLabel}`}>
                       <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
                         {analysisLabel}
                       </button>
@@ -303,8 +308,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <section className="imported-variable-model-card" aria-label="Imported variable modeling">
               <div className="imported-variable-model-card__header">
                 <span>Variable model</span>
-                <strong>{activeImportedField.label}</strong>
-                <small>{activeImportedField.variableLabel ? `Variable label from ${activeImportedField.sourceColumn}.` : `Field settings for ${activeImportedField.sourceColumn}.`} Modeling controls how this field can be used for grouping, measures, filters, and banners.</small>
+                <strong>{importedFieldDisplayLabel(activeImportedField)}</strong>
+                <small>{importedFieldRawNameLabel(activeImportedField) ?? "Imported field"}. Modeling controls how this field can be used for grouping, numbers, filters, and breakouts.</small>
               </div>
               {activeImportedFieldSuitability && (
                 <div className={`imported-field-readiness-card ${activeImportedFieldSuitability.readiness.tone}`}>
@@ -473,12 +478,12 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 </label>
                 <label>
                   <input type="checkbox" checked={activeImportedField.eligibleForBanner} onChange={(event) => updateActiveImportedField({ eligibleForBanner: event.target.checked })} />
-                  Banner-ready
+                  Breakout-ready
                 </label>
               </div>
               <div className="imported-field-modeling-guidance">
                 <strong>What these settings affect</strong>
-                <small>Dimension fields can become tables, charts, filters, segments, or one-banner crosstabs. Measure fields can be averaged or summed by a separate dimension. Imported data still does not support weights, significance, waves, multi-filter queries, or provider-backed execution.</small>
+                <small>Dimension fields can become tables, charts, filters, segments, or one-field breakouts. Measure fields can be averaged or summed by a separate dimension. Imported data still does not support weights, significance, waves, multi-filter queries, or provider-backed execution.</small>
               </div>
               <p>{activeImportedFieldView.completenessLabel}</p>
               <small>{activeImportedFieldView.eligibilityLabel}</small>
@@ -492,7 +497,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
             {(activeImportedDataset
-              ? importedStructureSummary.filters.slice(0, 3).map((field) => field.label)
+              ? importedStructureSummary.filters.slice(0, 3).map((field) => importedFieldDisplayLabel(field))
               : savedFilters.length > 0 ? savedFilters.slice(0, 3).map((filter) => filter.label) : ["Region: Global", "Age: 18–65+", "Employment: All"]).map((label) => (
               <button type="button" className="mockup-library-row compact" key={label} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="filter" /></span>
@@ -507,7 +512,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
             {(activeImportedDataset
-              ? importedStructureSummary.segments.slice(0, 3).map((field) => field.label)
+              ? importedStructureSummary.segments.slice(0, 3).map((field) => importedFieldDisplayLabel(field))
               : savedSegmentProfiles.length > 0 ? savedSegmentProfiles.slice(0, 3).map((segment) => segment.label) : ["Gen Z (18–27)", "Millennials (28–43)", "Parents"]).map((label, index) => (
               <button type="button" className="mockup-library-row compact with-count" key={label} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="segment" /></span>
@@ -523,7 +528,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <button type="button" onClick={() => setExploreView("library")}>+</button>
             </div>
             {(activeImportedDataset
-              ? importedStructureSummary.banners.slice(0, 2).map((field) => field.label)
+              ? importedStructureSummary.banners.slice(0, 2).map((field) => importedFieldDisplayLabel(field))
               : savedBanners.length > 0 ? savedBanners.slice(0, 2).map((banner) => banner.label) : ["Key takeaway", "Section divider"]).map((label) => (
               <button type="button" className="mockup-library-row compact" key={label} onClick={() => setExploreView("library")}>
                 <span><DataLibraryIcon icon="banner" /></span>
