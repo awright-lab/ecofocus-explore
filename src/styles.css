@@ -1475,6 +1475,24 @@ textarea {
   font-weight: 900;
 }
 
+.guided-query-field-details {
+  margin-top: 4px;
+}
+
+.guided-query-field-details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #08715f;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.guided-query-field-details > div {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
 .guided-query-recommendations {
   display: grid;
   gap: 8px;
@@ -4693,6 +4711,142 @@ h2 {
   padding: 2px 0 0 30px;
   font-size: 0.62rem;
   font-weight: 750;
+}
+
+.dataset-management-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.library-row-main {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.library-row-main > span {
+  display: inline-grid;
+  place-items: center;
+}
+
+.library-row-main > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.library-row-icon-action,
+.managed-library-row button,
+.library-management-card button {
+  border: 1px solid rgba(211, 224, 232, 0.95);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #31505d;
+  padding: 4px 8px;
+  font-size: 0.58rem;
+  font-weight: 900;
+}
+
+.library-row-icon-action:hover,
+.managed-library-row button:hover,
+.library-management-card button:hover {
+  border-color: rgba(0, 139, 137, 0.24);
+  color: #007a73;
+}
+
+.library-row-icon-action.danger,
+.managed-library-row button.danger {
+  border-color: rgba(190, 72, 62, 0.16);
+  color: #a23a33;
+}
+
+.managed-library-row {
+  grid-template-columns: 20px minmax(0, 1fr) auto auto;
+}
+
+.library-empty-note {
+  color: #71838e;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.library-management-card {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #dce8ed;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.library-management-card strong {
+  color: #21323d;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.library-management-card small {
+  color: #667987;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.library-management-card input {
+  min-height: 32px;
+  border: 1px solid #d3e0e8;
+  border-radius: 9px;
+  background: #fbfdfe;
+  color: #1e2d36;
+  padding: 0 9px;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.compact-field-setup {
+  gap: 8px;
+}
+
+.compact-field-setup .imported-variable-model-card__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.compact-field-setup .imported-variable-model-card__header span,
+.compact-field-setup .imported-variable-model-card__header strong,
+.compact-field-setup .imported-variable-model-card__header small {
+  grid-column: 1;
+}
+
+.compact-field-setup .imported-variable-model-card__header button {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  border: 1px solid rgba(0, 139, 137, 0.22);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #007a73;
+  padding: 5px 9px;
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.field-setup-summary-card,
+.field-setup-detail-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.field-setup-summary-card {
+  border: 1px solid #deeaef;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 9px;
 }
 
 .brand-panel {

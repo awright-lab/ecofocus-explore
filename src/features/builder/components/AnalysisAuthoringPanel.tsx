@@ -105,6 +105,7 @@ export type AnalysisAuthoringPanelProps = {
     fieldId: string,
     updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
   ) => void;
+  removeImportedDataset: (datasetId: string) => void;
   openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
@@ -197,10 +198,12 @@ export type AnalysisAuthoringPanelProps = {
   bannerDraftName: string;
   setBannerDraftName: (value: string) => void;
   saveCurrentBanner: () => void;
+  deleteSavedBanner: (bannerId: string) => void;
   applySavedFilter: (filter: SavedFilterSet) => void;
   filterDraftName: string;
   setFilterDraftName: (value: string) => void;
   saveCurrentFilter: () => void;
+  deleteSavedFilter: (filterId: string) => void;
   saveCurrentSegmentProfile: () => void;
   applySegmentProfile: (segment: SavedSegmentProfile) => void;
   deleteSegmentProfile: (segmentId: string) => void;

@@ -78,6 +78,7 @@ import {
   makeWorkspaceHomePath,
   markReportOpened,
   parseWorkspaceRoute,
+  removeWorkspaceImportedDataset,
   saveDashboardWorkspace,
   updateWorkspaceImportedDatasetField,
   upsertWorkspaceImportedDataset,
@@ -755,8 +756,10 @@ export default function BuilderApp() {
     revealAllVariableSetRows,
     applySavedBanner,
     saveCurrentBanner,
+    deleteSavedBanner,
     applySavedFilter,
     saveCurrentFilter,
+    deleteSavedFilter,
     saveCurrentSegmentProfile,
     applySegmentProfile,
     deleteSegmentProfile,
@@ -872,6 +875,18 @@ export default function BuilderApp() {
     updates: Parameters<typeof updateWorkspaceImportedDatasetField>[3]
   ) {
     const nextWorkspace = updateWorkspaceImportedDatasetField(workspace, datasetId, fieldId, updates);
+    setWorkspace(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setError(null);
+  }
+
+  function removeImportedDataset(datasetId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      importedDatasets: current.importedDatasets.filter((dataset) => dataset.id !== datasetId)
+    }));
+    const nextWorkspace = removeWorkspaceImportedDataset(workspace, datasetId);
     setWorkspace(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setError(null);
@@ -1165,6 +1180,7 @@ export default function BuilderApp() {
           importedDatasets={workspaceImportedDatasets}
           importDataset={importDataset}
           updateImportedDatasetField={updateImportedDatasetField}
+          removeImportedDataset={removeImportedDataset}
           openGuidedDataQuery={openGuidedDataQuery}
           filteredVariableSets={filteredVariableSets}
           filteredQuestions={filteredQuestions}
@@ -1244,10 +1260,12 @@ export default function BuilderApp() {
           bannerDraftName={bannerDraftName}
           setBannerDraftName={setBannerDraftName}
           saveCurrentBanner={saveCurrentBanner}
+          deleteSavedBanner={deleteSavedBanner}
           applySavedFilter={applySavedFilter}
           filterDraftName={filterDraftName}
           setFilterDraftName={setFilterDraftName}
           saveCurrentFilter={saveCurrentFilter}
+          deleteSavedFilter={deleteSavedFilter}
           saveCurrentSegmentProfile={saveCurrentSegmentProfile}
           applySegmentProfile={applySegmentProfile}
           deleteSegmentProfile={deleteSegmentProfile}
@@ -1469,6 +1487,7 @@ export default function BuilderApp() {
             importedDatasets: workspaceImportedDatasets,
             importDataset,
             updateImportedDatasetField,
+            removeImportedDataset,
             openGuidedDataQuery,
             filteredVariableSets,
             filteredQuestions,
@@ -1548,10 +1567,12 @@ export default function BuilderApp() {
             bannerDraftName,
             setBannerDraftName,
             saveCurrentBanner,
+            deleteSavedBanner,
             applySavedFilter,
             filterDraftName,
             setFilterDraftName,
             saveCurrentFilter,
+            deleteSavedFilter,
             saveCurrentSegmentProfile,
             applySegmentProfile,
             deleteSegmentProfile,

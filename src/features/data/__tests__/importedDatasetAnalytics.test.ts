@@ -169,6 +169,52 @@ describe("imported dataset measure analytics", () => {
     ]);
   });
 
+  it("skips record and identifier fields when choosing default imported analysis fields", () => {
+    const recordField = field("record", "record: Record number", "RECORD", {
+      type: "numeric",
+      modelingRole: "candidate_measure",
+      nonEmptyCount: 4000,
+      distinctCount: 4000,
+      eligibleForFilter: false,
+      eligibleForSegment: false,
+      eligibleForBanner: false
+    });
+    const uuidField = field("uuid", "uuid: Respondent identifier", "UUID", {
+      type: "text",
+      modelingRole: "candidate_dimension",
+      nonEmptyCount: 4000,
+      distinctCount: 4000
+    });
+    const statusField = field("status", "status: Participant status", "STATUS", {
+      distinctCount: 3,
+      valueLabels: { "3": "Complete" }
+    });
+    const scoreField = field("score", "Score", "SCORE", {
+      type: "numeric",
+      modelingRole: "candidate_measure",
+      nonEmptyCount: 4000,
+      distinctCount: 12,
+      eligibleForFilter: false,
+      eligibleForSegment: false,
+      eligibleForBanner: false
+    });
+    const importedSurvey = {
+      ...dataset,
+      fields: [recordField, uuidField, statusField, scoreField]
+    };
+
+    expect(firstImportedDimensionField(importedSurvey)?.id).toBe("status");
+    expect(firstImportedMeasureField(importedSurvey)?.id).toBe("score");
+    expect(buildImportedFieldSuitability(recordField)).toMatchObject({
+      badges: ["Identifier"],
+      recommendedQueryMode: "modeling",
+      readiness: {
+        label: "Reference field",
+        recommendedAction: "Choose another field"
+      }
+    });
+  });
+
   it("does not recommend analysis for metadata-only imported datasets", () => {
     const metadataOnlyDataset: ImportedDatasetRecord = {
       ...dataset,

@@ -474,6 +474,18 @@ export function useAnalysisAuthoring({
     setError(null);
   }
 
+  function deleteSavedBanner(bannerId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        banners: current.analysisLibrary.banners.filter((item) => item.id !== bannerId)
+      }
+    }));
+    setError(null);
+  }
+
   function applySavedFilter(filter: SavedFilterSet) {
     setFilterField(filter.filterField);
     setFilterValue(filter.filterValue);
@@ -505,6 +517,18 @@ export function useAnalysisAuthoring({
       analysisLibrary: {
         ...current.analysisLibrary,
         filters: [nextFilter, ...current.analysisLibrary.filters]
+      }
+    }));
+    setError(null);
+  }
+
+  function deleteSavedFilter(filterId: string) {
+    setDashboard((current) => ({
+      ...current,
+      status: "draft",
+      analysisLibrary: {
+        ...current.analysisLibrary,
+        filters: current.analysisLibrary.filters.filter((item) => item.id !== filterId)
       }
     }));
     setError(null);
@@ -732,8 +756,10 @@ export function useAnalysisAuthoring({
     revealAllVariableSetRows,
     applySavedBanner,
     saveCurrentBanner,
+    deleteSavedBanner,
     applySavedFilter,
     saveCurrentFilter,
+    deleteSavedFilter,
     saveCurrentSegmentProfile,
     applySegmentProfile,
     deleteSegmentProfile,

@@ -107,6 +107,24 @@ function isMeasureMetric(metric: Metric | undefined) {
   return metric === "average" || metric === "sum";
 }
 
+export function isLikelyImportedIdentifierField(field: ImportedDatasetField | null | undefined) {
+  if (!field) return false;
+  const source = field.sourceColumn.toLowerCase();
+  const label = `${field.label} ${field.variableLabel ?? ""}`.toLowerCase();
+  const nameLooksLikeIdentifier =
+    /(^|_|\b)(id|uuid|guid|record|respondent|participant_id|response_id|caseid|case_id)(\b|_)/.test(source) ||
+    /\b(record number|respondent identifier|participant identifier|unique id|case id)\b/.test(label);
+  const mostlyUnique =
+    field.nonEmptyCount > 50 &&
+    field.distinctCount <= field.nonEmptyCount &&
+    field.distinctCount / Math.max(field.nonEmptyCount, 1) > 0.9;
+  return nameLooksLikeIdentifier || mostlyUnique;
+}
+
+export function isImportedFieldAnalysisCandidate(field: ImportedDatasetField | null | undefined) {
+  return Boolean(field && !isLikelyImportedIdentifierField(field));
+}
+
 function importedDatasetHasRows(dataset: ImportedDatasetRecord | null | undefined) {
   return Boolean(dataset && ((dataset.rows?.length ?? 0) > 0 || (dataset.previewRows?.length ?? 0) > 0));
 }
@@ -182,6 +200,28 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
 }
 
 export function buildImportedFieldSuitability(field: ImportedDatasetField): ImportedFieldSuitabilityView {
+  if (isLikelyImportedIdentifierField(field)) {
+    return {
+      badges: ["Identifier"],
+      helperText: "This looks like a record or respondent identifier, so it is best kept as source metadata.",
+      recommendedQueryMode: "modeling",
+      recommendations: [{
+        id: "review_values",
+        label: "Choose a response field instead",
+        description: "Identifier fields are useful for tracking rows, but they do not make meaningful counts, averages, or charts.",
+        impact: "Use fields such as status, demographics, answers, or ratings for analysis."
+      }],
+      readiness: {
+        status: "limited",
+        label: "Reference field",
+        tone: "limited",
+        reason: "This field appears to identify records rather than describe responses.",
+        bestUse: "Keep as source metadata or use it only for row lookup.",
+        recommendedAction: "Choose another field"
+      }
+    };
+  }
+
   const isDimension = isExecutableDimension(field);
   const isMeasure = isExecutableMeasure(field);
   const hasRows = field.nonEmptyCount > 0;
@@ -460,11 +500,11 @@ function buildImportedFieldModelingRecommendations(
 }
 
 export function firstImportedDimensionField(dataset: ImportedDatasetRecord | null | undefined) {
-  return (dataset?.fields ?? []).find((field) => isExecutableDimension(field)) ?? null;
+  return (dataset?.fields ?? []).find((field) => isExecutableDimension(field) && isImportedFieldAnalysisCandidate(field)) ?? null;
 }
 
 export function firstImportedMeasureField(dataset: ImportedDatasetRecord | null | undefined) {
-  return (dataset?.fields ?? []).find((field) => isExecutableMeasure(field)) ?? null;
+  return (dataset?.fields ?? []).find((field) => isExecutableMeasure(field) && isImportedFieldAnalysisCandidate(field)) ?? null;
 }
 
 export function buildImportedQueryRecommendations(

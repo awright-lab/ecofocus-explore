@@ -15,6 +15,7 @@ import {
   firstImportedDimensionField,
   firstImportedMeasureField,
   getImportedDatasetQuerySupport as getImportedExecutionSupport,
+  isImportedFieldAnalysisCandidate,
   importedFieldValues
 } from "../../data/importedDatasetAnalytics";
 import type { AnalysisAuthoringPanelProps, GuidedDataQueryLaunchOptions } from "./AnalysisAuthoringPanel";
@@ -72,13 +73,14 @@ export function GuidedDataQueryModal({
   const launchDataset = importedDatasets.find((dataset) => dataset.id === launchContext?.importedDatasetId) ?? importedDatasets[0] ?? null;
   const launchField = launchDataset?.fields.find((field) => field.id === launchContext?.importedFieldId) ?? null;
   const launchFieldSuitability = launchField ? buildImportedFieldSuitability(launchField) : null;
-  const launchPrimaryField = launchFieldSuitability?.recommendedQueryMode === "categorical"
+  const launchFieldCanDriveAnalysis = isImportedFieldAnalysisCandidate(launchField);
+  const launchPrimaryField = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "categorical"
     ? launchField
     : firstImportedDimensionField(launchDataset);
-  const launchMeasureField = launchFieldSuitability?.recommendedQueryMode === "measure"
+  const launchMeasureField = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure"
     ? launchField
     : firstImportedMeasureField(launchDataset);
-  const launchQueryMode: ImportedQueryMode = launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
+  const launchQueryMode: ImportedQueryMode = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? "");
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchPrimaryField?.id ?? "");
@@ -91,9 +93,19 @@ export function GuidedDataQueryModal({
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
   const importedDataset = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
-  const importedPrimaryFields = importedSummary.fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
+  const importedPrimaryFieldCandidates = importedSummary.fields.filter((field) =>
+    (field.type === "categorical" || field.modelingRole === "candidate_dimension") && isImportedFieldAnalysisCandidate(field)
+  );
+  const importedPrimaryFields = importedPrimaryFieldCandidates.length
+    ? importedPrimaryFieldCandidates
+    : importedSummary.fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
   const importedField = importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? importedPrimaryFields[0] ?? null;
-  const importedMeasureFields = importedSummary.fields.filter((field) => field.type === "numeric" || field.modelingRole === "candidate_measure");
+  const importedMeasureFieldCandidates = importedSummary.fields.filter((field) =>
+    (field.type === "numeric" || field.modelingRole === "candidate_measure") && isImportedFieldAnalysisCandidate(field)
+  );
+  const importedMeasureFields = importedMeasureFieldCandidates.length
+    ? importedMeasureFieldCandidates
+    : importedSummary.fields.filter((field) => field.type === "numeric" || field.modelingRole === "candidate_measure");
   const importedBannerFields = importedSummary.banners.filter((field) => field.id !== importedField?.id);
   const importedFilterFields = importedSummary.filters;
   const importedBannerField = importedBannerFields.find((field) => field.id === selectedImportedBannerFieldId) ?? null;
@@ -133,6 +145,13 @@ export function GuidedDataQueryModal({
   const importedDatasetHasRows = Boolean(importedDataset && ((importedDataset.rows?.length ?? 0) > 0 || (importedDataset.previewRows?.length ?? 0) > 0));
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
+  const importedRowCount = importedDataset?.rowCount ?? importedDataset?.rows?.length ?? 0;
+  const importedOutputLabel = outputMode === "table" ? "table" : `${getChartTypeLabel(selectedChart)} chart`;
+  const importedValuesLabel =
+    effectiveImportedMetric === "average" ? "Average"
+      : effectiveImportedMetric === "sum" ? "Total"
+        : effectiveImportedMetric === "count" ? "Number of responses"
+          : "% of responses";
   const importedQueryLabel = importedQueryMode === "measure" && importedMeasureField
     ? `${effectiveImportedMetric === "sum" ? "Total" : "Average"} ${importedMeasureLabel} by ${importedGroupingLabel}`
     : importedBannerField
@@ -143,9 +162,27 @@ export function GuidedDataQueryModal({
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
       : importedSupport.executable
         ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedQueryLabel} from ${importedDataset?.title ?? "imported data"}`
-        : !importedDatasetHasRows
-          ? "This SAV import contains labels and field metadata, but no respondent rows to analyze yet."
-          : `${importedFieldDisplayLabel(importedField)} needs a supported grouping, measure, filter, or chart setup before it can be created.`;
+      : !importedDatasetHasRows
+        ? "This SAV import contains labels and field metadata, but no respondent rows to analyze yet."
+        : `${importedFieldDisplayLabel(importedField)} needs a supported grouping, measure, filter, or chart setup before it can be created.`;
+  const modalTitle =
+    datasetMode === "imported" && importedDataset
+      ? importedSupport.executable
+        ? `Create a ${importedOutputLabel} from ${importedDataset.title}`
+        : importedField
+          ? `Build analysis from ${importedFieldDisplayLabel(importedField)}`
+          : "Build analysis from imported data"
+      : launchContext?.launchSource === "field" && launchField
+        ? `Building analysis from: ${importedFieldDisplayLabel(launchField)}`
+        : "Start with a table, then design the view.";
+  const modalHelper =
+    datasetMode === "imported"
+      ? importedField
+        ? importedSupport.executable
+          ? `${importedQueryLabel}. You can adjust the setup before placing it on the canvas.`
+          : importedFieldSuitability?.helperText ?? "Choose a supported imported data setup."
+        : "Choose a field to analyze."
+      : "Choose the data source and analytical shape before placing it on the canvas.";
   const filterSummary =
     selectedFilterDimension && filterValue !== "all"
       ? `${selectedFilterDimension.label}: ${selectedFilterDimension.values.find((item) => item.id === filterValue)?.label ?? filterValue}`
@@ -192,12 +229,8 @@ export function GuidedDataQueryModal({
         <header className="guided-query-header">
           <div>
             <p className="workspace-home-kicker">Guided Data Query</p>
-            <h2>{launchContext?.launchSource === "field" && launchField ? `Building analysis from: ${importedFieldDisplayLabel(launchField)}` : "Start with a table, then design the view."}</h2>
-            <small>
-              {launchContext?.launchSource === "field" && launchFieldSuitability
-                ? `${launchFieldSuitability.helperText} ${importedFieldRawNameLabel(launchField) ?? "You can still review the source field details before placing it on the canvas."}`
-                : "Choose the data source and analytical shape before placing it on the canvas."}
-            </small>
+            <h2>{modalTitle}</h2>
+            <small>{modalHelper}</small>
           </div>
           <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query">×</button>
         </header>
@@ -276,19 +309,27 @@ export function GuidedDataQueryModal({
                 {importedField && (
                   <div className="guided-query-variable-card">
                     <strong>{importedFieldDisplayLabel(importedField)}</strong>
-                    <span>{importedFieldTypeLabel(importedField.type)} · {importedField.distinctCount.toLocaleString()} answer value{importedField.distinctCount === 1 ? "" : "s"} · {importedDatasetMetadataQualityLabel(importedDataset)}</span>
-                    {importedFieldRawNameLabel(importedField) && <small>{importedFieldRawNameLabel(importedField)}</small>}
+                    <span>
+                      {importedFieldSuitability?.readiness.bestUse ?? "Use this field for imported analysis."}
+                    </span>
                     {importedFieldSuitability && (
-                      <>
-                        <div className="guided-query-mini-chips">
-                          {importedFieldSuitability.badges.map((badge) => (
-                            <span key={badge}>{badge}</span>
-                          ))}
-                        </div>
-                        <small>{importedFieldSuitability.helperText}</small>
-                      </>
+                      <small>{importedFieldSuitability.readiness.reason}</small>
                     )}
-                    <small>{importedSummary.filterLabel}. {importedSummary.bannerLabel}.</small>
+                    <details className="guided-query-field-details">
+                      <summary>Field details</summary>
+                      <div>
+                        <small>{importedFieldTypeLabel(importedField.type)} · {importedField.distinctCount.toLocaleString()} answer value{importedField.distinctCount === 1 ? "" : "s"} · {importedDatasetMetadataQualityLabel(importedDataset)}</small>
+                        {importedFieldRawNameLabel(importedField) && <small>{importedFieldRawNameLabel(importedField)}</small>}
+                        <small>{importedSummary.filterLabel}. {importedSummary.bannerLabel}.</small>
+                        {importedFieldSuitability && (
+                          <div className="guided-query-mini-chips">
+                            {importedFieldSuitability.badges.map((badge) => (
+                              <span key={badge}>{badge}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
                   </div>
                 )}
               </>
@@ -402,7 +443,7 @@ export function GuidedDataQueryModal({
                       <div className="guided-query-recommendations" aria-label="Imported query recommendations">
                         <div className="guided-query-step__header compact">
                           <span>★</span>
-                          <strong>Suggested ways to analyze this field</strong>
+                          <strong>Suggested setup</strong>
                         </div>
                         {importedRecommendations.map((recommendation) => (
                           <button
@@ -527,8 +568,8 @@ export function GuidedDataQueryModal({
                       )}
                     </div>
                     <div className={importedSupport.executable ? "guided-query-supported" : "guided-query-unsupported"}>
-                      <strong>{importedSupport.reason}</strong>
-                      <small>{importedSupport.executable ? "Weights, multi-filter queries, multi-banner queries, wave comparisons, and significance remain unavailable for imported datasets." : "Adjust the query type, measure, banner, filter, or chart type above to return to a supported imported-data path."}</small>
+                      <strong>{importedSupport.executable ? "Ready to create" : importedSupport.reason}</strong>
+                      <small>{importedSupport.executable ? "This will create a normal editable table or chart on the current slide." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
                     </div>
                   </>
                 ) : (
@@ -545,12 +586,17 @@ export function GuidedDataQueryModal({
             <span>Summary</span>
             <strong>{querySummary}</strong>
             <ul>
-              {datasetMode === "imported" && importedQueryMode === "measure" && importedMeasureField && <li>Number: {importedFieldDisplayLabel(importedMeasureField)}</li>}
-              {datasetMode === "imported" && <li>Group responses by: {importedGroupingLabel}</li>}
-              <li>Breakout: {datasetMode === "seeded" ? bannerSummary : importedBannerPlainLabel(importedBannerField)}</li>
-              <li>Filter: {datasetMode === "seeded" ? filterSummary : importedFilter ? `${importedFieldDisplayLabel(importedFilter.field)} is ${importedFilter.value}` : "No filter"}</li>
-              <li>Values: {datasetMode === "seeded" ? metricSummary : effectiveImportedMetric === "average" ? "Average" : effectiveImportedMetric === "sum" ? "Total" : effectiveImportedMetric === "count" ? "Number of responses" : "% of responses"}</li>
-              <li>Weight: {datasetMode === "seeded" ? weightSummary : "Unweighted local rows"}</li>
+              {datasetMode === "imported" && importedDataset && <li>Dataset: {importedDataset.title}</li>}
+              {datasetMode === "imported" && importedQueryMode === "measure" && importedMeasureField && <li>Number: {importedMeasureLabel}</li>}
+              {datasetMode === "imported" && <li>Grouped by: {importedGroupingLabel}</li>}
+              {datasetMode === "imported" && <li>Values: {importedValuesLabel}</li>}
+              {datasetMode === "imported" && importedBannerField && <li>{importedBannerPlainLabel(importedBannerField)}</li>}
+              {datasetMode === "imported" && importedFilter && <li>Filter: {importedFieldDisplayLabel(importedFilter.field)} is {importedFilter.value}</li>}
+              {datasetMode === "imported" && <li>Rows: {importedRowCount.toLocaleString()}</li>}
+              {datasetMode === "seeded" && <li>Breakout: {bannerSummary}</li>}
+              {datasetMode === "seeded" && <li>Filter: {filterSummary}</li>}
+              {datasetMode === "seeded" && <li>Values: {metricSummary}</li>}
+              {datasetMode === "seeded" && <li>Weight: {weightSummary}</li>}
             </ul>
           </aside>
         </div>
