@@ -1,11 +1,34 @@
 import { getDatabase, MissingDatabaseConnectionError } from "@netlify/database";
 import { connectLambda, getStore } from "@netlify/blobs";
 import type { Handler } from "@netlify/functions";
+import { createRequire } from "node:module";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../shared/types/dashboard";
 import { importDatasetBuffer, importedFileExtension } from "../../src/features/data/datasetImportModel";
 
 const jsonHeaders = {
   "Content-Type": "application/json"
+};
+
+interface SavReaderVariable {
+  name: string;
+  label?: string;
+  type: number;
+  printFormat?: { typestr?: string; width?: number; nbdec?: number };
+  __is_child_string_var?: boolean;
+}
+
+interface SavReaderInstance {
+  meta: {
+    sysvars: SavReaderVariable[];
+    getValueLabels: (varname: string) => Array<{ val: number | string; label: string }>;
+  };
+  open: () => Promise<void>;
+  readAllRows: (includeNulls?: boolean) => Promise<Array<Record<string, unknown>>>;
+}
+
+const require = createRequire(import.meta.url);
+const { SavBufferReader } = require("sav-reader") as {
+  SavBufferReader: new (buffer: Buffer) => SavReaderInstance;
 };
 
 interface DatasetImportRequest {
@@ -26,6 +49,24 @@ function errorResponse(statusCode: number, error: string, details?: string[]) {
 
 function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]+/g, "_");
+}
+
+function slug(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return normalized || "field";
+}
+
+function humanizeHeader(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
+function datasetId(fileName: string) {
+  return `dataset_${slug(fileName.replace(/\.[^.]+$/, ""))}_${Date.now().toString(36)}`;
 }
 
 function objectPath(dataset: ImportedDatasetRecord, fileName: string) {
@@ -54,6 +95,97 @@ function parseRequest(body: string): DatasetImportRequest {
 
 function jsonValue(value: unknown) {
   return value === undefined ? null : JSON.stringify(value);
+}
+
+function stringifySavValue(value: unknown) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" && !Number.isFinite(value)) return "";
+  return String(value);
+}
+
+function buildSavReaderField(
+  variable: {
+    name: string;
+    label?: string;
+    type: number;
+    printFormat?: { typestr?: string; width?: number; nbdec?: number };
+  },
+  values: string[],
+  columnIndex: number,
+  valueLabels: Record<string, string>
+): ImportedDatasetField {
+  const distinctValues = Array.from(new Set(values.filter(Boolean)));
+  const hasValueLabels = Object.keys(valueLabels).length > 0;
+  const sourceColumn = variable.name;
+  const isNumeric = variable.type === 0;
+  const type: ImportedDatasetField["type"] = isNumeric && !hasValueLabels ? "numeric" : hasValueLabels ? "categorical" : "text";
+  const label = variable.label || humanizeHeader(sourceColumn) || sourceColumn;
+  const formatParts = [
+    variable.printFormat?.typestr,
+    variable.printFormat?.width ? `width ${variable.printFormat.width}` : null,
+    variable.printFormat?.nbdec ? `${variable.printFormat.nbdec} decimals` : null
+  ].filter(Boolean);
+
+  return {
+    id: `${slug(sourceColumn)}_${columnIndex + 1}`,
+    label,
+    sourceColumn,
+    variableLabel: variable.label || undefined,
+    valueLabels: hasValueLabels ? valueLabels : undefined,
+    sourceFormat: formatParts.length ? formatParts.join(" ") : undefined,
+    type,
+    nonEmptyCount: values.filter(Boolean).length,
+    distinctCount: distinctValues.length,
+    sampleValues: distinctValues.slice(0, 5),
+    modelingRole: type === "numeric" ? "candidate_measure" : type === "categorical" ? "candidate_dimension" : "raw_variable",
+    eligibleForFilter: type === "categorical",
+    eligibleForSegment: type === "categorical",
+    eligibleForBanner: type === "categorical"
+  };
+}
+
+async function parseSavWithSavReader(fileBuffer: Buffer, fileName: string): Promise<ImportedDatasetRecord> {
+  const reader = new SavBufferReader(fileBuffer);
+  await reader.open();
+  const rawRows = await reader.readAllRows(true);
+  const variables = reader.meta.sysvars.filter((variable) => !variable.__is_child_string_var);
+  const rows = rawRows.map((row) =>
+    Object.fromEntries(variables.map((variable) => [variable.name, stringifySavValue(row[variable.name])]))
+  );
+  const fields = variables.map((variable, columnIndex) => {
+    const labels = Object.fromEntries(
+      reader.meta.getValueLabels(variable.name).map((entry: { val: number | string; label: string }) => [stringifySavValue(entry.val), entry.label])
+    );
+    return buildSavReaderField(variable, rows.map((row) => row[variable.name] ?? ""), columnIndex, labels);
+  });
+
+  return {
+    id: datasetId(fileName),
+    title: fileName.replace(/\.[^.]+$/, ""),
+    sourceType: "local_file",
+    fileName,
+    fileType: "sav",
+    importMetadata: {
+      formatLabel: "SAV survey metadata import",
+      metadataQuality: "metadata_rich",
+      parserNotes: [
+        "Imported variable labels and value labels with the Netlify SAV parser fallback.",
+        `Read ${rows.length.toLocaleString()} respondent rows with sav-reader.`
+      ]
+    },
+    importedAt: new Date().toISOString(),
+    rowCount: rows.length,
+    fieldCount: fields.length,
+    fields,
+    rows,
+    previewRows: rows.slice(0, 25),
+    modelingStatus: "initial_model",
+    notes: [
+      "Initial model inferred from SAV variable metadata, variable labels, and value labels.",
+      "SAV value labels are used for categorical display while raw codes remain stored in imported rows.",
+      "Rows were recovered by the Netlify SAV parser fallback."
+    ]
+  };
 }
 
 async function insertDatasetFields(pool: ReturnType<typeof getDatabase>["pool"], datasetId: string, fields: ImportedDatasetField[]) {
@@ -210,6 +342,43 @@ async function buildDatasetForUpload(request: DatasetImportRequest, fileBuffer: 
         fileType
       )
     : { dataset: request.dataset };
+
+  if (fileType === "sav" && (!parseResult.dataset || parseResult.dataset.rowCount === 0)) {
+    try {
+      const fallbackDataset = await parseSavWithSavReader(fileBuffer, request.fileName);
+      if (fallbackDataset.rowCount > 0) {
+        return {
+          dataset: fallbackDataset,
+          parsedServerSide: true,
+          parserWarning: parseResult.dataset
+            ? "The built-in SAV parser read labels only; Netlify recovered rows with the SAV parser fallback."
+            : parseResult.error
+              ? `The built-in SAV parser failed: ${parseResult.error}`
+              : undefined
+        };
+      }
+    } catch (error) {
+      if (!parseResult.dataset) {
+        throw error;
+      }
+      parseResult.dataset = {
+        ...parseResult.dataset,
+        notes: [
+          ...parseResult.dataset.notes,
+          `Netlify SAV parser fallback also could not read rows: ${error instanceof Error ? error.message : "Unknown parser error"}`
+        ],
+        importMetadata: parseResult.dataset.importMetadata
+          ? {
+              ...parseResult.dataset.importMetadata,
+              parserNotes: [
+                ...parseResult.dataset.importMetadata.parserNotes,
+                `Netlify SAV parser fallback also could not read rows: ${error instanceof Error ? error.message : "Unknown parser error"}`
+              ]
+            }
+          : parseResult.dataset.importMetadata
+      };
+    }
+  }
 
   if (parseResult.dataset) {
     return {

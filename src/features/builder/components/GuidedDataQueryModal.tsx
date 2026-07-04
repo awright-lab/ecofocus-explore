@@ -423,7 +423,13 @@ export function GuidedDataQueryModal({
                     {!importedDatasetHasRows && (
                       <div className="guided-query-unsupported">
                         <strong>Labels imported, but no response rows are available</strong>
-                        <small>This SAV file’s variable labels and value labels were imported, but its case rows were not readable by the current browser parser. You can review/model the fields, but charts and tables need respondent rows. Try exporting the file as CSV/XLSX, or re-save the SAV with standard SPSS compression.</small>
+                        <small>
+                          {[
+                            importedDataset.importStatus?.detail,
+                            importedDataset.importMetadata?.parserNotes.at(-1),
+                            "You can review/model the fields, but charts and tables need respondent rows. Try exporting the file as CSV/XLSX, or re-save the SAV with standard SPSS compression if this file uses an unsupported SAV variant."
+                          ].filter(Boolean).join(" ")}
+                        </small>
                       </div>
                     )}
                     <div className="guided-query-field-grid">

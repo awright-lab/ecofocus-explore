@@ -76,7 +76,8 @@ Netlify applies this migration during deploy previews and production deploys whe
 
 - CSV/XLSX rows parsed in the browser are persisted to the database.
 - SAV imports are parsed in the Netlify Function for classic SAV dictionaries, standard uncompressed case data, and standard SPSS compressed case data.
-- SAV files that use unsupported compression or unsupported dictionary records can still import metadata without rows, with a visible parser note.
+- If the built-in SAV parser only recovers labels, the Netlify Function tries the `sav-reader` parser fallback before returning metadata-only results.
+- SAV files that use unsupported ZLIB/`$FL3` compression or unsupported dictionary records can still import metadata without rows, with a visible parser note.
 - Imports remain usable if Database is temporarily unavailable because the source file is still stored in Netlify Blobs.
 - The frontend contract remains unchanged: imported datasets still flow through the normalized workspace dataset model.
 

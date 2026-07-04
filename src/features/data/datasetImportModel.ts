@@ -466,7 +466,7 @@ function parseSavImport(buffer: ArrayBuffer): ParsedTabularData {
           type: typeCode === 0 ? "numeric" : "string",
           width: typeCode === 0 ? 8 : typeCode,
           recordIndex,
-          recordSpan: Math.max(1, typeCode === 0 ? 1 : Math.ceil(typeCode / 8)),
+          recordSpan: 1,
           sourceFormat: savFormatLabel(printFormat)
         };
         variables.push(variable);
@@ -585,8 +585,10 @@ function parseSavImport(buffer: ArrayBuffer): ParsedTabularData {
       rows = readUncompressedCases();
     } else if (compression === 1) {
       rows = readCompressedCases();
+    } else if (compression === 2 || decodeText(bytes.slice(0, 4)) === "$FL3") {
+      caseDataNote = "This SAV file appears to use ZLIB-compressed case data, which is not supported yet; imported metadata without rows.";
     } else {
-      caseDataNote = "This SAV file uses compressed case data that is not supported yet; imported metadata without rows.";
+      caseDataNote = `This SAV file uses unsupported case-data compression ${compression}; imported metadata without rows.`;
     }
   } catch (error) {
     caseDataNote = error instanceof Error
