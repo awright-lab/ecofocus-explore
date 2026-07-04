@@ -570,9 +570,23 @@ export interface ImportedDatasetField {
 export interface ImportedDatasetRecord {
   id: string;
   title: string;
-  sourceType: "local_file";
+  sourceType: "local_file" | "supabase" | "netlify";
   fileName: string;
   fileType: "csv" | "xlsx" | "sav" | "unknown";
+  remote?: {
+    provider: "supabase" | "netlify";
+    projectUrl: string;
+    bucket: string;
+    objectPath: string;
+    recordId?: string;
+    uploadedAt: string;
+  };
+  importStatus?: {
+    status: "local_ready" | "uploaded" | "parsing" | "ready" | "metadata_only" | "failed";
+    label: string;
+    detail: string;
+    updatedAt: string;
+  };
   importMetadata?: {
     formatLabel: string;
     metadataQuality: "raw" | "structured" | "metadata_rich" | "unsupported";

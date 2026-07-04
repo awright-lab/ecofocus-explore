@@ -107,6 +107,10 @@ function isMeasureMetric(metric: Metric | undefined) {
   return metric === "average" || metric === "sum";
 }
 
+function importedDatasetHasRows(dataset: ImportedDatasetRecord | null | undefined) {
+  return Boolean(dataset && ((dataset.rows?.length ?? 0) > 0 || (dataset.previewRows?.length ?? 0) > 0));
+}
+
 function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
   if (!field) return undefined;
   return field.variableLabel?.trim() || field.label || field.sourceColumn;
@@ -473,6 +477,7 @@ export function buildImportedQueryRecommendations(
   }
 ): ImportedQueryRecommendationView[] {
   if (!dataset || !field || !isExecutableDimension(field)) return [];
+  if (!importedDatasetHasRows(dataset)) return [];
 
   const bannerField = options?.bannerFields?.find((item) => item.id !== field.id) ?? null;
   const measureField = options?.measureField ?? firstImportedMeasureField(dataset);
@@ -565,7 +570,12 @@ export function getImportedDatasetQuerySupport(
     }
   }
   const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
-  if (!rows.length) return { executable: false, reason: "This dataset has no stored rows to tabulate." };
+  if (!rows.length) {
+    return {
+      executable: false,
+      reason: "This import only has SAV labels and field metadata right now. The respondent rows were not imported, so InsightCanvas cannot count or chart this dataset yet."
+    };
+  }
   if (isMeasureMetric(options?.metric)) {
     if (options?.bannerField && options?.filter?.field) return { executable: true, reason: `Ready: ${options.metric} a numeric field, grouped, filtered, and broken out once.` };
     if (options?.bannerField) return { executable: true, reason: `Ready: ${options.metric} a numeric field, grouped and broken out once.` };

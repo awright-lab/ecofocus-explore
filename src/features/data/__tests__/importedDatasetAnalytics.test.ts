@@ -7,6 +7,7 @@ import {
   formatImportedMeasureValue,
   firstImportedDimensionField,
   firstImportedMeasureField,
+  getImportedDatasetQuerySupport,
   runImportedDatasetQuery
 } from "../importedDatasetAnalytics";
 
@@ -166,6 +167,23 @@ describe("imported dataset measure analytics", () => {
         measureFieldId: "spend"
       })
     ]);
+  });
+
+  it("does not recommend analysis for metadata-only imported datasets", () => {
+    const metadataOnlyDataset: ImportedDatasetRecord = {
+      ...dataset,
+      rowCount: 0,
+      rows: [],
+      previewRows: [],
+      notes: ["SAV labels imported, but case rows were not readable."]
+    };
+
+    expect(buildImportedQueryRecommendations(metadataOnlyDataset, segmentField, {
+      selectedQueryMode: "categorical",
+      measureField: spendField,
+      bannerFields: [regionField]
+    })).toEqual([]);
+    expect(getImportedDatasetQuerySupport(metadataOnlyDataset, segmentField).reason).toContain("only has SAV labels and field metadata");
   });
 
   it("explains imported field readiness and modeling gaps", () => {

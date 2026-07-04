@@ -99,7 +99,7 @@ export type AnalysisAuthoringPanelProps = {
   sourceSearch: string;
   setSourceSearch: (value: string) => void;
   importedDatasets: ImportedDatasetRecord[];
-  importDataset: (file: File) => Promise<boolean>;
+  importDataset: (file: File) => Promise<ImportedDatasetRecord | null>;
   updateImportedDatasetField: (
     datasetId: string,
     fieldId: string,

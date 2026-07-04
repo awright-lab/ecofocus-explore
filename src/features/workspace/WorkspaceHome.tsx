@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
-import { importDatasetFile } from "../data/datasetImportModel";
+import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
 import {
   createNewReportFromSeed,
@@ -151,7 +151,7 @@ export function WorkspaceHome({
     setIsImporting(true);
     setImportFeedback(null);
     try {
-      const result = await importDatasetFile(file);
+      const result = await importDatasetForWorkspace(file);
       if (result.error || !result.dataset) {
         setImportFeedback({ tone: "error", label: result.error ?? "Dataset import failed." });
         return;
@@ -159,7 +159,10 @@ export function WorkspaceHome({
       const nextWorkspace = upsertWorkspaceImportedDataset(workspace, result.dataset);
       onWorkspaceChange(nextWorkspace);
       saveDashboardWorkspace(nextWorkspace);
-      setImportFeedback({ tone: "success", label: `Imported ${result.dataset.title} with ${result.dataset.fieldCount} fields.` });
+      setImportFeedback({
+        tone: "success",
+        label: importedDatasetImportFeedback(result.dataset, result.storage.warning)
+      });
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -369,6 +372,10 @@ export function WorkspaceHome({
                         <small>{dataset.fileName} · {dataset.importMetadata?.formatLabel ?? dataset.fileType.toUpperCase()} · imported {formatDateTime(dataset.importedAt)}</small>
                       </div>
                     </div>
+                    <div className="workspace-dataset-structures">
+                      <span>{dataset.importStatus?.label ?? (dataset.rowCount > 0 ? "Stored locally" : "Labels only")}</span>
+                      <span>{dataset.remote?.provider ? `${dataset.remote.provider[0].toUpperCase()}${dataset.remote.provider.slice(1)}-backed` : "Local workspace"}</span>
+                    </div>
                     <dl className="workspace-dataset-stats">
                       <div>
                         <dt>Rows</dt>
@@ -390,6 +397,7 @@ export function WorkspaceHome({
                       <span>{summary.segmentLabel}</span>
                       <span>{summary.bannerLabel}</span>
                     </div>
+                    {dataset.importStatus?.detail && <p>{dataset.importStatus.detail}</p>}
                     <div className="workspace-dataset-fields">
                       {dataset.fields.slice(0, 6).map((field) => (
                         <span key={field.id}>

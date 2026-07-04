@@ -13,7 +13,7 @@ import {
   filterDimensions,
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
-import { importDatasetFile } from "../data/datasetImportModel";
+import { importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { exportCoreDocument, type CoreExportTarget } from "../export/coreDocumentExports";
 import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
 import { BuilderDesignModal } from "./components/BuilderDesignModal";
@@ -853,17 +853,17 @@ export default function BuilderApp() {
   }
 
   async function importDataset(file: File) {
-    const result = await importDatasetFile(file);
+    const result = await importDatasetForWorkspace(file);
     if (result.error || !result.dataset) {
       setError(result.error ?? "Dataset import failed.");
-      return false;
+      return null;
     }
 
     const nextWorkspace = upsertWorkspaceImportedDataset(workspace, result.dataset);
     setWorkspace(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
-    setError(null);
-    return true;
+    setError(result.storage.warning ?? null);
+    return result.dataset;
   }
 
   function updateImportedDatasetField(

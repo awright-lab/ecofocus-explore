@@ -136,8 +136,12 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     setImportFeedback(null);
     try {
       const imported = await importDataset(file);
-      setImportFeedback(imported ? `Imported ${file.name}` : `Could not import ${file.name}. Check the workspace status message for details.`);
-      if (imported) setSelectedImportedDatasetId(null);
+      setImportFeedback(imported
+        ? imported.rowCount > 0
+          ? `Imported ${imported.title} with ${imported.rowCount.toLocaleString()} rows.`
+          : `Imported labels for ${imported.title}, but no respondent rows were readable yet.`
+        : `Could not import ${file.name}. Check the workspace status message for details.`);
+      if (imported) setSelectedImportedDatasetId(imported.id);
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -173,7 +177,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           </div>
           {activeImportedDataset && (
             <small className="data-library-model-note">
-              {activeImportedDataset.importMetadata?.formatLabel ?? `${activeImportedDataset.fileType.toUpperCase()} import`} · {activeImportedDataset.importMetadata?.metadataQuality === "metadata_rich" ? "metadata-rich survey" : activeImportedDataset.importMetadata?.metadataQuality === "structured" ? "structured metadata" : "raw metadata"} · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}
+              {activeImportedDataset.importMetadata?.formatLabel ?? `${activeImportedDataset.fileType.toUpperCase()} import`} · {activeImportedDataset.importMetadata?.metadataQuality === "metadata_rich" ? "metadata-rich survey" : activeImportedDataset.importMetadata?.metadataQuality === "structured" ? "structured metadata" : "raw metadata"} · {activeImportedDataset.importStatus?.label ?? "Stored locally"} · {activeImportedDataset.remote?.provider ? `${activeImportedDataset.remote.provider}-backed` : "local workspace"} · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}
             </small>
           )}
         </div>

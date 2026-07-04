@@ -188,15 +188,25 @@ export function normalizeImportedDatasetField(field: Partial<ImportedDatasetFiel
 }
 
 export function normalizeImportedDataset(dataset: Partial<ImportedDatasetRecord>, index: number): ImportedDatasetRecord {
+  const rowCount = dataset.rowCount ?? dataset.previewRows?.length ?? 0;
   return {
     id: dataset.id ?? `imported_dataset_${index + 1}`,
     title: dataset.title ?? dataset.fileName ?? `Imported dataset ${index + 1}`,
     sourceType: dataset.sourceType ?? "local_file",
     fileName: dataset.fileName ?? dataset.title ?? `dataset_${index + 1}`,
     fileType: dataset.fileType ?? "unknown",
+    remote: dataset.remote,
+    importStatus: dataset.importStatus ?? {
+      status: rowCount > 0 ? "local_ready" : "metadata_only",
+      label: rowCount > 0 ? "Stored locally" : "Labels only",
+      detail: rowCount > 0
+        ? "This imported dataset is stored in the local workspace."
+        : "This imported dataset has labels/metadata but no readable respondent rows.",
+      updatedAt: dataset.importedAt ?? new Date().toISOString()
+    },
     importMetadata: dataset.importMetadata,
     importedAt: dataset.importedAt ?? new Date().toISOString(),
-    rowCount: dataset.rowCount ?? dataset.previewRows?.length ?? 0,
+    rowCount,
     fieldCount: dataset.fieldCount ?? dataset.fields?.length ?? 0,
     fields: (dataset.fields ?? []).map(normalizeImportedDatasetField),
     rows: dataset.rows ?? dataset.previewRows ?? [],

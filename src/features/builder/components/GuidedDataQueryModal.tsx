@@ -130,6 +130,7 @@ export function GuidedDataQueryModal({
     chartType: selectedChart
   });
   const canCreate = datasetMode === "seeded" || importedSupport.executable;
+  const importedDatasetHasRows = Boolean(importedDataset && ((importedDataset.rows?.length ?? 0) > 0 || (importedDataset.previewRows?.length ?? 0) > 0));
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
   const importedQueryLabel = importedQueryMode === "measure" && importedMeasureField
@@ -142,7 +143,9 @@ export function GuidedDataQueryModal({
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
       : importedSupport.executable
         ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedQueryLabel} from ${importedDataset?.title ?? "imported data"}`
-        : `${importedFieldDisplayLabel(importedField)} needs a supported grouping, measure, filter, or chart setup before it can be created.`;
+        : !importedDatasetHasRows
+          ? "This SAV import contains labels and field metadata, but no respondent rows to analyze yet."
+          : `${importedFieldDisplayLabel(importedField)} needs a supported grouping, measure, filter, or chart setup before it can be created.`;
   const filterSummary =
     selectedFilterDimension && filterValue !== "all"
       ? `${selectedFilterDimension.label}: ${selectedFilterDimension.values.find((item) => item.id === filterValue)?.label ?? filterValue}`
@@ -415,6 +418,12 @@ export function GuidedDataQueryModal({
                             <span>{recommendation.actionLabel}</span>
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {!importedDatasetHasRows && (
+                      <div className="guided-query-unsupported">
+                        <strong>Labels imported, but no response rows are available</strong>
+                        <small>This SAV file’s variable labels and value labels were imported, but its case rows were not readable by the current browser parser. You can review/model the fields, but charts and tables need respondent rows. Try exporting the file as CSV/XLSX, or re-save the SAV with standard SPSS compression.</small>
                       </div>
                     )}
                     <div className="guided-query-field-grid">
