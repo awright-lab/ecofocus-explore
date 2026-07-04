@@ -244,7 +244,7 @@ export function WorkspaceHome({
               <span><HomeIcon icon="dataset" /></span>
               <strong>Workspace data</strong>
             </div>
-            <p>Import local CSV files as workspace datasets. XLSX and SAV parsing are deferred until dedicated parsers are added.</p>
+            <p>Import local CSV or XLSX files as workspace datasets. SAV files are recognized as metadata-rich survey files, but need a dedicated parser before rows can be imported.</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -354,7 +354,7 @@ export function WorkspaceHome({
             </div>
             <button type="button" className="workspace-home-secondary" onClick={() => fileInputRef.current?.click()}>
               <HomeIcon icon="plus" />
-              Import CSV
+              Import data
             </button>
           </div>
           <div className="workspace-dataset-grid">
@@ -366,7 +366,7 @@ export function WorkspaceHome({
                       <span><HomeIcon icon="dataset" /></span>
                       <div>
                         <h3>{dataset.title}</h3>
-                        <small>{dataset.fileName} · imported {formatDateTime(dataset.importedAt)}</small>
+                        <small>{dataset.fileName} · {dataset.importMetadata?.formatLabel ?? dataset.fileType.toUpperCase()} · imported {formatDateTime(dataset.importedAt)}</small>
                       </div>
                     </div>
                     <dl className="workspace-dataset-stats">
@@ -384,6 +384,8 @@ export function WorkspaceHome({
                       </div>
                     </dl>
                     <div className="workspace-dataset-structures">
+                      <span>{dataset.importMetadata?.metadataQuality === "structured" ? "Structured workbook" : "Raw import"}</span>
+                      {dataset.importMetadata?.sheetName && <span>Sheet: {dataset.importMetadata.sheetName}</span>}
                       <span>{summary.filterLabel}</span>
                       <span>{summary.segmentLabel}</span>
                       <span>{summary.bannerLabel}</span>
@@ -406,7 +408,7 @@ export function WorkspaceHome({
             <div className="workspace-home-empty compact">
               <HomeIcon icon="dataset" />
               <h2>No imported datasets yet</h2>
-              <p>Import a CSV to create a workspace dataset and initial field catalog.</p>
+              <p>Import a CSV or XLSX file to create a workspace dataset and initial field catalog.</p>
             </div>
           )}
         </section>

@@ -191,6 +191,7 @@ export function normalizeImportedDataset(dataset: Partial<ImportedDatasetRecord>
     sourceType: dataset.sourceType ?? "local_file",
     fileName: dataset.fileName ?? dataset.title ?? `dataset_${index + 1}`,
     fileType: dataset.fileType ?? "unknown",
+    importMetadata: dataset.importMetadata,
     importedAt: dataset.importedAt ?? new Date().toISOString(),
     rowCount: dataset.rowCount ?? dataset.previewRows?.length ?? 0,
     fieldCount: dataset.fieldCount ?? dataset.fields?.length ?? 0,

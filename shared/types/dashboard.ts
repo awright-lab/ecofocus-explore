@@ -570,6 +570,12 @@ export interface ImportedDatasetRecord {
   sourceType: "local_file";
   fileName: string;
   fileType: "csv" | "xlsx" | "sav" | "unknown";
+  importMetadata?: {
+    formatLabel: string;
+    metadataQuality: "raw" | "structured" | "metadata_rich" | "unsupported";
+    sheetName?: string;
+    parserNotes: string[];
+  };
   importedAt: string;
   rowCount: number;
   fieldCount: number;

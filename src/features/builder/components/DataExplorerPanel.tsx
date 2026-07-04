@@ -5,6 +5,7 @@ import { AnalysisLibrarySection, QueryEditorSection, SourcePickerSection } from 
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import {
   buildImportedDatasetStructureSummary,
+  buildImportedFieldModelingProfile,
   describeFieldModeling,
   importedFieldRoleLabel,
   importedFieldTypeLabel
@@ -74,7 +75,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     ? importedDatasets.map((dataset) => ({
         id: dataset.id,
         title: dataset.title,
-        meta: `${dataset.rowCount.toLocaleString()} rows · ${dataset.fieldCount} fields`,
+        meta: `${dataset.rowCount.toLocaleString()} rows · ${dataset.fieldCount} fields · ${dataset.importMetadata?.formatLabel ?? dataset.fileType.toUpperCase()}`,
         imported: true
       }))
     : [
@@ -87,6 +88,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
   const activeImportedFieldView = activeImportedField ? describeFieldModeling(activeImportedField) : null;
   const activeImportedFieldSuitability = activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null;
+  const activeImportedFieldProfile = activeImportedField ? buildImportedFieldModelingProfile(activeImportedField) : null;
 
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
@@ -167,12 +169,31 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <small>{savedVariableSets.length} variable sets</small>
             <small>{savedAnalyticalTemplates.length + savedSegmentProfiles.length} saved artifacts</small>
           </div>
-          {activeImportedDataset && <small className="data-library-model-note">Initial model · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}</small>}
+          {activeImportedDataset && (
+            <small className="data-library-model-note">
+              {activeImportedDataset.importMetadata?.formatLabel ?? `${activeImportedDataset.fileType.toUpperCase()} import`} · {activeImportedDataset.importMetadata?.metadataQuality === "structured" ? "structured metadata" : "raw metadata"} · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}
+            </small>
+          )}
         </div>
+        {activeImportedDataset && (
+          <div className={`imported-dataset-health-card ${importedStructureSummary.health.statusTone}`}>
+            <div className="imported-dataset-health-card__header">
+              <span>Dataset model</span>
+              <strong>{importedStructureSummary.health.statusLabel}</strong>
+              <small>{importedStructureSummary.health.readinessScore}% of fields query-ready</small>
+            </div>
+            <p>{importedStructureSummary.health.guidance}</p>
+            <div className="imported-dataset-health-grid">
+              {importedStructureSummary.health.chips.map((chip) => (
+                <small key={chip}>{chip}</small>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="dataset-import-card">
           <div>
             <strong>Import dataset</strong>
-            <small>CSV files become workspace datasets with modeled fields. XLSX and SAV are queued for later parser support.</small>
+            <small>Import CSV or XLSX files as modeled workspace datasets. SAV files are recognized, but need a dedicated survey parser before rows and value labels can be imported.</small>
           </div>
           <input
             ref={fileInputRef}
@@ -182,7 +203,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             onChange={(event) => void handleImportFile(event.target.files?.[0])}
           />
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-            {isImporting ? "Importing..." : "Import CSV"}
+            {isImporting ? "Importing..." : "Import file"}
           </button>
           {importFeedback && <small className="dataset-import-feedback">{importFeedback}</small>}
         </div>
@@ -295,6 +316,22 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <small>Best used as: {activeImportedFieldSuitability.readiness.bestUse}</small>
                 </div>
               )}
+              {activeImportedFieldProfile && (
+                <div className="imported-field-profile-card">
+                  <div>
+                    <strong>Analytical profile</strong>
+                    <small>{activeImportedFieldProfile.analyticalRoleSummary}</small>
+                    <small>{activeImportedFieldProfile.distinctValueSummary}</small>
+                    <small>{activeImportedFieldProfile.structureSummary}</small>
+                    {activeImportedFieldProfile.dateTreatment && <small>{activeImportedFieldProfile.dateTreatment}</small>}
+                  </div>
+                  <span className="data-library-badge-row">
+                    {activeImportedFieldProfile.chips.slice(0, 5).map((chip) => (
+                      <em key={chip}>{chip}</em>
+                    ))}
+                  </span>
+                </div>
+              )}
               {activeImportedFieldSuitability && activeImportedFieldSuitability.recommendations.length > 0 && (
                 <div className="imported-field-recommendations-card">
                   <div className="imported-field-recommendations-card__header">
@@ -365,6 +402,63 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                     ))}
                   </select>
                 </label>
+              </div>
+              <div className="imported-modeling-preset-grid" aria-label="Field modeling presets">
+                <button
+                  type="button"
+                  className={activeImportedField.modelingRole === "candidate_dimension" ? "active" : ""}
+                  onClick={() => updateActiveImportedField({
+                    type: "categorical",
+                    modelingRole: "candidate_dimension",
+                    eligibleForFilter: true,
+                    eligibleForSegment: true,
+                    eligibleForBanner: activeImportedField.distinctCount <= 12
+                  })}
+                >
+                  <strong>Dimension</strong>
+                  <small>Group, filter, segment, crosstab</small>
+                </button>
+                <button
+                  type="button"
+                  className={activeImportedField.modelingRole === "candidate_measure" ? "active" : ""}
+                  onClick={() => updateActiveImportedField({
+                    type: "numeric",
+                    modelingRole: "candidate_measure",
+                    eligibleForFilter: false,
+                    eligibleForSegment: false,
+                    eligibleForBanner: false
+                  })}
+                >
+                  <strong>Measure</strong>
+                  <small>Average or sum by a dimension</small>
+                </button>
+                <button
+                  type="button"
+                  className={activeImportedField.modelingRole === "raw_variable" ? "active" : ""}
+                  onClick={() => updateActiveImportedField({
+                    modelingRole: "raw_variable",
+                    eligibleForFilter: false,
+                    eligibleForSegment: false,
+                    eligibleForBanner: false
+                  })}
+                >
+                  <strong>Raw field</strong>
+                  <small>Keep for reference only</small>
+                </button>
+                <button
+                  type="button"
+                  className={activeImportedField.modelingRole === "candidate_date" ? "active" : ""}
+                  onClick={() => updateActiveImportedField({
+                    type: "date",
+                    modelingRole: "candidate_date",
+                    eligibleForFilter: false,
+                    eligibleForSegment: false,
+                    eligibleForBanner: false
+                  })}
+                >
+                  <strong>Date</strong>
+                  <small>Preserve until date analysis</small>
+                </button>
               </div>
               <div className="imported-variable-model-toggles">
                 <label>
