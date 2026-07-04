@@ -574,13 +574,22 @@ function parseSavImport(buffer: ArrayBuffer): ParsedTabularData {
     return rows;
   }
 
-  const rows = compression === 0
-    ? readUncompressedCases()
-    : compression === 1
-      ? readCompressedCases()
-      : (() => {
-          throw new Error("This SAV file uses zlib-compressed data, which is not supported in this first parser pass.");
-        })();
+  let caseDataNote: string | null = null;
+  let rows: string[][] = [];
+  try {
+    if (compression === 0) {
+      rows = readUncompressedCases();
+    } else if (compression === 1) {
+      rows = readCompressedCases();
+    } else {
+      caseDataNote = "This SAV file uses compressed case data that is not supported yet; imported metadata without rows.";
+    }
+  } catch (error) {
+    caseDataNote = error instanceof Error
+      ? `Could not read SAV case rows: ${error.message}`
+      : "Could not read SAV case rows; imported metadata without rows.";
+    rows = [];
+  }
   const headers = variables.map((variable) => variable.name);
   const fieldMetadata: Record<string, Partial<ImportedDatasetField>> = {};
   variables.forEach((variable) => {
@@ -607,12 +616,13 @@ function parseSavImport(buffer: ArrayBuffer): ParsedTabularData {
       metadataQuality: "metadata_rich",
       parserNotes: [
         "Imported variable labels and value labels from the SPSS dictionary where available.",
-        compression === 1 ? "Read standard SPSS compressed case data." : "Read uncompressed SPSS case data."
+        caseDataNote ?? (compression === 1 ? "Read standard SPSS compressed case data." : "Read uncompressed SPSS case data.")
       ]
     },
     notes: [
       "Initial model inferred from SAV variable metadata, variable labels, and value labels.",
-      "SAV value labels are used for categorical display while raw codes remain stored in imported rows."
+      "SAV value labels are used for categorical display while raw codes remain stored in imported rows.",
+      ...(caseDataNote ? [caseDataNote] : [])
     ]
   };
 }

@@ -99,6 +99,12 @@ function minimalSavFile() {
   ]).buffer;
 }
 
+function minimalSavFileWithUnsupportedCompression() {
+  const buffer = minimalSavFile();
+  new DataView(buffer).setInt32(72, 2, true);
+  return buffer;
+}
+
 describe("datasetImportModel", () => {
   it("imports classic SAV rows with variable labels and value labels", async () => {
     const result = await importDatasetFile(new File([minimalSavFile()], "survey.sav"));
@@ -126,5 +132,25 @@ describe("datasetImportModel", () => {
     });
     expect(result.dataset?.rows).toEqual([{ Q1: "1" }, { Q1: "2" }]);
     expect(importedFieldValues(result.dataset, result.dataset?.fields[0])).toEqual(["Compostable", "Reusable"]);
+  });
+
+  it("keeps SAV variable metadata when case-data compression is not supported", async () => {
+    const result = await importDatasetFile(new File([minimalSavFileWithUnsupportedCompression()], "metadata-only.sav"));
+
+    expect(result.error).toBeUndefined();
+    expect(result.dataset).toMatchObject({
+      fileType: "sav",
+      rowCount: 0,
+      fieldCount: 1
+    });
+    expect(result.dataset?.fields[0]).toMatchObject({
+      sourceColumn: "Q1",
+      label: "Preferred package type",
+      valueLabels: {
+        "1": "Reusable",
+        "2": "Compostable"
+      }
+    });
+    expect(result.dataset?.notes).toContain("This SAV file uses compressed case data that is not supported yet; imported metadata without rows.");
   });
 });

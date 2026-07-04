@@ -179,6 +179,7 @@ function compactDashboardForWorkspaceStorage(dashboard: DashboardDraft): Dashboa
 function compactWorkspaceForStorage(workspace: DashboardWorkspace): DashboardWorkspace {
   return {
     ...workspace,
+    importedDatasets: workspace.importedDatasets.map(compactImportedDatasetForDraft),
     reports: workspace.reports.map((report) => ({
       ...report,
       draft: compactDashboardForWorkspaceStorage(report.draft)

@@ -136,7 +136,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     setImportFeedback(null);
     try {
       const imported = await importDataset(file);
-      setImportFeedback(imported ? `Imported ${file.name}` : null);
+      setImportFeedback(imported ? `Imported ${file.name}` : `Could not import ${file.name}. Check the workspace status message for details.`);
       if (imported) setSelectedImportedDatasetId(null);
     } finally {
       setIsImporting(false);
