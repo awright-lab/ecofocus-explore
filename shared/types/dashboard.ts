@@ -554,6 +554,9 @@ export interface ImportedDatasetField {
   id: string;
   label: string;
   sourceColumn: string;
+  variableLabel?: string;
+  valueLabels?: Record<string, string>;
+  sourceFormat?: string;
   type: ImportedDatasetFieldType;
   nonEmptyCount: number;
   distinctCount: number;

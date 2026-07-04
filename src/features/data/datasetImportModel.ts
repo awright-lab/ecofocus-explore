@@ -10,6 +10,7 @@ interface ParsedTabularData {
   rows: string[][];
   metadata: NonNullable<ImportedDatasetRecord["importMetadata"]>;
   notes: string[];
+  fieldMetadata?: Record<string, Partial<ImportedDatasetField>>;
 }
 
 interface ZipEntry {
@@ -82,37 +83,46 @@ function looksDate(values: string[]) {
   });
 }
 
-function inferField(header: string, values: string[], index: number, rowCount: number, options?: { metadataAware?: boolean }): ImportedDatasetField {
+function inferField(
+  header: string,
+  values: string[],
+  index: number,
+  rowCount: number,
+  options?: { metadataAware?: boolean; metadata?: Partial<ImportedDatasetField> }
+): ImportedDatasetField {
   const distinctValues = Array.from(new Set(values.filter(Boolean)));
-  const type = looksDate(values)
+  const type = options?.metadata?.type ?? (looksDate(values)
     ? "date"
     : looksNumeric(values)
       ? "numeric"
       : distinctValues.length <= Math.max(20, Math.round(rowCount * 0.25))
         ? "categorical"
-        : "text";
-  const modelingRole =
-    type === "numeric"
+        : "text");
+  const modelingRole = options?.metadata?.modelingRole ?? (type === "numeric"
       ? "candidate_measure"
       : type === "date"
         ? "candidate_date"
         : type === "categorical"
           ? "candidate_dimension"
-          : "raw_variable";
+          : "raw_variable");
   const sourceColumn = header || `Column ${index + 1}`;
+  const label = options?.metadata?.label ?? (options?.metadataAware ? humanizeHeader(sourceColumn) || sourceColumn : sourceColumn);
 
   return {
     id: `${slug(sourceColumn)}_${index + 1}`,
-    label: options?.metadataAware ? humanizeHeader(sourceColumn) || sourceColumn : sourceColumn,
+    label,
     sourceColumn,
+    variableLabel: options?.metadata?.variableLabel,
+    valueLabels: options?.metadata?.valueLabels,
+    sourceFormat: options?.metadata?.sourceFormat,
     type,
     nonEmptyCount: values.filter(Boolean).length,
     distinctCount: distinctValues.length,
     sampleValues: distinctValues.slice(0, 5),
     modelingRole,
-    eligibleForFilter: type === "categorical" || type === "date",
-    eligibleForSegment: type === "categorical",
-    eligibleForBanner: type === "categorical"
+    eligibleForFilter: options?.metadata?.eligibleForFilter ?? (type === "categorical" || type === "date"),
+    eligibleForSegment: options?.metadata?.eligibleForSegment ?? type === "categorical",
+    eligibleForBanner: options?.metadata?.eligibleForBanner ?? type === "categorical"
   };
 }
 
@@ -129,7 +139,10 @@ function buildDataset(file: File, fileType: ImportedDatasetRecord["fileType"], p
     dataRows.map((row) => row[columnIndex] ?? ""),
     columnIndex,
     dataRows.length,
-    { metadataAware: parsed.metadata.metadataQuality !== "raw" }
+    {
+      metadataAware: parsed.metadata.metadataQuality !== "raw",
+      metadata: parsed.fieldMetadata?.[header]
+    }
   ));
   const previewRows = dataRows.slice(0, 25).map((row) => Object.fromEntries(parsed.headers.map((header, index) => [header, row[index] ?? ""])));
   const rows = dataRows.map((row) => Object.fromEntries(parsed.headers.map((header, index) => [header, row[index] ?? ""])));
@@ -190,6 +203,10 @@ function readUint32(view: DataView, offset: number) {
 
 function decodeText(bytes: Uint8Array) {
   return new TextDecoder("utf-8").decode(bytes);
+}
+
+function decodeSavText(bytes: Uint8Array) {
+  return new TextDecoder("windows-1252").decode(bytes).replace(/\0+$/g, "").trim();
 }
 
 async function inflateZipEntry(entry: ZipEntry) {
@@ -338,6 +355,268 @@ function looksLikeSav(buffer: ArrayBuffer) {
   return signature === "$FL2" || signature === "$FL3";
 }
 
+function readInt32(view: DataView, offset: number) {
+  return view.getInt32(offset, true);
+}
+
+function readFloat64(view: DataView, offset: number) {
+  return view.getFloat64(offset, true);
+}
+
+interface SavVariable {
+  name: string;
+  label: string;
+  type: "numeric" | "string";
+  width: number;
+  recordIndex: number;
+  recordSpan: number;
+  sourceFormat?: string;
+  valueLabels?: Record<string, string>;
+}
+
+function paddedLength(length: number, unit: number) {
+  return Math.ceil(length / unit) * unit;
+}
+
+function savFormatLabel(format: number) {
+  const type = format & 0xff;
+  const width = (format >> 16) & 0xff;
+  const decimals = (format >> 8) & 0xff;
+  return `SPSS format ${type}${width ? ` width ${width}` : ""}${decimals ? ` decimals ${decimals}` : ""}`;
+}
+
+function normalizeSavNumeric(value: number) {
+  if (!Number.isFinite(value) || Math.abs(value) > 1e100) return "";
+  return Number.isInteger(value) ? value.toString() : value.toString();
+}
+
+function parseSavValueLabelValue(bytes: Uint8Array, variable: SavVariable | undefined, view: DataView, offset: number) {
+  if (variable?.type === "string") return decodeSavText(bytes.slice(offset, offset + 8));
+  return normalizeSavNumeric(readFloat64(view, offset));
+}
+
+function materializeSavCase(chunks: Uint8Array[], variables: SavVariable[]) {
+  const row: string[] = [];
+  let chunkIndex = 0;
+  variables.forEach((variable) => {
+    if (variable.type === "numeric") {
+      row.push(normalizeSavNumeric(new DataView(chunks[chunkIndex].buffer, chunks[chunkIndex].byteOffset, 8).getFloat64(0, true)));
+      chunkIndex += 1;
+      return;
+    }
+    const valueBytes = new Uint8Array(variable.recordSpan * 8);
+    chunks.slice(chunkIndex, chunkIndex + variable.recordSpan).forEach((chunk, index) => valueBytes.set(chunk, index * 8));
+    row.push(decodeSavText(valueBytes.slice(0, variable.width)));
+    chunkIndex += variable.recordSpan;
+  });
+  return row;
+}
+
+function parseSavImport(buffer: ArrayBuffer): ParsedTabularData {
+  if (!looksLikeSav(buffer)) throw new Error("This does not look like a valid SPSS .sav file.");
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  const compression = readInt32(view, 72);
+  const nominalCaseSize = readInt32(view, 68);
+  const caseCount = readInt32(view, 80);
+  const bias = readFloat64(view, 84);
+  const variables: SavVariable[] = [];
+  const recordToVariable = new Map<number, SavVariable>();
+  const pendingValueLabels: Record<string, string>[] = [];
+  let offset = 176;
+  let recordIndex = 0;
+  let lastVariable: SavVariable | null = null;
+
+  while (offset + 4 <= bytes.length) {
+    const recordType = readInt32(view, offset);
+    offset += 4;
+    if (recordType === 999) {
+      offset += 4;
+      break;
+    }
+
+    if (recordType === 2) {
+      const typeCode = readInt32(view, offset);
+      const hasLabel = readInt32(view, offset + 4);
+      const missingCount = readInt32(view, offset + 8);
+      const printFormat = readInt32(view, offset + 12);
+      const name = decodeSavText(bytes.slice(offset + 20, offset + 28));
+      offset += 28;
+      let label = "";
+      if (hasLabel) {
+        const labelLength = readInt32(view, offset);
+        offset += 4;
+        label = decodeSavText(bytes.slice(offset, offset + labelLength));
+        offset += paddedLength(labelLength, 4);
+      }
+      if (missingCount > 0) offset += missingCount * 8;
+
+      recordIndex += 1;
+      if (typeCode === -1 && lastVariable) {
+        lastVariable.recordSpan += 1;
+        recordToVariable.set(recordIndex, lastVariable);
+      } else {
+        const variable: SavVariable = {
+          name,
+          label: label || humanizeHeader(name) || name,
+          type: typeCode === 0 ? "numeric" : "string",
+          width: typeCode === 0 ? 8 : typeCode,
+          recordIndex,
+          recordSpan: Math.max(1, typeCode === 0 ? 1 : Math.ceil(typeCode / 8)),
+          sourceFormat: savFormatLabel(printFormat)
+        };
+        variables.push(variable);
+        recordToVariable.set(recordIndex, variable);
+        lastVariable = variable;
+      }
+    } else if (recordType === 3) {
+      const labelCount = readInt32(view, offset);
+      offset += 4;
+      const labels: Record<string, string> = {};
+      for (let index = 0; index < labelCount; index += 1) {
+        const rawOffset = offset;
+        const labelLength = bytes[offset + 8] ?? 0;
+        const label = decodeSavText(bytes.slice(offset + 9, offset + 9 + labelLength));
+        labels[`__raw_${index}`] = JSON.stringify({ rawOffset, label });
+        offset += 8 + paddedLength(labelLength + 1, 8);
+      }
+      pendingValueLabels.push(labels);
+    } else if (recordType === 4) {
+      const variableCount = readInt32(view, offset);
+      offset += 4;
+      const linkedVariables = Array.from({ length: variableCount }, () => {
+        const variableIndex = readInt32(view, offset);
+        offset += 4;
+        return recordToVariable.get(variableIndex);
+      }).filter(Boolean) as SavVariable[];
+      const labels = pendingValueLabels.shift();
+      if (labels) {
+        linkedVariables.forEach((variable) => {
+          const resolved: Record<string, string> = {};
+          Object.values(labels).forEach((encoded) => {
+            const { rawOffset, label } = JSON.parse(encoded) as { rawOffset: number; label: string };
+            const key = parseSavValueLabelValue(bytes, variable, view, rawOffset);
+            if (key) resolved[key] = label;
+          });
+          variable.valueLabels = { ...(variable.valueLabels ?? {}), ...resolved };
+        });
+      }
+    } else if (recordType === 6) {
+      const lineCount = readInt32(view, offset);
+      offset += 4 + lineCount * 80;
+    } else if (recordType === 7) {
+      const size = readInt32(view, offset + 4);
+      const count = readInt32(view, offset + 8);
+      offset += 12 + size * count;
+    } else {
+      throw new Error(`Unsupported SAV dictionary record type ${recordType}.`);
+    }
+  }
+
+  if (!variables.length) throw new Error("SAV file did not contain readable variable metadata.");
+
+  function readUncompressedCases() {
+    const rows: string[][] = [];
+    const knownCases = caseCount > 0 ? caseCount : Number.POSITIVE_INFINITY;
+    while (offset + nominalCaseSize * 8 <= bytes.length && rows.length < knownCases) {
+      const chunks = Array.from({ length: nominalCaseSize }, () => {
+        const chunk = bytes.slice(offset, offset + 8);
+        offset += 8;
+        return chunk;
+      });
+      rows.push(materializeSavCase(chunks, variables));
+    }
+    return rows;
+  }
+
+  function readCompressedCases() {
+    const rows: string[][] = [];
+    let controls: number[] = [];
+    let controlIndex = 8;
+    function nextChunk(): Uint8Array | null {
+      while (true) {
+        if (controlIndex >= controls.length) {
+          if (offset + 8 > bytes.length) return null;
+          controls = Array.from(bytes.slice(offset, offset + 8));
+          offset += 8;
+          controlIndex = 0;
+        }
+        const code = controls[controlIndex++];
+        if (code === 0) continue;
+        if (code === 252) return null;
+        if (code === 253) {
+          if (offset + 8 > bytes.length) return null;
+          const raw = bytes.slice(offset, offset + 8);
+          offset += 8;
+          return raw;
+        }
+        if (code === 254) return new Uint8Array(8).fill(0x20);
+        if (code === 255) {
+          const raw = new Uint8Array(8);
+          new DataView(raw.buffer).setFloat64(0, Number.NaN, true);
+          return raw;
+        }
+        const raw = new Uint8Array(8);
+        new DataView(raw.buffer).setFloat64(0, code - bias, true);
+        return raw;
+      }
+    }
+
+    while (caseCount < 0 || rows.length < caseCount) {
+      const chunks: Uint8Array[] = [];
+      for (let index = 0; index < nominalCaseSize; index += 1) {
+        const chunk = nextChunk();
+        if (!chunk) return rows;
+        chunks.push(chunk);
+      }
+      rows.push(materializeSavCase(chunks, variables));
+    }
+    return rows;
+  }
+
+  const rows = compression === 0
+    ? readUncompressedCases()
+    : compression === 1
+      ? readCompressedCases()
+      : (() => {
+          throw new Error("This SAV file uses zlib-compressed data, which is not supported in this first parser pass.");
+        })();
+  const headers = variables.map((variable) => variable.name);
+  const fieldMetadata: Record<string, Partial<ImportedDatasetField>> = {};
+  variables.forEach((variable) => {
+    const hasValueLabels = Boolean(variable.valueLabels && Object.keys(variable.valueLabels).length);
+    fieldMetadata[variable.name] = {
+      label: variable.label,
+      variableLabel: variable.label,
+      valueLabels: variable.valueLabels,
+      sourceFormat: variable.sourceFormat,
+      type: variable.type === "numeric" && !hasValueLabels ? "numeric" : hasValueLabels ? "categorical" : "text",
+      modelingRole: variable.type === "numeric" && !hasValueLabels ? "candidate_measure" : hasValueLabels ? "candidate_dimension" : "raw_variable",
+      eligibleForFilter: hasValueLabels,
+      eligibleForSegment: hasValueLabels,
+      eligibleForBanner: hasValueLabels
+    };
+  });
+
+  return {
+    headers,
+    rows,
+    fieldMetadata,
+    metadata: {
+      formatLabel: "SAV survey metadata import",
+      metadataQuality: "metadata_rich",
+      parserNotes: [
+        "Imported variable labels and value labels from the SPSS dictionary where available.",
+        compression === 1 ? "Read standard SPSS compressed case data." : "Read uncompressed SPSS case data."
+      ]
+    },
+    notes: [
+      "Initial model inferred from SAV variable metadata, variable labels, and value labels.",
+      "SAV value labels are used for categorical display while raw codes remain stored in imported rows."
+    ]
+  };
+}
+
 export async function importDatasetFile(file: File): Promise<DatasetImportResult> {
   const fileType = fileExtension(file.name);
   try {
@@ -354,15 +633,11 @@ export async function importDatasetFile(file: File): Promise<DatasetImportResult
 
     if (fileType === "sav") {
       const buffer = await file.arrayBuffer();
-      const recognized = looksLikeSav(buffer);
-      return {
-        error: recognized
-          ? "SPSS .sav was recognized as a metadata-rich survey file, but row/value-label parsing requires a dedicated SAV parser that is not bundled yet. Export to XLSX/CSV for this build."
-          : "This does not look like a valid SPSS .sav file. Import CSV or XLSX for this build."
-      };
+      const parsed = parseSavImport(buffer);
+      return { dataset: buildDataset(file, fileType, parsed) };
     }
 
-    return { error: "Unsupported file type. Import CSV or XLSX; SAV is recognized but not parsed in this build." };
+    return { error: "Unsupported file type. Import CSV, XLSX, or classic SPSS SAV files." };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Dataset import failed." };
   }

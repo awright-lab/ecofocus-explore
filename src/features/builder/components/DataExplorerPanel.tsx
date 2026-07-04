@@ -171,7 +171,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           </div>
           {activeImportedDataset && (
             <small className="data-library-model-note">
-              {activeImportedDataset.importMetadata?.formatLabel ?? `${activeImportedDataset.fileType.toUpperCase()} import`} · {activeImportedDataset.importMetadata?.metadataQuality === "structured" ? "structured metadata" : "raw metadata"} · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}
+              {activeImportedDataset.importMetadata?.formatLabel ?? `${activeImportedDataset.fileType.toUpperCase()} import`} · {activeImportedDataset.importMetadata?.metadataQuality === "metadata_rich" ? "metadata-rich survey" : activeImportedDataset.importMetadata?.metadataQuality === "structured" ? "structured metadata" : "raw metadata"} · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}
             </small>
           )}
         </div>
@@ -193,7 +193,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         <div className="dataset-import-card">
           <div>
             <strong>Import dataset</strong>
-            <small>Import CSV or XLSX files as modeled workspace datasets. SAV files are recognized, but need a dedicated survey parser before rows and value labels can be imported.</small>
+            <small>Import CSV, XLSX, or classic SPSS SAV files. SAV imports preserve variable labels and value labels when available.</small>
           </div>
           <input
             ref={fileInputRef}
@@ -304,7 +304,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <div className="imported-variable-model-card__header">
                 <span>Variable model</span>
                 <strong>{activeImportedField.label}</strong>
-                <small>Field settings for {activeImportedField.sourceColumn}. Modeling controls how this field can be used for grouping, measures, filters, and banners.</small>
+                <small>{activeImportedField.variableLabel ? `Variable label from ${activeImportedField.sourceColumn}.` : `Field settings for ${activeImportedField.sourceColumn}.`} Modeling controls how this field can be used for grouping, measures, filters, and banners.</small>
               </div>
               {activeImportedFieldSuitability && (
                 <div className={`imported-field-readiness-card ${activeImportedFieldSuitability.readiness.tone}`}>
@@ -321,8 +321,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <div>
                     <strong>Analytical profile</strong>
                     <small>{activeImportedFieldProfile.analyticalRoleSummary}</small>
+                    <small>{activeImportedFieldProfile.rawFieldSummary}</small>
                     <small>{activeImportedFieldProfile.distinctValueSummary}</small>
                     <small>{activeImportedFieldProfile.structureSummary}</small>
+                    {activeImportedFieldProfile.valueLabelSummary && <small>{activeImportedFieldProfile.valueLabelSummary}</small>}
                     {activeImportedFieldProfile.dateTreatment && <small>{activeImportedFieldProfile.dateTreatment}</small>}
                   </div>
                   <span className="data-library-badge-row">

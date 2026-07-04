@@ -611,8 +611,14 @@ export function importedFieldValues(dataset: ImportedDatasetRecord | null | unde
   if (!dataset || !field) return [];
   const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
   return Array.from(
-    new Set(rows.map((row) => (row[field.sourceColumn] ?? "").trim() || "(blank)"))
+    new Set(rows.map((row) => importedFieldDisplayValue(field, row[field.sourceColumn])))
   ).sort((a, b) => a.localeCompare(b));
+}
+
+function importedFieldDisplayValue(field: ImportedDatasetField, rawValue: string | undefined) {
+  const value = (rawValue ?? "").trim();
+  if (!value) return "(blank)";
+  return field.valueLabels?.[value] ?? field.valueLabels?.[Number(value).toString()] ?? value;
 }
 
 export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): AnalyticsQueryResponse {
@@ -627,15 +633,15 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
 
   const sourceRows = config.dataset.rows?.length ? config.dataset.rows : config.dataset.previewRows;
   const rows = config.filter?.field
-    ? sourceRows.filter((row) => ((row[config.filter!.field.sourceColumn] ?? "").trim() || "(blank)") === config.filter!.value)
+    ? sourceRows.filter((row) => importedFieldDisplayValue(config.filter!.field, row[config.filter!.field.sourceColumn]) === config.filter!.value)
     : sourceRows;
   const bannerValues = config.bannerField ? importedFieldValues(config.dataset, config.bannerField) : ["Total"];
   const columnBases = new Map<string, number>(bannerValues.map((value) => [value, 0]));
   const counts = new Map<string, Map<string, { count: number; sum: number }>>();
   rows.forEach((row) => {
     const rawValue = row[config.field.sourceColumn] ?? "";
-    const value = rawValue.trim() || "(blank)";
-    const bannerValue = config.bannerField ? (row[config.bannerField.sourceColumn] ?? "").trim() || "(blank)" : "Total";
+    const value = importedFieldDisplayValue(config.field, rawValue);
+    const bannerValue = config.bannerField ? importedFieldDisplayValue(config.bannerField, row[config.bannerField.sourceColumn]) : "Total";
     const numericValue = config.measureField ? Number.parseFloat((row[config.measureField.sourceColumn] ?? "").replace(/,/g, "")) : null;
     const usableMeasureValue = numericValue !== null && Number.isFinite(numericValue);
     if (isMeasureMetric(config.metric) && !usableMeasureValue) return;

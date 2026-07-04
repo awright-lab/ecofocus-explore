@@ -244,7 +244,7 @@ export function WorkspaceHome({
               <span><HomeIcon icon="dataset" /></span>
               <strong>Workspace data</strong>
             </div>
-            <p>Import local CSV or XLSX files as workspace datasets. SAV files are recognized as metadata-rich survey files, but need a dedicated parser before rows can be imported.</p>
+            <p>Import local CSV, XLSX, or classic SPSS SAV files as workspace datasets. SAV imports can preserve survey variable labels and value labels.</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -384,7 +384,7 @@ export function WorkspaceHome({
                       </div>
                     </dl>
                     <div className="workspace-dataset-structures">
-                      <span>{dataset.importMetadata?.metadataQuality === "structured" ? "Structured workbook" : "Raw import"}</span>
+                      <span>{dataset.importMetadata?.metadataQuality === "metadata_rich" ? "Metadata-rich survey" : dataset.importMetadata?.metadataQuality === "structured" ? "Structured workbook" : "Raw import"}</span>
                       {dataset.importMetadata?.sheetName && <span>Sheet: {dataset.importMetadata.sheetName}</span>}
                       <span>{summary.filterLabel}</span>
                       <span>{summary.segmentLabel}</span>
@@ -408,7 +408,7 @@ export function WorkspaceHome({
             <div className="workspace-home-empty compact">
               <HomeIcon icon="dataset" />
               <h2>No imported datasets yet</h2>
-              <p>Import a CSV or XLSX file to create a workspace dataset and initial field catalog.</p>
+              <p>Import a CSV, XLSX, or classic SPSS SAV file to create a workspace dataset and initial field catalog.</p>
             </div>
           )}
         </section>

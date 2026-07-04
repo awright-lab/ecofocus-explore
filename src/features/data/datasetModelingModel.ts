@@ -22,6 +22,8 @@ export interface ImportedFieldModelingProfile {
   suitabilitySummary: string;
   structureSummary: string;
   dateTreatment: string | null;
+  rawFieldSummary: string;
+  valueLabelSummary: string | null;
   chips: string[];
 }
 
@@ -178,10 +180,17 @@ export function buildImportedFieldModelingProfile(field: ImportedDatasetField): 
     suitabilitySummary: suitability.readiness.reason,
     structureSummary,
     dateTreatment: isDate ? "Date fields are preserved as metadata until imported date grouping or trend analysis is added." : null,
+    rawFieldSummary: field.variableLabel && field.variableLabel !== field.sourceColumn
+      ? `Raw field: ${field.sourceColumn}`
+      : `Source field: ${field.sourceColumn}`,
+    valueLabelSummary: field.valueLabels && Object.keys(field.valueLabels).length
+      ? `Value labels: ${Object.entries(field.valueLabels).slice(0, 4).map(([value, label]) => `${value} = ${label}`).join(", ")}`
+      : null,
     chips: [
       importedFieldTypeLabel(field.type),
       importedFieldRoleLabel(field.modelingRole),
       suitability.readiness.label,
+      ...(field.valueLabels && Object.keys(field.valueLabels).length ? ["Value labels"] : []),
       ...(isMeasure ? ["Measure aggregation"] : []),
       ...(isDimension ? ["Grouping field"] : [])
     ]
