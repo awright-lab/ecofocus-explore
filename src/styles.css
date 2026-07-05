@@ -4564,6 +4564,171 @@ h2 {
   grid-template-columns: 20px minmax(0, 1fr) minmax(48px, auto);
 }
 
+.variable-tree-count {
+  color: #667787;
+  font-size: 0.58rem;
+  font-weight: 850;
+}
+
+.variable-tree-viewport {
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid rgba(213, 226, 232, 0.9);
+  border-radius: 10px;
+  background: #ffffff;
+  contain: strict;
+}
+
+.variable-tree-spacer {
+  position: relative;
+  min-width: 0;
+}
+
+.variable-tree-group,
+.variable-tree-row {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 28px;
+}
+
+.variable-tree-group {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(232, 239, 242, 0.9);
+  background: #f6fafb;
+  color: #63737e;
+  padding: 0 8px;
+  font-size: 0.58rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.variable-tree-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 3px;
+}
+
+.variable-tree-row.active {
+  background: #edf8f7;
+  box-shadow: inset 3px 0 0 #008b89;
+}
+
+.variable-tree-row__select {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 24px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #1f303a;
+  padding: 0 4px;
+  text-align: left;
+}
+
+.variable-tree-row__select:hover {
+  background: rgba(0, 139, 137, 0.07);
+}
+
+.variable-tree-row__select span {
+  display: inline-grid;
+  place-items: center;
+  color: #45616d;
+}
+
+.variable-tree-row__select .data-library-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.variable-tree-row__select strong {
+  overflow: hidden;
+  color: #1f303a;
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variable-tree-row__select em {
+  border-radius: 999px;
+  background: #eef5f6;
+  color: #526879;
+  padding: 1px 5px;
+  font-size: 0.52rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.variable-tree-row__create {
+  min-height: 22px;
+  border: 1px solid rgba(0, 139, 137, 0.2);
+  border-radius: 999px;
+  background: #f3fbfa;
+  color: #007a73;
+  padding: 0 7px;
+  font-size: 0.56rem;
+  font-weight: 900;
+}
+
+.variable-tree-detail-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(0, 139, 137, 0.16);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f8fffe, #eef9f8);
+  padding: 8px;
+}
+
+.variable-tree-detail-card span {
+  color: #007a73;
+  font-size: 0.56rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.variable-tree-detail-card strong,
+.variable-tree-detail-card small {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.variable-tree-detail-card strong {
+  color: #1d3039;
+  font-size: 0.68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.variable-tree-detail-card small {
+  display: -webkit-box;
+  color: #526879;
+  font-size: 0.58rem;
+  font-weight: 750;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.variable-tree-detail-card button {
+  justify-self: start;
+  min-height: 24px;
+  border: 1px solid rgba(0, 139, 137, 0.22);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #007a73;
+  padding: 0 9px;
+  font-size: 0.58rem;
+  font-weight: 900;
+}
+
 .mockup-library-row.modeled-variable-row.split {
   align-items: start;
   min-height: 42px;

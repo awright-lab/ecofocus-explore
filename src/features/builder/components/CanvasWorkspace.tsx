@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { Rnd } from "react-rnd";
 import { canvasHeight, canvasWidth } from "../builderConstants";
 import { buildCompositionGuideObjects, buildCompositionGuideState, type CompositionGuideObject, type CompositionGuideState } from "./compositionGuidesModel";
@@ -219,6 +219,9 @@ export function CanvasWorkspace({
   renderElement: (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => ReactNode;
 }) {
   const canvasSectionRef = useRef<HTMLElement | null>(null);
+  const guideFrameRef = useRef<number | null>(null);
+  const guideObjectRef = useRef<CompositionGuideObject | null>(null);
+  const lastGuideUpdateRef = useRef(0);
   const [activeGuideState, setActiveGuideState] = useState<CompositionGuideState | null>(null);
   const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false);
   const compositionObjects = useMemo(
@@ -266,10 +269,42 @@ export function CanvasWorkspace({
     backgroundPosition: canvasBackgroundPosition(activePage),
     transform: `scale(${canvasScale})`
   };
-  const updateGuideState = (movingObject: CompositionGuideObject) => {
-    setActiveGuideState(buildCompositionGuideState({ movingObject, objects: compositionObjects }));
-  };
-  const clearGuideState = () => setActiveGuideState(null);
+  const updateGuideState = useCallback((movingObject: CompositionGuideObject, immediate = false) => {
+    guideObjectRef.current = movingObject;
+    if (immediate) {
+      if (guideFrameRef.current !== null) {
+        cancelAnimationFrame(guideFrameRef.current);
+        guideFrameRef.current = null;
+      }
+      lastGuideUpdateRef.current = performance.now();
+      setActiveGuideState(buildCompositionGuideState({ movingObject, objects: compositionObjects }));
+      return;
+    }
+    const now = performance.now();
+    if (now - lastGuideUpdateRef.current < 80) return;
+    lastGuideUpdateRef.current = now;
+    if (guideFrameRef.current !== null) return;
+    guideFrameRef.current = requestAnimationFrame(() => {
+      guideFrameRef.current = null;
+      const nextObject = guideObjectRef.current;
+      if (!nextObject) return;
+      setActiveGuideState(buildCompositionGuideState({ movingObject: nextObject, objects: compositionObjects }));
+    });
+  }, [compositionObjects]);
+  const clearGuideState = useCallback(() => {
+    guideObjectRef.current = null;
+    if (guideFrameRef.current !== null) {
+      cancelAnimationFrame(guideFrameRef.current);
+      guideFrameRef.current = null;
+    }
+    setActiveGuideState(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (guideFrameRef.current !== null) cancelAnimationFrame(guideFrameRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     function handleFullscreenChange() {
@@ -396,7 +431,7 @@ export function CanvasWorkspace({
                 enableResizing={!element.locked}
                 onDragStart={() => {
                   onSelectElement(element.id);
-                  updateGuideState({ id: element.id, type: "element", layout: element.layout });
+                  updateGuideState({ id: element.id, type: "element", layout: element.layout }, true);
                 }}
                 onDrag={(_, data) => updateGuideState({ id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } })}
                 onDragStop={(_, data) => {
@@ -436,7 +471,7 @@ export function CanvasWorkspace({
                 enableResizing={!tile.locked}
                 onDragStart={() => {
                   onSelectTile(tile.id);
-                  updateGuideState({ id: tile.id, type: "tile", layout: tile.layout });
+                  updateGuideState({ id: tile.id, type: "tile", layout: tile.layout }, true);
                 }}
                 onDrag={(_, data) => updateGuideState({ id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } })}
                 onDragStop={(_, data) => {

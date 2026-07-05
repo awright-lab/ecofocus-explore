@@ -8,10 +8,30 @@ import {
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
-const INITIAL_VISIBLE_FIELD_COUNT = 5;
-const FIELD_BATCH_SIZE = 25;
-const MAX_BROWSE_FIELD_COUNT = 75;
-const MAX_SEARCH_FIELD_COUNT = 150;
+const VARIABLE_TREE_ROW_HEIGHT = 28;
+const VARIABLE_TREE_VIEWPORT_HEIGHT = 360;
+const VARIABLE_TREE_OVERSCAN = 8;
+
+type VariableTreeEntry =
+  | { type: "group"; id: string; label: string }
+  | { type: "field"; id: string; field: ImportedDatasetField };
+
+function importedVariableGroupLabel(field: ImportedDatasetField) {
+  const source = field.sourceColumn || field.label;
+  const label = importedFieldDisplayLabel(field);
+  const questionMatch = source.match(/^([A-Za-z]+[0-9]+)[A-Za-z0-9_]*/);
+  if (questionMatch) return questionMatch[1].toUpperCase();
+  const prefixMatch = source.match(/^([A-Za-z]{2,})/);
+  if (prefixMatch) return prefixMatch[1].replace(/([a-z])([A-Z])/g, "$1 $2");
+  return label.split(/[\s:_-]+/)[0] || "Fields";
+}
+
+function compactVariableRoleLabel(field: ImportedDatasetField) {
+  if (field.modelingRole === "candidate_measure" || field.type === "numeric") return "Numeric";
+  if (field.modelingRole === "candidate_dimension" || field.type === "categorical") return "Group";
+  if (field.modelingRole === "candidate_date" || field.type === "date") return "Date";
+  return "Raw";
+}
 
 function DataLibraryIcon({ icon }: { icon: DataLibraryIconName }) {
   const paths: Record<DataLibraryIconName, ReactNode> = {
@@ -65,7 +85,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState<string | null>(null);
   const [libraryComposer, setLibraryComposer] = useState<"filter" | "segment" | "banner" | null>(null);
-  const [visibleFieldLimit, setVisibleFieldLimit] = useState(INITIAL_VISIBLE_FIELD_COUNT);
+  const [variableTreeScrollTop, setVariableTreeScrollTop] = useState(0);
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const activeImportedDataset =
     importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
@@ -95,23 +115,34 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       return searchableText.includes(variableSearchTerm);
     });
   }, [modeledVariables, variableSearchTerm]);
-  const visibleModeledVariables = useMemo(
-    () => filteredModeledVariables.slice(0, visibleFieldLimit),
-    [filteredModeledVariables, visibleFieldLimit]
+  const variableTreeEntries = useMemo<VariableTreeEntry[]>(() => {
+    if (variableSearchTerm) return filteredModeledVariables.map((field) => ({ type: "field", id: field.id, field }));
+    const entries: VariableTreeEntry[] = [];
+    let currentGroup = "";
+    filteredModeledVariables.forEach((field) => {
+      const group = importedVariableGroupLabel(field);
+      if (group !== currentGroup) {
+        currentGroup = group;
+        entries.push({ type: "group", id: `group:${group}:${entries.length}`, label: group });
+      }
+      entries.push({ type: "field", id: field.id, field });
+    });
+    return entries;
+  }, [filteredModeledVariables, variableSearchTerm]);
+  const variableTreeTotalHeight = variableTreeEntries.length * VARIABLE_TREE_ROW_HEIGHT;
+  const variableTreeStartIndex = Math.max(0, Math.floor(variableTreeScrollTop / VARIABLE_TREE_ROW_HEIGHT) - VARIABLE_TREE_OVERSCAN);
+  const variableTreeEndIndex = Math.min(
+    variableTreeEntries.length,
+    variableTreeStartIndex + Math.ceil(VARIABLE_TREE_VIEWPORT_HEIGHT / VARIABLE_TREE_ROW_HEIGHT) + VARIABLE_TREE_OVERSCAN * 2
   );
-  const visibleFieldSuitability = useMemo(() => {
-    return new Map(visibleModeledVariables.map((field) => [field.id, buildImportedFieldSuitability(field)]));
-  }, [visibleModeledVariables]);
-  const visibleFieldCap = Math.min(
-    filteredModeledVariables.length,
-    variableSearchTerm ? MAX_SEARCH_FIELD_COUNT : MAX_BROWSE_FIELD_COUNT
-  );
-  const hasMoreModeledVariables = visibleFieldLimit < visibleFieldCap;
-  const isModeledVariableListCapped = visibleModeledVariables.length < filteredModeledVariables.length && !hasMoreModeledVariables;
-  const canCollapseModeledVariables = visibleFieldLimit > INITIAL_VISIBLE_FIELD_COUNT;
+  const visibleVariableTreeEntries = variableTreeEntries.slice(variableTreeStartIndex, variableTreeEndIndex);
   const importedStructureSummary = useMemo(() => buildImportedDatasetStructureSummary(activeImportedDataset), [activeImportedDataset]);
   const activeImportedField =
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
+  const activeImportedFieldSuitability = useMemo(
+    () => activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null,
+    [activeImportedField]
+  );
 
   useEffect(() => {
     if (!managedMenuKey) return;
@@ -127,7 +158,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   }, [managedMenuKey]);
 
   useEffect(() => {
-    setVisibleFieldLimit(INITIAL_VISIBLE_FIELD_COUNT);
+    setVariableTreeScrollTop(0);
   }, [activeImportedDataset?.id, variableSearchTerm]);
 
   function selectImportedDataset(datasetId: string) {
@@ -148,14 +179,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   function toggleComposer(kind: "filter" | "segment" | "banner") {
     setLibraryComposer((current) => (current === kind ? null : kind));
-  }
-
-  function revealMoreFields() {
-    setVisibleFieldLimit((current) => Math.min(current + FIELD_BATCH_SIZE, visibleFieldCap));
-  }
-
-  function collapseFields() {
-    setVisibleFieldLimit(INITIAL_VISIBLE_FIELD_COUNT);
   }
 
   function renderManagedLibraryRow(options: {
@@ -347,47 +370,65 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Variables</strong>
-              <button
-                type="button"
-                onClick={hasMoreModeledVariables ? revealMoreFields : canCollapseModeledVariables ? collapseFields : undefined}
-              >
-                {hasMoreModeledVariables ? "+" : canCollapseModeledVariables ? "-" : "+"}
-              </button>
+              <small className="variable-tree-count">
+                {variableSearchTerm
+                  ? `${filteredModeledVariables.length.toLocaleString()} matches`
+                  : `${modeledVariables.length.toLocaleString()} fields`}
+              </small>
             </div>
             {modeledVariables.length > 0
-              ? visibleModeledVariables.length > 0
-                ? visibleModeledVariables.map((field) => {
-                const suitability = visibleFieldSuitability.get(field.id) ?? buildImportedFieldSuitability(field);
-                const isSelectedForModeling = activeImportedField?.id === field.id;
-                const fieldLabel = importedFieldDisplayLabel(field);
-                const roleBadges = suitability.badges
-                  .filter((badge) => !["Identifier", suitability.readiness.label].includes(badge))
-                  .map(variableBadgeLabel)
-                  .filter((badge, index, badges) => badges.indexOf(badge) === index)
-                  .slice(0, 2);
-                return (
-                  <div
-                    className={isSelectedForModeling ? "mockup-library-row compact modeled-variable-row split active" : "mockup-library-row compact modeled-variable-row split"}
-                    key={field.id}
-                  >
-                    <span><DataLibraryIcon icon="variable" /></span>
-                    <div className="modeled-variable-row__body">
-                      <strong>{fieldLabel}</strong>
-                      <span className="data-library-badge-row">
-                        <em className={`readiness ${suitability.readiness.tone}`}>{variableReadinessLabel(suitability.readiness.label)}</em>
-                        {roleBadges.map((badge) => (
-                          <em key={badge}>{badge}</em>
-                        ))}
-                      </span>
+              ? variableTreeEntries.length > 0
+                ? (
+                  <>
+                    <div
+                      className="variable-tree-viewport"
+                      style={{ height: Math.min(VARIABLE_TREE_VIEWPORT_HEIGHT, Math.max(VARIABLE_TREE_ROW_HEIGHT * variableTreeEntries.length, VARIABLE_TREE_ROW_HEIGHT)) }}
+                      onScroll={(event) => setVariableTreeScrollTop(event.currentTarget.scrollTop)}
+                    >
+                      <div className="variable-tree-spacer" style={{ height: variableTreeTotalHeight }}>
+                        {visibleVariableTreeEntries.map((entry, index) => {
+                          const top = (variableTreeStartIndex + index) * VARIABLE_TREE_ROW_HEIGHT;
+                          if (entry.type === "group") {
+                            return (
+                              <div className="variable-tree-group" key={entry.id} style={{ top }}>
+                                {entry.label}
+                              </div>
+                            );
+                          }
+
+                          const field = entry.field;
+                          const isSelectedForModeling = activeImportedField?.id === field.id;
+                          const fieldLabel = importedFieldDisplayLabel(field);
+
+                          return (
+                            <div
+                              className={isSelectedForModeling ? "variable-tree-row active" : "variable-tree-row"}
+                              key={field.id}
+                              style={{ top }}
+                            >
+                              <button type="button" className="variable-tree-row__select" onClick={() => setSelectedImportedFieldId(field.id)} onDoubleClick={() => openQueryForImportedField(field)}>
+                                <span><DataLibraryIcon icon="variable" /></span>
+                                <strong>{fieldLabel}</strong>
+                                <em>{compactVariableRoleLabel(field)}</em>
+                              </button>
+                              <button type="button" className="variable-tree-row__create" onClick={() => openQueryForImportedField(field)}>
+                                Create
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="modeled-variable-row__actions" aria-label={`Actions for ${fieldLabel}`}>
-                      <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
-                        Create
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+                    {activeImportedField && activeImportedFieldSuitability && (
+                      <div className="variable-tree-detail-card">
+                        <span>Selected field</span>
+                        <strong>{importedFieldDisplayLabel(activeImportedField)}</strong>
+                        <small>{activeImportedFieldSuitability.readiness.label} · {activeImportedFieldSuitability.readiness.bestUse}</small>
+                        <button type="button" onClick={() => openQueryForImportedField(activeImportedField)}>Create analysis</button>
+                      </div>
+                    )}
+                  </>
+                )
                 : <small className="library-empty-note">No variables match this search.</small>
               : filteredQuestions.slice(0, 4).map((question) => (
                 <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => openGuidedDataQuery({ outputMode: "table" })}>
@@ -395,19 +436,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <strong>{question.shortLabel}</strong>
                 </button>
               ))}
-            {filteredModeledVariables.length > INITIAL_VISIBLE_FIELD_COUNT && (
-              <button
-                type="button"
-                className="mockup-library-link"
-                onClick={hasMoreModeledVariables ? revealMoreFields : collapseFields}
-              >
-                {hasMoreModeledVariables
-                  ? `Show ${Math.min(FIELD_BATCH_SIZE, visibleFieldCap - visibleFieldLimit)} more fields (${visibleModeledVariables.length} of ${filteredModeledVariables.length})`
-                  : isModeledVariableListCapped
-                    ? `Show fewer fields (${filteredModeledVariables.length - visibleModeledVariables.length} more via search)`
-                    : "Show fewer fields"}
-              </button>
-            )}
           </section>
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
