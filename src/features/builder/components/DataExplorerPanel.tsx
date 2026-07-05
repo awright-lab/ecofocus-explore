@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ImportedDatasetField } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
@@ -8,6 +8,8 @@ import {
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
+const INITIAL_VISIBLE_FIELD_COUNT = 5;
+const FIELD_BATCH_SIZE = 50;
 
 function DataLibraryIcon({ icon }: { icon: DataLibraryIconName }) {
   const paths: Record<DataLibraryIconName, ReactNode> = {
@@ -61,7 +63,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState<string | null>(null);
   const [libraryComposer, setLibraryComposer] = useState<"filter" | "segment" | "banner" | null>(null);
-  const [showAllFields, setShowAllFields] = useState(false);
+  const [visibleFieldLimit, setVisibleFieldLimit] = useState(INITIAL_VISIBLE_FIELD_COUNT);
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const activeImportedDataset =
     importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
@@ -77,7 +79,23 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", imported: false }
       ];
   const modeledVariables = activeImportedDataset?.fields ?? [];
-  const visibleModeledVariables = showAllFields ? modeledVariables : modeledVariables.slice(0, 5);
+  const variableSearchTerm = sourceSearch.trim().toLowerCase();
+  const filteredModeledVariables = useMemo(() => {
+    if (!variableSearchTerm) return modeledVariables;
+    return modeledVariables.filter((field) => {
+      const searchableText = [
+        importedFieldDisplayLabel(field),
+        field.label,
+        field.variableLabel,
+        field.sourceColumn,
+        field.sourceFormat
+      ].filter(Boolean).join(" ").toLowerCase();
+      return searchableText.includes(variableSearchTerm);
+    });
+  }, [modeledVariables, variableSearchTerm]);
+  const visibleModeledVariables = filteredModeledVariables.slice(0, visibleFieldLimit);
+  const hasMoreModeledVariables = visibleFieldLimit < filteredModeledVariables.length;
+  const canCollapseModeledVariables = visibleFieldLimit > INITIAL_VISIBLE_FIELD_COUNT;
   const importedStructureSummary = buildImportedDatasetStructureSummary(activeImportedDataset);
   const activeImportedField =
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
@@ -94,6 +112,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       window.removeEventListener("keydown", closeManagedMenu);
     };
   }, [managedMenuKey]);
+
+  useEffect(() => {
+    setVisibleFieldLimit(INITIAL_VISIBLE_FIELD_COUNT);
+  }, [activeImportedDataset?.id, variableSearchTerm]);
 
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
@@ -113,6 +135,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   function toggleComposer(kind: "filter" | "segment" | "banner") {
     setLibraryComposer((current) => (current === kind ? null : kind));
+  }
+
+  function revealMoreFields() {
+    setVisibleFieldLimit((current) => Math.min(current + FIELD_BATCH_SIZE, filteredModeledVariables.length));
+  }
+
+  function collapseFields() {
+    setVisibleFieldLimit(INITIAL_VISIBLE_FIELD_COUNT);
   }
 
   function renderManagedLibraryRow(options: {
@@ -304,10 +334,16 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Variables</strong>
-              <button type="button" onClick={() => setShowAllFields((current) => !current)}>+</button>
+              <button
+                type="button"
+                onClick={hasMoreModeledVariables ? revealMoreFields : canCollapseModeledVariables ? collapseFields : undefined}
+              >
+                {hasMoreModeledVariables ? "+" : canCollapseModeledVariables ? "-" : "+"}
+              </button>
             </div>
             {modeledVariables.length > 0
-              ? visibleModeledVariables.map((field) => {
+              ? visibleModeledVariables.length > 0
+                ? visibleModeledVariables.map((field) => {
                 const suitability = buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const fieldLabel = importedFieldDisplayLabel(field);
@@ -339,15 +375,22 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   </div>
                 );
               })
+                : <small className="library-empty-note">No variables match this search.</small>
               : filteredQuestions.slice(0, 4).map((question) => (
                 <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => openGuidedDataQuery({ outputMode: "table" })}>
                   <span><DataLibraryIcon icon="variable" /></span>
                   <strong>{question.shortLabel}</strong>
                 </button>
               ))}
-            {modeledVariables.length > 5 && (
-              <button type="button" className="mockup-library-link" onClick={() => setShowAllFields((current) => !current)}>
-                {showAllFields ? "Show fewer fields" : `Browse variables (${modeledVariables.length})`}
+            {filteredModeledVariables.length > INITIAL_VISIBLE_FIELD_COUNT && (
+              <button
+                type="button"
+                className="mockup-library-link"
+                onClick={hasMoreModeledVariables ? revealMoreFields : collapseFields}
+              >
+                {hasMoreModeledVariables
+                  ? `Show ${Math.min(FIELD_BATCH_SIZE, filteredModeledVariables.length - visibleFieldLimit)} more fields (${visibleModeledVariables.length} of ${filteredModeledVariables.length})`
+                  : "Show fewer fields"}
               </button>
             )}
           </section>
