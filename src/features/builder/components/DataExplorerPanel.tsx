@@ -3,12 +3,7 @@ import type { ImportedDatasetField } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
   buildImportedDatasetStructureSummary,
-  buildImportedFieldModelingProfile,
-  describeFieldModeling,
   importedFieldDisplayLabel,
-  importedFieldRawNameLabel,
-  importedFieldRoleLabel,
-  importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
 
@@ -57,7 +52,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     deleteSegmentProfile,
     importedDatasets,
     importDataset,
-    updateImportedDatasetField,
     removeImportedDataset,
     openGuidedDataQuery
   } = props;
@@ -67,7 +61,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState<string | null>(null);
   const [libraryComposer, setLibraryComposer] = useState<"filter" | "segment" | "banner" | null>(null);
-  const [showFieldSetup, setShowFieldSetup] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const activeImportedDataset =
@@ -87,9 +80,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const importedStructureSummary = buildImportedDatasetStructureSummary(activeImportedDataset);
   const activeImportedField =
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
-  const activeImportedFieldView = activeImportedField ? describeFieldModeling(activeImportedField) : null;
-  const activeImportedFieldSuitability = activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null;
-  const activeImportedFieldProfile = activeImportedField ? buildImportedFieldModelingProfile(activeImportedField) : null;
 
   useEffect(() => {
     if (!managedMenuKey) return;
@@ -187,13 +177,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     );
   }
 
-  function updateActiveImportedField(
-    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
-  ) {
-    if (!activeImportedDataset || !activeImportedField) return;
-    updateImportedDatasetField(activeImportedDataset.id, activeImportedField.id, updates);
-  }
-
   function openQueryForImportedField(field: ImportedDatasetField, outputMode: "table" | "chart" = "table") {
     if (!activeImportedDataset) return;
     setSelectedImportedFieldId(field.id);
@@ -203,19 +186,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       importedFieldId: field.id,
       launchSource: "field"
     });
-  }
-
-  function applyModelingRecommendation(
-    field: ImportedDatasetField,
-    recommendation: NonNullable<ReturnType<typeof buildImportedFieldSuitability>["recommendations"][number]>,
-    options?: { analyze?: boolean }
-  ) {
-    if (!activeImportedDataset || !recommendation.suggestedUpdates) return;
-    updateImportedDatasetField(activeImportedDataset.id, field.id, recommendation.suggestedUpdates);
-    setSelectedImportedFieldId(field.id);
-    if (options?.analyze && recommendation.workflowAction) {
-      window.setTimeout(() => openQueryForImportedField(field, "table"), 0);
-    }
   }
 
   async function handleImportFile(file: File | undefined) {
@@ -255,26 +225,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <DataLibraryIcon icon="filter" />
           </button>
         </div>
-        {activeImportedDataset && (
-          <div className={`imported-dataset-health-card ${importedStructureSummary.health.statusTone}`}>
-            <div className="imported-dataset-health-card__header">
-              <span>Dataset model</span>
-              <strong>{importedStructureSummary.health.statusLabel}</strong>
-              <small>{importedStructureSummary.health.readinessScore}% of fields query-ready</small>
-            </div>
-            <p>{importedStructureSummary.health.guidance}</p>
-            <div className="imported-dataset-health-grid">
-              {importedStructureSummary.health.chips.map((chip) => (
-                <small key={chip}>{chip}</small>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="dataset-import-card">
-          <div>
-            <strong>Import dataset</strong>
-            <small>Import CSV, XLSX, or classic SPSS SAV files. SAV imports preserve variable labels and value labels when available.</small>
-          </div>
+        <div className="dataset-import-card compact-import-card">
           <input
             ref={fileInputRef}
             type="file"
@@ -283,7 +234,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             onChange={(event) => void handleImportFile(event.target.files?.[0])}
           />
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-            {isImporting ? "Importing..." : "Import file"}
+            {isImporting ? "Importing..." : "Import dataset"}
           </button>
           {importFeedback && <small className="dataset-import-feedback">{importFeedback}</small>}
         </div>
@@ -357,16 +308,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                       <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
                         {analysisLabel}
                       </button>
-                      <button
-                        type="button"
-                        className="model"
-                        onClick={() => {
-                          setSelectedImportedFieldId(field.id);
-                          setShowFieldSetup(true);
-                        }}
-                      >
-                        {isSelectedForModeling ? "Modeling" : "Model"}
-                      </button>
                     </div>
                   </div>
                 );
@@ -383,211 +324,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               </button>
             )}
           </section>
-          {activeImportedDataset && activeImportedField && activeImportedFieldView && (
-            <section className="imported-variable-model-card compact-field-setup" aria-label="Imported field setup">
-              <div className="imported-variable-model-card__header">
-                <span>Field setup</span>
-                <strong>{importedFieldDisplayLabel(activeImportedField)}</strong>
-                <small>{activeImportedFieldSuitability?.readiness.label ?? "Imported field"} · {activeImportedFieldSuitability?.readiness.bestUse ?? "Ready for setup"}</small>
-                <button type="button" onClick={() => setShowFieldSetup((current) => !current)}>
-                  {showFieldSetup ? "Hide setup" : "Model field"}
-                </button>
-              </div>
-              {!showFieldSetup && (
-                <div className="field-setup-summary-card">
-                  <span className="data-library-badge-row">
-                    <em>{importedFieldTypeLabel(activeImportedField.type)}</em>
-                    <em>{importedFieldRoleLabel(activeImportedField.modelingRole)}</em>
-                    {activeImportedField.eligibleForFilter && <em>Filter</em>}
-                    {activeImportedField.eligibleForBanner && <em>Breakout</em>}
-                  </span>
-                  <small>{activeImportedFieldSuitability?.readiness.reason ?? activeImportedFieldView.eligibilityLabel}</small>
-                </div>
-              )}
-              {showFieldSetup && (
-                <div className="field-setup-detail-stack">
-              {activeImportedFieldSuitability && (
-                <div className={`imported-field-readiness-card ${activeImportedFieldSuitability.readiness.tone}`}>
-                  <div>
-                    <span>{activeImportedFieldSuitability.readiness.label}</span>
-                    <strong>{activeImportedFieldSuitability.readiness.recommendedAction}</strong>
-                  </div>
-                  <p>{activeImportedFieldSuitability.readiness.reason}</p>
-                  <small>Best used as: {activeImportedFieldSuitability.readiness.bestUse}</small>
-                </div>
-              )}
-              {activeImportedFieldProfile && (
-                <div className="imported-field-profile-card">
-                  <div>
-                    <strong>Analytical profile</strong>
-                    <small>{activeImportedFieldProfile.analyticalRoleSummary}</small>
-                    <small>{activeImportedFieldProfile.rawFieldSummary}</small>
-                    <small>{activeImportedFieldProfile.distinctValueSummary}</small>
-                    <small>{activeImportedFieldProfile.structureSummary}</small>
-                    {activeImportedFieldProfile.valueLabelSummary && <small>{activeImportedFieldProfile.valueLabelSummary}</small>}
-                    {activeImportedFieldProfile.dateTreatment && <small>{activeImportedFieldProfile.dateTreatment}</small>}
-                  </div>
-                  <span className="data-library-badge-row">
-                    {activeImportedFieldProfile.chips.slice(0, 5).map((chip) => (
-                      <em key={chip}>{chip}</em>
-                    ))}
-                  </span>
-                </div>
-              )}
-              {activeImportedFieldSuitability && activeImportedFieldSuitability.recommendations.length > 0 && (
-                <div className="imported-field-recommendations-card">
-                  <div className="imported-field-recommendations-card__header">
-                    <span>Recommended next step</span>
-                    <strong>{activeImportedFieldSuitability.recommendations[0].label}</strong>
-                  </div>
-                  <div className="imported-field-recommendation-list">
-                    {activeImportedFieldSuitability.recommendations.map((recommendation) => (
-                      <div className="imported-field-recommendation-item" key={recommendation.id}>
-                        <div>
-                          <strong>{recommendation.label}</strong>
-                          <small>{recommendation.description}</small>
-                          <small>{recommendation.impact}</small>
-                          {recommendation.workflowAction && <small className="workflow-handoff-note">{recommendation.workflowAction.description}</small>}
-                        </div>
-                        {recommendation.suggestedUpdates && (
-                          <div className="imported-field-recommendation-actions">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                applyModelingRecommendation(activeImportedField, recommendation);
-                              }}
-                            >
-                              Apply
-                            </button>
-                            {recommendation.workflowAction && (
-                              <button
-                                type="button"
-                                className="analyze"
-                                onClick={() => {
-                                  applyModelingRecommendation(activeImportedField, recommendation, { analyze: true });
-                                }}
-                              >
-                                {recommendation.workflowAction.label}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <label>
-                Display label
-                <input value={activeImportedField.label} onChange={(event) => updateActiveImportedField({ label: event.target.value })} />
-              </label>
-              <div className="imported-variable-model-grid">
-                <label>
-                  Type
-                  <select
-                    value={activeImportedField.type}
-                    onChange={(event) => updateActiveImportedField({ type: event.target.value as ImportedDatasetField["type"] })}
-                  >
-                    {(["text", "numeric", "categorical", "date"] as const).map((type) => (
-                      <option value={type} key={type}>{importedFieldTypeLabel(type)}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Role
-                  <select
-                    value={activeImportedField.modelingRole}
-                    onChange={(event) => updateActiveImportedField({ modelingRole: event.target.value as ImportedDatasetField["modelingRole"] })}
-                  >
-                    {(["raw_variable", "candidate_dimension", "candidate_measure", "candidate_date"] as const).map((role) => (
-                      <option value={role} key={role}>{importedFieldRoleLabel(role)}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="imported-modeling-preset-grid" aria-label="Field modeling presets">
-                <button
-                  type="button"
-                  className={activeImportedField.modelingRole === "candidate_dimension" ? "active" : ""}
-                  onClick={() => updateActiveImportedField({
-                    type: "categorical",
-                    modelingRole: "candidate_dimension",
-                    eligibleForFilter: true,
-                    eligibleForSegment: true,
-                    eligibleForBanner: activeImportedField.distinctCount <= 12
-                  })}
-                >
-                  <strong>Dimension</strong>
-                  <small>Group, filter, segment, crosstab</small>
-                </button>
-                <button
-                  type="button"
-                  className={activeImportedField.modelingRole === "candidate_measure" ? "active" : ""}
-                  onClick={() => updateActiveImportedField({
-                    type: "numeric",
-                    modelingRole: "candidate_measure",
-                    eligibleForFilter: false,
-                    eligibleForSegment: false,
-                    eligibleForBanner: false
-                  })}
-                >
-                  <strong>Measure</strong>
-                  <small>Average or sum by a dimension</small>
-                </button>
-                <button
-                  type="button"
-                  className={activeImportedField.modelingRole === "raw_variable" ? "active" : ""}
-                  onClick={() => updateActiveImportedField({
-                    modelingRole: "raw_variable",
-                    eligibleForFilter: false,
-                    eligibleForSegment: false,
-                    eligibleForBanner: false
-                  })}
-                >
-                  <strong>Raw field</strong>
-                  <small>Keep for reference only</small>
-                </button>
-                <button
-                  type="button"
-                  className={activeImportedField.modelingRole === "candidate_date" ? "active" : ""}
-                  onClick={() => updateActiveImportedField({
-                    type: "date",
-                    modelingRole: "candidate_date",
-                    eligibleForFilter: false,
-                    eligibleForSegment: false,
-                    eligibleForBanner: false
-                  })}
-                >
-                  <strong>Date</strong>
-                  <small>Preserve until date analysis</small>
-                </button>
-              </div>
-              <div className="imported-variable-model-toggles">
-                <label>
-                  <input type="checkbox" checked={activeImportedField.eligibleForFilter} onChange={(event) => updateActiveImportedField({ eligibleForFilter: event.target.checked })} />
-                  Filter-ready
-                </label>
-                <label>
-                  <input type="checkbox" checked={activeImportedField.eligibleForSegment} onChange={(event) => updateActiveImportedField({ eligibleForSegment: event.target.checked })} />
-                  Segment-ready
-                </label>
-                <label>
-                  <input type="checkbox" checked={activeImportedField.eligibleForBanner} onChange={(event) => updateActiveImportedField({ eligibleForBanner: event.target.checked })} />
-                  Breakout-ready
-                </label>
-              </div>
-              <div className="imported-field-modeling-guidance">
-                <strong>What these settings affect</strong>
-                <small>Dimension fields can become tables, charts, filters, segments, or one-field breakouts. Measure fields can be averaged or summed by a separate dimension. Imported data still does not support weights, significance, waves, multi-filter queries, or provider-backed execution.</small>
-              </div>
-              <p>{activeImportedFieldView.completenessLabel}</p>
-              <small>{activeImportedFieldView.eligibilityLabel}</small>
-              {activeImportedFieldSuitability && <small>{activeImportedFieldSuitability.helperText}</small>}
-              <small>Samples: {activeImportedFieldView.sampleLabel}</small>
-                </div>
-              )}
-            </section>
-          )}
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Filters</strong>
@@ -597,7 +333,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               ? importedStructureSummary.filters.slice(0, 3).map((field) => (
                 <button type="button" className="mockup-library-row compact" key={field.id} onClick={() => {
                   setSelectedImportedFieldId(field.id);
-                  setShowFieldSetup(true);
                 }}>
                   <span><DataLibraryIcon icon="filter" /></span>
                   <strong>{importedFieldDisplayLabel(field)}</strong>
@@ -631,7 +366,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               ? importedStructureSummary.segments.slice(0, 3).map((field) => (
                 <button type="button" className="mockup-library-row compact with-count" key={field.id} onClick={() => {
                   setSelectedImportedFieldId(field.id);
-                  setShowFieldSetup(true);
                 }}>
                   <span><DataLibraryIcon icon="segment" /></span>
                   <strong>{importedFieldDisplayLabel(field)}</strong>
@@ -665,7 +399,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               ? importedStructureSummary.banners.slice(0, 2).map((field) => (
                 <button type="button" className="mockup-library-row compact" key={field.id} onClick={() => {
                   setSelectedImportedFieldId(field.id);
-                  setShowFieldSetup(true);
                 }}>
                   <span><DataLibraryIcon icon="banner" /></span>
                   <strong>{importedFieldDisplayLabel(field)}</strong>
@@ -691,13 +424,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.bannerLabel}</small>}
           </section>
         </div>
-        <button
-          type="button"
-          className="new-data-query-button"
-          onClick={() => activeImportedDataset && activeImportedField ? openQueryForImportedField(activeImportedField) : openGuidedDataQuery({ outputMode: "table" })}
-        >
-          {activeImportedDataset && activeImportedField ? "Create analysis from selected field" : "＋ New data query"}
-        </button>
       </div>
     </>
   );

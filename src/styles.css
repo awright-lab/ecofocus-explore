@@ -4428,6 +4428,22 @@ h2 {
   opacity: 0.72;
 }
 
+.dataset-import-card.compact-import-card {
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.dataset-import-card.compact-import-card button {
+  width: 100%;
+  min-height: 38px;
+  justify-content: center;
+  border-color: rgba(0, 139, 137, 0.22);
+  background: #ffffff;
+}
+
 .dataset-import-feedback {
   color: #007a73;
 }
