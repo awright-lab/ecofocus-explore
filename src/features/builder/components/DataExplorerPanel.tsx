@@ -1,8 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { ImportedDatasetField } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
-import { AnalysisLibrarySection, QueryEditorSection, SourcePickerSection } from "./DataExplorerSections";
-import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import {
   buildImportedDatasetStructureSummary,
   buildImportedFieldModelingProfile,
@@ -38,14 +36,10 @@ function DataLibraryIcon({ icon }: { icon: DataLibraryIconName }) {
 export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const {
     leftPanelView,
-    exploreView,
-    setExploreView,
     filteredQuestions,
-    savedVariableSets,
     savedFilters,
     savedSegmentProfiles,
     savedBanners,
-    savedAnalyticalTemplates,
     sourceSearch,
     setSourceSearch,
     applySavedBanner,
@@ -74,6 +68,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState<string | null>(null);
   const [libraryComposer, setLibraryComposer] = useState<"filter" | "segment" | "banner" | null>(null);
   const [showFieldSetup, setShowFieldSetup] = useState(false);
+  const [showAllFields, setShowAllFields] = useState(false);
   const activeImportedDataset =
     importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
   const datasetRows = activeImportedDataset
@@ -141,7 +136,6 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     if (!activeImportedDataset || !recommendation.suggestedUpdates) return;
     updateImportedDatasetField(activeImportedDataset.id, field.id, recommendation.suggestedUpdates);
     setSelectedImportedFieldId(field.id);
-    setExploreView("source");
     if (options?.analyze && recommendation.workflowAction) {
       window.setTimeout(() => openQueryForImportedField(field, "table"), 0);
     }
@@ -180,23 +174,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <span aria-hidden="true">⌕</span>
             <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search data library" />
           </label>
-          <button type="button" className="data-library-filter-button" onClick={() => setExploreView("source")} aria-label="Filter data library">
+          <button type="button" className="data-library-filter-button" aria-label="Filter data library">
             <DataLibraryIcon icon="filter" />
           </button>
-        </div>
-        <div className="data-library-overview" aria-label="Library summary">
-          <span>{activeImportedDataset ? "Imported workspace dataset" : "Survey workspace"}</span>
-          <strong>{activeImportedDataset?.title ?? "EcoFocus study library"}</strong>
-            <div className="data-library-overview-grid">
-            <small>{activeImportedDataset ? activeImportedDataset.fieldCount : filteredQuestions.length} variables</small>
-            <small>{savedVariableSets.length} variable sets</small>
-            <small>{savedAnalyticalTemplates.length + savedSegmentProfiles.length} saved artifacts</small>
-          </div>
-          {activeImportedDataset && (
-            <small className="data-library-model-note">
-              {activeImportedDataset.importMetadata?.formatLabel ?? `${activeImportedDataset.fileType.toUpperCase()} import`} · {activeImportedDataset.importMetadata?.metadataQuality === "metadata_rich" ? "metadata-rich survey" : activeImportedDataset.importMetadata?.metadataQuality === "structured" ? "structured metadata" : "raw metadata"} · {activeImportedDataset.importStatus?.label ?? "Stored locally"} · {activeImportedDataset.remote?.provider ? `${activeImportedDataset.remote.provider}-backed` : "local workspace"} · imported {new Date(activeImportedDataset.importedAt).toLocaleDateString()}
-            </small>
-          )}
         </div>
         {activeImportedDataset && (
           <div className={`imported-dataset-health-card ${importedStructureSummary.health.statusTone}`}>
@@ -246,9 +226,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   className="library-row-main"
                   onClick={() => {
                     if (dataset.imported) selectImportedDataset(dataset.id);
-                    setExploreView("source");
-                  }}
-                >
+                }}
+              >
                   <span><DataLibraryIcon icon="dataset" /></span>
                   <div>
                     <strong>{dataset.title}</strong>
@@ -271,10 +250,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           <section className="mockup-library-section">
             <div className="mockup-library-section__header">
               <strong>Variables</strong>
-              <button type="button" onClick={() => setExploreView("source")}>+</button>
+              <button type="button" onClick={() => setShowAllFields((current) => !current)}>+</button>
             </div>
             {modeledVariables.length > 0
-              ? modeledVariables.slice(0, 5).map((field) => {
+              ? modeledVariables.slice(0, showAllFields ? 18 : 5).map((field) => {
                 const suitability = buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const analysisLabel = suitability.recommendedQueryMode === "measure" ? "Measure" : suitability.recommendedQueryMode === "modeling" ? "Review" : "Analyze";
@@ -313,7 +292,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         className="model"
                         onClick={() => {
                           setSelectedImportedFieldId(field.id);
-                          setExploreView("source");
+                          setShowFieldSetup(true);
                         }}
                       >
                         {isSelectedForModeling ? "Modeling" : "Model"}
@@ -323,21 +302,16 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 );
               })
               : filteredQuestions.slice(0, 4).map((question) => (
-                <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => setExploreView("source")}>
+                <button type="button" className="mockup-library-row compact" key={question.id} onClick={() => openGuidedDataQuery({ outputMode: "table" })}>
                   <span><DataLibraryIcon icon="variable" /></span>
                   <strong>{question.shortLabel}</strong>
                 </button>
               ))}
-            <button type="button" className="mockup-library-link" onClick={() => setExploreView("source")}>
-              Browse variables ({modeledVariables.length || filteredQuestions.length})
-            </button>
-            <button
-              type="button"
-              className="mockup-library-link primary-link"
-              onClick={() => activeImportedDataset && activeImportedField ? openQueryForImportedField(activeImportedField) : openGuidedDataQuery({ outputMode: "table" })}
-            >
-              {activeImportedField && buildImportedFieldSuitability(activeImportedField).recommendedQueryMode === "measure" ? "Build measure view" : "Create analysis from field"}
-            </button>
+            {modeledVariables.length > 5 && (
+              <button type="button" className="mockup-library-link" onClick={() => setShowAllFields((current) => !current)}>
+                {showAllFields ? "Show fewer fields" : `Browse variables (${modeledVariables.length})`}
+              </button>
+            )}
           </section>
           {activeImportedDataset && activeImportedField && activeImportedFieldView && (
             <section className="imported-variable-model-card compact-field-setup" aria-label="Imported field setup">
@@ -563,8 +537,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 <div className="mockup-library-row compact managed-library-row" key={filter.id}>
                   <span><DataLibraryIcon icon="filter" /></span>
                   <strong>{filter.label}</strong>
-                  <button type="button" onClick={() => applySavedFilter(filter)}>Apply</button>
-                  <button type="button" className="danger" onClick={() => deleteSavedFilter(filter.id)}>Delete</button>
+                  <div className="managed-library-row__actions">
+                    <button type="button" onClick={() => applySavedFilter(filter)}>Apply</button>
+                    <button type="button" className="danger" onClick={() => deleteSavedFilter(filter.id)}>Delete</button>
+                  </div>
                 </div>
               ))}
             {!activeImportedDataset && savedFilters.length === 0 && <small className="library-empty-note">No saved filters yet.</small>}
@@ -598,8 +574,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 <div className="mockup-library-row compact managed-library-row" key={segment.id}>
                   <span><DataLibraryIcon icon="segment" /></span>
                   <strong>{segment.label}</strong>
-                  <button type="button" onClick={() => applySegmentProfile(segment)}>Apply</button>
-                  <button type="button" className="danger" onClick={() => deleteSegmentProfile(segment.id)}>Delete</button>
+                  <div className="managed-library-row__actions">
+                    <button type="button" onClick={() => applySegmentProfile(segment)}>Apply</button>
+                    <button type="button" className="danger" onClick={() => deleteSegmentProfile(segment.id)}>Delete</button>
+                  </div>
                 </div>
               ))}
             {!activeImportedDataset && savedSegmentProfiles.length === 0 && <small className="library-empty-note">No saved segments yet.</small>}
@@ -631,8 +609,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 <div className="mockup-library-row compact managed-library-row" key={banner.id}>
                   <span><DataLibraryIcon icon="banner" /></span>
                   <strong>{banner.label}</strong>
-                  <button type="button" onClick={() => applySavedBanner(banner)}>Apply</button>
-                  <button type="button" className="danger" onClick={() => deleteSavedBanner(banner.id)}>Delete</button>
+                  <div className="managed-library-row__actions">
+                    <button type="button" onClick={() => applySavedBanner(banner)}>Apply</button>
+                    <button type="button" className="danger" onClick={() => deleteSavedBanner(banner.id)}>Delete</button>
+                  </div>
                 </div>
               ))}
             {!activeImportedDataset && savedBanners.length === 0 && <small className="library-empty-note">No saved banners yet.</small>}
@@ -646,28 +626,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             )}
             {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.bannerLabel}</small>}
           </section>
-          {savedAnalyticalTemplates.length > 0 && (
-            <section className="mockup-library-section quieter">
-              <div className="mockup-library-section__header">
-                <strong>Reusable analyses</strong>
-                <button type="button" onClick={() => setExploreView("library")}>+</button>
-              </div>
-              {savedAnalyticalTemplates.slice(0, 3).map((template) => (
-                <button type="button" className="mockup-library-row artifact" key={template.id} onClick={() => setExploreView("library")}>
-                  <span><DataLibraryIcon icon="chart" /></span>
-                  <div>
-                    <strong>{template.label}</strong>
-                    <small>Template · {getChartTypeLabel(template.visualization)} · {template.summary.sourceLabel}</small>
-                  </div>
-                </button>
-              ))}
-            </section>
-          )}
         </div>
-        <button type="button" className="new-data-query-button" onClick={() => openGuidedDataQuery({ outputMode: "table" })}>＋ New data query</button>
-        {exploreView === "analyze" && <QueryEditorSection {...props} />}
-        {exploreView === "library" && <AnalysisLibrarySection {...props} />}
-        {exploreView === "source" && <SourcePickerSection {...props} />}
+        <button
+          type="button"
+          className="new-data-query-button"
+          onClick={() => activeImportedDataset && activeImportedField ? openQueryForImportedField(activeImportedField) : openGuidedDataQuery({ outputMode: "table" })}
+        >
+          {activeImportedDataset && activeImportedField ? "Create analysis from selected field" : "＋ New data query"}
+        </button>
       </div>
     </>
   );
