@@ -4767,7 +4767,7 @@ h2 {
   color: #a23a33;
 }
 
-.managed-library-row {
+.mockup-library-row.compact.managed-library-row {
   position: relative;
   grid-template-columns: 20px minmax(0, 1fr) 24px;
   align-items: center;
@@ -4782,9 +4782,10 @@ h2 {
   border-radius: 999px;
   background: transparent;
   color: #6b7c86;
-  font-size: 1rem;
+  font-size: 0.72rem;
   font-weight: 900;
   line-height: 1;
+  letter-spacing: 0;
 }
 
 .managed-library-row:hover .managed-library-row__menu-trigger,

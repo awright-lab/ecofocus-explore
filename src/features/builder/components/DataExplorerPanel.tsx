@@ -156,7 +156,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             setManagedMenuKey((current) => (current === menuKey ? null : menuKey));
           }}
         >
-          ⋯
+          ...
         </button>
         {isMenuOpen && (
           <div className="managed-library-row__menu" role="menu" onClick={(event) => event.stopPropagation()}>
