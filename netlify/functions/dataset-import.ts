@@ -97,6 +97,19 @@ function jsonValue(value: unknown) {
   return value === undefined ? null : JSON.stringify(value);
 }
 
+function thinDatasetForClient(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
+  const previewRows = dataset.previewRows?.length ? dataset.previewRows : dataset.rows.slice(0, 50);
+  const note = dataset.rows.length > previewRows.length
+    ? "Full imported rows are stored server-side; this browser workspace keeps metadata and preview rows for performance."
+    : null;
+  return {
+    ...dataset,
+    rows: [],
+    previewRows,
+    notes: note && !dataset.notes.includes(note) ? [...dataset.notes, note] : dataset.notes
+  };
+}
+
 function stringifySavValue(value: unknown) {
   if (value === null || value === undefined) return "";
   if (typeof value === "number" && !Number.isFinite(value)) return "";
@@ -463,7 +476,7 @@ export const handler: Handler = async (event) => {
       dataset.rowCount > 0 ? "Uploaded to Netlify" : "Uploaded to Netlify, labels only",
       "The dataset import completed."
     );
-    const responseDataset: ImportedDatasetRecord = databaseResult.warning
+    const storedDataset: ImportedDatasetRecord = databaseResult.warning
       ? {
         ...dataset,
         importStatus: {
@@ -473,6 +486,7 @@ export const handler: Handler = async (event) => {
         }
       }
       : dataset;
+    const responseDataset = thinDatasetForClient(storedDataset);
 
     await metadataStore.setJSON(`datasets/${responseDataset.id}.json`, responseDataset, {
       metadata: {

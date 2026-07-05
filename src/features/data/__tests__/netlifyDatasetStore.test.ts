@@ -52,6 +52,9 @@ describe("netlifyDatasetStore", () => {
     expect(result.stored).toBe(true);
     expect(result.dataset?.sourceType).toBe("netlify");
     expect(result.dataset?.remote).toMatchObject({ provider: "netlify" });
+    expect(result.dataset?.rows).toEqual([]);
+    expect(result.dataset?.previewRows).toEqual([{ value: "A" }]);
+    expect(result.dataset?.notes).toContain("Full imported rows are stored server-side; this browser workspace keeps metadata and preview rows for performance.");
     expect(fetchMock).toHaveBeenCalledWith("/.netlify/functions/dataset-import", expect.objectContaining({
       method: "POST",
       headers: { "Content-Type": "application/json" }

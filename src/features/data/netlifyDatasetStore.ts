@@ -29,6 +29,18 @@ function localStatus(dataset: ImportedDatasetRecord, warning?: string): Imported
   };
 }
 
+function thinRemoteDatasetForBrowser(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
+  if (dataset.remote?.provider !== "netlify") return dataset;
+  const previewRows = dataset.previewRows?.length ? dataset.previewRows : dataset.rows.slice(0, 50);
+  const note = "Full imported rows are stored server-side; this browser workspace keeps metadata and preview rows for performance.";
+  return {
+    ...dataset,
+    rows: [],
+    previewRows,
+    notes: dataset.notes.includes(note) ? dataset.notes : [...dataset.notes, note]
+  };
+}
+
 export async function storeImportedDatasetInNetlify(file: File, dataset?: ImportedDatasetRecord): Promise<NetlifyDatasetStoreResult> {
   try {
     const response = await fetch("/.netlify/functions/dataset-import", {
@@ -55,7 +67,7 @@ export async function storeImportedDatasetInNetlify(file: File, dataset?: Import
 
     return {
       stored: Boolean(payload.storage?.stored),
-      dataset: payload.dataset
+      dataset: thinRemoteDatasetForBrowser(payload.dataset)
     };
   } catch (error) {
     const warning = error instanceof Error ? error.message : "Netlify import endpoint is unavailable.";

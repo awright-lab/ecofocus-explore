@@ -9,7 +9,7 @@ import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } fro
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
-import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
+import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
 import {
   buildSmartCompositionBlockFromTile,
   createObjectsFromCompositionBlock,
@@ -293,7 +293,7 @@ export function useBuilderTileCommands({
     setError(null);
 
     try {
-      const response = runImportedDatasetQuery({
+      const response = await runImportedDatasetQueryForRuntime({
         dataset,
         field,
         measureField: options?.measureField,

@@ -126,7 +126,7 @@ export function isImportedFieldAnalysisCandidate(field: ImportedDatasetField | n
 }
 
 function importedDatasetHasRows(dataset: ImportedDatasetRecord | null | undefined) {
-  return Boolean(dataset && ((dataset.rows?.length ?? 0) > 0 || (dataset.previewRows?.length ?? 0) > 0));
+  return Boolean(dataset && ((dataset.rows?.length ?? 0) > 0 || (dataset.previewRows?.length ?? 0) > 0 || (dataset.remote?.provider === "netlify" && dataset.rowCount > 0)));
 }
 
 function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
@@ -609,8 +609,9 @@ export function getImportedDatasetQuerySupport(
       return { executable: false, reason: "Choose a filter value or remove the imported filter." };
     }
   }
+  const hasRemoteRows = dataset.remote?.provider === "netlify" && dataset.rowCount > 0;
   const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
-  if (!rows.length) {
+  if (!rows.length && !hasRemoteRows) {
     return {
       executable: false,
       reason: "This import only has SAV labels and field metadata right now. The respondent rows were not imported, so InsightCanvas cannot count or chart this dataset yet."

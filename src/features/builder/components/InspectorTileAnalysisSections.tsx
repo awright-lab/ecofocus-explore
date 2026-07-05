@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type React from "react";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import { buildImportedResultProvenance, getImportedDatasetQuerySupport, importedFieldValues, runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
+import { buildImportedResultProvenance, getImportedDatasetQuerySupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
+import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
@@ -627,6 +628,8 @@ function ImportedTileQueryEditor({
   const [queryMode, setQueryMode] = useState<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical");
   const [measureFieldId, setMeasureFieldId] = useState(source?.measureFieldId ?? "none");
   const [chartType, setChartType] = useState<ChartType>(tile.visualization);
+  const [isUpdatingImportedResult, setIsUpdatingImportedResult] = useState(false);
+  const [importedUpdateError, setImportedUpdateError] = useState<string | null>(null);
   const primaryFields = importedExecutableFields(dataset);
   const primaryField = primaryFields.find((field) => field.id === primaryFieldId) ?? primaryFields[0] ?? null;
   const measureOptions = importedMeasureFields(dataset);
@@ -649,7 +652,7 @@ function ImportedTileQueryEditor({
     metric: effectiveMetric,
     chartType: selectedChartType
   });
-  const canApply = Boolean(dataset && primaryField && support.executable && !isLoading);
+  const canApply = Boolean(dataset && primaryField && support.executable && !isLoading && !isUpdatingImportedResult);
   const provenance = buildImportedResultProvenance(tile.result);
 
   function changeDataset(nextDatasetId: string) {
@@ -667,34 +670,42 @@ function ImportedTileQueryEditor({
     if (nextFieldId === bannerFieldId) setBannerFieldId("none");
   }
 
-  function applyImportedQuery() {
+  async function applyImportedQuery() {
     if (!dataset || !primaryField || !canApply) return;
-    const result = runImportedDatasetQuery({
-      dataset,
-      field: primaryField,
-      measureField: queryMode === "measure" ? measureField : null,
-      bannerField,
-      filter,
-      chartType: selectedChartType,
-      metric: effectiveMetric
-    });
-    const title = queryMode === "measure" && measureField
-      ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${measureField.label} by ${primaryField.label}`
-      : primaryField.label;
-    updateSelectedTile({
-      name: title,
-      title,
-      source: {
-        kind: "importedField",
-        id: `${dataset.id}:${primaryField.id}`,
-        label: title,
-        datasetId: dataset.id,
-        fieldId: primaryField.id
-      },
-      query: result.query,
-      visualization: selectedChartType,
-      result
-    });
+    setImportedUpdateError(null);
+    setIsUpdatingImportedResult(true);
+    try {
+      const result = await runImportedDatasetQueryForRuntime({
+        dataset,
+        field: primaryField,
+        measureField: queryMode === "measure" ? measureField : null,
+        bannerField,
+        filter,
+        chartType: selectedChartType,
+        metric: effectiveMetric
+      });
+      const title = queryMode === "measure" && measureField
+        ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${measureField.label} by ${primaryField.label}`
+        : primaryField.label;
+      updateSelectedTile({
+        name: title,
+        title,
+        source: {
+          kind: "importedField",
+          id: `${dataset.id}:${primaryField.id}`,
+          label: title,
+          datasetId: dataset.id,
+          fieldId: primaryField.id
+        },
+        query: result.query,
+        visualization: selectedChartType,
+        result
+      });
+    } catch (error) {
+      setImportedUpdateError(error instanceof Error ? error.message : "Imported result update failed.");
+    } finally {
+      setIsUpdatingImportedResult(false);
+    }
   }
 
   if (!source) return null;
@@ -836,8 +847,9 @@ function ImportedTileQueryEditor({
         <small>{support.reason}</small>
       </div>
       <button type="button" onClick={applyImportedQuery} disabled={!canApply}>
-        {isLoading ? "Updating..." : "Update imported result"}
+        {isLoading || isUpdatingImportedResult ? "Updating..." : "Update imported result"}
       </button>
+      {importedUpdateError && <small className="imported-query-error">{importedUpdateError}</small>}
     </div>
   );
 }
