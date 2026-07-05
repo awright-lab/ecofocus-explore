@@ -4527,13 +4527,13 @@ h2 {
 
 .mockup-library-row.modeled-variable-row.split {
   align-items: start;
-  min-height: 58px;
-  padding-block: 6px;
+  min-height: 42px;
+  padding-block: 5px;
 }
 
 .modeled-variable-row__body {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -4588,13 +4588,13 @@ h2 {
 }
 
 .modeled-variable-row__actions button {
-  min-width: 62px;
+  min-width: 54px;
   border: 1px solid rgba(211, 224, 232, 0.95);
   border-radius: 999px;
   background: #ffffff;
   color: #2e4550;
-  padding: 4px 8px;
-  font-size: 0.6rem;
+  padding: 4px 7px;
+  font-size: 0.58rem;
   font-weight: 920;
   line-height: 1;
 }

@@ -334,9 +334,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 const suitability = buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const analysisLabel = suitability.recommendedQueryMode === "measure" ? "Measure" : suitability.recommendedQueryMode === "modeling" ? "Review" : "Analyze";
-                const topRecommendation = suitability.recommendations[0];
                 const fieldLabel = importedFieldDisplayLabel(field);
-                const rawNameLabel = importedFieldRawNameLabel(field);
+                const roleBadges = suitability.badges.filter((badge) => badge !== "Identifier").slice(0, 2);
+                const shouldShowIdentifier = suitability.badges.includes("Identifier");
                 return (
                   <div
                     className={isSelectedForModeling ? "mockup-library-row compact modeled-variable-row split active" : "mockup-library-row compact modeled-variable-row split"}
@@ -345,20 +345,13 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                     <span><DataLibraryIcon icon="variable" /></span>
                     <div className="modeled-variable-row__body">
                       <strong>{fieldLabel}</strong>
-                      <small>{importedFieldTypeLabel(field.type)} · {suitability.helperText}</small>
-                      {rawNameLabel && <small className="raw-field-name">{rawNameLabel}</small>}
                       <span className="data-library-badge-row">
                         <em className={`readiness ${suitability.readiness.tone}`}>{suitability.readiness.label}</em>
-                        {suitability.badges.slice(0, 3).map((badge) => (
+                        {shouldShowIdentifier && <em>Identifier</em>}
+                        {roleBadges.map((badge) => (
                           <em key={badge}>{badge}</em>
                         ))}
                       </span>
-                      {suitability.readiness.tone !== "ready" && suitability.readiness.tone !== "measure" && (
-                        <small className="field-readiness-reason">{suitability.readiness.recommendedAction}: {suitability.readiness.reason}</small>
-                      )}
-                      {topRecommendation && (
-                        <small className="field-modeling-recommendation">Try: {topRecommendation.label}</small>
-                      )}
                     </div>
                     <div className="modeled-variable-row__actions" aria-label={`Actions for ${fieldLabel}`}>
                       <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
