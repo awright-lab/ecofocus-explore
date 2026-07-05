@@ -177,6 +177,31 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     );
   }
 
+  function variableReadinessLabel(label: string) {
+    const labels: Record<string, string> = {
+      "Reference field": "ID field",
+      "Ready for measure views": "Numeric",
+      "Needs modeling review": "Needs review",
+      "Ready for analysis": "Ready",
+      "Not suitable yet": "Needs review",
+      "No usable values": "No data"
+    };
+    return labels[label] ?? label;
+  }
+
+  function variableBadgeLabel(label: string) {
+    const labels: Record<string, string> = {
+      Identifier: "ID field",
+      Dimension: "Group",
+      Banner: "Breakout",
+      "Modeling needed": "Needs review",
+      "Ready for analysis": "Ready",
+      "Ready for measure views": "Numeric",
+      Measure: "Numeric"
+    };
+    return labels[label] ?? label;
+  }
+
   function openQueryForImportedField(field: ImportedDatasetField, outputMode: "table" | "chart" = "table") {
     if (!activeImportedDataset) return;
     setSelectedImportedFieldId(field.id);
@@ -284,10 +309,12 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               ? modeledVariables.slice(0, showAllFields ? 18 : 5).map((field) => {
                 const suitability = buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
-                const analysisLabel = suitability.recommendedQueryMode === "measure" ? "Measure" : suitability.recommendedQueryMode === "modeling" ? "Review" : "Analyze";
                 const fieldLabel = importedFieldDisplayLabel(field);
-                const roleBadges = suitability.badges.filter((badge) => badge !== "Identifier").slice(0, 2);
-                const shouldShowIdentifier = suitability.badges.includes("Identifier");
+                const roleBadges = suitability.badges
+                  .filter((badge) => !["Identifier", suitability.readiness.label].includes(badge))
+                  .map(variableBadgeLabel)
+                  .filter((badge, index, badges) => badges.indexOf(badge) === index)
+                  .slice(0, 2);
                 return (
                   <div
                     className={isSelectedForModeling ? "mockup-library-row compact modeled-variable-row split active" : "mockup-library-row compact modeled-variable-row split"}
@@ -297,8 +324,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                     <div className="modeled-variable-row__body">
                       <strong>{fieldLabel}</strong>
                       <span className="data-library-badge-row">
-                        <em className={`readiness ${suitability.readiness.tone}`}>{suitability.readiness.label}</em>
-                        {shouldShowIdentifier && <em>Identifier</em>}
+                        <em className={`readiness ${suitability.readiness.tone}`}>{variableReadinessLabel(suitability.readiness.label)}</em>
                         {roleBadges.map((badge) => (
                           <em key={badge}>{badge}</em>
                         ))}
@@ -306,7 +332,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                     </div>
                     <div className="modeled-variable-row__actions" aria-label={`Actions for ${fieldLabel}`}>
                       <button type="button" className="analyze" onClick={() => openQueryForImportedField(field)}>
-                        {analysisLabel}
+                        Create
                       </button>
                     </div>
                   </div>
