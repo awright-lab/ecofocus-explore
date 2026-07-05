@@ -172,7 +172,7 @@ function compactImportedDatasetForDraft(dataset: ImportedDatasetRecord): Importe
 function compactDashboardForWorkspaceStorage(dashboard: DashboardDraft): DashboardDraft {
   return {
     ...dashboard,
-    importedDatasets: dashboard.importedDatasets.map(compactImportedDatasetForDraft)
+    importedDatasets: []
   };
 }
 
@@ -196,8 +196,9 @@ function isStorageQuotaError(error: unknown) {
 }
 
 export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
+  const compactWorkspace = compactWorkspaceForStorage(workspace);
   try {
-    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspace));
     return true;
   } catch (error) {
     if (!isStorageQuotaError(error)) {
@@ -207,7 +208,7 @@ export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
   }
 
   try {
-    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspaceForStorage(workspace)));
+    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspace));
     console.warn("Saved compact InsightCanvas workspace after local storage quota was exceeded.");
     return true;
   } catch (error) {

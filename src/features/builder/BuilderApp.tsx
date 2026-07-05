@@ -195,13 +195,15 @@ export default function BuilderApp() {
   const [guidedDataQuery, setGuidedDataQuery] = useState<Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> & Omit<GuidedDataQueryLaunchOptions, "outputMode"> | null>(null);
   const activeOutcomeMode = outcomeModeView(activeProductMode);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
-  const importedDatasetMap = new Map([
-    ...dashboard.importedDatasets.map((dataset) => [dataset.id, dataset] as const),
-    ...(workspace.importedDatasets ?? []).map((dataset) => [dataset.id, dataset] as const)
-  ]);
-  const workspaceImportedDatasets = Array.from(importedDatasetMap.values()).sort(
-    (a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
-  );
+  const workspaceImportedDatasets = useMemo(() => {
+    const importedDatasetMap = new Map([
+      ...dashboard.importedDatasets.map((dataset) => [dataset.id, dataset] as const),
+      ...(workspace.importedDatasets ?? []).map((dataset) => [dataset.id, dataset] as const)
+    ]);
+    return Array.from(importedDatasetMap.values()).sort(
+      (a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
+    );
+  }, [dashboard.importedDatasets, workspace.importedDatasets]);
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -211,7 +213,7 @@ export default function BuilderApp() {
   const pageThemes = dashboard.designLibrary.pageThemes;
   const pageTemplates = dashboard.designLibrary.pageTemplates;
   const pageMasters = dashboard.designLibrary.pageMasters;
-  const sortedPages = [...dashboard.pages].sort((a, b) => a.order - b.order);
+  const sortedPages = useMemo(() => [...dashboard.pages].sort((a, b) => a.order - b.order), [dashboard.pages]);
   const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
   const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
   const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
@@ -548,7 +550,7 @@ export default function BuilderApp() {
       } catch {
         setSaveState("Save error");
       }
-    }, 220);
+    }, 900);
 
     return () => {
       window.clearTimeout(saveTimer);

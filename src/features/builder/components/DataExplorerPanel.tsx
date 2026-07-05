@@ -80,6 +80,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     openGuidedDataQuery
   } = props;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const variableTreeFrameRef = useRef<number | null>(null);
+  const variableTreePendingScrollTopRef = useRef(0);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
@@ -160,6 +162,21 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   useEffect(() => {
     setVariableTreeScrollTop(0);
   }, [activeImportedDataset?.id, variableSearchTerm]);
+
+  useEffect(() => {
+    return () => {
+      if (variableTreeFrameRef.current !== null) cancelAnimationFrame(variableTreeFrameRef.current);
+    };
+  }, []);
+
+  function handleVariableTreeScroll(scrollTop: number) {
+    variableTreePendingScrollTopRef.current = scrollTop;
+    if (variableTreeFrameRef.current !== null) return;
+    variableTreeFrameRef.current = requestAnimationFrame(() => {
+      variableTreeFrameRef.current = null;
+      setVariableTreeScrollTop(variableTreePendingScrollTopRef.current);
+    });
+  }
 
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
@@ -383,7 +400,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                     <div
                       className="variable-tree-viewport"
                       style={{ height: Math.min(VARIABLE_TREE_VIEWPORT_HEIGHT, Math.max(VARIABLE_TREE_ROW_HEIGHT * variableTreeEntries.length, VARIABLE_TREE_ROW_HEIGHT)) }}
-                      onScroll={(event) => setVariableTreeScrollTop(event.currentTarget.scrollTop)}
+                      onScroll={(event) => handleVariableTreeScroll(event.currentTarget.scrollTop)}
                     >
                       <div className="variable-tree-spacer" style={{ height: variableTreeTotalHeight }}>
                         {visibleVariableTreeEntries.map((entry, index) => {
