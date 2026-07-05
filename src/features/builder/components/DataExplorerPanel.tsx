@@ -77,6 +77,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", imported: false }
       ];
   const modeledVariables = activeImportedDataset?.fields ?? [];
+  const visibleModeledVariables = showAllFields ? modeledVariables : modeledVariables.slice(0, 5);
   const importedStructureSummary = buildImportedDatasetStructureSummary(activeImportedDataset);
   const activeImportedField =
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
@@ -306,7 +307,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               <button type="button" onClick={() => setShowAllFields((current) => !current)}>+</button>
             </div>
             {modeledVariables.length > 0
-              ? modeledVariables.slice(0, showAllFields ? 18 : 5).map((field) => {
+              ? visibleModeledVariables.map((field) => {
                 const suitability = buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const fieldLabel = importedFieldDisplayLabel(field);

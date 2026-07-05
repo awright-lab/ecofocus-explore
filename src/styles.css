@@ -1174,9 +1174,13 @@ textarea {
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 2px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .data-library-badge-row em {
+  max-width: 100%;
   border-radius: 999px;
   background: rgba(0, 139, 137, 0.08);
   color: #08715f;
@@ -4207,6 +4211,9 @@ h2 {
 .data-explorer {
   display: grid;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .data-library-search-row {
@@ -4367,6 +4374,9 @@ h2 {
 .mockup-library-stack {
   display: grid;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .visually-hidden {
@@ -4451,6 +4461,8 @@ h2 {
 .mockup-library-section {
   display: grid;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mockup-library-section.quieter {
@@ -4488,6 +4500,9 @@ h2 {
   grid-template-columns: 24px minmax(0, 1fr);
   gap: 9px;
   align-items: center;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 37px;
   border: 1px solid transparent;
   border-radius: 9px;
@@ -4534,11 +4549,16 @@ h2 {
 }
 
 .mockup-library-row.with-count {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+
+.mockup-library-row.with-count > small {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .mockup-library-row.modeled-variable-row {
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 20px minmax(0, 1fr) minmax(48px, auto);
 }
 
 .mockup-library-row.modeled-variable-row.split {
@@ -4601,10 +4621,11 @@ h2 {
   display: grid;
   gap: 4px;
   justify-items: end;
+  min-width: 0;
 }
 
 .modeled-variable-row__actions button {
-  min-width: 54px;
+  min-width: 48px;
   border: 1px solid rgba(211, 224, 232, 0.95);
   border-radius: 999px;
   background: #ffffff;
@@ -4654,6 +4675,7 @@ h2 {
 }
 
 .mockup-library-row strong {
+  min-width: 0;
   overflow: hidden;
   color: #1e2d36;
   font-size: 0.68rem;
