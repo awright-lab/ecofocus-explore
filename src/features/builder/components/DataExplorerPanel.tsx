@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ImportedDatasetField } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
@@ -69,6 +69,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [libraryComposer, setLibraryComposer] = useState<"filter" | "segment" | "banner" | null>(null);
   const [showFieldSetup, setShowFieldSetup] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
+  const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const activeImportedDataset =
     importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
   const datasetRows = activeImportedDataset
@@ -90,6 +91,19 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const activeImportedFieldSuitability = activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null;
   const activeImportedFieldProfile = activeImportedField ? buildImportedFieldModelingProfile(activeImportedField) : null;
 
+  useEffect(() => {
+    if (!managedMenuKey) return;
+    function closeManagedMenu() {
+      setManagedMenuKey(null);
+    }
+    window.addEventListener("click", closeManagedMenu);
+    window.addEventListener("keydown", closeManagedMenu);
+    return () => {
+      window.removeEventListener("click", closeManagedMenu);
+      window.removeEventListener("keydown", closeManagedMenu);
+    };
+  }, [managedMenuKey]);
+
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
     setSelectedImportedDatasetId(datasetId);
@@ -108,6 +122,69 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   function toggleComposer(kind: "filter" | "segment" | "banner") {
     setLibraryComposer((current) => (current === kind ? null : kind));
+  }
+
+  function renderManagedLibraryRow(options: {
+    id: string;
+    kind: "filter" | "segment" | "banner";
+    icon: DataLibraryIconName;
+    label: string;
+    onApply: () => void;
+    onDelete: () => void;
+  }) {
+    const menuKey = `${options.kind}:${options.id}`;
+    const isMenuOpen = managedMenuKey === menuKey;
+
+    return (
+      <div
+        className="mockup-library-row compact managed-library-row"
+        key={menuKey}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setManagedMenuKey(menuKey);
+        }}
+      >
+        <span><DataLibraryIcon icon={options.icon} /></span>
+        <strong>{options.label}</strong>
+        <button
+          type="button"
+          className="managed-library-row__menu-trigger"
+          aria-label={`Open actions for ${options.label}`}
+          aria-expanded={isMenuOpen}
+          onClick={(event) => {
+            event.stopPropagation();
+            setManagedMenuKey((current) => (current === menuKey ? null : menuKey));
+          }}
+        >
+          ⋯
+        </button>
+        {isMenuOpen && (
+          <div className="managed-library-row__menu" role="menu" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                options.onApply();
+                setManagedMenuKey(null);
+              }}
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              onClick={() => {
+                options.onDelete();
+                setManagedMenuKey(null);
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   function updateActiveImportedField(
@@ -533,16 +610,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <strong>{importedFieldDisplayLabel(field)}</strong>
                 </button>
               ))
-              : savedFilters.slice(0, 3).map((filter) => (
-                <div className="mockup-library-row compact managed-library-row" key={filter.id}>
-                  <span><DataLibraryIcon icon="filter" /></span>
-                  <strong>{filter.label}</strong>
-                  <div className="managed-library-row__actions">
-                    <button type="button" onClick={() => applySavedFilter(filter)}>Apply</button>
-                    <button type="button" className="danger" onClick={() => deleteSavedFilter(filter.id)}>Delete</button>
-                  </div>
-                </div>
-              ))}
+              : savedFilters.slice(0, 3).map((filter) => renderManagedLibraryRow({
+                id: filter.id,
+                kind: "filter",
+                icon: "filter",
+                label: filter.label,
+                onApply: () => applySavedFilter(filter),
+                onDelete: () => deleteSavedFilter(filter.id)
+              }))}
             {!activeImportedDataset && savedFilters.length === 0 && <small className="library-empty-note">No saved filters yet.</small>}
             {libraryComposer === "filter" && (
               <div className="library-management-card">
@@ -570,16 +645,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <small>Modeled</small>
                 </button>
               ))
-              : savedSegmentProfiles.slice(0, 3).map((segment) => (
-                <div className="mockup-library-row compact managed-library-row" key={segment.id}>
-                  <span><DataLibraryIcon icon="segment" /></span>
-                  <strong>{segment.label}</strong>
-                  <div className="managed-library-row__actions">
-                    <button type="button" onClick={() => applySegmentProfile(segment)}>Apply</button>
-                    <button type="button" className="danger" onClick={() => deleteSegmentProfile(segment.id)}>Delete</button>
-                  </div>
-                </div>
-              ))}
+              : savedSegmentProfiles.slice(0, 3).map((segment) => renderManagedLibraryRow({
+                id: segment.id,
+                kind: "segment",
+                icon: "segment",
+                label: segment.label,
+                onApply: () => applySegmentProfile(segment),
+                onDelete: () => deleteSegmentProfile(segment.id)
+              }))}
             {!activeImportedDataset && savedSegmentProfiles.length === 0 && <small className="library-empty-note">No saved segments yet.</small>}
             {libraryComposer === "segment" && (
               <div className="library-management-card">
@@ -605,16 +678,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <strong>{importedFieldDisplayLabel(field)}</strong>
                 </button>
               ))
-              : savedBanners.slice(0, 2).map((banner) => (
-                <div className="mockup-library-row compact managed-library-row" key={banner.id}>
-                  <span><DataLibraryIcon icon="banner" /></span>
-                  <strong>{banner.label}</strong>
-                  <div className="managed-library-row__actions">
-                    <button type="button" onClick={() => applySavedBanner(banner)}>Apply</button>
-                    <button type="button" className="danger" onClick={() => deleteSavedBanner(banner.id)}>Delete</button>
-                  </div>
-                </div>
-              ))}
+              : savedBanners.slice(0, 2).map((banner) => renderManagedLibraryRow({
+                id: banner.id,
+                kind: "banner",
+                icon: "banner",
+                label: banner.label,
+                onApply: () => applySavedBanner(banner),
+                onDelete: () => deleteSavedBanner(banner.id)
+              }))}
             {!activeImportedDataset && savedBanners.length === 0 && <small className="library-empty-note">No saved banners yet.</small>}
             {libraryComposer === "banner" && (
               <div className="library-management-card">

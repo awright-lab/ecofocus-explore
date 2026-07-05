@@ -4742,7 +4742,6 @@ h2 {
 }
 
 .library-row-icon-action,
-.managed-library-row__actions button,
 .library-management-card button {
   justify-self: end;
   width: max-content;
@@ -4758,29 +4757,79 @@ h2 {
 }
 
 .library-row-icon-action:hover,
-.managed-library-row__actions button:hover,
 .library-management-card button:hover {
   border-color: rgba(0, 139, 137, 0.24);
   color: #007a73;
 }
 
-.library-row-icon-action.danger,
-.managed-library-row__actions button.danger {
+.library-row-icon-action.danger {
   border-color: rgba(190, 72, 62, 0.16);
   color: #a23a33;
 }
 
 .managed-library-row {
-  grid-template-columns: 20px minmax(0, 1fr);
-  align-items: start;
+  position: relative;
+  grid-template-columns: 20px minmax(0, 1fr) 24px;
+  align-items: center;
 }
 
-.managed-library-row__actions {
-  grid-column: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding-top: 3px;
+.managed-library-row__menu-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b7c86;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.managed-library-row:hover .managed-library-row__menu-trigger,
+.managed-library-row__menu-trigger[aria-expanded="true"] {
+  border-color: rgba(211, 224, 232, 0.95);
+  background: #ffffff;
+  color: #007a73;
+}
+
+.managed-library-row__menu {
+  position: absolute;
+  top: 24px;
+  right: 2px;
+  z-index: 12;
+  display: grid;
+  min-width: 104px;
+  overflow: hidden;
+  border: 1px solid #dce8ed;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 14px 28px rgba(20, 39, 48, 0.16);
+}
+
+.managed-library-row__menu button {
+  border: 0;
+  background: transparent;
+  color: #233642;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.64rem;
+  font-weight: 850;
+}
+
+.managed-library-row__menu button:hover {
+  background: #eef8f7;
+  color: #007a73;
+}
+
+.managed-library-row__menu button.danger {
+  color: #a23a33;
+}
+
+.managed-library-row__menu button.danger:hover {
+  background: #fff3f0;
+  color: #922f28;
 }
 
 .library-empty-note {
