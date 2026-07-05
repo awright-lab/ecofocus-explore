@@ -9,7 +9,9 @@ import { buildImportedFieldSuitability, firstImportedDimensionField } from "../.
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
 const INITIAL_VISIBLE_FIELD_COUNT = 5;
-const FIELD_BATCH_SIZE = 50;
+const FIELD_BATCH_SIZE = 25;
+const MAX_BROWSE_FIELD_COUNT = 75;
+const MAX_SEARCH_FIELD_COUNT = 150;
 
 function DataLibraryIcon({ icon }: { icon: DataLibraryIconName }) {
   const paths: Record<DataLibraryIconName, ReactNode> = {
@@ -93,10 +95,21 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       return searchableText.includes(variableSearchTerm);
     });
   }, [modeledVariables, variableSearchTerm]);
-  const visibleModeledVariables = filteredModeledVariables.slice(0, visibleFieldLimit);
-  const hasMoreModeledVariables = visibleFieldLimit < filteredModeledVariables.length;
+  const visibleModeledVariables = useMemo(
+    () => filteredModeledVariables.slice(0, visibleFieldLimit),
+    [filteredModeledVariables, visibleFieldLimit]
+  );
+  const visibleFieldSuitability = useMemo(() => {
+    return new Map(visibleModeledVariables.map((field) => [field.id, buildImportedFieldSuitability(field)]));
+  }, [visibleModeledVariables]);
+  const visibleFieldCap = Math.min(
+    filteredModeledVariables.length,
+    variableSearchTerm ? MAX_SEARCH_FIELD_COUNT : MAX_BROWSE_FIELD_COUNT
+  );
+  const hasMoreModeledVariables = visibleFieldLimit < visibleFieldCap;
+  const isModeledVariableListCapped = visibleModeledVariables.length < filteredModeledVariables.length && !hasMoreModeledVariables;
   const canCollapseModeledVariables = visibleFieldLimit > INITIAL_VISIBLE_FIELD_COUNT;
-  const importedStructureSummary = buildImportedDatasetStructureSummary(activeImportedDataset);
+  const importedStructureSummary = useMemo(() => buildImportedDatasetStructureSummary(activeImportedDataset), [activeImportedDataset]);
   const activeImportedField =
     modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
 
@@ -138,7 +151,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   }
 
   function revealMoreFields() {
-    setVisibleFieldLimit((current) => Math.min(current + FIELD_BATCH_SIZE, filteredModeledVariables.length));
+    setVisibleFieldLimit((current) => Math.min(current + FIELD_BATCH_SIZE, visibleFieldCap));
   }
 
   function collapseFields() {
@@ -344,7 +357,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             {modeledVariables.length > 0
               ? visibleModeledVariables.length > 0
                 ? visibleModeledVariables.map((field) => {
-                const suitability = buildImportedFieldSuitability(field);
+                const suitability = visibleFieldSuitability.get(field.id) ?? buildImportedFieldSuitability(field);
                 const isSelectedForModeling = activeImportedField?.id === field.id;
                 const fieldLabel = importedFieldDisplayLabel(field);
                 const roleBadges = suitability.badges
@@ -389,8 +402,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 onClick={hasMoreModeledVariables ? revealMoreFields : collapseFields}
               >
                 {hasMoreModeledVariables
-                  ? `Show ${Math.min(FIELD_BATCH_SIZE, filteredModeledVariables.length - visibleFieldLimit)} more fields (${visibleModeledVariables.length} of ${filteredModeledVariables.length})`
-                  : "Show fewer fields"}
+                  ? `Show ${Math.min(FIELD_BATCH_SIZE, visibleFieldCap - visibleFieldLimit)} more fields (${visibleModeledVariables.length} of ${filteredModeledVariables.length})`
+                  : isModeledVariableListCapped
+                    ? `Show fewer fields (${filteredModeledVariables.length - visibleModeledVariables.length} more via search)`
+                    : "Show fewer fields"}
               </button>
             )}
           </section>

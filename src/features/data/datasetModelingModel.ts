@@ -140,15 +140,15 @@ export function describeFieldModeling(field: ImportedDatasetField) {
 
 export function buildImportedDatasetModelingHealth(dataset: ImportedDatasetRecord | null | undefined): ImportedDatasetModelingHealth {
   const fields = dataset?.fields ?? [];
-  const queryReadyDimensions = fields.filter((field) => {
-    const suitability = buildImportedFieldSuitability(field);
-    return suitability.readiness.status === "ready_dimension" || suitability.readiness.status === "limited";
-  }).length;
-  const queryReadyMeasures = fields.filter((field) => buildImportedFieldSuitability(field).readiness.status === "ready_measure").length;
+  const suitabilityByField = fields.map((field) => buildImportedFieldSuitability(field));
+  const queryReadyDimensions = suitabilityByField.filter((suitability) =>
+    suitability.readiness.status === "ready_dimension" || suitability.readiness.status === "limited"
+  ).length;
+  const queryReadyMeasures = suitabilityByField.filter((suitability) => suitability.readiness.status === "ready_measure").length;
   const bannerReadyFields = fields.filter((field) => field.eligibleForBanner && (field.type === "categorical" || field.modelingRole === "candidate_dimension")).length;
   const filterReadyFields = fields.filter((field) => field.eligibleForFilter && (field.type === "categorical" || field.modelingRole === "candidate_dimension")).length;
-  const fieldsNeedingReview = fields.filter((field) => {
-    const tone = buildImportedFieldSuitability(field).readiness.tone;
+  const fieldsNeedingReview = suitabilityByField.filter((suitability) => {
+    const tone = suitability.readiness.tone;
     return tone === "attention" || tone === "limited" || tone === "blocked";
   }).length;
   const dateFields = fields.filter((field) => field.type === "date" || field.modelingRole === "candidate_date").length;
