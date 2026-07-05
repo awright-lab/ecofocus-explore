@@ -161,11 +161,23 @@ export function loadDashboardWorkspace(): DashboardWorkspace {
 }
 
 function compactImportedDatasetForDraft(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
+  const isRemoteNetlifyDataset = dataset.remote?.provider === "netlify";
+  const fieldPreview = isRemoteNetlifyDataset ? dataset.fields.slice(0, 80) : dataset.fields;
+  const remoteFieldNote = isRemoteNetlifyDataset && dataset.fields.length > fieldPreview.length
+    ? "Full imported field metadata is loaded from Netlify Database as needed in the Data Library."
+    : null;
   return {
     ...dataset,
+    fields: fieldPreview,
     rows: [],
     previewRows: dataset.previewRows.slice(0, 25),
-    notes: [...dataset.notes, "Stored compactly in report drafts; full imported rows are kept at workspace level."]
+    notes: [
+      ...dataset.notes,
+      dataset.notes.includes("Stored compactly in report drafts; full imported rows are kept at workspace level.")
+        ? null
+        : "Stored compactly in report drafts; full imported rows are kept at workspace level.",
+      remoteFieldNote && !dataset.notes.includes(remoteFieldNote) ? remoteFieldNote : null
+    ].filter(Boolean) as string[]
   };
 }
 

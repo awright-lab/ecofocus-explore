@@ -70,8 +70,11 @@ export function GuidedDataQueryModal({
     addTileFromImportedDatasetField,
     isLoading
   } = props;
-  const launchDataset = importedDatasets.find((dataset) => dataset.id === launchContext?.importedDatasetId) ?? importedDatasets[0] ?? null;
-  const launchField = launchDataset?.fields.find((field) => field.id === launchContext?.importedFieldId) ?? null;
+  const launchDatasetBase = importedDatasets.find((dataset) => dataset.id === launchContext?.importedDatasetId) ?? importedDatasets[0] ?? null;
+  const launchDataset = launchDatasetBase && launchContext?.importedFieldSnapshot && !launchDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
+    ? { ...launchDatasetBase, fields: [launchContext.importedFieldSnapshot, ...launchDatasetBase.fields] }
+    : launchDatasetBase;
+  const launchField = launchContext?.importedFieldSnapshot ?? launchDataset?.fields.find((field) => field.id === launchContext?.importedFieldId) ?? null;
   const launchFieldSuitability = launchField ? buildImportedFieldSuitability(launchField) : null;
   const launchFieldCanDriveAnalysis = isImportedFieldAnalysisCandidate(launchField);
   const launchPrimaryField = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "categorical"
@@ -91,7 +94,10 @@ export function GuidedDataQueryModal({
   const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>(launchQueryMode);
   const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(launchMeasureField?.id ?? "none");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
-  const importedDataset = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
+  const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
+  const importedDataset = importedDatasetBase && launchContext?.importedFieldSnapshot && importedDatasetBase.id === launchContext.importedDatasetId && !importedDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
+    ? { ...importedDatasetBase, fields: [launchContext.importedFieldSnapshot, ...importedDatasetBase.fields] }
+    : importedDatasetBase;
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
   const importedPrimaryFieldCandidates = importedSummary.fields.filter((field) =>
     (field.type === "categorical" || field.modelingRole === "candidate_dimension") && isImportedFieldAnalysisCandidate(field)

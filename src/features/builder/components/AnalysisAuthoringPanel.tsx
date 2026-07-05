@@ -33,6 +33,7 @@ export type GuidedDataQueryLaunchOptions = {
   outputMode?: "table" | "chart";
   importedDatasetId?: string;
   importedFieldId?: string;
+  importedFieldSnapshot?: ImportedDatasetField;
   launchSource?: "field" | "general";
 };
 

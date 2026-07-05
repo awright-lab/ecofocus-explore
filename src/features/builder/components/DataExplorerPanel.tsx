@@ -6,15 +6,18 @@ import {
   importedFieldDisplayLabel,
 } from "../../data/datasetModelingModel";
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
+import { listImportedDatasetFieldsFromNetlify } from "../../data/netlifyDatasetStore";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
 const VARIABLE_TREE_ROW_HEIGHT = 28;
 const VARIABLE_TREE_VIEWPORT_HEIGHT = 360;
 const VARIABLE_TREE_OVERSCAN = 8;
+const REMOTE_FIELD_PAGE_SIZE = 120;
 
 type VariableTreeEntry =
   | { type: "group"; id: string; label: string }
-  | { type: "field"; id: string; field: ImportedDatasetField };
+  | { type: "field"; id: string; field: ImportedDatasetField }
+  | { type: "loading"; id: string; index: number };
 
 function importedVariableGroupLabel(field: ImportedDatasetField) {
   const source = field.sourceColumn || field.label;
@@ -82,12 +85,16 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const variableTreeFrameRef = useRef<number | null>(null);
   const variableTreePendingScrollTopRef = useRef(0);
+  const remoteFieldLoadingPagesRef = useRef(new Set<number>());
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState<string | null>(null);
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState<string | null>(null);
   const [libraryComposer, setLibraryComposer] = useState<"filter" | "segment" | "banner" | null>(null);
   const [variableTreeScrollTop, setVariableTreeScrollTop] = useState(0);
+  const [remoteFieldPages, setRemoteFieldPages] = useState<Record<number, ImportedDatasetField[]>>({});
+  const [remoteFieldTotal, setRemoteFieldTotal] = useState<number | null>(null);
+  const [remoteFieldError, setRemoteFieldError] = useState<string | null>(null);
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const activeImportedDataset =
     importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
@@ -103,8 +110,11 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", imported: false }
       ];
   const modeledVariables = activeImportedDataset?.fields ?? [];
+  const usesRemoteFieldPaging = activeImportedDataset?.remote?.provider === "netlify";
   const variableSearchTerm = sourceSearch.trim().toLowerCase();
+  const remoteLoadedFields = useMemo(() => Object.values(remoteFieldPages).flat(), [remoteFieldPages]);
   const filteredModeledVariables = useMemo(() => {
+    if (usesRemoteFieldPaging) return remoteLoadedFields;
     if (!variableSearchTerm) return modeledVariables;
     return modeledVariables.filter((field) => {
       const searchableText = [
@@ -116,8 +126,18 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       ].filter(Boolean).join(" ").toLowerCase();
       return searchableText.includes(variableSearchTerm);
     });
-  }, [modeledVariables, variableSearchTerm]);
+  }, [modeledVariables, remoteLoadedFields, usesRemoteFieldPaging, variableSearchTerm]);
   const variableTreeEntries = useMemo<VariableTreeEntry[]>(() => {
+    if (usesRemoteFieldPaging) {
+      const total = remoteFieldTotal ?? activeImportedDataset?.fieldCount ?? 0;
+      return Array.from({ length: total }, (_, index) => {
+        const pageIndex = Math.floor(index / REMOTE_FIELD_PAGE_SIZE);
+        const field = remoteFieldPages[pageIndex]?.[index - pageIndex * REMOTE_FIELD_PAGE_SIZE];
+        return field
+          ? { type: "field", id: field.id, field }
+          : { type: "loading", id: `loading:${index}`, index };
+      });
+    }
     if (variableSearchTerm) return filteredModeledVariables.map((field) => ({ type: "field", id: field.id, field }));
     const entries: VariableTreeEntry[] = [];
     let currentGroup = "";
@@ -130,7 +150,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       entries.push({ type: "field", id: field.id, field });
     });
     return entries;
-  }, [filteredModeledVariables, variableSearchTerm]);
+  }, [activeImportedDataset?.fieldCount, filteredModeledVariables, remoteFieldPages, remoteFieldTotal, usesRemoteFieldPaging, variableSearchTerm]);
   const variableTreeTotalHeight = variableTreeEntries.length * VARIABLE_TREE_ROW_HEIGHT;
   const variableTreeStartIndex = Math.max(0, Math.floor(variableTreeScrollTop / VARIABLE_TREE_ROW_HEIGHT) - VARIABLE_TREE_OVERSCAN);
   const variableTreeEndIndex = Math.min(
@@ -140,7 +160,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const visibleVariableTreeEntries = variableTreeEntries.slice(variableTreeStartIndex, variableTreeEndIndex);
   const importedStructureSummary = useMemo(() => buildImportedDatasetStructureSummary(activeImportedDataset), [activeImportedDataset]);
   const activeImportedField =
-    modeledVariables.find((field) => field.id === selectedImportedFieldId) ?? modeledVariables[0] ?? null;
+    [...remoteLoadedFields, ...modeledVariables].find((field) => field.id === selectedImportedFieldId) ?? remoteLoadedFields[0] ?? modeledVariables[0] ?? null;
   const activeImportedFieldSuitability = useMemo(
     () => activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null,
     [activeImportedField]
@@ -161,7 +181,35 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   useEffect(() => {
     setVariableTreeScrollTop(0);
+    setRemoteFieldPages({});
+    setRemoteFieldTotal(null);
+    setRemoteFieldError(null);
+    remoteFieldLoadingPagesRef.current.clear();
   }, [activeImportedDataset?.id, variableSearchTerm]);
+
+  useEffect(() => {
+    if (!usesRemoteFieldPaging || !activeImportedDataset) return;
+    const startPage = Math.floor(variableTreeStartIndex / REMOTE_FIELD_PAGE_SIZE);
+    const endPage = Math.floor(Math.max(variableTreeEndIndex - 1, 0) / REMOTE_FIELD_PAGE_SIZE);
+    for (let pageIndex = startPage; pageIndex <= endPage; pageIndex += 1) {
+      if (remoteFieldPages[pageIndex] || remoteFieldLoadingPagesRef.current.has(pageIndex)) continue;
+      remoteFieldLoadingPagesRef.current.add(pageIndex);
+      void listImportedDatasetFieldsFromNetlify({
+        datasetId: activeImportedDataset.id,
+        offset: pageIndex * REMOTE_FIELD_PAGE_SIZE,
+        limit: REMOTE_FIELD_PAGE_SIZE,
+        search: variableSearchTerm
+      }).then((result) => {
+        setRemoteFieldTotal(result.total);
+        setRemoteFieldPages((current) => ({ ...current, [pageIndex]: result.fields }));
+        setRemoteFieldError(null);
+      }).catch((error) => {
+        setRemoteFieldError(error instanceof Error ? error.message : "Unable to load imported fields.");
+      }).finally(() => {
+        remoteFieldLoadingPagesRef.current.delete(pageIndex);
+      });
+    }
+  }, [activeImportedDataset, remoteFieldPages, usesRemoteFieldPaging, variableSearchTerm, variableTreeEndIndex, variableTreeStartIndex]);
 
   useEffect(() => {
     return () => {
@@ -293,6 +341,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       outputMode,
       importedDatasetId: activeImportedDataset.id,
       importedFieldId: field.id,
+      importedFieldSnapshot: field,
       launchSource: "field"
     });
   }
@@ -388,7 +437,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <div className="mockup-library-section__header">
               <strong>Variables</strong>
               <small className="variable-tree-count">
-                {variableSearchTerm
+                {usesRemoteFieldPaging
+                  ? `${(remoteFieldTotal ?? activeImportedDataset?.fieldCount ?? 0).toLocaleString()} fields`
+                  : variableSearchTerm
                   ? `${filteredModeledVariables.length.toLocaleString()} matches`
                   : `${modeledVariables.length.toLocaleString()} fields`}
               </small>
@@ -409,6 +460,18 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                             return (
                               <div className="variable-tree-group" key={entry.id} style={{ top }}>
                                 {entry.label}
+                              </div>
+                            );
+                          }
+
+                          if (entry.type === "loading") {
+                            return (
+                              <div className="variable-tree-row loading" key={entry.id} style={{ top }}>
+                                <div className="variable-tree-row__select">
+                                  <span><DataLibraryIcon icon="variable" /></span>
+                                  <strong>Loading field...</strong>
+                                  <em>Remote</em>
+                                </div>
                               </div>
                             );
                           }
@@ -436,6 +499,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         })}
                       </div>
                     </div>
+                    {remoteFieldError && <small className="library-empty-note">{remoteFieldError}</small>}
                     {activeImportedField && activeImportedFieldSuitability && (
                       <div className="variable-tree-detail-card">
                         <span>Selected field</span>

@@ -1,9 +1,17 @@
-import type { ImportedDatasetRecord } from "../../../shared/types/dashboard";
+import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 
 export interface NetlifyDatasetStoreResult {
   stored: boolean;
   dataset?: ImportedDatasetRecord;
   warning?: string;
+}
+
+export interface NetlifyDatasetFieldListResult {
+  datasetId: string;
+  fields: ImportedDatasetField[];
+  total: number;
+  offset: number;
+  limit: number;
 }
 
 async function fileToBase64(file: File) {
@@ -32,13 +40,48 @@ function localStatus(dataset: ImportedDatasetRecord, warning?: string): Imported
 function thinRemoteDatasetForBrowser(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
   if (dataset.remote?.provider !== "netlify") return dataset;
   const previewRows = dataset.previewRows?.length ? dataset.previewRows : dataset.rows.slice(0, 50);
+  const fieldPreview = dataset.fields.slice(0, 80);
   const note = "Full imported rows are stored server-side; this browser workspace keeps metadata and preview rows for performance.";
+  const fieldNote = dataset.fields.length > fieldPreview.length
+    ? "Full imported field metadata is loaded from Netlify Database as needed in the Data Library."
+    : null;
   return {
     ...dataset,
+    fields: fieldPreview,
     rows: [],
     previewRows,
-    notes: dataset.notes.includes(note) ? dataset.notes : [...dataset.notes, note]
+    notes: [
+      ...dataset.notes,
+      dataset.notes.includes(note) ? null : note,
+      fieldNote && !dataset.notes.includes(fieldNote) ? fieldNote : null
+    ].filter(Boolean) as string[]
   };
+}
+
+function isFieldListError(payload: unknown): payload is { error?: string; details?: string[] } {
+  return Boolean(payload && typeof payload === "object" && "error" in payload);
+}
+
+export async function listImportedDatasetFieldsFromNetlify(options: {
+  datasetId: string;
+  offset: number;
+  limit: number;
+  search?: string;
+}): Promise<NetlifyDatasetFieldListResult> {
+  const params = new URLSearchParams({
+    datasetId: options.datasetId,
+    offset: String(options.offset),
+    limit: String(options.limit)
+  });
+  if (options.search?.trim()) params.set("search", options.search.trim());
+
+  const response = await fetch(`/.netlify/functions/imported-dataset-fields?${params.toString()}`);
+  const payload = await response.json().catch(() => null) as unknown;
+  if (!response.ok || !payload || isFieldListError(payload)) {
+    const detail = isFieldListError(payload) && payload.details?.length ? ` ${payload.details.join(" ")}` : "";
+    throw new Error(`${isFieldListError(payload) ? payload.error : `Imported dataset fields failed with ${response.status}.`}${detail}`);
+  }
+  return payload as NetlifyDatasetFieldListResult;
 }
 
 export async function storeImportedDatasetInNetlify(file: File, dataset?: ImportedDatasetRecord): Promise<NetlifyDatasetStoreResult> {
