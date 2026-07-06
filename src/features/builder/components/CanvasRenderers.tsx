@@ -818,9 +818,25 @@ export function ChartView({ tile }: { tile: DashboardTile }) {
   return null;
 }
 
-export const TileRenderer = memo(function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selected: boolean; onSelect: () => void }) {
+export const TileRenderer = memo(function TileRenderer({
+  tile,
+  selected,
+  onSelect,
+  onTitleChange,
+  titleEditable = true
+}: {
+  tile: DashboardTile;
+  selected: boolean;
+  onSelect: () => void;
+  onTitleChange: (title: string) => void;
+  titleEditable?: boolean;
+}) {
   const result = tile.result;
   const imported = buildImportedResultProvenance(result);
+  const commitTitle = (value: string) => {
+    const nextTitle = value.trim();
+    if (nextTitle && nextTitle !== tile.title) onTitleChange(nextTitle);
+  };
 
   return (
     <article
@@ -841,7 +857,27 @@ export const TileRenderer = memo(function TileRenderer({ tile, selected, onSelec
       <div className="tile-header tile-drag-handle">
         <div>
           {tile.source && !imported && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
-          <h2>{tile.title}</h2>
+          <input
+            className="tile-title-input"
+            aria-label="Tile title"
+            defaultValue={tile.title}
+            readOnly={!titleEditable}
+            onBlur={(event) => commitTitle(event.currentTarget.value)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+              if (event.key === "Escape") {
+                event.currentTarget.value = tile.title;
+                event.currentTarget.blur();
+              }
+            }}
+          />
         </div>
         {!imported && (
           <div className="tile-header-meta" aria-label="Analysis summary">
@@ -881,7 +917,7 @@ export const TileRenderer = memo(function TileRenderer({ tile, selected, onSelec
       </div>
     </article>
   );
-}, (previous, next) => previous.tile === next.tile && previous.selected === next.selected);
+}, (previous, next) => previous.tile === next.tile && previous.selected === next.selected && previous.titleEditable === next.titleEditable);
 
 export const CanvasElementRenderer = memo(function CanvasElementRenderer({
   element,

@@ -10377,12 +10377,44 @@ button.secondary.compact {
   border-bottom: 1px solid #edf1f0;
 }
 
-.tile-header h2 {
-  margin: 0;
+.tile-title-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  margin: -3px 0 0 -5px;
+  padding: 3px 5px;
+  background: transparent;
   color: #172033;
   font-size: clamp(0.86rem, 1.2vw, 1.02rem);
   font-weight: 900;
   line-height: 1.18;
+  font-family: inherit;
+  letter-spacing: 0;
+  white-space: normal;
+}
+
+.tile-title-input:hover {
+  border-color: #dce9e5;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.tile-title-input:focus {
+  border-color: #11a795;
+  outline: 3px solid rgba(17, 167, 149, 0.13);
+  background: #ffffff;
+}
+
+.tile-title-input[readonly] {
+  pointer-events: none;
+}
+
+.tile-title-input[readonly]:hover,
+.tile-title-input[readonly]:focus {
+  border-color: transparent;
+  outline: none;
+  background: transparent;
 }
 
 .tile-source-badge {
@@ -10876,7 +10908,7 @@ td span {
   justify-content: center;
   gap: 4px 12px;
   min-height: 18px;
-  padding: 0 10px 5px;
+  padding: 8px 10px 5px;
   overflow: hidden;
   color: #69776e;
   font-size: 0.68rem;
