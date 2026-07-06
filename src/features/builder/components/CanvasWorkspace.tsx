@@ -14,6 +14,10 @@ function rangeFill(value: number | string, min: number, max: number) {
   return `${Math.min(100, Math.max(0, percentage))}%`;
 }
 
+function guideStateSignature(state: CompositionGuideState) {
+  return `${state.snappedX}:${state.snappedY}:${state.guides.map((guide) => `${guide.orientation}:${guide.position}:${guide.label}`).join("|")}`;
+}
+
 type CanvasActionIconName = "addSlide" | "data" | "text" | "shape" | "image" | "comment" | "notes" | "fit";
 
 function CanvasActionIcon({ icon }: { icon: CanvasActionIconName }) {
@@ -221,6 +225,7 @@ export function CanvasWorkspace({
   const canvasSectionRef = useRef<HTMLElement | null>(null);
   const guideFrameRef = useRef<number | null>(null);
   const guideObjectRef = useRef<CompositionGuideObject | null>(null);
+  const guideSignatureRef = useRef("");
   const lastGuideUpdateRef = useRef(0);
   const [activeGuideState, setActiveGuideState] = useState<CompositionGuideState | null>(null);
   const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false);
@@ -277,22 +282,30 @@ export function CanvasWorkspace({
         guideFrameRef.current = null;
       }
       lastGuideUpdateRef.current = performance.now();
-      setActiveGuideState(buildCompositionGuideState({ movingObject, objects: compositionObjects }));
+      const nextGuideState = buildCompositionGuideState({ movingObject, objects: compositionObjects });
+      const nextSignature = guideStateSignature(nextGuideState);
+      guideSignatureRef.current = nextSignature;
+      setActiveGuideState(nextGuideState);
       return;
     }
     const now = performance.now();
-    if (now - lastGuideUpdateRef.current < 80) return;
+    if (now - lastGuideUpdateRef.current < 140) return;
     lastGuideUpdateRef.current = now;
     if (guideFrameRef.current !== null) return;
     guideFrameRef.current = requestAnimationFrame(() => {
       guideFrameRef.current = null;
       const nextObject = guideObjectRef.current;
       if (!nextObject) return;
-      setActiveGuideState(buildCompositionGuideState({ movingObject: nextObject, objects: compositionObjects }));
+      const nextGuideState = buildCompositionGuideState({ movingObject: nextObject, objects: compositionObjects });
+      const nextSignature = guideStateSignature(nextGuideState);
+      if (nextSignature === guideSignatureRef.current) return;
+      guideSignatureRef.current = nextSignature;
+      setActiveGuideState(nextGuideState);
     });
   }, [compositionObjects]);
   const clearGuideState = useCallback(() => {
     guideObjectRef.current = null;
+    guideSignatureRef.current = "";
     if (guideFrameRef.current !== null) {
       cancelAnimationFrame(guideFrameRef.current);
       guideFrameRef.current = null;
@@ -420,6 +433,7 @@ export function CanvasWorkspace({
             {activePage.elements.filter((element) => !element.hidden).map((element) => (
               <Rnd
                 key={element.id}
+                className="canvas-draggable-frame"
                 bounds="parent"
                 scale={canvasScale}
                 size={{ width: element.layout.width, height: element.layout.height }}
@@ -457,6 +471,7 @@ export function CanvasWorkspace({
             {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
               <Rnd
                 key={tile.id}
+                className="canvas-draggable-frame"
                 bounds="parent"
                 scale={canvasScale}
                 dragHandleClassName="tile-drag-handle"

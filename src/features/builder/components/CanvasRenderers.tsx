@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Bar,
   BarChart,
@@ -817,7 +818,7 @@ export function ChartView({ tile }: { tile: DashboardTile }) {
   return null;
 }
 
-export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selected: boolean; onSelect: () => void }) {
+export const TileRenderer = memo(function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile; selected: boolean; onSelect: () => void }) {
   const result = tile.result;
   const imported = buildImportedResultProvenance(result);
 
@@ -878,9 +879,9 @@ export function TileRenderer({ tile, selected, onSelect }: { tile: DashboardTile
       </div>
     </article>
   );
-}
+}, (previous, next) => previous.tile === next.tile && previous.selected === next.selected);
 
-export function CanvasElementRenderer({
+export const CanvasElementRenderer = memo(function CanvasElementRenderer({
   element,
   selected,
   onSelect
@@ -952,4 +953,4 @@ export function CanvasElementRenderer({
       onClick={onSelect}
     />
   );
-}
+}, (previous, next) => previous.element === next.element && previous.selected === next.selected);
