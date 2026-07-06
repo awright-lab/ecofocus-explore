@@ -840,13 +840,15 @@ export const TileRenderer = memo(function TileRenderer({ tile, selected, onSelec
     >
       <div className="tile-header tile-drag-handle">
         <div>
-          {tile.source && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
+          {tile.source && !imported && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
           <h2>{tile.title}</h2>
         </div>
-        <div className="tile-header-meta" aria-label="Analysis summary">
-          <span>{sampleSizeLabel(result)}</span>
-          <small>{confidenceLevelLabel(resultConfidenceLevel(result))}</small>
-        </div>
+        {!imported && (
+          <div className="tile-header-meta" aria-label="Analysis summary">
+            <span>{sampleSizeLabel(result)}</span>
+            <small>{confidenceLevelLabel(resultConfidenceLevel(result))}</small>
+          </div>
+        )}
       </div>
       <div className="tile-scroll-area">
         <ChartView tile={tile} />

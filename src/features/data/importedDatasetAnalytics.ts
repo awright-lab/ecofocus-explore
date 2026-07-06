@@ -140,8 +140,8 @@ function uniquePositiveBases(result: AnalyticsQueryResponse) {
 
 function baseRangeLabel(prefix: string, bases: number[]) {
   if (bases.length === 0) return `${prefix} n/a`;
-  if (bases.length === 1) return `${prefix} n=${bases[0].toLocaleString()}`;
-  return `${prefix} n=${bases[0].toLocaleString()}-${bases[bases.length - 1].toLocaleString()}`;
+  if (bases.length === 1) return `${prefix} n = ${bases[0].toLocaleString()}`;
+  return `${prefix} n = ${bases[0].toLocaleString()}-${bases[bases.length - 1].toLocaleString()}`;
 }
 
 export function importedMetricLabel(metric: Metric) {
@@ -168,7 +168,7 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
   const measureLabel = source.measureFieldLabel ?? null;
   const bannerLabel = source.bannerFieldLabel ?? "No breakout";
   const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel} is ${source.filterValue}` : "No filter";
-  const baseLabel = baseRangeLabel(isMeasure ? "Valid measure" : "Rows", uniquePositiveBases(result));
+  const baseLabel = baseRangeLabel(isMeasure ? "Valid measure" : "Sample", uniquePositiveBases(result));
   const summaryLabel = isMeasure && measureLabel
     ? `${metricLabel} ${measureLabel} by ${groupingLabel}`
     : source.bannerFieldLabel
