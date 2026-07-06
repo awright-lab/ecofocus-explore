@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ImportedDatasetField } from "../../../../shared/types/dashboard";
+import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
   buildImportedDatasetStructureSummary,
@@ -165,6 +165,12 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     () => activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null,
     [activeImportedField]
   );
+
+  function importStatusDetail(dataset: ImportedDatasetRecord) {
+    const detail = dataset.importStatus?.detail ?? "";
+    const databaseNoteIndex = detail.indexOf("Database note:");
+    return databaseNoteIndex >= 0 ? detail.slice(databaseNoteIndex) : "";
+  }
 
   useEffect(() => {
     if (!managedMenuKey) return;
@@ -352,10 +358,11 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     setImportFeedback(null);
     try {
       const imported = await importDataset(file);
+      const statusDetail = imported ? importStatusDetail(imported) : "";
       setImportFeedback(imported
         ? imported.rowCount > 0
-          ? `Imported ${imported.title} with ${imported.rowCount.toLocaleString()} rows.`
-          : `Imported labels for ${imported.title}, but no respondent rows were readable yet.`
+          ? `Imported ${imported.title} with ${imported.rowCount.toLocaleString()} rows.${statusDetail ? ` ${statusDetail}` : ""}`
+          : `Imported labels for ${imported.title}, but no respondent rows were readable yet.${statusDetail ? ` ${statusDetail}` : ""}`
         : `Could not import ${file.name}. Check the workspace status message for details.`);
       if (imported) setSelectedImportedDatasetId(imported.id);
     } finally {

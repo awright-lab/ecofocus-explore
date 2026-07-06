@@ -867,7 +867,7 @@ export default function BuilderApp() {
     const nextWorkspace = upsertWorkspaceImportedDataset(workspace, result.dataset);
     setWorkspace(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
-    setError(result.storage.warning ?? null);
+    setError(null);
     return result.dataset;
   }
 
