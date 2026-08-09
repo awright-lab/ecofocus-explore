@@ -37,6 +37,11 @@ export interface TileAppearance {
   glowSize: number;
   showGrid: boolean;
   chartBackground: string;
+  titleX: number;
+  titleY: number;
+  titleWidth: number;
+  titleFontSize: number;
+  titleTextAlign: "left" | "center" | "right";
   gridColor: string;
   xAxisTextColor: string;
   yAxisTextColor: string;

@@ -1070,7 +1070,7 @@ export default function BuilderApp() {
                       zIndex: tile.layout.zIndex
                     }}
                   >
-                    <TileRenderer tile={tile} selected={false} onSelect={() => undefined} onTitleChange={() => undefined} titleEditable={false} />
+                    <TileRenderer tile={tile} selected={false} onSelect={() => undefined} onTitleChange={() => undefined} onTitleAppearanceChange={() => undefined} titleEditable={false} />
                   </div>
                 ))}
               </div>
@@ -1311,8 +1311,20 @@ export default function BuilderApp() {
           onSetActivePage={setActivePageId}
           onUpdateTileLayout={updateTileLayout}
           onUpdateTileTitle={(tileId, title) => updateTile(tileId, { title })}
+          onUpdateTileAppearance={(tileId, updates) => {
+            const tile = activePage.tiles.find((item) => item.id === tileId);
+            if (tile) updateTile(tileId, { appearance: { ...tile.appearance, ...updates } });
+          }}
           onUpdateElementLayout={updateElementLayout}
-          renderTile={(tile, selected, onSelect, onTitleChange) => <TileRenderer tile={tile} selected={selected} onSelect={onSelect} onTitleChange={onTitleChange} />}
+          renderTile={(tile, selected, onSelect, onTitleChange, onTitleAppearanceChange) => (
+            <TileRenderer
+              tile={tile}
+              selected={selected}
+              onSelect={onSelect}
+              onTitleChange={onTitleChange}
+              onTitleAppearanceChange={onTitleAppearanceChange}
+            />
+          )}
           renderElement={(element, selected, onSelect) => <CanvasElementRenderer element={element} selected={selected} onSelect={onSelect} />}
         />
 

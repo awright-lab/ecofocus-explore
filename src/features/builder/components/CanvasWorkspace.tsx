@@ -186,6 +186,7 @@ export function CanvasWorkspace({
   onSetActivePage,
   onUpdateTileLayout,
   onUpdateTileTitle,
+  onUpdateTileAppearance,
   onUpdateElementLayout,
   renderTile,
   renderElement
@@ -220,8 +221,15 @@ export function CanvasWorkspace({
   onSetActivePage: (pageId: string) => void;
   onUpdateTileLayout: (tileId: string, updates: Partial<DashboardTile["layout"]>) => void;
   onUpdateTileTitle: (tileId: string, title: string) => void;
+  onUpdateTileAppearance: (tileId: string, updates: Partial<DashboardTile["appearance"]>) => void;
   onUpdateElementLayout: (elementId: string, updates: Partial<DashboardCanvasElement["layout"]>) => void;
-  renderTile: (tile: DashboardTile, selected: boolean, onSelect: () => void, onTitleChange: (title: string) => void) => ReactNode;
+  renderTile: (
+    tile: DashboardTile,
+    selected: boolean,
+    onSelect: () => void,
+    onTitleChange: (title: string) => void,
+    onTitleAppearanceChange: (updates: Partial<DashboardTile["appearance"]>) => void
+  ) => ReactNode;
   renderElement: (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => ReactNode;
 }) {
   const canvasSectionRef = useRef<HTMLElement | null>(null);
@@ -508,7 +516,13 @@ export function CanvasWorkspace({
                   })
                 }
               >
-                {renderTile(tile, tile.id === selectedTileId, () => onSelectTile(tile.id), (title) => onUpdateTileTitle(tile.id, title))}
+                {renderTile(
+                  tile,
+                  tile.id === selectedTileId,
+                  () => onSelectTile(tile.id),
+                  (title) => onUpdateTileTitle(tile.id, title),
+                  (updates) => onUpdateTileAppearance(tile.id, updates)
+                )}
               </Rnd>
             ))}
             {multiSelectionSummary.bounds && multiSelectionSummary.count > 1 && (

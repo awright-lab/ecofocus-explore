@@ -1456,6 +1456,41 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
               <div className="panel-title subtle">
                 <h2>Display</h2>
               </div>
+              <div className="chart-title-edit-card">
+                <div className="explorer-section-header">
+                  <strong>Chart title</strong>
+                  <small>Drag or resize the title directly on the canvas.</small>
+                </div>
+                <label>
+                  Title size
+                  <input
+                    type="range"
+                    min="10"
+                    max="34"
+                    value={selectedTile.appearance.titleFontSize}
+                    onChange={(event) => updateSelectedAppearance({ titleFontSize: Number(event.target.value) })}
+                  />
+                </label>
+                <div className="segmented-button-row" aria-label="Title alignment">
+                  {(["left", "center", "right"] as const).map((alignment) => (
+                    <button
+                      type="button"
+                      key={alignment}
+                      className={selectedTile.appearance.titleTextAlign === alignment ? "active" : ""}
+                      onClick={() => updateSelectedAppearance({ titleTextAlign: alignment })}
+                    >
+                      {alignment}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="secondary full-width"
+                  onClick={() => updateSelectedAppearance({ titleX: 16, titleY: 14, titleWidth: 680, titleFontSize: 18, titleTextAlign: "left" })}
+                >
+                  Reset title placement
+                </button>
+              </div>
               <div className="toggle-list">
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> {selectedTile.visualization === "table" ? "Table guides" : "Chart grid"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> {selectedTile.visualization === "table" ? "Cell values" : "Value labels"}</label>

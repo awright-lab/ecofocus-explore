@@ -601,7 +601,12 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             barGradientStops: tile.appearance?.barGradientStops ?? [],
             barStyles: tile.appearance?.barStyles ?? {},
             axisLabelOverrides: tile.appearance?.axisLabelOverrides ?? {},
-            chartBackground: tile.appearance?.chartBackground ?? defaultAppearance.chartBackground
+            chartBackground: tile.appearance?.chartBackground ?? defaultAppearance.chartBackground,
+            titleX: tile.appearance?.titleX ?? defaultAppearance.titleX,
+            titleY: tile.appearance?.titleY ?? defaultAppearance.titleY,
+            titleWidth: tile.appearance?.titleWidth ?? defaultAppearance.titleWidth,
+            titleFontSize: tile.appearance?.titleFontSize ?? defaultAppearance.titleFontSize,
+            titleTextAlign: tile.appearance?.titleTextAlign ?? defaultAppearance.titleTextAlign
           }
         };
       })

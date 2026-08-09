@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { Rnd } from "react-rnd";
 import {
   Bar,
   BarChart,
@@ -823,16 +824,21 @@ export const TileRenderer = memo(function TileRenderer({
   selected,
   onSelect,
   onTitleChange,
+  onTitleAppearanceChange,
   titleEditable = true
 }: {
   tile: DashboardTile;
   selected: boolean;
   onSelect: () => void;
   onTitleChange: (title: string) => void;
+  onTitleAppearanceChange: (updates: Partial<TileAppearance>) => void;
   titleEditable?: boolean;
 }) {
   const result = tile.result;
   const imported = buildImportedResultProvenance(result);
+  const titleHeight = Math.max(30, Math.round(tile.appearance.titleFontSize * 2.1));
+  const titleReserve = Math.max(44, tile.appearance.titleY + titleHeight + 6);
+  const titleWidth = Math.max(160, Math.min(tile.appearance.titleWidth, tile.layout.width - tile.appearance.titleX - 18));
   const commitTitle = (value: string) => {
     const nextTitle = value.trim();
     if (nextTitle && nextTitle !== tile.title) onTitleChange(nextTitle);
@@ -854,30 +860,61 @@ export const TileRenderer = memo(function TileRenderer({
       }}
       onClick={onSelect}
     >
-      <div className="tile-header tile-drag-handle">
+      <Rnd
+        className="tile-title-layer"
+        bounds="parent"
+        disableDragging={!titleEditable}
+        enableResizing={titleEditable ? { right: true, bottom: true, bottomRight: true } : false}
+        minWidth={160}
+        minHeight={26}
+        maxWidth={Math.max(180, tile.layout.width - 20)}
+        size={{ width: titleWidth, height: titleHeight }}
+        position={{ x: tile.appearance.titleX, y: tile.appearance.titleY }}
+        onDragStart={(event) => {
+          event.stopPropagation();
+          onSelect();
+        }}
+        onDragStop={(_, data) => onTitleAppearanceChange({ titleX: Math.round(data.x), titleY: Math.round(data.y) })}
+        onResizeStop={(_, __, ref, ___, position) => {
+          const nextHeight = Math.max(26, ref.offsetHeight);
+          onTitleAppearanceChange({
+            titleX: Math.round(position.x),
+            titleY: Math.round(position.y),
+            titleWidth: Math.round(ref.offsetWidth),
+            titleFontSize: Math.max(10, Math.min(34, Math.round(nextHeight / 2.1)))
+          });
+        }}
+      >
+        <input
+          className="tile-title-input"
+          aria-label="Tile title"
+          defaultValue={tile.title}
+          readOnly={!titleEditable}
+          style={{
+            fontSize: tile.appearance.titleFontSize,
+            textAlign: tile.appearance.titleTextAlign
+          }}
+          onBlur={(event) => commitTitle(event.currentTarget.value)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+            if (event.key === "Escape") {
+              event.currentTarget.value = tile.title;
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      </Rnd>
+      <div className="tile-header tile-drag-handle" style={{ minHeight: titleReserve }}>
         <div>
           {tile.source && !imported && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
-          <input
-            className="tile-title-input"
-            aria-label="Tile title"
-            defaultValue={tile.title}
-            readOnly={!titleEditable}
-            onBlur={(event) => commitTitle(event.currentTarget.value)}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelect();
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-              }
-              if (event.key === "Escape") {
-                event.currentTarget.value = tile.title;
-                event.currentTarget.blur();
-              }
-            }}
-          />
+          <span className="tile-title-spacer" aria-hidden="true" />
         </div>
         {!imported && (
           <div className="tile-header-meta" aria-label="Analysis summary">

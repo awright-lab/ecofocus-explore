@@ -14,7 +14,21 @@ import {
 } from "../document/workspacePersistence";
 
 type ReportLibraryState = "draft" | "published" | "changed";
-type HomeIconName = "brand" | "plus" | "copy" | "open" | "published" | "draft" | "clock" | "deck" | "dataset" | "field";
+type HomeIconName =
+  | "brand"
+  | "plus"
+  | "copy"
+  | "open"
+  | "published"
+  | "draft"
+  | "clock"
+  | "deck"
+  | "dataset"
+  | "field"
+  | "insight"
+  | "story"
+  | "deliverable"
+  | "spark";
 
 interface ReportLibraryItem {
   report: DashboardReportRecord;
@@ -40,7 +54,11 @@ function HomeIcon({ icon }: { icon: HomeIconName }) {
     clock: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>,
     deck: <><rect x="4" y="5" width="16" height="12" rx="2" /><path d="M8 9h8M8 13h5M12 17v3" /></>,
     dataset: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
-    field: <><path d="M5 19V9" /><path d="M12 19V5" /><path d="M19 19v-7" /><path d="M3.5 19h17" /></>
+    field: <><path d="M5 19V9" /><path d="M12 19V5" /><path d="M19 19v-7" /><path d="M3.5 19h17" /></>,
+    insight: <><path d="M9 18h6" /><path d="M10 22h4" /><path d="M8.8 14.5a6 6 0 1 1 6.4 0c-.8.5-1.2 1.4-1.2 2.5h-4c0-1.1-.4-2-1.2-2.5Z" /></>,
+    story: <><path d="M5 5h14v14H5z" /><path d="M8 9h8M8 13h5M8 17h7" /></>,
+    deliverable: <><path d="M7 4h7l4 4v12H7z" /><path d="M14 4v5h5" /><path d="M10 14h5M10 17h4" /></>,
+    spark: <><path d="M12 3l1.8 5.1L19 10l-5.2 1.9L12 17l-1.8-5.1L5 10l5.2-1.9z" /><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" /></>
   };
 
   return (
@@ -114,6 +132,42 @@ export function WorkspaceHome({
   const importedDatasets = [...(workspace.importedDatasets ?? [])].sort(
     (a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
   );
+  const latestReport = reports[0] ?? null;
+  const usableDatasets = importedDatasets.filter((dataset) => dataset.rowCount > 0);
+  const metadataRichDatasets = importedDatasets.filter((dataset) => dataset.importMetadata?.metadataQuality === "metadata_rich");
+  const guidedSteps = [
+    {
+      icon: "dataset" as const,
+      label: "1",
+      title: importedDatasets.length ? "Your study data is ready" : "Import your study",
+      body: importedDatasets.length
+        ? `${importedDatasets[0].title} is available with ${importedDatasets[0].rowCount.toLocaleString()} rows and ${importedDatasets[0].fieldCount.toLocaleString()} fields.`
+        : "Start with a CSV, XLSX, or SAV file. We will turn it into a study library with readable fields.",
+      action: importedDatasets.length ? "Review study data" : "Import dataset",
+      onClick: () => importedDatasets.length && latestReport ? openReport(latestReport.report.id) : fileInputRef.current?.click(),
+      ready: importedDatasets.length > 0
+    },
+    {
+      icon: "insight" as const,
+      label: "2",
+      title: "Find the story",
+      body: usableDatasets.length
+        ? "Create a first table or chart from your imported fields, then use insights and story blocks to explain what matters."
+        : "Once rows are available, create plain tables first so the numbers are clear before designing the story.",
+      action: latestReport ? "Open analysis workspace" : "Create report",
+      onClick: () => latestReport ? openReport(latestReport.report.id) : createReport(),
+      ready: usableDatasets.length > 0
+    },
+    {
+      icon: "deliverable" as const,
+      label: "3",
+      title: "Create deliverables",
+      body: "Shape the same research into a report, presentation, dashboard, or export-ready client asset.",
+      action: latestReport ? "Continue report" : "Start report",
+      onClick: () => latestReport ? openReport(latestReport.report.id) : createReport(),
+      ready: reports.length > 0
+    }
+  ];
 
   function navigate(path: string) {
     window.location.hash = path.replace(/^#/, "");
@@ -187,10 +241,10 @@ export function WorkspaceHome({
 
       <section className="workspace-home-hero">
         <div>
-          <p className="workspace-home-kicker">Workspace Home</p>
-          <h1>Reports, drafts, and published builds in one place.</h1>
+          <p className="workspace-home-kicker">Research Publishing Workspace</p>
+          <h1>Turn raw research into clear stories and client-ready deliverables.</h1>
           <p>
-            Open a report to continue editing, duplicate an existing deck, or review the latest published snapshot without dropping directly into the canvas.
+            Start with the study, find the strongest insight, then shape it into a report, dashboard, presentation, or export without leaving the workspace.
           </p>
         </div>
         <div className="workspace-home-stats" aria-label="Workspace summary">
@@ -207,8 +261,8 @@ export function WorkspaceHome({
             <span>Draft only</span>
           </article>
           <article>
-            <strong>{importedDatasets.length}</strong>
-            <span>Datasets</span>
+            <strong>{metadataRichDatasets.length || importedDatasets.length}</strong>
+            <span>{metadataRichDatasets.length ? "Labeled studies" : "Datasets"}</span>
           </article>
         </div>
       </section>
@@ -217,8 +271,20 @@ export function WorkspaceHome({
         <aside className="workspace-home-sidebar" aria-label="Recent reports">
           <div className="workspace-home-panel">
             <div className="workspace-home-panel__header">
+              <span><HomeIcon icon="spark" /></span>
+              <strong>Start here</strong>
+            </div>
+            <p>Most users should begin with one of these steps. Advanced modeling and provider details stay inside the editor when needed.</p>
+            <button type="button" className="workspace-home-primary" onClick={importedDatasets.length ? createReport : () => fileInputRef.current?.click()}>
+              <HomeIcon icon={importedDatasets.length ? "deck" : "dataset"} />
+              {importedDatasets.length ? "Create deliverable" : "Import study data"}
+            </button>
+          </div>
+
+          <div className="workspace-home-panel quiet">
+            <div className="workspace-home-panel__header">
               <span><HomeIcon icon="clock" /></span>
-              <strong>Recent reports</strong>
+              <strong>Recent work</strong>
             </div>
             <div className="workspace-home-recent-list">
               {recentReports.map((item) => (
@@ -234,20 +300,12 @@ export function WorkspaceHome({
             </div>
           </div>
 
-          <div className="workspace-home-panel quiet">
-            <div className="workspace-home-panel__header">
-              <span><HomeIcon icon="deck" /></span>
-              <strong>Product layers</strong>
-            </div>
-            <p>Home manages report identity. The editor handles canvas authoring. Published links show snapshot previews.</p>
-          </div>
-
           <div className="workspace-home-panel">
             <div className="workspace-home-panel__header">
               <span><HomeIcon icon="dataset" /></span>
-              <strong>Workspace data</strong>
+              <strong>Study data</strong>
             </div>
-            <p>Import local CSV, XLSX, or classic SPSS SAV files as workspace datasets. SAV imports can preserve survey variable labels and value labels.</p>
+            <p>Import a study file once, then use its fields to create tables, charts, insights, and deliverables.</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -263,11 +321,54 @@ export function WorkspaceHome({
           </div>
         </aside>
 
+        <section className="workspace-guided-library" aria-label="Guided research workflow">
+          <div className="workspace-report-library__header">
+            <div>
+              <p className="workspace-home-kicker">Guided Workflow</p>
+              <h2>What do you want to do next?</h2>
+            </div>
+            <button type="button" className="workspace-home-secondary" onClick={() => latestReport ? openReport(latestReport.report.id) : createReport()}>
+              <HomeIcon icon="open" />
+              Open workspace
+            </button>
+          </div>
+          <div className="workspace-guided-grid">
+            {guidedSteps.map((step) => (
+              <article className={step.ready ? "workspace-guided-card ready" : "workspace-guided-card"} key={step.title}>
+                <div className="workspace-guided-card__top">
+                  <span><HomeIcon icon={step.icon} /></span>
+                  <em>{step.label}</em>
+                </div>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+                <button type="button" className={step.ready ? "workspace-home-primary compact" : "workspace-home-secondary compact"} onClick={step.onClick}>
+                  {step.action}
+                </button>
+              </article>
+            ))}
+          </div>
+          <div className="workspace-deliverable-strip" aria-label="Deliverable shortcuts">
+            {[
+              "Executive summary",
+              "PowerPoint deck",
+              "PDF report",
+              "Dashboard",
+              "Social graphic",
+              "Infographic"
+            ].map((item) => (
+              <button type="button" key={item} onClick={() => latestReport ? openReport(latestReport.report.id) : createReport()}>
+                <HomeIcon icon="deliverable" />
+                {item}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="workspace-report-library" aria-label="Report library">
           <div className="workspace-report-library__header">
             <div>
               <p className="workspace-home-kicker">Report Library</p>
-              <h2>Your InsightCanvas reports</h2>
+              <h2>Reports and drafts</h2>
             </div>
             <button type="button" className="workspace-home-secondary" onClick={createReport}>
               <HomeIcon icon="plus" />
@@ -352,8 +453,8 @@ export function WorkspaceHome({
         <section className="workspace-dataset-library" aria-label="Imported dataset library">
           <div className="workspace-report-library__header">
             <div>
-              <p className="workspace-home-kicker">Data Assets</p>
-              <h2>Imported datasets</h2>
+              <p className="workspace-home-kicker">Study Library</p>
+              <h2>Available datasets</h2>
             </div>
             <button type="button" className="workspace-home-secondary" onClick={() => fileInputRef.current?.click()}>
               <HomeIcon icon="plus" />
@@ -373,8 +474,8 @@ export function WorkspaceHome({
                       </div>
                     </div>
                     <div className="workspace-dataset-structures">
-                      <span>{dataset.importStatus?.label ?? (dataset.rowCount > 0 ? "Stored locally" : "Labels only")}</span>
-                      <span>{dataset.remote?.provider ? `${dataset.remote.provider[0].toUpperCase()}${dataset.remote.provider.slice(1)}-backed` : "Local workspace"}</span>
+                      <span>{dataset.rowCount > 0 ? "Ready for analysis" : "Labels imported"}</span>
+                      <span>{dataset.remote?.provider ? "Saved for this workspace" : "Local draft"}</span>
                     </div>
                     <dl className="workspace-dataset-stats">
                       <div>
@@ -391,13 +492,13 @@ export function WorkspaceHome({
                       </div>
                     </dl>
                     <div className="workspace-dataset-structures">
-                      <span>{dataset.importMetadata?.metadataQuality === "metadata_rich" ? "Metadata-rich survey" : dataset.importMetadata?.metadataQuality === "structured" ? "Structured workbook" : "Raw import"}</span>
+                      <span>{dataset.importMetadata?.metadataQuality === "metadata_rich" ? "Survey labels found" : dataset.importMetadata?.metadataQuality === "structured" ? "Structured workbook" : "Basic field list"}</span>
                       {dataset.importMetadata?.sheetName && <span>Sheet: {dataset.importMetadata.sheetName}</span>}
                       <span>{summary.filterLabel}</span>
                       <span>{summary.segmentLabel}</span>
                       <span>{summary.bannerLabel}</span>
                     </div>
-                    {dataset.importStatus?.detail && <p>{dataset.importStatus.detail}</p>}
+                    {dataset.importStatus?.detail && <p>{dataset.importStatus.detail.replace(/Netlify Database/g, "workspace storage")}</p>}
                     <div className="workspace-dataset-fields">
                       {dataset.fields.slice(0, 6).map((field) => (
                         <span key={field.id}>
