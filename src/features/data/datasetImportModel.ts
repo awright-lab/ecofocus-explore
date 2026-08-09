@@ -148,8 +148,8 @@ function buildDataset(file: DatasetBuildSource, fileType: ImportedDatasetRecord[
       metadata: parsed.fieldMetadata?.[header]
     }
   ));
-  const previewRows = dataRows.slice(0, 25).map((row) => Object.fromEntries(parsed.headers.map((header, index) => [header, row[index] ?? ""])));
   const rows = dataRows.map((row) => Object.fromEntries(parsed.headers.map((header, index) => [header, row[index] ?? ""])));
+  const previewRows = selectRepresentativePreviewRows(rows, fields, 50);
 
   return {
     id: datasetId(file.name),
@@ -167,6 +167,27 @@ function buildDataset(file: DatasetBuildSource, fileType: ImportedDatasetRecord[
     modelingStatus: "initial_model",
     notes: parsed.notes
   };
+}
+
+function selectRepresentativePreviewRows(
+  rows: Array<Record<string, string>>,
+  fields: ImportedDatasetField[],
+  limit: number
+) {
+  if (rows.length <= limit) return rows;
+  const analysisColumns = fields
+    .filter((field) => field.nonEmptyCount > 0 && (field.type === "categorical" || field.modelingRole === "candidate_dimension"))
+    .map((field) => field.sourceColumn);
+  const scoredRows = rows.map((row, index) => ({
+    row,
+    index,
+    score: analysisColumns.reduce((score, column) => score + (row[column]?.trim() ? 1 : 0), 0)
+  }));
+  return scoredRows
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, limit)
+    .sort((a, b) => a.index - b.index)
+    .map((item) => item.row);
 }
 
 function normalizeMatrix(matrix: string[][]): { headers: string[]; rows: string[][] } | null {

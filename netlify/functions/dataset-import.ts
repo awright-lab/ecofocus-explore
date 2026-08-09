@@ -98,7 +98,7 @@ function jsonValue(value: unknown) {
 }
 
 function thinDatasetForClient(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
-  const previewRows = dataset.previewRows?.length ? dataset.previewRows : dataset.rows.slice(0, 50);
+  const previewRows = dataset.previewRows?.length ? dataset.previewRows : selectRepresentativePreviewRows(dataset.rows, dataset.fields, 50);
   const note = dataset.rows.length > previewRows.length
     ? "Full imported rows are stored server-side; this browser workspace keeps metadata and preview rows for performance."
     : null;
@@ -108,6 +108,27 @@ function thinDatasetForClient(dataset: ImportedDatasetRecord): ImportedDatasetRe
     previewRows,
     notes: note && !dataset.notes.includes(note) ? [...dataset.notes, note] : dataset.notes
   };
+}
+
+function selectRepresentativePreviewRows(
+  rows: Array<Record<string, string>>,
+  fields: ImportedDatasetField[],
+  limit: number
+) {
+  if (rows.length <= limit) return rows;
+  const analysisColumns = fields
+    .filter((field) => field.nonEmptyCount > 0 && (field.type === "categorical" || field.modelingRole === "candidate_dimension"))
+    .map((field) => field.sourceColumn);
+  const scoredRows = rows.map((row, index) => ({
+    row,
+    index,
+    score: analysisColumns.reduce((score, column) => score + (row[column]?.trim() ? 1 : 0), 0)
+  }));
+  return scoredRows
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, limit)
+    .sort((a, b) => a.index - b.index)
+    .map((item) => item.row);
 }
 
 function stringifySavValue(value: unknown) {
@@ -191,7 +212,7 @@ async function parseSavWithSavReader(fileBuffer: Buffer, fileName: string): Prom
     fieldCount: fields.length,
     fields,
     rows,
-    previewRows: rows.slice(0, 25),
+    previewRows: selectRepresentativePreviewRows(rows, fields, 50),
     modelingStatus: "initial_model",
     notes: [
       "Initial model inferred from SAV variable metadata, variable labels, and value labels.",

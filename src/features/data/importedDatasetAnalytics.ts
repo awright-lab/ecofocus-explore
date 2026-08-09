@@ -589,12 +589,18 @@ export function getImportedDatasetQuerySupport(
   if (!isExecutableDimension(field)) {
     return { executable: false, reason: "Imported queries require a categorical grouping field." };
   }
+  if (field.nonEmptyCount <= 0) {
+    return { executable: false, reason: `${importedFieldDisplayLabel(field) ?? "This field"} has answer choices, but no respondent answers were imported for that field.` };
+  }
   if (isMeasureMetric(options?.metric)) {
     if (!options?.measureField) {
       return { executable: false, reason: "Choose a numeric imported measure field." };
     }
     if (!isExecutableMeasure(options.measureField)) {
       return { executable: false, reason: "Measure aggregation is limited to numeric measure fields." };
+    }
+    if (options.measureField.nonEmptyCount <= 0) {
+      return { executable: false, reason: `${importedFieldDisplayLabel(options.measureField) ?? "The selected number"} has no imported values to summarize.` };
     }
     if (options.measureField.id === field.id || options.measureField.id === options.bannerField?.id || options.measureField.id === options.filter?.field?.id) {
       return { executable: false, reason: "Choose a different numeric field for the imported measure." };
@@ -610,6 +616,9 @@ export function getImportedDatasetQuerySupport(
     if (!options.bannerField.eligibleForBanner || !isExecutableDimension(options.bannerField)) {
       return { executable: false, reason: "Imported breakouts are limited to breakout-ready categorical fields." };
     }
+    if (options.bannerField.nonEmptyCount <= 0) {
+      return { executable: false, reason: `${importedFieldDisplayLabel(options.bannerField) ?? "The selected breakout"} has no imported values to break out by.` };
+    }
     if (options.chartType === "donut") {
       return { executable: false, reason: "Donut charts are only supported for imported queries without a banner." };
     }
@@ -617,6 +626,9 @@ export function getImportedDatasetQuerySupport(
   if (options?.filter?.field) {
     if (!options.filter.field.eligibleForFilter || !isExecutableDimension(options.filter.field)) {
       return { executable: false, reason: "Imported filters are limited to filter-eligible categorical fields." };
+    }
+    if (options.filter.field.nonEmptyCount <= 0) {
+      return { executable: false, reason: `${importedFieldDisplayLabel(options.filter.field) ?? "The selected filter"} has no imported values to filter on.` };
     }
     if (!options.filter.value || options.filter.value === "all") {
       return { executable: false, reason: "Choose a filter value or remove the imported filter." };
@@ -724,8 +736,13 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   const bannerValues = config.bannerField ? importedFieldValues(config.dataset, config.bannerField) : ["Total"];
   const columnBases = new Map<string, number>(bannerValues.map((value) => [value, 0]));
   const counts = new Map<string, Map<string, { count: number; sum: number }>>();
+  let skippedBlankPrimaryResponses = 0;
   rows.forEach((row) => {
     const rawValue = row[config.field.sourceColumn] ?? "";
+    if (!rawValue.trim()) {
+      skippedBlankPrimaryResponses += 1;
+      return;
+    }
     const value = importedFieldDisplayValue(config.field, rawValue);
     const bannerValue = config.bannerField ? importedFieldDisplayValue(config.bannerField, row[config.bannerField.sourceColumn]) : "Total";
     const numericValue = config.measureField ? Number.parseFloat((row[config.measureField.sourceColumn] ?? "").replace(/,/g, "")) : null;
@@ -823,7 +840,9 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     },
     warnings: [
       ...(!config.dataset.rows?.length && sourceRows === config.dataset.previewRows ? ["Imported result is based on stored preview rows only."] : []),
-      ...(config.filter?.field && rows.length === 0 ? ["Imported filter returned no matching rows."] : [])
+      ...(config.filter?.field && rows.length === 0 ? ["Imported filter returned no matching rows."] : []),
+      ...(skippedBlankPrimaryResponses > 0 ? [`Skipped ${skippedBlankPrimaryResponses.toLocaleString()} row${skippedBlankPrimaryResponses === 1 ? "" : "s"} without an answer for ${importedFieldDisplayLabel(config.field)}.`] : []),
+      ...(skippedBlankPrimaryResponses === rows.length && rows.length > 0 ? [`No respondent answers were available for ${importedFieldDisplayLabel(config.field)} in the stored rows used for this result.`] : [])
     ],
     notes: [
       `Imported dataset: ${config.dataset.title}.`,

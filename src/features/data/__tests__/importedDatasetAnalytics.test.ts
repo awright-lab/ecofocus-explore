@@ -169,6 +169,74 @@ describe("imported dataset measure analytics", () => {
     expect(result.table.map((row) => row.values.summary)).toEqual([66.7, 33.3, 0]);
   });
 
+  it("does not inflate bases with rows that are blank for the selected survey field", () => {
+    const answerField = field("q10", "Q10: Lifestyle approach", "q10", {
+      nonEmptyCount: 2,
+      distinctCount: 2,
+      valueLabels: {
+        "1": "Not ready",
+        "2": "Ready"
+      }
+    });
+    const genderField = field("gender", "Gender", "gender", {
+      valueLabels: {
+        "1": "Male",
+        "2": "Female"
+      }
+    });
+    const surveyDataset: ImportedDatasetRecord = {
+      ...dataset,
+      fields: [answerField, genderField],
+      rows: [
+        { q10: "", gender: "1" },
+        { q10: "1", gender: "1" },
+        { q10: "", gender: "2" },
+        { q10: "2", gender: "2" }
+      ],
+      rowCount: 4,
+      fieldCount: 2
+    };
+
+    const result = runImportedDatasetQuery({
+      dataset: surveyDataset,
+      field: answerField,
+      bannerField: genderField,
+      filter: null,
+      chartType: "grouped_bar",
+      metric: "percent_selected"
+    });
+
+    expect(result.table.find((row) => row.label === "Not ready")?.values).toMatchObject({
+      female_1: 0,
+      male_2: 100
+    });
+    expect(result.table.find((row) => row.label === "Ready")?.values).toMatchObject({
+      female_1: 100,
+      male_2: 0
+    });
+    expect(result.table[0].bases).toMatchObject({
+      female_1: 1,
+      male_2: 1
+    });
+    expect(result.warnings).toContain("Skipped 2 rows without an answer for Q10: Lifestyle approach.");
+  });
+
+  it("blocks imported analysis when a field has labels but no respondent answers", () => {
+    const emptyAnswerField = field("q10", "Q10: Lifestyle approach", "q10", {
+      nonEmptyCount: 0,
+      distinctCount: 0,
+      valueLabels: {
+        "1": "Not ready",
+        "2": "Ready"
+      }
+    });
+
+    expect(getImportedDatasetQuerySupport(dataset, emptyAnswerField)).toMatchObject({
+      executable: false,
+      reason: "Q10: Lifestyle approach has answer choices, but no respondent answers were imported for that field."
+    });
+  });
+
   it("builds grounded imported query recommendations from modeled field roles", () => {
     expect(firstImportedDimensionField(dataset)?.id).toBe("segment");
     expect(firstImportedMeasureField(dataset)?.id).toBe("spend");
