@@ -490,12 +490,6 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           </button>
         </div>
       </AssistantFolder>
-      <AssistantFolder title="Takeaway draft" helper="Grounded starter copy">
-        <div className="assistant-ai-takeaway">
-          <p>Workplace culture is the top priority for employees, outpacing compensation and career growth. With support at work still lagging, organizations have a clear opportunity to build stronger cultures that attract and retain top talent.</p>
-          <small>Use as starter copy; verify against the selected result before publishing.</small>
-        </div>
-      </AssistantFolder>
     </div>
   ) : null;
 

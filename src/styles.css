@@ -3376,8 +3376,7 @@ h2 {
 
 .assistant-folder-body .inspector-story-card,
 .assistant-folder-body .inspector-story-arc-card,
-.assistant-folder-body .inspector-ai-takeaway,
-.assistant-folder-body .assistant-ai-takeaway {
+.assistant-folder-body .inspector-ai-takeaway {
   box-shadow: none;
 }
 
@@ -3477,31 +3476,6 @@ h2 {
   background: var(--swatch-color);
   padding: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
-}
-
-.assistant-ai-takeaway {
-  display: grid;
-  gap: 8px;
-  border-top: 1px solid #e4e9ee;
-  padding-top: 10px;
-}
-
-.assistant-ai-takeaway p {
-  margin: 0;
-  border: 1px solid #dce4ec;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #253247;
-  padding: 12px;
-  font-size: 0.78rem;
-  font-weight: 650;
-  line-height: 1.44;
-}
-
-.assistant-ai-takeaway > small {
-  color: #8a95a3;
-  font-size: 0.68rem;
-  font-weight: 650;
 }
 
 .assistant-next-step-card {
@@ -11910,7 +11884,6 @@ button:active:not(:disabled) {
   box-shadow: 0 8px 20px rgba(0, 139, 137, 0.08);
 }
 
-.assistant-ai-takeaway p,
 .inspector-ai-takeaway,
 .inspector-story-card,
 .inspector-story-arc-card,
@@ -11927,10 +11900,6 @@ button:active:not(:disabled) {
   border-color: rgba(224, 232, 238, 0.9);
   background: #fbfcfd;
   box-shadow: none;
-}
-
-.assistant-ai-takeaway p {
-  font-weight: 680;
 }
 
 .assistant-side-rail button:hover,
