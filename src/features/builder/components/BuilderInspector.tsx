@@ -43,18 +43,16 @@ import type {
 import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputModel";
 
-type AssistantRailIcon = "templates" | "themes" | "layout" | "widgets" | "text" | "images" | "elements" | "data";
+type AssistantRailIcon = "style" | "page" | "layout" | "tile" | "data" | "insight";
 
 function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
   const paths: Record<AssistantRailIcon, ReactNode> = {
-    templates: <><rect x="4" y="4" width="6" height="16" rx="1.5" /><rect x="14" y="4" width="6" height="7" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" /></>,
-    themes: <><path d="M5 13.5 12 4l7 9.5" /><path d="M7.5 12.5h9l-2 7h-5z" /><circle cx="12" cy="13" r="2" /></>,
+    style: <><path d="M5 19c3.8 1.2 6.5-1.1 6.5-4.1 0-1.4-1-2.6-2.4-2.6H7.5A3.5 3.5 0 0 1 4 8.8C4 5.9 6.5 4 9.8 4H12c4.4 0 8 3.3 8 7.5S16.6 19 12.2 19H11" /><circle cx="9" cy="7.5" r="1" /><circle cx="13" cy="7.4" r="1" /><circle cx="16" cy="10.2" r="1" /></>,
+    page: <><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h4" /></>,
     layout: <><rect x="4" y="5" width="7" height="6" rx="1.5" /><rect x="13" y="5" width="7" height="6" rx="1.5" /><rect x="4" y="13" width="16" height="6" rx="1.5" /></>,
-    widgets: <><rect x="4" y="4" width="6" height="6" rx="1.5" /><rect x="14" y="4" width="6" height="6" rx="1.5" /><rect x="4" y="14" width="6" height="6" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" /></>,
-    text: <><path d="M5 6h14" /><path d="M12 6v13" /><path d="M8 19h8" /></>,
-    images: <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m7 17 4.5-4.5L15 16l2-2 2 3" /></>,
-    elements: <><circle cx="8" cy="8" r="3" /><rect x="13" y="5" width="6" height="6" rx="1.5" /><path d="M5 19h14l-7-7z" /></>,
-    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>
+    tile: <><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M7 15h10" /><path d="M8 12l2.4-3 2.4 2 2-2.5L17 12" /></>,
+    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
+    insight: <><path d="M12 3.5 13.7 8l4.8 1.6-4.8 1.7L12 16l-1.7-4.7-4.8-1.7L10.3 8z" /><path d="M18 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" /></>
   };
 
   return (
@@ -304,6 +302,70 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           label: "Start with a story section",
           helper: "Use the Brand panel starters for KPI strips, insight callouts, chart commentary, or opportunity cards."
         };
+  const assistantRailItems: Array<{
+    id: "style" | "page" | "layout" | "tile" | "data" | "insight";
+    label: string;
+    icon: AssistantRailIcon;
+    disabled?: boolean;
+    active: boolean;
+    helper: string;
+  }> = [
+    {
+      id: "style",
+      label: "Style",
+      icon: "style",
+      active: inspectorSurface === "style" && settingsView === "home",
+      helper: "Show the main style assistant."
+    },
+    {
+      id: "page",
+      label: "Page",
+      icon: "page",
+      active: inspectorSurface === "style" && settingsView === "page",
+      helper: "Edit page theme, background, grid, and slide setup."
+    },
+    {
+      id: "layout",
+      label: "Arrange",
+      icon: "layout",
+      disabled: !selectedTile && !selectedElement,
+      active: inspectorSurface === "style" && settingsView === "layout",
+      helper: "Align, layer, resize, and position the selected object."
+    },
+    {
+      id: "tile",
+      label: selectedElement ? "Element" : "Tile",
+      icon: "tile",
+      disabled: !selectedTile && !selectedElement,
+      active: inspectorSurface === "style" && (settingsView === "chart" || settingsView === "element" || settingsView === "container"),
+      helper: selectedElement ? "Edit the selected element styling." : "Edit chart, tile, and container styling."
+    },
+    {
+      id: "data",
+      label: "Data",
+      icon: "data",
+      active: inspectorSurface === "data",
+      helper: "Review the selected analysis source, query, and result."
+    },
+    {
+      id: "insight",
+      label: "Insight",
+      icon: "insight",
+      active: inspectorSurface === "insight",
+      helper: "Review story guidance and evidence framing."
+    }
+  ];
+  function activateAssistantRailItem(itemId: typeof assistantRailItems[number]["id"]) {
+    if (itemId === "data" || itemId === "insight") {
+      setInspectorSurface(itemId);
+      return;
+    }
+    setInspectorSurface("style");
+    if (itemId === "style") setSettingsView("home");
+    if (itemId === "page") setSettingsView("page");
+    if (itemId === "layout") setSettingsView("layout");
+    if (itemId === "tile") setSettingsView(selectedElement ? "element" : "chart");
+  }
   const chartTypeOptions = selectedTile
     ? defaultDataset.chartTypes
         .filter((chartTypeOption) => chartTypeOption.supportedMetrics.includes(selectedTile.query.metric))
@@ -392,12 +454,12 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <em>with key insight</em>
         </button>
         <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
-          <span className="layout-suggestion-icon"><AssistantIcon icon="widgets" /></span>
+          <span className="layout-suggestion-icon"><AssistantIcon icon="tile" /></span>
           <span><strong>KPI strip on top</strong><small>Emphasize KPIs above</small></span>
           <em>main charts</em>
         </button>
         <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("footer")}>
-          <span className="layout-suggestion-icon"><AssistantIcon icon="templates" /></span>
+          <span className="layout-suggestion-icon"><AssistantIcon icon="page" /></span>
           <span><strong>Full width hero</strong><small>Make this chart full width</small></span>
           <em>greater impact</em>
         </button>
@@ -648,19 +710,18 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   return (
 <BuilderPanel className="panel settings story-inspector" label="Design and insight inspector">
           <div className="assistant-side-rail" aria-label="Assistant tools">
-            {[
-              ["templates", "Templates"],
-              ["themes", "Themes"],
-              ["layout", "Layout"],
-              ["widgets", "Widgets"],
-              ["text", "Text"],
-              ["images", "Images"],
-              ["elements", "Elements"],
-              ["data", "Data"]
-            ].map(([icon, label], index) => (
-              <button type="button" className={index === 0 ? "active" : ""} key={label}>
-                <AssistantIcon icon={icon as AssistantRailIcon} />
-                <span>{label}</span>
+            {assistantRailItems.map((item) => (
+              <button
+                type="button"
+                className={item.active ? "active" : ""}
+                key={item.id}
+                disabled={item.disabled}
+                title={item.helper}
+                aria-pressed={item.active}
+                onClick={() => activateAssistantRailItem(item.id)}
+              >
+                <AssistantIcon icon={item.icon} />
+                <span>{item.label}</span>
               </button>
             ))}
           </div>

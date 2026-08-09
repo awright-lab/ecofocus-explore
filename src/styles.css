@@ -2970,7 +2970,7 @@ h2 {
 
 .story-inspector {
   gap: 12px;
-  padding-right: 64px;
+  padding-right: 66px;
 }
 
 .assistant-side-rail {
@@ -2980,11 +2980,11 @@ h2 {
   bottom: 0;
   display: grid;
   align-content: start;
-  gap: 6px;
-  width: 54px;
+  gap: 4px;
+  width: 58px;
   border-left: 1px solid #e0e6eb;
   background: #ffffff;
-  padding: 54px 4px 12px;
+  padding: 52px 5px 12px;
 }
 
 .assistant-side-rail button {
@@ -2993,16 +2993,21 @@ h2 {
   gap: 3px;
   min-height: 48px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 11px;
   background: transparent;
   color: #34434e;
-  padding: 4px 1px;
-  font-size: 0.57rem;
-  font-weight: 800;
+  padding: 5px 1px;
+  font-size: 0.55rem;
+  font-weight: 850;
+  line-height: 1.05;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
 }
 
 .assistant-side-rail button span {
   display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .assistant-rail-icon {
@@ -3014,6 +3019,17 @@ h2 {
 .assistant-side-rail button:hover {
   background: #f2f8f7;
   color: #08715f;
+}
+
+.assistant-side-rail button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.assistant-side-rail button:disabled:hover {
+  background: transparent;
+  color: #34434e;
+  box-shadow: none;
 }
 
 .inspector-shell-title {
@@ -11893,14 +11909,15 @@ button:active:not(:disabled) {
   font-weight: 680;
 }
 
-.assistant-side-rail button {
-  border-radius: 9px;
-}
-
 .assistant-side-rail button:hover,
 .assistant-side-rail button.active {
   background: #eef9f8;
   box-shadow: inset 3px 0 0 #008b89;
+}
+
+.assistant-side-rail button:disabled:hover {
+  background: transparent;
+  box-shadow: none;
 }
 
 .canvas-viewport {
