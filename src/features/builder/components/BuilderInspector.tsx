@@ -64,6 +64,32 @@ function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
   );
 }
 
+function AssistantFolder({
+  title,
+  helper,
+  defaultOpen = false,
+  children
+}: {
+  title: string;
+  helper: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details className="assistant-folder" open={defaultOpen}>
+      <summary>
+        <span>
+          <strong>{title}</strong>
+          <small>{helper}</small>
+        </span>
+      </summary>
+      <div className="assistant-folder-body">
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export type BuilderInspectorProps = {
   outcomeMode: OutcomeWorkspaceMode | null;
   outcomeLabel: string;
@@ -377,101 +403,99 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     : "custom";
   const styleQuickCard = selectedTile ? (
     <div className="assistant-style-card">
-      <div className="assistant-section-label">Chart</div>
-      <label>
-        Chart type
-        <select
-          value={selectedTile.visualization}
-          onChange={(event) => updateSelectedTile(tileWithVisualization(selectedTile, event.target.value as ChartType))}
-        >
-          {chartTypeOptions.map((type) => (
-            <option key={type} value={type}>{getChartTypeLabel(type)}</option>
-          ))}
-        </select>
-      </label>
-      <label className="toggle-row">
-        <span>Show significance markers</span>
-        <input
-          type="checkbox"
-          checked={selectedTile.appearance.showAnnotations}
-          onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })}
-        />
-      </label>
-      <label className="toggle-row">
-        <span>Show sample size</span>
-        <input
-          type="checkbox"
-          checked={selectedTile.appearance.showBases}
-          onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })}
-        />
-      </label>
-      <div className="assistant-section-label">Style</div>
-      <span className="assistant-field-label">Color theme</span>
-      <div className="assistant-palette-row" aria-label="Color theme">
-        {designPalettes.slice(0, 5).map((palette) => (
-          <button
-            type="button"
-            key={palette.id}
-            className={activeDesignPaletteId === palette.id ? "active" : ""}
-            title={palette.label}
-            onClick={() => applyPalettePresetToBars(palette.colors)}
-            style={{ "--swatch-color": palette.colors[0] } as CSSProperties}
+      <AssistantFolder title="Chart basics" helper={`${getChartTypeLabel(selectedTile.visualization)} · ${selectedTile.result.metric.label}`} defaultOpen>
+        <label>
+          Chart type
+          <select
+            value={selectedTile.visualization}
+            onChange={(event) => updateSelectedTile(tileWithVisualization(selectedTile, event.target.value as ChartType))}
+          >
+            {chartTypeOptions.map((type) => (
+              <option key={type} value={type}>{getChartTypeLabel(type)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="toggle-row">
+          <span>Show significance markers</span>
+          <input
+            type="checkbox"
+            checked={selectedTile.appearance.showAnnotations}
+            onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })}
           />
-        ))}
-      </div>
-      <label>
-        Number format
-        <select value="percentage" onChange={() => undefined}>
-          <option value="percentage">Percentage (0%)</option>
-          <option value="whole">Whole number</option>
-          <option value="decimal">Decimal</option>
-        </select>
-      </label>
-      <label>
-        Font
-        <select value={selectedTile.appearance.axisFontSize > 12 ? "Inter" : "Inter"} onChange={() => undefined}>
-          <option value="Inter">Inter</option>
-          <option value="Georgia">Georgia</option>
-          <option value="IBM Plex Sans">IBM Plex Sans</option>
-        </select>
-      </label>
-      <label>
-        Title style
-        <select value="title-case" onChange={() => undefined}>
-          <option value="title-case">Title Case</option>
-          <option value="sentence">Sentence case</option>
-          <option value="compact">Compact label</option>
-        </select>
-      </label>
-      <div className="layout-suggestion-list">
-        <div className="assistant-section-header">
-          <strong>Layout suggestions</strong>
-          <small>See all</small>
+        </label>
+        <label className="toggle-row">
+          <span>Show sample size</span>
+          <input
+            type="checkbox"
+            checked={selectedTile.appearance.showBases}
+            onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })}
+          />
+        </label>
+      </AssistantFolder>
+      <AssistantFolder title="Theme and type" helper={`${designPalettes.find((palette) => palette.id === activeDesignPaletteId)?.label ?? "Custom"} palette`}>
+        <span className="assistant-field-label">Color theme</span>
+        <div className="assistant-palette-row" aria-label="Color theme">
+          {designPalettes.slice(0, 5).map((palette) => (
+            <button
+              type="button"
+              key={palette.id}
+              className={activeDesignPaletteId === palette.id ? "active" : ""}
+              title={palette.label}
+              onClick={() => applyPalettePresetToBars(palette.colors)}
+              style={{ "--swatch-color": palette.colors[0] } as CSSProperties}
+            />
+          ))}
         </div>
-        <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
-          <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
-          <span><strong>Balanced two-column</strong><small>Keep charts side by side</small></span>
-          <em>with key insight</em>
-        </button>
-        <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
-          <span className="layout-suggestion-icon"><AssistantIcon icon="tile" /></span>
-          <span><strong>KPI strip on top</strong><small>Emphasize KPIs above</small></span>
-          <em>main charts</em>
-        </button>
-        <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("footer")}>
-          <span className="layout-suggestion-icon"><AssistantIcon icon="page" /></span>
-          <span><strong>Full width hero</strong><small>Make this chart full width</small></span>
-          <em>greater impact</em>
-        </button>
-      </div>
-      <div className="assistant-ai-takeaway">
-        <div className="assistant-section-header">
-          <strong>Takeaway draft ✨</strong>
-          <small>Grounded</small>
+        <label>
+          Number format
+          <select value="percentage" onChange={() => undefined}>
+            <option value="percentage">Percentage (0%)</option>
+            <option value="whole">Whole number</option>
+            <option value="decimal">Decimal</option>
+          </select>
+        </label>
+        <label>
+          Font
+          <select value={selectedTile.appearance.axisFontSize > 12 ? "Inter" : "Inter"} onChange={() => undefined}>
+            <option value="Inter">Inter</option>
+            <option value="Georgia">Georgia</option>
+            <option value="IBM Plex Sans">IBM Plex Sans</option>
+          </select>
+        </label>
+        <label>
+          Title style
+          <select value="title-case" onChange={() => undefined}>
+            <option value="title-case">Title Case</option>
+            <option value="sentence">Sentence case</option>
+            <option value="compact">Compact label</option>
+          </select>
+        </label>
+      </AssistantFolder>
+      <AssistantFolder title="Layout suggestions" helper="Quick placement patterns">
+        <div className="layout-suggestion-list">
+          <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
+            <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
+            <span><strong>Balanced two-column</strong><small>Keep charts side by side</small></span>
+            <em>with key insight</em>
+          </button>
+          <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
+            <span className="layout-suggestion-icon"><AssistantIcon icon="tile" /></span>
+            <span><strong>KPI strip on top</strong><small>Emphasize KPIs above</small></span>
+            <em>main charts</em>
+          </button>
+          <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("footer")}>
+            <span className="layout-suggestion-icon"><AssistantIcon icon="page" /></span>
+            <span><strong>Full width hero</strong><small>Make this chart full width</small></span>
+            <em>greater impact</em>
+          </button>
         </div>
-        <p>Workplace culture is the top priority for employees, outpacing compensation and career growth. With support at work still lagging, organizations have a clear opportunity to build stronger cultures that attract and retain top talent.</p>
-        <small>Use as starter copy; verify against the selected result before publishing.</small>
-      </div>
+      </AssistantFolder>
+      <AssistantFolder title="Takeaway draft" helper="Grounded starter copy">
+        <div className="assistant-ai-takeaway">
+          <p>Workplace culture is the top priority for employees, outpacing compensation and career growth. With support at work still lagging, organizations have a clear opportunity to build stronger cultures that attract and retain top talent.</p>
+          <small>Use as starter copy; verify against the selected result before publishing.</small>
+        </div>
+      </AssistantFolder>
     </div>
   ) : null;
 
@@ -602,8 +626,12 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         <strong>{assistantNextStep.label}</strong>
         <small>{assistantNextStep.helper}</small>
       </div>
-      <TileAnalysisResultSection {...props} />
-      <TileAnalysisQuerySection {...props} />
+      <AssistantFolder title="Result details" helper={`${dataContext?.rows} rows · ${dataContext?.columns} columns`} defaultOpen>
+        <TileAnalysisResultSection {...props} />
+      </AssistantFolder>
+      <AssistantFolder title="Query setup" helper={`${dataContext?.chart} · ${dataContext?.banner}`}>
+        <TileAnalysisQuerySection {...props} />
+      </AssistantFolder>
     </>
   ) : (
     <div className="inspector-story-card quiet">
@@ -632,62 +660,70 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         <strong>{inspectorFocus.title}</strong>
         <small>{storyGuidance.selectedRoleHelper}</small>
       </div>
-      <div className="inspector-story-arc-card">
-        <div>
-          <span>Page role</span>
-          <strong>{storyGuidance.pageRoleLabel}</strong>
-          <small>{storyGuidance.pagePurpose}</small>
+      <AssistantFolder title="Story structure" helper={`${storyGuidance.pageRoleLabel} · ${storyGuidance.arcLabel}`} defaultOpen>
+        <div className="inspector-story-arc-card">
+          <div>
+            <span>Page role</span>
+            <strong>{storyGuidance.pageRoleLabel}</strong>
+            <small>{storyGuidance.pagePurpose}</small>
+          </div>
+          <div>
+            <span>Suggested arc</span>
+            <strong>{storyGuidance.arcLabel}</strong>
+            <small>{storyGuidance.nextStepLabel}: {storyGuidance.nextStepHelper}</small>
+          </div>
+          <div>
+            <span>Page flow</span>
+            <strong>{storyGuidance.pageFlowLabel}</strong>
+            <small>{storyGuidance.pageFlowHelper}</small>
+          </div>
         </div>
-        <div>
-          <span>Suggested arc</span>
-          <strong>{storyGuidance.arcLabel}</strong>
-          <small>{storyGuidance.nextStepLabel}: {storyGuidance.nextStepHelper}</small>
-        </div>
-        <div>
-          <span>Page flow</span>
-          <strong>{storyGuidance.pageFlowLabel}</strong>
-          <small>{storyGuidance.pageFlowHelper}</small>
-        </div>
-      </div>
+      </AssistantFolder>
       {selectedTile ? (
         <>
-          <div className="inspector-story-grid">
-            <div className="inspector-story-metric">
-              <span>Evidence</span>
-              <strong>{leadValueLabel ?? `${selectedTile.result.table.length} rows`}</strong>
-              <small>{leadRow?.label ?? `${selectedTile.result.columns.length} result columns`}</small>
+          <AssistantFolder title="Evidence snapshot" helper={leadValueLabel ? `${leadValueLabel} lead visible result` : `${selectedTile.result.table.length} result rows`} defaultOpen>
+            <div className="inspector-story-grid">
+              <div className="inspector-story-metric">
+                <span>Evidence</span>
+                <strong>{leadValueLabel ?? `${selectedTile.result.table.length} rows`}</strong>
+                <small>{leadRow?.label ?? `${selectedTile.result.columns.length} result columns`}</small>
+              </div>
+              <div className="inspector-story-metric">
+                <span>Confidence</span>
+                <strong>{Math.round(selectedTile.result.statistics.confidenceLevel * 100)}%</strong>
+                <small>{selectedTile.result.weighting.label}</small>
+              </div>
             </div>
-            <div className="inspector-story-metric">
-              <span>Confidence</span>
-              <strong>{Math.round(selectedTile.result.statistics.confidenceLevel * 100)}%</strong>
-              <small>{selectedTile.result.weighting.label}</small>
-            </div>
-          </div>
-          <div className="inspector-story-card quiet">
-            <span>Analytical context</span>
-            <strong>{executionSummary}</strong>
-            <small>{selectedTile.result.statistics.significance.comparisonBasis} basis · {dataContext?.banner}</small>
-            <div className="inspector-context-chips">
-              <span>{selectedTile.result.weighting.applied ? "Weighted" : "Unweighted"}</span>
-              <span>{selectedTile.result.statistics.significance.method.replace("_", " ")}</span>
-              <span>{selectedTile.result.metric.label}</span>
-            </div>
-          </div>
-          <div className="inspector-ai-takeaway">
-            <div>
-              <span>Story takeaway</span>
-              <small>Grounded in current result</small>
-            </div>
-            <p>{groundedTakeaway}</p>
-          </div>
-          {(insightWarnings.length > 0 || insightNotes.length > 0) && (
             <div className="inspector-story-card quiet">
-              <span>Result notes</span>
-              <strong>{insightWarnings.length > 0 ? `${insightWarnings.length} warning${insightWarnings.length === 1 ? "" : "s"}` : "No provider warnings"}</strong>
-              {[...insightWarnings, ...insightNotes].slice(0, 4).map((note) => (
-                <small key={note}>{note}</small>
-              ))}
+              <span>Analytical context</span>
+              <strong>{executionSummary}</strong>
+              <small>{selectedTile.result.statistics.significance.comparisonBasis} basis · {dataContext?.banner}</small>
+              <div className="inspector-context-chips">
+                <span>{selectedTile.result.weighting.applied ? "Weighted" : "Unweighted"}</span>
+                <span>{selectedTile.result.statistics.significance.method.replace("_", " ")}</span>
+                <span>{selectedTile.result.metric.label}</span>
+              </div>
             </div>
+          </AssistantFolder>
+          <AssistantFolder title="Takeaway" helper="Grounded draft interpretation">
+            <div className="inspector-ai-takeaway">
+              <div>
+                <span>Story takeaway</span>
+                <small>Grounded in current result</small>
+              </div>
+              <p>{groundedTakeaway}</p>
+            </div>
+          </AssistantFolder>
+          {(insightWarnings.length > 0 || insightNotes.length > 0) && (
+            <AssistantFolder title="Warnings and notes" helper={`${insightWarnings.length} warnings · ${insightNotes.length} notes`}>
+              <div className="inspector-story-card quiet">
+                <span>Result notes</span>
+                <strong>{insightWarnings.length > 0 ? `${insightWarnings.length} warning${insightWarnings.length === 1 ? "" : "s"}` : "No provider warnings"}</strong>
+                {[...insightWarnings, ...insightNotes].slice(0, 4).map((note) => (
+                  <small key={note}>{note}</small>
+                ))}
+              </div>
+            </AssistantFolder>
           )}
           <button type="button" className="menu-card" onClick={() => {
             setInspectorSurface("style");
