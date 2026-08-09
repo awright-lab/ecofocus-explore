@@ -685,8 +685,8 @@ function ImportedTileQueryEditor({
         metric: effectiveMetric
       });
       const title = queryMode === "measure" && measureField
-        ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${measureField.label} by ${primaryField.label}`
-        : primaryField.label;
+        ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${importedFieldDisplayLabel(measureField)} by ${importedFieldDisplayLabel(primaryField)}`
+        : importedFieldDisplayLabel(primaryField);
       updateSelectedTile({
         name: title,
         title,
@@ -747,7 +747,7 @@ function ImportedTileQueryEditor({
       </div>
       <div className="guided-query-field-grid">
         <label>
-          What do you want to do?
+          What do you want to show?
           <select
             value={queryMode}
             onChange={(event) => {
@@ -757,7 +757,7 @@ function ImportedTileQueryEditor({
               if (nextMode === "measure") setMeasureFieldId(measureOptions[0]?.id ?? "none");
             }}
           >
-            <option value="categorical">Count responses by a field</option>
+            <option value="categorical">Responses for this field</option>
             <option value="measure">Average or sum a number</option>
           </select>
         </label>
@@ -775,9 +775,9 @@ function ImportedTileQueryEditor({
       </div>
       <div className="guided-query-field-grid">
         <label>
-          Break out by
+          Optional breakout
           <select value={bannerField?.id ?? "none"} onChange={(event) => setBannerFieldId(event.target.value)}>
-            <option value="none">No breakout</option>
+            <option value="none">No breakout - all respondents</option>
             {bannerOptions.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}

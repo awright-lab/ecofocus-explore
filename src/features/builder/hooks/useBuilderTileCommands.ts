@@ -10,6 +10,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
+import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import {
   buildSmartCompositionBlockFromTile,
   createObjectsFromCompositionBlock,
@@ -306,9 +307,11 @@ export function useBuilderTileCommands({
       const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
       const measureField = options?.measureField ?? null;
       const isMeasureTile = (nextMetric === "average" || nextMetric === "sum") && measureField;
+      const fieldLabel = importedFieldDisplayLabel(field);
+      const measureLabel = importedFieldDisplayLabel(measureField);
       const tileLabel = isMeasureTile
-        ? `${nextMetric === "sum" ? "Sum of" : "Average"} ${measureField.label} by ${field.label}`
-        : field.label;
+        ? `${nextMetric === "sum" ? "Sum of" : "Average"} ${measureLabel} by ${fieldLabel}`
+        : fieldLabel;
       const sourceLabel = `${dataset.title}: ${tileLabel}`;
       const tile: DashboardTile = {
         id: tileId,

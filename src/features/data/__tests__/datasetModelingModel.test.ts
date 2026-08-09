@@ -3,8 +3,11 @@ import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../sh
 import {
   buildImportedDatasetModelingHealth,
   buildImportedFieldModelingProfile,
-  buildImportedDatasetStructureSummary
+  buildImportedDatasetStructureSummary,
+  importedFieldAnswerChoiceSummary,
+  importedFieldDisplayLabel
 } from "../datasetModelingModel";
+import { importedSurveyQuestionPrompt } from "../importedSurveyLabelModel";
 
 function field(
   id: string,
@@ -134,5 +137,28 @@ describe("imported dataset modeling model", () => {
       analyticalRoleSummary: "Modeled as a date/time field; imported date analysis is not supported yet.",
       dateTreatment: "Date fields are preserved as metadata until imported date grouping or trend analysis is added."
     });
+  });
+
+  it("turns SAV variable labels into concise survey question labels and answer-choice context", () => {
+    const q10 = field("Q10", "Q10: Which one of the following best describes you and your approach to making your lifestyle more eco-friendly?", {
+      sourceColumn: "Q10",
+      variableLabel: "Q10: Which one of the following best describes you and your approach to making your lifestyle more eco-friendly?",
+      valueLabels: {
+        "1": "I don't feel any need to make changes",
+        "2": "I am not ready to make any changes",
+        "3": "I am ready to make moderate or small changes",
+        "4": "I am ready to make significant changes",
+        "5": "I already lead a very eco-friendly lifestyle"
+      }
+    });
+    const q2g1 = field("Q2G1", "Q2G1: Use cloth or reusable shopping bag when grocery shopping - We are interested in learning about some of your everyday activities and lifestyle choices.", {
+      sourceColumn: "Q2G1",
+      variableLabel: "Q2G1: Use cloth or reusable shopping bag when grocery shopping - We are interested in learning about some of your everyday activities and lifestyle choices."
+    });
+
+    expect(importedFieldDisplayLabel(q10)).toBe("Q10: Which one of the following best describes you and your approach to making your lifestyle more eco-friendly?");
+    expect(importedFieldAnswerChoiceSummary(q10)).toBe("5 answer choices imported");
+    expect(importedFieldDisplayLabel(q2g1)).toBe("Q2G1: Use cloth or reusable shopping bag when grocery shopping");
+    expect(importedSurveyQuestionPrompt(q2g1)).toBe("We are interested in learning about some of your everyday activities and lifestyle choices.");
   });
 });

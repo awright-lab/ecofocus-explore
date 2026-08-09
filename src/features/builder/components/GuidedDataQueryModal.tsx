@@ -3,12 +3,15 @@ import { bannerDimensions, comparisonDatasetOptions, defaultDataset, filterDimen
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import {
   buildImportedDatasetStructureSummary,
+  importedFieldAnswerChoices,
+  importedFieldAnswerChoiceSummary,
   importedBannerPlainLabel,
   importedDatasetMetadataQualityLabel,
   importedFieldDisplayLabel,
   importedFieldRawNameLabel,
   importedFieldTypeLabel
 } from "../../data/datasetModelingModel";
+import { importedSurveyQuestionPrompt } from "../../data/importedSurveyLabelModel";
 import {
   buildImportedFieldSuitability,
   buildImportedQueryRecommendations,
@@ -106,6 +109,9 @@ export function GuidedDataQueryModal({
     ? importedPrimaryFieldCandidates
     : importedSummary.fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
   const importedField = importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? importedPrimaryFields[0] ?? null;
+  const importedAnswerChoices = importedFieldAnswerChoices(importedField);
+  const importedAnswerChoiceSummary = importedFieldAnswerChoiceSummary(importedField);
+  const importedQuestionPrompt = importedSurveyQuestionPrompt(importedField);
   const importedMeasureFieldCandidates = importedSummary.fields.filter((field) =>
     (field.type === "numeric" || field.modelingRole === "candidate_measure") && isImportedFieldAnalysisCandidate(field)
   );
@@ -221,7 +227,7 @@ export function GuidedDataQueryModal({
   }
 
   function applyImportedRecommendation(recommendation: typeof importedRecommendations[number]) {
-    setImportedQueryMode(recommendation.id);
+    setImportedQueryMode(recommendation.id === "measure" ? "measure" : "categorical");
     setImportedMetric(recommendation.metric);
     setSelectedImportedBannerFieldId(recommendation.bannerFieldId ?? "none");
     setSelectedImportedMeasureFieldId(recommendation.measureFieldId ?? "none");
@@ -316,17 +322,39 @@ export function GuidedDataQueryModal({
                   <div className="guided-query-variable-card">
                     <strong>{importedFieldDisplayLabel(importedField)}</strong>
                     <span>
-                      {importedFieldSuitability?.readiness.bestUse ?? "Use this field for imported analysis."}
+                      {importedAnswerChoiceSummary ?? importedFieldSuitability?.readiness.bestUse ?? "Use this field for imported analysis."}
                     </span>
                     {importedFieldSuitability && (
                       <small>{importedFieldSuitability.readiness.reason}</small>
+                    )}
+                    {importedAnswerChoices.length > 0 && (
+                      <div className="guided-query-answer-choices compact" aria-label="Imported answer choice preview">
+                        <div>
+                          {importedAnswerChoices.slice(0, 5).map((choice) => (
+                            <span key={choice.value}>{choice.label}</span>
+                          ))}
+                        </div>
+                        {importedAnswerChoices.length > 5 && <small>{(importedAnswerChoices.length - 5).toLocaleString()} more choices</small>}
+                      </div>
                     )}
                     <details className="guided-query-field-details">
                       <summary>Field details</summary>
                       <div>
                         <small>{importedFieldTypeLabel(importedField.type)} · {importedField.distinctCount.toLocaleString()} answer value{importedField.distinctCount === 1 ? "" : "s"} · {importedDatasetMetadataQualityLabel(importedDataset)}</small>
+                        {importedQuestionPrompt && <small>Question prompt: {importedQuestionPrompt}</small>}
                         {importedFieldRawNameLabel(importedField) && <small>{importedFieldRawNameLabel(importedField)}</small>}
                         <small>{importedSummary.filterLabel}. {importedSummary.bannerLabel}.</small>
+                        {importedAnswerChoices.length > 0 && (
+                          <div className="guided-query-answer-choices" aria-label="Imported answer choices">
+                            <strong>Answer choices</strong>
+                            <div>
+                              {importedAnswerChoices.slice(0, 8).map((choice) => (
+                                <span key={choice.value}>{choice.label}</span>
+                              ))}
+                            </div>
+                            {importedAnswerChoices.length > 8 && <small>{(importedAnswerChoices.length - 8).toLocaleString()} more answer choices</small>}
+                          </div>
+                        )}
                         {importedFieldSuitability && (
                           <div className="guided-query-mini-chips">
                             {importedFieldSuitability.badges.map((badge) => (
@@ -454,7 +482,7 @@ export function GuidedDataQueryModal({
                         {importedRecommendations.map((recommendation) => (
                           <button
                             type="button"
-                            className={recommendation.recommended && recommendation.id === importedQueryMode ? "guided-query-recommendation active" : "guided-query-recommendation"}
+                            className={recommendation.recommended && (recommendation.id === importedQueryMode || (recommendation.id === "categorical_breakout" && importedQueryMode === "categorical")) ? "guided-query-recommendation active" : "guided-query-recommendation"}
                             key={recommendation.id}
                             onClick={() => applyImportedRecommendation(recommendation)}
                           >
@@ -481,7 +509,7 @@ export function GuidedDataQueryModal({
                     )}
                     <div className="guided-query-field-grid">
                       <label>
-                        What do you want to do?
+                        What do you want to show?
                         <select
                           value={importedQueryMode}
                           onChange={(event) => {
@@ -491,7 +519,7 @@ export function GuidedDataQueryModal({
                             if (nextMode === "measure") setSelectedImportedMeasureFieldId(importedMeasureFields[0]?.id ?? "none");
                           }}
                         >
-                          <option value="categorical">Count responses by a field</option>
+                          <option value="categorical">Responses for this field</option>
                           <option value="measure">Average or sum a number</option>
                         </select>
                       </label>
@@ -507,9 +535,9 @@ export function GuidedDataQueryModal({
                         </label>
                       )}
                       <label>
-                        Break out by
+                        Optional breakout
                         <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
-                          <option value="none">No breakout</option>
+                          <option value="none">No breakout - all respondents</option>
                           {importedBannerFields.map((field) => (
                             <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                           ))}

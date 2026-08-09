@@ -102,7 +102,7 @@ describe("imported dataset measure analytics", () => {
       measureLabel: "Annual spend",
       metricLabel: "Average",
       bannerLabel: "Region",
-      baseLabel: "Valid measure n=3"
+      baseLabel: "Valid measure n = 3"
     });
     expect(provenance?.chips).toContain("Number: Annual spend");
   });
@@ -124,11 +124,49 @@ describe("imported dataset measure analytics", () => {
     expect(buildImportedResultProvenance(result)).toMatchObject({
       summaryLabel: "Sum Annual spend by Segment",
       filterLabel: "Region is West",
-      baseLabel: "Valid measure n=3"
+      baseLabel: "Valid measure n = 3"
     });
     expect(formatImportedMeasureValue(15, "average")).toBe("15");
     expect(formatImportedMeasureValue(15.4, "average")).toBe("15.4");
     expect(formatImportedMeasureValue(30, "sum")).toBe("30");
+  });
+
+  it("uses imported value labels as survey answer choices, including zero-response choices", () => {
+    const answerField = field("q10", "Q10: Lifestyle approach", "q10", {
+      distinctCount: 2,
+      valueLabels: {
+        "1": "Do this often",
+        "2": "Do this sometimes",
+        "3": "Not an option for me"
+      }
+    });
+    const surveyDataset: ImportedDatasetRecord = {
+      ...dataset,
+      fields: [answerField],
+      rows: [
+        { q10: "1" },
+        { q10: "1" },
+        { q10: "2" }
+      ],
+      rowCount: 3,
+      fieldCount: 1
+    };
+
+    const result = runImportedDatasetQuery({
+      dataset: surveyDataset,
+      field: answerField,
+      bannerField: null,
+      filter: null,
+      chartType: "vertical_bar",
+      metric: "percent_selected"
+    });
+
+    expect(result.table.map((row) => row.label)).toEqual([
+      "Do this often",
+      "Do this sometimes",
+      "Not an option for me"
+    ]);
+    expect(result.table.map((row) => row.values.summary)).toEqual([66.7, 33.3, 0]);
   });
 
   it("builds grounded imported query recommendations from modeled field roles", () => {
@@ -153,15 +191,23 @@ describe("imported dataset measure analytics", () => {
     expect(recommendations).toEqual([
       expect.objectContaining({
         id: "categorical",
-        label: "Count responses with a breakout",
-        chartType: "grouped_bar",
+        label: "Show responses for this field",
+        chartType: "vertical_bar",
         metric: "percent_selected",
-        bannerFieldId: "region",
+        bannerFieldId: null,
         recommended: true
       }),
       expect.objectContaining({
+        id: "categorical_breakout",
+        label: "Compare responses by a breakout",
+        chartType: "grouped_bar",
+        metric: "percent_selected",
+        bannerFieldId: "region",
+        recommended: false
+      }),
+      expect.objectContaining({
         id: "measure",
-        label: "Average or sum a number",
+        label: "Summarize a numeric field",
         chartType: "grouped_bar",
         metric: "average",
         measureFieldId: "spend"

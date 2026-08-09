@@ -1,5 +1,6 @@
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 import { buildImportedFieldSuitability } from "./importedDatasetAnalytics";
+import { importedSurveyQuestionDisplayLabel } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetModelingHealth {
   queryReadyDimensions: number;
@@ -29,7 +30,7 @@ export interface ImportedFieldModelingProfile {
 
 export function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
   if (!field) return "selected field";
-  return field.variableLabel?.trim() || field.label || field.sourceColumn;
+  return importedSurveyQuestionDisplayLabel(field);
 }
 
 export function importedFieldRawNameLabel(field: ImportedDatasetField | null | undefined) {
@@ -48,7 +49,25 @@ export function importedDatasetMetadataQualityLabel(dataset: ImportedDatasetReco
 export function importedFieldValueLabelPreview(field: ImportedDatasetField | null | undefined) {
   const entries = Object.entries(field?.valueLabels ?? {});
   if (!entries.length) return null;
-  return entries.slice(0, 4).map(([value, label]) => `${value} means ${label}`).join(" · ");
+  return importedFieldAnswerChoices(field).slice(0, 4).map((choice) => `${choice.value} means ${choice.label}`).join(" · ");
+}
+
+export function importedFieldAnswerChoices(field: ImportedDatasetField | null | undefined) {
+  const entries = Object.entries(field?.valueLabels ?? {});
+  return entries
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => {
+      const numericA = Number(a.value);
+      const numericB = Number(b.value);
+      if (Number.isFinite(numericA) && Number.isFinite(numericB)) return numericA - numericB;
+      return a.value.localeCompare(b.value);
+    });
+}
+
+export function importedFieldAnswerChoiceSummary(field: ImportedDatasetField | null | undefined) {
+  const choices = importedFieldAnswerChoices(field);
+  if (!choices.length) return null;
+  return `${choices.length.toLocaleString()} answer choice${choices.length === 1 ? "" : "s"} imported`;
 }
 
 export function importedGroupingPlainLabel(field: ImportedDatasetField | null | undefined) {
@@ -61,7 +80,7 @@ export function importedMeasurePlainLabel(field: ImportedDatasetField | null | u
 }
 
 export function importedQueryModePlainLabel(mode: "categorical" | "measure") {
-  return mode === "measure" ? "Average or sum a number" : "Count responses by a field";
+  return mode === "measure" ? "Average or sum a number" : "Responses for this field";
 }
 
 export function importedBannerPlainLabel(field: ImportedDatasetField | null | undefined) {

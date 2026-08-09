@@ -1,6 +1,7 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
+import { importedSurveyQuestionDisplayLabel } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetQueryConfig {
   dataset: ImportedDatasetRecord;
@@ -44,7 +45,7 @@ export interface ImportedFieldSuitabilityView {
 }
 
 export interface ImportedQueryRecommendationView {
-  id: "categorical" | "measure";
+  id: "categorical" | "categorical_breakout" | "measure";
   label: string;
   description: string;
   actionLabel: string;
@@ -131,7 +132,7 @@ function importedDatasetHasRows(dataset: ImportedDatasetRecord | null | undefine
 
 function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
   if (!field) return undefined;
-  return field.variableLabel?.trim() || field.label || field.sourceColumn;
+  return importedSurveyQuestionDisplayLabel(field);
 }
 
 function uniquePositiveBases(result: AnalyticsQueryResponse) {
@@ -527,23 +528,35 @@ export function buildImportedQueryRecommendations(
   const recommendations: ImportedQueryRecommendationView[] = [
     {
       id: "categorical",
-      label: bannerField ? "Count responses with a breakout" : `Count responses by ${fieldLabel}`,
-      description: bannerField
-        ? `Count responses for ${fieldLabel}, broken out by ${bannerLabel}.`
-        : `Count responses for ${fieldLabel}.`,
-      actionLabel: bannerField ? "Use breakout" : "Use response count",
-      chartType: bannerField ? "grouped_bar" : "vertical_bar",
+      label: "Show responses for this field",
+      description: `Show how all respondents answered ${fieldLabel}. No breakout or numeric summary is applied.`,
+      actionLabel: "Use all responses",
+      chartType: "vertical_bar",
       metric: "percent_selected",
-      bannerFieldId: bannerField?.id ?? null,
+      bannerFieldId: null,
       measureFieldId: null,
       recommended: options?.selectedQueryMode !== "measure"
     }
   ];
 
+  if (bannerField) {
+    recommendations.push({
+      id: "categorical_breakout",
+      label: "Compare responses by a breakout",
+      description: `Show responses for ${fieldLabel}, broken out by ${bannerLabel}.`,
+      actionLabel: "Use breakout",
+      chartType: "grouped_bar",
+      metric: "percent_selected",
+      bannerFieldId: bannerField.id,
+      measureFieldId: null,
+      recommended: false
+    });
+  }
+
   if (measureField && measureField.id !== field.id && measureField.id !== bannerField?.id) {
     recommendations.push({
       id: "measure",
-      label: "Average or sum a number",
+      label: "Summarize a numeric field",
       description: `Show average ${measureLabel} grouped by ${fieldLabel}.`,
       actionLabel: "Use numeric summary",
       chartType: bannerField ? "grouped_bar" : "vertical_bar",
@@ -682,6 +695,18 @@ function importedFieldDisplayValue(field: ImportedDatasetField, rawValue: string
   return field.valueLabels?.[value] ?? field.valueLabels?.[Number(value).toString()] ?? value;
 }
 
+function importedFieldAnswerChoiceLabels(field: ImportedDatasetField) {
+  return Object.entries(field.valueLabels ?? {})
+    .sort(([valueA], [valueB]) => {
+      const numericA = Number(valueA);
+      const numericB = Number(valueB);
+      if (Number.isFinite(numericA) && Number.isFinite(numericB)) return numericA - numericB;
+      return valueA.localeCompare(valueB);
+    })
+    .map(([, label]) => label.trim())
+    .filter(Boolean);
+}
+
 export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): AnalyticsQueryResponse {
   const support = getImportedDatasetQuerySupport(config.dataset, config.field, {
     bannerField: config.bannerField,
@@ -715,7 +740,12 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     });
     counts.set(value, rowCounts);
   });
-  const entries = Array.from(counts.entries()).sort((a, b) => {
+  const answerChoiceLabels = importedFieldAnswerChoiceLabels(config.field);
+  const entries = (answerChoiceLabels.length
+    ? answerChoiceLabels.map((label) => [label, counts.get(label) ?? new Map<string, { count: number; sum: number }>()] as const)
+    : Array.from(counts.entries())
+  ).sort((a, b) => {
+    if (answerChoiceLabels.length) return answerChoiceLabels.indexOf(a[0]) - answerChoiceLabels.indexOf(b[0]);
     const aTotal = Array.from(a[1].values()).reduce((sum, cell) => sum + cell.count, 0);
     const bTotal = Array.from(b[1].values()).reduce((sum, cell) => sum + cell.count, 0);
     return bTotal - aTotal || a[0].localeCompare(b[0]);

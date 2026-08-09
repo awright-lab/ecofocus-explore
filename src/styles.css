@@ -1599,6 +1599,48 @@ textarea {
   font-weight: 900;
 }
 
+.guided-query-answer-choices {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 7px;
+}
+
+.guided-query-answer-choices.compact {
+  background: #ffffff;
+  border: 1px solid rgba(214, 225, 232, 0.82);
+}
+
+.guided-query-answer-choices strong {
+  color: #41535f;
+  font-size: 0.62rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.guided-query-answer-choices > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.guided-query-answer-choices span {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(0, 139, 137, 0.14);
+  border-radius: 999px;
+  background: #eef8f6;
+  color: #08715f;
+  padding: 3px 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
 .guided-query-field-details {
   margin-top: 4px;
 }
