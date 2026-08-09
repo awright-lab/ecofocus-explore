@@ -471,22 +471,22 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           </select>
         </label>
       </AssistantFolder>
-      <AssistantFolder title="Layout suggestions" helper="Quick placement patterns">
+      <AssistantFolder title="Position shortcuts" helper="Moves the selected object only">
         <div className="layout-suggestion-list">
           <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
             <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
-            <span><strong>Balanced two-column</strong><small>Keep charts side by side</small></span>
-            <em>with key insight</em>
+            <span><strong>Left chart column</strong><small>Place this object in the left half</small></span>
+            <em>selected only</em>
           </button>
           <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
             <span className="layout-suggestion-icon"><AssistantIcon icon="tile" /></span>
-            <span><strong>KPI strip on top</strong><small>Emphasize KPIs above</small></span>
-            <em>main charts</em>
+            <span><strong>Lead chart frame</strong><small>Make this object wide and readable</small></span>
+            <em>top section</em>
           </button>
-          <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("footer")}>
-            <span className="layout-suggestion-icon"><AssistantIcon icon="page" /></span>
-            <span><strong>Full width hero</strong><small>Make this chart full width</small></span>
-            <em>greater impact</em>
+          <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("rightColumn")}>
+            <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
+            <span><strong>Right support column</strong><small>Move this object beside another block</small></span>
+            <em>comparison</em>
           </button>
         </div>
       </AssistantFolder>
@@ -763,11 +763,6 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           </div>
           <div className="inspector-shell-title">
             <h2><span aria-hidden="true">✣</span> Design + Insight Assistant</h2>
-          </div>
-          <div className="inspector-surface-tabs" role="tablist" aria-label="Inspector surfaces">
-            <button type="button" role="tab" aria-selected={inspectorSurface === "style"} className={inspectorSurface === "style" ? "active" : ""} onClick={() => setInspectorSurface("style")}>Style</button>
-            <button type="button" role="tab" aria-selected={inspectorSurface === "data"} className={inspectorSurface === "data" ? "active" : ""} onClick={() => setInspectorSurface("data")}>Data</button>
-            <button type="button" role="tab" aria-selected={inspectorSurface === "insight"} className={inspectorSurface === "insight" ? "active" : ""} onClick={() => setInspectorSurface("insight")}>Insight</button>
           </div>
           {inspectorSurface === "style" && styleSurface}
           {inspectorSurface === "data" && dataSurface}

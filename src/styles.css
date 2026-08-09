@@ -3053,43 +3053,6 @@ h2 {
   font-size: 0.98rem;
 }
 
-.inspector-surface-tabs {
-  display: flex;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  border-bottom: 1px solid #dce3ea;
-  background: transparent;
-}
-
-.inspector-surface-tabs button {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 34px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #263343;
-  padding: 0 6px;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.inspector-surface-tabs button.active {
-  color: #08715f;
-  box-shadow: none;
-}
-
-.inspector-surface-tabs button.active::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 999px;
-  background: #008b89;
-}
-
 .inspector-story-card {
   display: grid;
   gap: 7px;
@@ -11903,24 +11866,6 @@ button:active:not(:disabled) {
 .inspector-shell-title h2 {
   color: #111e2a;
   font-size: 0.9rem;
-}
-
-.inspector-surface-tabs {
-  margin-top: 2px;
-}
-
-.inspector-surface-tabs button {
-  color: #314152;
-}
-
-.inspector-surface-tabs button:hover {
-  color: #007a73;
-  background: rgba(0, 139, 137, 0.045);
-}
-
-.inspector-surface-tabs button.active::after {
-  height: 3px;
-  background: linear-gradient(90deg, #008b89, #12a69b);
 }
 
 .assistant-style-card {

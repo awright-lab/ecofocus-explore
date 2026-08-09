@@ -303,15 +303,15 @@ export function LayoutInspector(props: BuilderInspectorProps) {
               </div>
               <div className="settings-menu">
                 <button type="button" className="menu-card" onClick={() => applyLayoutPreset("hero")}>
-                  <strong>Hero frame</strong>
-                  <span>Wide placement near the top for lead stories and opening statements.</span>
+                  <strong>Lead chart frame</strong>
+                  <span>Wide, readable placement for a selected chart or primary evidence block.</span>
                 </button>
                 <button type="button" className="menu-card" onClick={() => applyLayoutPreset("leftColumn")}>
-                  <strong>Left column</strong>
-                  <span>Anchor the selected item into a narrow left reading column.</span>
+                  <strong>Left chart column</strong>
+                  <span>Anchor the selected item into the left half of the page.</span>
                 </button>
                 <button type="button" className="menu-card" onClick={() => applyLayoutPreset("rightColumn")}>
-                  <strong>Right column</strong>
+                  <strong>Right support column</strong>
                   <span>Move the selected item into a right-side comparison or support slot.</span>
                 </button>
                 <button type="button" className="menu-card" onClick={() => applyLayoutPreset("footer")}>

@@ -277,13 +277,15 @@ export function useBuilderDesignCommands({
     const layout = selectedTile?.layout ?? selectedElement?.layout;
     if (!layout) return;
 
+    const comfortableChartHeight = Math.max(layout.height, 340);
+    const columnHeight = Math.max(layout.height, 300);
     const nextLayout: Partial<CanvasLayout> =
       preset === "hero"
-        ? { x: 80, y: 72, width: Math.min(720, canvasWidth - 160) }
+        ? { x: 72, y: 116, width: Math.min(760, canvasWidth - 144), height: Math.min(comfortableChartHeight, canvasHeight - 180) }
         : preset === "leftColumn"
-          ? { x: 72, y: layout.y, width: Math.min(460, canvasWidth / 2 - 96) }
+          ? { x: 72, y: Math.max(96, layout.y), width: Math.min(500, canvasWidth / 2 - 96), height: Math.min(columnHeight, canvasHeight - Math.max(96, layout.y) - 80) }
           : preset === "rightColumn"
-            ? { x: Math.round(canvasWidth / 2 + 24), y: layout.y, width: Math.min(460, canvasWidth / 2 - 96) }
+            ? { x: Math.round(canvasWidth / 2 + 24), y: Math.max(96, layout.y), width: Math.min(500, canvasWidth / 2 - 96), height: Math.min(columnHeight, canvasHeight - Math.max(96, layout.y) - 80) }
             : { x: 72, y: canvasHeight - Math.min(layout.height, 120) - 48, width: Math.min(460, canvasWidth - 144), height: Math.min(layout.height, 120) };
 
     updateSelectedLayout(nextLayout);
