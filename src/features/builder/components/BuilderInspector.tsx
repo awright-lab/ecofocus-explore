@@ -401,7 +401,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   const activeDesignPaletteId = selectedTile
     ? (designPalettes.find((palette) => palette.colors.join(",") === selectedTile.appearance.palette.join(","))?.id ?? getPaletteId(selectedTile.appearance.palette))
     : "custom";
-  const styleQuickCard = selectedTile ? (
+  const chartBasicsCard = selectedTile ? (
     <div className="assistant-style-card">
       <AssistantFolder title="Chart basics" helper={`${getChartTypeLabel(selectedTile.visualization)} · ${selectedTile.result.metric.label}`} defaultOpen>
         <label>
@@ -432,6 +432,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           />
         </label>
       </AssistantFolder>
+    </div>
+  ) : null;
+
+  const styleQuickCard = selectedTile ? (
+    <div className="assistant-style-card">
       <AssistantFolder title="Theme and type" helper={`${designPalettes.find((palette) => palette.id === activeDesignPaletteId)?.label ?? "Custom"} palette`}>
         <span className="assistant-field-label">Color theme</span>
         <div className="assistant-palette-row" aria-label="Color theme">
@@ -471,6 +476,17 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           </select>
         </label>
       </AssistantFolder>
+    </div>
+  ) : (
+    <div className="inspector-story-card quiet">
+      <span>Style</span>
+      <strong>No stylable tile selected</strong>
+      <small>Select a chart or table to adjust palette, number format, and type styling.</small>
+    </div>
+  );
+
+  const positionShortcutsCard = selectedTile || selectedElement ? (
+    <div className="assistant-style-card">
       <AssistantFolder title="Position shortcuts" helper="Moves the selected object only">
         <div className="layout-suggestion-list">
           <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
@@ -491,7 +507,13 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         </div>
       </AssistantFolder>
     </div>
-  ) : null;
+  ) : (
+    <div className="inspector-story-card quiet">
+      <span>Arrange</span>
+      <strong>No object selected</strong>
+      <small>Select an object on the canvas to move, align, resize, or layer it.</small>
+    </div>
+  );
 
   const multiSelectionCard = multiSelectionSummary.count > 0 && (
             <div className="multi-selection-card inspector-primary-card">
@@ -553,52 +575,39 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             </div>
           );
 
+  const detailedControlTitle = settingsView === "page"
+    ? "Page"
+    : settingsView === "layout"
+      ? "Arrange"
+      : settingsView === "container"
+        ? "Container"
+        : selectedElement
+          ? "Element"
+          : "Tile";
+  const detailedControls = settingsView === "page"
+    ? <PageInspector {...props} />
+    : settingsView === "layout"
+      ? <LayoutInspector {...props} />
+      : settingsView === "chart" || settingsView === "element" || settingsView === "container"
+        ? <ObjectInspector {...props} />
+        : null;
+
   const styleSurface = (
     <>
-          {styleQuickCard}
-          <div className="assistant-next-step-card">
-            <span>Suggested next step</span>
-            <strong>{assistantNextStep.label}</strong>
-            <small>{assistantNextStep.helper}</small>
-          </div>
-          {multiSelectionCard}
-          {settingsView === "home" ? (
-            <div className="settings-menu inspector-home">
-              <div className="inspector-focus-card">
-                <span>{inspectorFocus.label}</span>
-                <strong>{inspectorFocus.title}</strong>
-                <small>{inspectorFocus.helper}</small>
-              </div>
-              <button type="button" className="menu-card" onClick={() => setSettingsView("page")}>
-                <strong>Page</strong>
-                <span>Title, grid, snap, and background</span>
-              </button>
-              <button type="button" className={selectedTile || selectedElement ? "menu-card primary" : "menu-card"} onClick={() => setSettingsView("layout")} disabled={!selectedTile && !selectedElement}>
-                <strong>Arrange</strong>
-                <span>Layer order, alignment, size, and position</span>
-              </button>
-              <button type="button" className={selectedTile || selectedElement ? "menu-card primary" : "menu-card"} onClick={() => setSettingsView(selectedElement ? "element" : "chart")} disabled={!selectedTile && !selectedElement}>
-                <strong>{selectedElement ? "Element" : "Tile"}</strong>
-                <span>{selectedElement ? "Shape, image, and text styling" : "Chart design and visualization"}</span>
-              </button>
-              <button type="button" className="menu-card" onClick={() => setSettingsView("container")} disabled={!selectedTile}>
-                <strong>Container</strong>
-                <span>Tile background, borders, and notes</span>
-              </button>
-            </div>
-          ) : (
-            <details className="advanced-inspector-details">
+          {settingsView === "home" && styleQuickCard}
+          {settingsView === "layout" && positionShortcutsCard}
+          {(settingsView === "chart" || settingsView === "element" || settingsView === "container") && chartBasicsCard}
+          {settingsView === "layout" && multiSelectionCard}
+          {settingsView !== "home" && (
+            <details className="advanced-inspector-details" open={settingsView === "page"}>
               <summary>
-                <strong>Advanced {settingsView === "page" ? "page" : settingsView === "layout" ? "layout" : settingsView === "container" ? "container" : selectedElement ? "element" : "chart"} editing</strong>
-                <span>Open detailed controls</span>
+                <strong>{detailedControlTitle} controls</strong>
+                <span>{settingsView === "page" ? "Page setup and background" : "Detailed editing controls"}</span>
               </summary>
               <div className="panel-title with-action">
-                <h2>{settingsView === "page" ? "Page" : settingsView === "layout" ? "Arrange" : settingsView === "container" ? "Container" : selectedElement ? "Element" : "Chart"}</h2>
-                <button type="button" className="mini-button" onClick={() => setSettingsView("home")}>Back</button>
+                <h2>{detailedControlTitle}</h2>
               </div>
-          <PageInspector {...props} />
-          <LayoutInspector {...props} />
-          <ObjectInspector {...props} />
+              {detailedControls}
             </details>
           )}
     </>
