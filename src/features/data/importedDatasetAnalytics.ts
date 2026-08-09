@@ -135,6 +135,14 @@ function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefine
   return importedSurveyQuestionDisplayLabel(field);
 }
 
+function importedRawFieldValue(row: Record<string, string>, field: ImportedDatasetField | null | undefined) {
+  if (!field) return "";
+  const exactValue = row[field.sourceColumn];
+  if (exactValue !== undefined) return exactValue;
+  const matchingKey = Object.keys(row).find((key) => key.toLowerCase() === field.sourceColumn.toLowerCase());
+  return matchingKey ? row[matchingKey] ?? "" : "";
+}
+
 function uniquePositiveBases(result: AnalyticsQueryResponse) {
   return [...new Set(result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0))].sort((a, b) => a - b);
 }
@@ -589,8 +597,11 @@ export function getImportedDatasetQuerySupport(
   if (!isExecutableDimension(field)) {
     return { executable: false, reason: "Imported queries require a categorical grouping field." };
   }
-  if (field.nonEmptyCount <= 0) {
-    return { executable: false, reason: `${importedFieldDisplayLabel(field) ?? "This field"} has answer choices, but no respondent answers were imported for that field.` };
+  const localRows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
+  const hasRemoteRows = dataset.remote?.provider === "netlify" && dataset.rowCount > 0;
+  const hasLocalFieldValues = localRows.some((row) => importedRawFieldValue(row, field).trim());
+  if (field.nonEmptyCount <= 0 && !hasLocalFieldValues && !hasRemoteRows) {
+    return { executable: false, reason: `${importedFieldDisplayLabel(field) ?? "This field"} has answer-choice labels, but no respondent answers were imported for that field.` };
   }
   if (isMeasureMetric(options?.metric)) {
     if (!options?.measureField) {
@@ -599,7 +610,8 @@ export function getImportedDatasetQuerySupport(
     if (!isExecutableMeasure(options.measureField)) {
       return { executable: false, reason: "Measure aggregation is limited to numeric measure fields." };
     }
-    if (options.measureField.nonEmptyCount <= 0) {
+    const hasLocalMeasureValues = localRows.some((row) => importedRawFieldValue(row, options.measureField).trim());
+    if (options.measureField.nonEmptyCount <= 0 && !hasLocalMeasureValues && !hasRemoteRows) {
       return { executable: false, reason: `${importedFieldDisplayLabel(options.measureField) ?? "The selected number"} has no imported values to summarize.` };
     }
     if (options.measureField.id === field.id || options.measureField.id === options.bannerField?.id || options.measureField.id === options.filter?.field?.id) {
@@ -616,7 +628,8 @@ export function getImportedDatasetQuerySupport(
     if (!options.bannerField.eligibleForBanner || !isExecutableDimension(options.bannerField)) {
       return { executable: false, reason: "Imported breakouts are limited to breakout-ready categorical fields." };
     }
-    if (options.bannerField.nonEmptyCount <= 0) {
+    const hasLocalBannerValues = localRows.some((row) => importedRawFieldValue(row, options.bannerField).trim());
+    if (options.bannerField.nonEmptyCount <= 0 && !hasLocalBannerValues && !hasRemoteRows) {
       return { executable: false, reason: `${importedFieldDisplayLabel(options.bannerField) ?? "The selected breakout"} has no imported values to break out by.` };
     }
     if (options.chartType === "donut") {
@@ -627,16 +640,15 @@ export function getImportedDatasetQuerySupport(
     if (!options.filter.field.eligibleForFilter || !isExecutableDimension(options.filter.field)) {
       return { executable: false, reason: "Imported filters are limited to filter-eligible categorical fields." };
     }
-    if (options.filter.field.nonEmptyCount <= 0) {
+    const hasLocalFilterValues = localRows.some((row) => importedRawFieldValue(row, options.filter?.field).trim());
+    if (options.filter.field.nonEmptyCount <= 0 && !hasLocalFilterValues && !hasRemoteRows) {
       return { executable: false, reason: `${importedFieldDisplayLabel(options.filter.field) ?? "The selected filter"} has no imported values to filter on.` };
     }
     if (!options.filter.value || options.filter.value === "all") {
       return { executable: false, reason: "Choose a filter value or remove the imported filter." };
     }
   }
-  const hasRemoteRows = dataset.remote?.provider === "netlify" && dataset.rowCount > 0;
-  const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
-  if (!rows.length && !hasRemoteRows) {
+  if (!localRows.length && !hasRemoteRows) {
     return {
       executable: false,
       reason: "This import only has SAV labels and field metadata right now. The respondent rows were not imported, so InsightCanvas cannot count or chart this dataset yet."
@@ -697,7 +709,7 @@ export function importedFieldValues(dataset: ImportedDatasetRecord | null | unde
   if (!dataset || !field) return [];
   const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
   return Array.from(
-    new Set(rows.map((row) => importedFieldDisplayValue(field, row[field.sourceColumn])))
+    new Set(rows.map((row) => importedFieldDisplayValue(field, importedRawFieldValue(row, field))))
   ).sort((a, b) => a.localeCompare(b));
 }
 
@@ -731,21 +743,21 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
 
   const sourceRows = config.dataset.rows?.length ? config.dataset.rows : config.dataset.previewRows;
   const rows = config.filter?.field
-    ? sourceRows.filter((row) => importedFieldDisplayValue(config.filter!.field, row[config.filter!.field.sourceColumn]) === config.filter!.value)
+    ? sourceRows.filter((row) => importedFieldDisplayValue(config.filter!.field, importedRawFieldValue(row, config.filter!.field)) === config.filter!.value)
     : sourceRows;
   const bannerValues = config.bannerField ? importedFieldValues(config.dataset, config.bannerField) : ["Total"];
   const columnBases = new Map<string, number>(bannerValues.map((value) => [value, 0]));
   const counts = new Map<string, Map<string, { count: number; sum: number }>>();
   let skippedBlankPrimaryResponses = 0;
   rows.forEach((row) => {
-    const rawValue = row[config.field.sourceColumn] ?? "";
+    const rawValue = importedRawFieldValue(row, config.field);
     if (!rawValue.trim()) {
       skippedBlankPrimaryResponses += 1;
       return;
     }
     const value = importedFieldDisplayValue(config.field, rawValue);
-    const bannerValue = config.bannerField ? importedFieldDisplayValue(config.bannerField, row[config.bannerField.sourceColumn]) : "Total";
-    const numericValue = config.measureField ? Number.parseFloat((row[config.measureField.sourceColumn] ?? "").replace(/,/g, "")) : null;
+    const bannerValue = config.bannerField ? importedFieldDisplayValue(config.bannerField, importedRawFieldValue(row, config.bannerField)) : "Total";
+    const numericValue = config.measureField ? Number.parseFloat(importedRawFieldValue(row, config.measureField).replace(/,/g, "")) : null;
     const usableMeasureValue = numericValue !== null && Number.isFinite(numericValue);
     if (isMeasureMetric(config.metric) && !usableMeasureValue) return;
     columnBases.set(bannerValue, (columnBases.get(bannerValue) ?? 0) + 1);

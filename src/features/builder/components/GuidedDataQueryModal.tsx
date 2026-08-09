@@ -327,6 +327,9 @@ export function GuidedDataQueryModal({
                     {importedFieldSuitability && (
                       <small>{importedFieldSuitability.readiness.reason}</small>
                     )}
+                    {importedQuestionPrompt && (
+                      <small className="guided-query-question-prompt">Question prompt: {importedQuestionPrompt}</small>
+                    )}
                     {importedAnswerChoices.length > 0 && (
                       <div className="guided-query-answer-choices compact" aria-label="Imported answer choice preview">
                         <div>
@@ -341,7 +344,6 @@ export function GuidedDataQueryModal({
                       <summary>Field details</summary>
                       <div>
                         <small>{importedFieldTypeLabel(importedField.type)} · {importedField.distinctCount.toLocaleString()} answer value{importedField.distinctCount === 1 ? "" : "s"} · {importedDatasetMetadataQualityLabel(importedDataset)}</small>
-                        {importedQuestionPrompt && <small>Question prompt: {importedQuestionPrompt}</small>}
                         {importedFieldRawNameLabel(importedField) && <small>{importedFieldRawNameLabel(importedField)}</small>}
                         <small>{importedSummary.filterLabel}. {importedSummary.bannerLabel}.</small>
                         {importedAnswerChoices.length > 0 && (

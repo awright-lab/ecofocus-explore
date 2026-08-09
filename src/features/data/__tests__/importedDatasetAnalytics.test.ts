@@ -8,6 +8,7 @@ import {
   firstImportedDimensionField,
   firstImportedMeasureField,
   getImportedDatasetQuerySupport,
+  importedFieldValues,
   runImportedDatasetQuery
 } from "../importedDatasetAnalytics";
 
@@ -221,7 +222,7 @@ describe("imported dataset measure analytics", () => {
     expect(result.warnings).toContain("Skipped 2 rows without an answer for Q10: Lifestyle approach.");
   });
 
-  it("blocks imported analysis when a field has labels but no respondent answers", () => {
+  it("blocks local imported analysis when a field has labels but no respondent answers", () => {
     const emptyAnswerField = field("q10", "Q10: Lifestyle approach", "q10", {
       nonEmptyCount: 0,
       distinctCount: 0,
@@ -233,8 +234,44 @@ describe("imported dataset measure analytics", () => {
 
     expect(getImportedDatasetQuerySupport(dataset, emptyAnswerField)).toMatchObject({
       executable: false,
-      reason: "Q10: Lifestyle approach has answer choices, but no respondent answers were imported for that field."
+      reason: "Q10: Lifestyle approach has answer-choice labels, but no respondent answers were imported for that field."
     });
+  });
+
+  it("matches imported row values case-insensitively for SAV variable names", () => {
+    const answerField = field("q11ar2", "Q11ar2: Reusable packaging", "Q11AR2", {
+      nonEmptyCount: 0,
+      distinctCount: 0,
+      valueLabels: {
+        "1": "Heard a lot",
+        "6": "Have not heard"
+      }
+    });
+    const surveyDataset: ImportedDatasetRecord = {
+      ...dataset,
+      fields: [answerField],
+      rows: [
+        { Q11ar2: "6" },
+        { Q11ar2: "1" },
+        { Q11ar2: "6" }
+      ],
+      rowCount: 3,
+      fieldCount: 1
+    };
+
+    expect(getImportedDatasetQuerySupport(surveyDataset, answerField).executable).toBe(true);
+    expect(importedFieldValues(surveyDataset, answerField)).toEqual(["Have not heard", "Heard a lot"]);
+
+    const result = runImportedDatasetQuery({
+      dataset: surveyDataset,
+      field: answerField,
+      bannerField: null,
+      filter: null,
+      chartType: "vertical_bar",
+      metric: "percent_selected"
+    });
+
+    expect(result.table.map((row) => row.values.summary)).toEqual([33.3, 66.7]);
   });
 
   it("builds grounded imported query recommendations from modeled field roles", () => {

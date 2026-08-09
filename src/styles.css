@@ -1746,6 +1746,13 @@ textarea {
   line-height: 1.35;
 }
 
+.guided-query-variable-card .guided-query-question-prompt {
+  border-left: 3px solid rgba(0, 139, 137, 0.24);
+  padding-left: 8px;
+  color: #41535f;
+  font-weight: 820;
+}
+
 .guided-query-footer {
   border-top: 1px solid rgba(216, 226, 233, 0.9);
   border-bottom: 0;

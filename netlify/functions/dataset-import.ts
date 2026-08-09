@@ -137,6 +137,12 @@ function stringifySavValue(value: unknown) {
   return String(value);
 }
 
+function savRowValue(row: Record<string, unknown>, variableName: string) {
+  if (Object.prototype.hasOwnProperty.call(row, variableName)) return row[variableName];
+  const matchingKey = Object.keys(row).find((key) => key.toLowerCase() === variableName.toLowerCase());
+  return matchingKey ? row[matchingKey] : undefined;
+}
+
 function buildSavReaderField(
   variable: {
     name: string;
@@ -184,7 +190,7 @@ async function parseSavWithSavReader(fileBuffer: Buffer, fileName: string): Prom
   const rawRows = await reader.readAllRows(true);
   const variables = reader.meta.sysvars.filter((variable) => !variable.__is_child_string_var);
   const rows = rawRows.map((row) =>
-    Object.fromEntries(variables.map((variable) => [variable.name, stringifySavValue(row[variable.name])]))
+    Object.fromEntries(variables.map((variable) => [variable.name, stringifySavValue(savRowValue(row, variable.name))]))
   );
   const fields = variables.map((variable, columnIndex) => {
     const labels = Object.fromEntries(
