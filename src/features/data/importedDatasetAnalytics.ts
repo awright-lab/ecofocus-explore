@@ -1,7 +1,7 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
-import { importedSurveyQuestionDisplayLabel } from "./importedSurveyLabelModel";
+import { importedSurveyQuestionDisplayLabel, importedSurveyQuestionPrompt } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetQueryConfig {
   dataset: ImportedDatasetRecord;
@@ -679,6 +679,7 @@ function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAna
     datasetLabel: config.dataset.title,
     primaryFieldId: config.field.id,
     primaryFieldLabel: importedFieldDisplayLabel(config.field) ?? config.field.label,
+    primaryFieldPrompt: importedSurveyQuestionPrompt(config.field) ?? undefined,
     measureFieldId: config.measureField?.id,
     measureFieldLabel: importedFieldDisplayLabel(config.measureField),
     bannerFieldId: config.bannerField?.id,

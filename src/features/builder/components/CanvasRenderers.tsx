@@ -836,8 +836,11 @@ export const TileRenderer = memo(function TileRenderer({
 }) {
   const result = tile.result;
   const imported = buildImportedResultProvenance(result);
+  const importedQuestionPrompt = result.metadataRefs.source?.kind === "imported"
+    ? result.metadataRefs.source.primaryFieldPrompt
+    : null;
   const titleHeight = Math.max(30, Math.round(tile.appearance.titleFontSize * 2.1));
-  const titleReserve = Math.max(44, tile.appearance.titleY + titleHeight + 6);
+  const titleReserve = Math.max(importedQuestionPrompt ? 70 : 44, tile.appearance.titleY + titleHeight + (importedQuestionPrompt ? 30 : 6));
   const titleWidth = Math.max(160, Math.min(tile.appearance.titleWidth, tile.layout.width - tile.appearance.titleX - 18));
   const commitTitle = (value: string) => {
     const nextTitle = value.trim();
@@ -915,6 +918,11 @@ export const TileRenderer = memo(function TileRenderer({
         <div>
           {tile.source && !imported && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
           <span className="tile-title-spacer" aria-hidden="true" />
+          {importedQuestionPrompt && (
+            <p className="tile-question-prompt" style={{ marginTop: Math.max(5, tile.appearance.titleY + titleHeight + 4) }}>
+              {importedQuestionPrompt}
+            </p>
+          )}
         </div>
         {!imported && (
           <div className="tile-header-meta" aria-label="Analysis summary">

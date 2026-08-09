@@ -30,6 +30,7 @@ export interface ImportedAnalyticsSourceIdentity {
   datasetLabel: string;
   primaryFieldId: string;
   primaryFieldLabel: string;
+  primaryFieldPrompt?: string;
   measureFieldId?: string;
   measureFieldLabel?: string;
   bannerFieldId?: string;

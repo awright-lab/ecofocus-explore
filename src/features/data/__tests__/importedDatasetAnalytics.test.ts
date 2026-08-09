@@ -133,7 +133,7 @@ describe("imported dataset measure analytics", () => {
   });
 
   it("uses imported value labels as survey answer choices, including zero-response choices", () => {
-    const answerField = field("q10", "Q10: Lifestyle approach", "q10", {
+    const answerField = field("q10", "Q10: Lifestyle approach - Which one best describes your current behavior?", "q10", {
       distinctCount: 2,
       valueLabels: {
         "1": "Do this often",
@@ -167,6 +167,10 @@ describe("imported dataset measure analytics", () => {
       "Do this sometimes",
       "Not an option for me"
     ]);
+    expect(result.metadataRefs.source).toMatchObject({
+      primaryFieldLabel: "Q10: Lifestyle approach",
+      primaryFieldPrompt: "Which one best describes your current behavior?"
+    });
     expect(result.table.map((row) => row.values.summary)).toEqual([66.7, 33.3, 0]);
   });
 
