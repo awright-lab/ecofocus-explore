@@ -9,6 +9,7 @@ import { buildImportedFieldSuitability, firstImportedDimensionField } from "../.
 import { listImportedDatasetFieldsFromNetlify } from "../../data/netlifyDatasetStore";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
+type LibrarySectionId = "datasets" | "suggested" | "fields" | "filters" | "segments" | "banners";
 const VARIABLE_TREE_ROW_HEIGHT = 28;
 const VARIABLE_TREE_VIEWPORT_HEIGHT = 360;
 const VARIABLE_TREE_OVERSCAN = 8;
@@ -96,6 +97,15 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [remoteFieldTotal, setRemoteFieldTotal] = useState<number | null>(null);
   const [remoteFieldError, setRemoteFieldError] = useState<string | null>(null);
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
+  const [libraryMode, setLibraryMode] = useState<"guided" | "browse">("guided");
+  const [expandedLibrarySections, setExpandedLibrarySections] = useState<Record<LibrarySectionId, boolean>>({
+    datasets: true,
+    suggested: true,
+    fields: false,
+    filters: false,
+    segments: false,
+    banners: false
+  });
   const activeImportedDataset =
     importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0];
   const datasetRows = activeImportedDataset
@@ -165,6 +175,69 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     () => activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null,
     [activeImportedField]
   );
+  const isBrowsingLibrary = libraryMode === "browse" || Boolean(variableSearchTerm);
+  const isSectionExpanded = (sectionId: LibrarySectionId) =>
+    sectionId === "fields" && variableSearchTerm ? true : expandedLibrarySections[sectionId];
+
+  function toggleLibrarySection(sectionId: LibrarySectionId) {
+    setExpandedLibrarySections((current) => ({ ...current, [sectionId]: !current[sectionId] }));
+  }
+
+  function openLibraryFolder(sectionId: LibrarySectionId) {
+    setLibraryMode("browse");
+    setExpandedLibrarySections((current) => ({ ...current, [sectionId]: true }));
+  }
+
+  function openComposerFolder(sectionId: "filters" | "segments" | "banners", composer: "filter" | "segment" | "banner") {
+    openLibraryFolder(sectionId);
+    toggleComposer(composer);
+  }
+
+  function returnToSimpleLibrary() {
+    setLibraryMode("guided");
+    setExpandedLibrarySections((current) => ({
+      ...current,
+      suggested: true,
+      fields: false,
+      filters: false,
+      segments: false,
+      banners: false
+    }));
+  }
+
+  function renderLibraryAccordionHeader({
+    sectionId,
+    icon,
+    title,
+    detail,
+    action
+  }: {
+    sectionId: LibrarySectionId;
+    icon: DataLibraryIconName;
+    title: string;
+    detail?: string;
+    action?: ReactNode;
+  }) {
+    const expanded = isSectionExpanded(sectionId);
+    return (
+      <div className="mockup-library-section__header data-library-accordion-header">
+        <button
+          type="button"
+          className="data-library-accordion-trigger"
+          onClick={() => toggleLibrarySection(sectionId)}
+          aria-expanded={expanded}
+        >
+          <span className="data-library-accordion-chevron">›</span>
+          <span className="data-library-folder-icon"><DataLibraryIcon icon={icon} /></span>
+          <span>
+            <strong>{title}</strong>
+            {detail && <small>{detail}</small>}
+          </span>
+        </button>
+        {action}
+      </div>
+    );
+  }
 
   function importStatusDetail(dataset: ImportedDatasetRecord) {
     const detail = dataset.importStatus?.detail ?? "";
@@ -403,55 +476,143 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           </button>
           {importFeedback && <small className="dataset-import-feedback">{importFeedback}</small>}
         </div>
-        <div className="mockup-library-stack" aria-label="Data library overview">
-          <section className="mockup-library-section">
-            <div className="mockup-library-section__header">
-              <strong>Datasets</strong>
-              <button type="button" onClick={() => fileInputRef.current?.click()}>+</button>
-            </div>
-            {datasetRows.map((dataset, index) => (
-              <div
-                className={activeImportedDataset?.id === dataset.id || (!activeImportedDataset && index === 0) ? "mockup-library-row dataset-management-row active" : "mockup-library-row dataset-management-row quiet"}
-                key={dataset.id}
-              >
-                <button
-                  type="button"
-                  className="library-row-main"
-                  onClick={() => {
-                    if (dataset.imported) selectImportedDataset(dataset.id);
-                }}
-              >
-                  <span><DataLibraryIcon icon="dataset" /></span>
-                  <div>
-                    <strong>{dataset.title}</strong>
-                    <small>{dataset.meta}{dataset.imported ? " · imported" : ""}</small>
-                  </div>
-                </button>
-                {dataset.imported && (
-                  <button
-                    type="button"
-                    className="library-row-icon-action danger"
-                    onClick={() => deleteImportedDataset(dataset.id, dataset.title)}
-                    aria-label={`Remove ${dataset.title}`}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
-          </section>
-          <section className="mockup-library-section">
-            <div className="mockup-library-section__header">
-              <strong>Variables</strong>
-              <small className="variable-tree-count">
-                {usesRemoteFieldPaging
-                  ? `${(remoteFieldTotal ?? activeImportedDataset?.fieldCount ?? 0).toLocaleString()} fields`
-                  : variableSearchTerm
-                  ? `${filteredModeledVariables.length.toLocaleString()} matches`
-                  : `${modeledVariables.length.toLocaleString()} fields`}
+        <section className="data-library-start-card" aria-label="Study start">
+          <div className="data-library-start-card__header">
+            <span><DataLibraryIcon icon="dataset" /></span>
+            <div>
+              <strong>{activeImportedDataset ? activeImportedDataset.title : "Start with your study"}</strong>
+              <small>
+                {activeImportedDataset
+                  ? `${activeImportedDataset.rowCount.toLocaleString()} rows · ${activeImportedDataset.fieldCount.toLocaleString()} fields`
+                  : "Import data or create a guided table from the EcoFocus study library."}
               </small>
             </div>
-            {modeledVariables.length > 0
+          </div>
+          <div className="data-library-start-actions">
+            <button type="button" onClick={() => activeImportedField ? openQueryForImportedField(activeImportedField, "table") : openGuidedDataQuery({ outputMode: "table" })}>
+              <DataLibraryIcon icon="chart" />
+              Create first table
+            </button>
+            <button type="button" onClick={() => activeImportedField ? openQueryForImportedField(activeImportedField, "chart") : openGuidedDataQuery({ outputMode: "chart" })}>
+              <DataLibraryIcon icon="chart" />
+              Create chart
+            </button>
+            <button type="button" onClick={() => openLibraryFolder("fields")}>
+              <DataLibraryIcon icon="variable" />
+              Browse all fields
+            </button>
+          </div>
+          <p>
+            Use the guided query flow first. Open the full field library when you need a specific variable, filter, segment, or banner.
+          </p>
+        </section>
+        <div className="mockup-library-stack" aria-label="Data library overview">
+          <section className={isSectionExpanded("datasets") ? "mockup-library-section data-library-accordion open" : "mockup-library-section data-library-accordion"}>
+            {renderLibraryAccordionHeader({
+              sectionId: "datasets",
+              icon: "dataset",
+              title: "Datasets",
+              detail: `${datasetRows.length} available`,
+              action: <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Import dataset">+</button>
+            })}
+            {isSectionExpanded("datasets") && (
+              <div className="data-library-section-body">
+                {datasetRows.map((dataset, index) => (
+                  <div
+                    className={activeImportedDataset?.id === dataset.id || (!activeImportedDataset && index === 0) ? "mockup-library-row dataset-management-row active" : "mockup-library-row dataset-management-row quiet"}
+                    key={dataset.id}
+                  >
+                    <button
+                      type="button"
+                      className="library-row-main"
+                      onClick={() => {
+                        if (dataset.imported) selectImportedDataset(dataset.id);
+                      }}
+                    >
+                      <span><DataLibraryIcon icon="dataset" /></span>
+                      <div>
+                        <strong>{dataset.title}</strong>
+                        <small>{dataset.meta}{dataset.imported ? " · imported" : ""}</small>
+                      </div>
+                    </button>
+                    {dataset.imported && (
+                      <button
+                        type="button"
+                        className="library-row-icon-action danger"
+                        onClick={() => deleteImportedDataset(dataset.id, dataset.title)}
+                        aria-label={`Remove ${dataset.title}`}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          {!isBrowsingLibrary && (
+            <section className={isSectionExpanded("suggested") ? "mockup-library-section data-library-accordion data-library-suggested-section open" : "mockup-library-section data-library-accordion data-library-suggested-section"}>
+              {renderLibraryAccordionHeader({
+                sectionId: "suggested",
+                icon: "chart",
+                title: "Suggested next steps",
+                detail: "Fast starts"
+              })}
+              {isSectionExpanded("suggested") && (
+                <div className="data-library-section-body">
+                  {activeImportedDataset ? (
+                    <>
+                  {activeImportedField && (
+                    <button type="button" className="data-library-suggestion-card" onClick={() => openQueryForImportedField(activeImportedField)}>
+                      <span><DataLibraryIcon icon="chart" /></span>
+                      <strong>Create analysis from selected field</strong>
+                      <small>{importedFieldDisplayLabel(activeImportedField)}</small>
+                    </button>
+                  )}
+                  <button type="button" className="data-library-suggestion-card" onClick={() => openLibraryFolder("fields")}>
+                    <span><DataLibraryIcon icon="variable" /></span>
+                    <strong>Browse the full study library</strong>
+                    <small>{activeImportedDataset.fieldCount.toLocaleString()} fields, filters, segments, and banners.</small>
+                  </button>
+                    </>
+                  ) : (
+                    <>
+                  <button type="button" className="data-library-suggestion-card" onClick={() => openGuidedDataQuery({ outputMode: "table" })}>
+                    <span><DataLibraryIcon icon="chart" /></span>
+                    <strong>Create a plain table</strong>
+                    <small>Start with numbers before styling a story section.</small>
+                  </button>
+                  <button type="button" className="data-library-suggestion-card" onClick={() => fileInputRef.current?.click()}>
+                    <span><DataLibraryIcon icon="dataset" /></span>
+                    <strong>Import a study dataset</strong>
+                    <small>Bring in CSV, XLSX, or SAV data.</small>
+                  </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+          {isBrowsingLibrary && (
+            <section className={isSectionExpanded("fields") ? "mockup-library-section data-library-accordion open" : "mockup-library-section data-library-accordion"}>
+            {renderLibraryAccordionHeader({
+              sectionId: "fields",
+              icon: "variable",
+              title: "Fields",
+              detail: usesRemoteFieldPaging
+                ? `${(remoteFieldTotal ?? activeImportedDataset?.fieldCount ?? 0).toLocaleString()} fields`
+                : variableSearchTerm
+                ? `${filteredModeledVariables.length.toLocaleString()} matches`
+                : `${modeledVariables.length.toLocaleString()} fields`,
+              action: (
+                <div className="data-library-browse-tools">
+                  <button type="button" onClick={returnToSimpleLibrary}>Simple view</button>
+                </div>
+              )
+            })}
+            {isSectionExpanded("fields") && (
+              <>
+              {modeledVariables.length > 0
               ? variableTreeEntries.length > 0
                 ? (
                   <>
@@ -524,106 +685,133 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                   <strong>{question.shortLabel}</strong>
                 </button>
               ))}
-          </section>
-          <section className="mockup-library-section">
-            <div className="mockup-library-section__header">
-              <strong>Filters</strong>
-              <button type="button" onClick={() => toggleComposer("filter")}>+</button>
-            </div>
-            {activeImportedDataset
-              ? importedStructureSummary.filters.slice(0, 3).map((field) => (
-                <button type="button" className="mockup-library-row compact" key={field.id} onClick={() => {
-                  setSelectedImportedFieldId(field.id);
-                }}>
-                  <span><DataLibraryIcon icon="filter" /></span>
-                  <strong>{importedFieldDisplayLabel(field)}</strong>
-                </button>
-              ))
-              : savedFilters.slice(0, 3).map((filter) => renderManagedLibraryRow({
-                id: filter.id,
-                kind: "filter",
-                icon: "filter",
-                label: filter.label,
-                onApply: () => applySavedFilter(filter),
-                onDelete: () => deleteSavedFilter(filter.id)
-              }))}
-            {!activeImportedDataset && savedFilters.length === 0 && <small className="library-empty-note">No saved filters yet.</small>}
-            {libraryComposer === "filter" && (
-              <div className="library-management-card">
-                <strong>Save current filter</strong>
-                <small>Stores the current filter controls as a reusable filter.</small>
-                <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Filter name" />
-                <button type="button" onClick={saveCurrentFilter}>Save filter</button>
+              </>
+            )}
+            </section>
+          )}
+          {isBrowsingLibrary && (
+            <section className={isSectionExpanded("filters") ? "mockup-library-section data-library-accordion open" : "mockup-library-section data-library-accordion"}>
+            {renderLibraryAccordionHeader({
+              sectionId: "filters",
+              icon: "filter",
+              title: "Filters",
+              detail: activeImportedDataset ? importedStructureSummary.filterLabel : `${savedFilters.length} saved`,
+              action: <button type="button" onClick={() => openComposerFolder("filters", "filter")} aria-label="Add filter">+</button>
+            })}
+            {isSectionExpanded("filters") && (
+              <div className="data-library-section-body">
+                {activeImportedDataset
+                  ? importedStructureSummary.filters.slice(0, 3).map((field) => (
+                    <button type="button" className="mockup-library-row compact" key={field.id} onClick={() => {
+                      setSelectedImportedFieldId(field.id);
+                    }}>
+                      <span><DataLibraryIcon icon="filter" /></span>
+                      <strong>{importedFieldDisplayLabel(field)}</strong>
+                    </button>
+                  ))
+                  : savedFilters.slice(0, 3).map((filter) => renderManagedLibraryRow({
+                    id: filter.id,
+                    kind: "filter",
+                    icon: "filter",
+                    label: filter.label,
+                    onApply: () => applySavedFilter(filter),
+                    onDelete: () => deleteSavedFilter(filter.id)
+                  }))}
+                {!activeImportedDataset && savedFilters.length === 0 && <small className="library-empty-note">No saved filters yet.</small>}
+                {libraryComposer === "filter" && (
+                  <div className="library-management-card">
+                    <strong>Save current filter</strong>
+                    <small>Stores the current filter controls as a reusable filter.</small>
+                    <input value={filterDraftName} onChange={(event) => setFilterDraftName(event.target.value)} placeholder="Filter name" />
+                    <button type="button" onClick={saveCurrentFilter}>Save filter</button>
+                  </div>
+                )}
               </div>
             )}
-            {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.filterLabel}</small>}
-          </section>
-          <section className="mockup-library-section">
-            <div className="mockup-library-section__header">
-              <strong>Segments</strong>
-              <button type="button" onClick={() => toggleComposer("segment")}>+</button>
-            </div>
-            {activeImportedDataset
-              ? importedStructureSummary.segments.slice(0, 3).map((field) => (
-                <button type="button" className="mockup-library-row compact with-count" key={field.id} onClick={() => {
-                  setSelectedImportedFieldId(field.id);
-                }}>
-                  <span><DataLibraryIcon icon="segment" /></span>
-                  <strong>{importedFieldDisplayLabel(field)}</strong>
-                  <small>Modeled</small>
-                </button>
-              ))
-              : savedSegmentProfiles.slice(0, 3).map((segment) => renderManagedLibraryRow({
-                id: segment.id,
-                kind: "segment",
-                icon: "segment",
-                label: segment.label,
-                onApply: () => applySegmentProfile(segment),
-                onDelete: () => deleteSegmentProfile(segment.id)
-              }))}
-            {!activeImportedDataset && savedSegmentProfiles.length === 0 && <small className="library-empty-note">No saved segments yet.</small>}
-            {libraryComposer === "segment" && (
-              <div className="library-management-card">
-                <strong>Save current segment</strong>
-                <small>Stores the current filter selection as a reusable segment profile.</small>
-                <button type="button" onClick={saveCurrentSegmentProfile}>Save segment</button>
+            </section>
+          )}
+          {isBrowsingLibrary && (
+            <section className={isSectionExpanded("segments") ? "mockup-library-section data-library-accordion open" : "mockup-library-section data-library-accordion"}>
+            {renderLibraryAccordionHeader({
+              sectionId: "segments",
+              icon: "segment",
+              title: "Segments",
+              detail: activeImportedDataset ? importedStructureSummary.segmentLabel : `${savedSegmentProfiles.length} saved`,
+              action: <button type="button" onClick={() => openComposerFolder("segments", "segment")} aria-label="Add segment">+</button>
+            })}
+            {isSectionExpanded("segments") && (
+              <div className="data-library-section-body">
+                {activeImportedDataset
+                  ? importedStructureSummary.segments.slice(0, 3).map((field) => (
+                    <button type="button" className="mockup-library-row compact with-count" key={field.id} onClick={() => {
+                      setSelectedImportedFieldId(field.id);
+                    }}>
+                      <span><DataLibraryIcon icon="segment" /></span>
+                      <strong>{importedFieldDisplayLabel(field)}</strong>
+                      <small>Modeled</small>
+                    </button>
+                  ))
+                  : savedSegmentProfiles.slice(0, 3).map((segment) => renderManagedLibraryRow({
+                    id: segment.id,
+                    kind: "segment",
+                    icon: "segment",
+                    label: segment.label,
+                    onApply: () => applySegmentProfile(segment),
+                    onDelete: () => deleteSegmentProfile(segment.id)
+                  }))}
+                {!activeImportedDataset && savedSegmentProfiles.length === 0 && <small className="library-empty-note">No saved segments yet.</small>}
+                {libraryComposer === "segment" && (
+                  <div className="library-management-card">
+                    <strong>Save current segment</strong>
+                    <small>Stores the current filter selection as a reusable segment profile.</small>
+                    <button type="button" onClick={saveCurrentSegmentProfile}>Save segment</button>
+                  </div>
+                )}
               </div>
             )}
-            {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.segmentLabel}</small>}
-          </section>
-          <section className="mockup-library-section quieter">
-            <div className="mockup-library-section__header">
-              <strong>Banners</strong>
-              <button type="button" onClick={() => toggleComposer("banner")}>+</button>
-            </div>
-            {activeImportedDataset
-              ? importedStructureSummary.banners.slice(0, 2).map((field) => (
-                <button type="button" className="mockup-library-row compact" key={field.id} onClick={() => {
-                  setSelectedImportedFieldId(field.id);
-                }}>
-                  <span><DataLibraryIcon icon="banner" /></span>
-                  <strong>{importedFieldDisplayLabel(field)}</strong>
-                </button>
-              ))
-              : savedBanners.slice(0, 2).map((banner) => renderManagedLibraryRow({
-                id: banner.id,
-                kind: "banner",
-                icon: "banner",
-                label: banner.label,
-                onApply: () => applySavedBanner(banner),
-                onDelete: () => deleteSavedBanner(banner.id)
-              }))}
-            {!activeImportedDataset && savedBanners.length === 0 && <small className="library-empty-note">No saved banners yet.</small>}
-            {libraryComposer === "banner" && (
-              <div className="library-management-card">
-                <strong>Save current banner</strong>
-                <small>Stores the current breakout choice as a reusable banner.</small>
-                <input value={bannerDraftName} onChange={(event) => setBannerDraftName(event.target.value)} placeholder="Banner name" />
-                <button type="button" onClick={saveCurrentBanner}>Save banner</button>
+            </section>
+          )}
+          {isBrowsingLibrary && (
+            <section className={isSectionExpanded("banners") ? "mockup-library-section quieter data-library-accordion open" : "mockup-library-section quieter data-library-accordion"}>
+            {renderLibraryAccordionHeader({
+              sectionId: "banners",
+              icon: "banner",
+              title: "Breakouts",
+              detail: activeImportedDataset ? importedStructureSummary.bannerLabel : `${savedBanners.length} saved`,
+              action: <button type="button" onClick={() => openComposerFolder("banners", "banner")} aria-label="Add breakout">+</button>
+            })}
+            {isSectionExpanded("banners") && (
+              <div className="data-library-section-body">
+                {activeImportedDataset
+                  ? importedStructureSummary.banners.slice(0, 2).map((field) => (
+                    <button type="button" className="mockup-library-row compact" key={field.id} onClick={() => {
+                      setSelectedImportedFieldId(field.id);
+                    }}>
+                      <span><DataLibraryIcon icon="banner" /></span>
+                      <strong>{importedFieldDisplayLabel(field)}</strong>
+                    </button>
+                  ))
+                  : savedBanners.slice(0, 2).map((banner) => renderManagedLibraryRow({
+                    id: banner.id,
+                    kind: "banner",
+                    icon: "banner",
+                    label: banner.label,
+                    onApply: () => applySavedBanner(banner),
+                    onDelete: () => deleteSavedBanner(banner.id)
+                  }))}
+                {!activeImportedDataset && savedBanners.length === 0 && <small className="library-empty-note">No saved banners yet.</small>}
+                {libraryComposer === "banner" && (
+                  <div className="library-management-card">
+                    <strong>Save current banner</strong>
+                    <small>Stores the current breakout choice as a reusable banner.</small>
+                    <input value={bannerDraftName} onChange={(event) => setBannerDraftName(event.target.value)} placeholder="Banner name" />
+                    <button type="button" onClick={saveCurrentBanner}>Save banner</button>
+                  </div>
+                )}
               </div>
             )}
-            {activeImportedDataset && <small className="imported-structure-note">{importedStructureSummary.bannerLabel}</small>}
-          </section>
+            </section>
+          )}
         </div>
       </div>
     </>
