@@ -502,7 +502,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
+          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
             {chartData.map((item, index) => (
               <Cell
@@ -543,7 +543,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
+          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
             <Bar
@@ -597,7 +597,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             tickLine={false}
             axisLine={false}
           />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
+          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Bar dataKey="value" radius={[0, appearance.barRadius, appearance.barRadius, 0]} barSize={appearance.barSize}>
             <LabelList dataKey="axisLabel" content={(props) => <HorizontalCategoryLabel {...props} appearance={appearance} />} />
             {chartData.map((item, index) => (
@@ -638,7 +638,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
+          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
             <Bar
@@ -674,7 +674,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
           <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
+          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
             <Line
@@ -708,7 +708,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven donut chart">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <PieChart>
-          <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
+          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="bottom" height={84} />
           <Pie
             data={chartData}
