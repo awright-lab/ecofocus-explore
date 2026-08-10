@@ -11160,30 +11160,31 @@ code {
 
 .canvas-draggable-frame {
   will-change: transform;
-  contain: layout paint style;
+  contain: layout style;
+  overflow: visible !important;
 }
 
 .canvas-draggable-frame.selected {
   z-index: 9000 !important;
 }
 
-.canvas-draggable-frame:not(.selected):hover::after {
+.canvas-draggable-frame:not(.selected):hover::before {
   content: "";
   position: absolute;
-  inset: -2px;
-  z-index: 30;
-  border: 1.5px solid rgba(43, 127, 255, 0.48);
-  border-radius: 12px;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.82);
+  inset: -3px;
+  z-index: 45;
+  border: 1.5px solid rgba(43, 127, 255, 0.72);
+  border-radius: 11px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 8px 18px rgba(43, 127, 255, 0.1);
   pointer-events: none;
 }
 
 .canvas-draggable-frame:not(.selected):hover > .dashboard-tile,
 .canvas-draggable-frame:not(.selected):hover > .canvas-element {
-  border-color: rgba(43, 127, 255, 0.6) !important;
+  border-color: rgba(43, 127, 255, 0.46) !important;
   box-shadow:
-    inset 0 0 0 1.5px rgba(43, 127, 255, 0.6),
-    0 0 0 3px rgba(43, 127, 255, 0.1),
+    inset 0 0 0 1px rgba(43, 127, 255, 0.42),
+    0 0 0 3px rgba(43, 127, 255, 0.08),
     var(--shadow-card-hover) !important;
 }
 
@@ -11206,20 +11207,20 @@ code {
 .canvas-draggable-frame.selected .canvas-resize-handle {
   position: absolute;
   display: block;
-  opacity: 1;
+  opacity: 0;
   pointer-events: auto;
-  border: 2px solid #2b7fff;
-  background: #ffffff;
-  box-shadow: 0 2px 8px rgba(17, 37, 65, 0.18);
-  z-index: 40;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  z-index: 70;
 }
 
 .canvas-draggable-frame.selected .canvas-resize-handle--top-left,
 .canvas-draggable-frame.selected .canvas-resize-handle--top-right,
 .canvas-draggable-frame.selected .canvas-resize-handle--bottom-right,
 .canvas-draggable-frame.selected .canvas-resize-handle--bottom-left {
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
 }
 
@@ -11246,8 +11247,8 @@ code {
 .canvas-draggable-frame.selected .canvas-resize-handle--top,
 .canvas-draggable-frame.selected .canvas-resize-handle--bottom {
   left: 50% !important;
-  width: 22px;
-  height: 8px;
+  width: 34px;
+  height: 18px;
   border-radius: 999px;
   transform: translateX(-50%);
 }
@@ -11263,8 +11264,8 @@ code {
 .canvas-draggable-frame.selected .canvas-resize-handle--left,
 .canvas-draggable-frame.selected .canvas-resize-handle--right {
   top: 50% !important;
-  width: 8px;
-  height: 22px;
+  width: 18px;
+  height: 34px;
   border-radius: 999px;
   transform: translateY(-50%);
 }
@@ -11279,8 +11280,8 @@ code {
 
 .canvas-selection-handles {
   position: absolute;
-  inset: 0;
-  z-index: 50;
+  inset: -4px;
+  z-index: 65;
   pointer-events: none;
 }
 
@@ -11289,7 +11290,7 @@ code {
   display: block;
   border: 2px solid #2b7fff;
   background: #ffffff;
-  box-shadow: 0 2px 10px rgba(17, 37, 65, 0.24);
+  box-shadow: 0 2px 10px rgba(17, 37, 65, 0.24), 0 0 0 2px rgba(255, 255, 255, 0.92);
 }
 
 .canvas-selection-handle.nw,
@@ -12200,35 +12201,25 @@ button:active:not(:disabled) {
 
 .dashboard-tile.selected,
 .canvas-element.selected {
-  box-shadow: 0 0 0 2px #2b7fff, 0 0 0 6px rgba(43, 127, 255, 0.09), var(--shadow-card-hover);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .canvas-draggable-frame.selected > .dashboard-tile,
 .canvas-draggable-frame.selected > .canvas-element {
-  border-color: #2b7fff !important;
-  box-shadow:
-    inset 0 0 0 2px #2b7fff,
-    0 0 0 2px rgba(255, 255, 255, 0.98),
-    0 0 0 5px rgba(43, 127, 255, 0.24),
-    var(--shadow-card-hover) !important;
+  border-color: rgba(43, 127, 255, 0.28) !important;
+  box-shadow: var(--shadow-card-hover) !important;
 }
 
 .canvas-draggable-frame.selected > .dashboard-tile::before,
 .canvas-draggable-frame.selected > .canvas-element::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 35;
-  border: 2px solid #2b7fff;
-  border-radius: inherit;
-  pointer-events: none;
+  content: none;
 }
 
 .canvas-draggable-frame.selected .react-resizable-handle {
-  border: 2px solid #2b7fff !important;
-  background: #ffffff !important;
-  box-shadow: 0 2px 10px rgba(17, 37, 65, 0.24) !important;
-  opacity: 1 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
 }
 
 .chart-card {

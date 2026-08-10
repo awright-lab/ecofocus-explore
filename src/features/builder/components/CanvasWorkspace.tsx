@@ -29,6 +29,16 @@ const canvasResizeHandleClasses = {
   bottomLeft: "canvas-resize-handle canvas-resize-handle--bottom-left"
 };
 
+function CanvasSelectionHandles() {
+  return (
+    <div className="canvas-selection-handles" aria-hidden="true">
+      {["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((handle) => (
+        <span key={handle} className={`canvas-selection-handle ${handle}`} />
+      ))}
+    </div>
+  );
+}
+
 type CanvasActionIconName = "addSlide" | "data" | "text" | "shape" | "image" | "comment" | "notes" | "fit";
 
 function CanvasActionIcon({ icon }: { icon: CanvasActionIconName }) {
@@ -488,6 +498,7 @@ export function CanvasWorkspace({
                 }
               >
                 {renderElement(element, element.id === selectedElementId, () => onSelectElement(element.id))}
+                {element.id === selectedElementId && <CanvasSelectionHandles />}
               </Rnd>
             ))}
             {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
@@ -536,6 +547,7 @@ export function CanvasWorkspace({
                   (title) => onUpdateTileTitle(tile.id, title),
                   (updates) => onUpdateTileAppearance(tile.id, updates)
                 )}
+                {tile.id === selectedTileId && <CanvasSelectionHandles />}
               </Rnd>
             ))}
             {multiSelectionSummary.bounds && multiSelectionSummary.count > 1 && (

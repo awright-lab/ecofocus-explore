@@ -849,16 +849,6 @@ export function ChartView({ tile }: { tile: DashboardTile }) {
   return null;
 }
 
-function CanvasSelectionHandles() {
-  return (
-    <div className="canvas-selection-handles" aria-hidden="true">
-      {["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((handle) => (
-        <span key={handle} className={`canvas-selection-handle ${handle}`} />
-      ))}
-    </div>
-  );
-}
-
 export const TileRenderer = memo(function TileRenderer({
   tile,
   selected,
@@ -1000,7 +990,6 @@ export const TileRenderer = memo(function TileRenderer({
           </div>
         )}
       </div>
-      {selected && <CanvasSelectionHandles />}
     </article>
   );
 }, (previous, next) => previous.tile === next.tile && previous.selected === next.selected && previous.titleEditable === next.titleEditable);
@@ -1029,7 +1018,6 @@ export const CanvasElementRenderer = memo(function CanvasElementRenderer({
         onClick={onSelect}
       >
         {element.content ? <img src={element.content} alt="" style={{ objectFit: element.style.objectFit }} /> : <div className="image-placeholder">Image URL</div>}
-        {selected && <CanvasSelectionHandles />}
       </div>
     );
   }
@@ -1059,7 +1047,6 @@ export const CanvasElementRenderer = memo(function CanvasElementRenderer({
         onClick={onSelect}
       >
         {element.content}
-        {selected && <CanvasSelectionHandles />}
       </div>
     );
   }
@@ -1077,8 +1064,6 @@ export const CanvasElementRenderer = memo(function CanvasElementRenderer({
         boxShadow: effectShadow(element.style)
       }}
       onClick={onSelect}
-    >
-      {selected && <CanvasSelectionHandles />}
-    </div>
+    />
   );
 }, (previous, next) => previous.element === next.element && previous.selected === next.selected);
