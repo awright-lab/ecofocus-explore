@@ -9738,15 +9738,17 @@ button:disabled {
 
 .settings-provenance-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
 }
 
 .settings-provenance-item {
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 6px 9px;
   min-width: 0;
-  padding: 7px;
+  padding: 8px;
   border: 1px solid #dce4ea;
   border-radius: 8px;
   background: #ffffff;
@@ -9760,7 +9762,7 @@ button:disabled {
 .settings-provenance-item span,
 .settings-provenance-item small {
   color: #60756b;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   line-height: 1.25;
 }
@@ -9776,6 +9778,7 @@ button:disabled {
 }
 
 .settings-provenance-item select {
+  grid-column: 1 / -1;
   min-height: 30px;
   margin-top: 2px;
   padding: 5px 7px;
@@ -9784,8 +9787,9 @@ button:disabled {
 
 .settings-provenance-detail {
   display: grid;
+  grid-column: 1 / -1;
   gap: 1px;
-  min-height: 44px;
+  min-height: 0;
   padding-top: 2px;
 }
 
@@ -9814,6 +9818,20 @@ button:disabled {
   justify-self: start;
   min-height: 26px;
   margin-top: 3px;
+}
+
+.story-inspector .tile-query-group .compact-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.story-inspector .tile-query-group label {
+  min-width: 0;
+}
+
+.story-inspector .tile-query-group select,
+.story-inspector .tile-query-group input {
+  width: 100%;
+  min-width: 0;
 }
 
 .tile-query-group {

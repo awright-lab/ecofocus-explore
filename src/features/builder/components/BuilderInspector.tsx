@@ -624,16 +624,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
         </div>
       </div>
-      <div className="assistant-next-step-card data">
-        <span>Data guidance</span>
-        <strong>{assistantNextStep.label}</strong>
-        <small>{assistantNextStep.helper}</small>
-      </div>
-      <AssistantFolder title="Result details" helper={`${dataContext?.rows} rows · ${dataContext?.columns} columns`} defaultOpen>
-        <TileAnalysisResultSection {...props} />
-      </AssistantFolder>
-      <AssistantFolder title="Query setup" helper={`${dataContext?.chart} · ${dataContext?.banner}`}>
+      <AssistantFolder title="Edit analysis" helper={`${dataContext?.chart} · ${dataContext?.banner}`} defaultOpen>
         <TileAnalysisQuerySection {...props} />
+      </AssistantFolder>
+      <AssistantFolder title="Details and provenance" helper={`${dataContext?.rows} rows · ${dataContext?.columns} columns`}>
+        <TileAnalysisResultSection {...props} />
       </AssistantFolder>
     </>
   ) : (

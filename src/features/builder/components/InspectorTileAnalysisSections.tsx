@@ -1041,26 +1041,6 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         </div>
         <small>{queryStatus.visualizationLabel}</small>
       </div>
-      <div className="settings-provenance-row" aria-label="Current analytical setting provenance">
-        {provenancePickerConfigs.map((config) => (
-          config.row && (
-            <SettingProvenancePickerCard
-              key={config.kind}
-              row={config.row}
-              options={config.options}
-              activeOptionId={config.activeOptionId}
-              activeOption={config.activeOption}
-              emptyState={config.emptyState}
-              placeholder={config.placeholder}
-              selectLabel={config.selectLabel}
-              disabled={config.disabled}
-              recentlySaved={recentlySavedKind === config.kind && Boolean(config.activeOption)}
-              action={config.action}
-              onApply={config.onApply}
-            />
-          )
-        ))}
-      </div>
       {showSaveConfirmation && (
         <div className="tile-query-action-confirmation" role="status">
           <strong>{saveConfirmation.label}</strong>
@@ -1072,11 +1052,12 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       )}
       <div className="tile-query-group primary">
         <div className="explorer-section-header">
-          <strong>Source settings</strong>
+          <strong>Current query</strong>
           <small>{queryStatus.sourceLabel}</small>
         </div>
         <div className="explorer-chip-row">
-          <span className="explorer-chip">{queryStatus.primarySourceLabel}: {queryStatus.questionLabel}</span>
+          <span className="explorer-chip">{queryStatus.primarySourceLabel}</span>
+          <span className="explorer-chip">{queryStatus.questionLabel}</span>
           <span className="explorer-chip">Compare: {queryStatus.comparisonLabel}</span>
         </div>
         {queryStatus.isImported ? (
@@ -1092,8 +1073,8 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
       </div>
       <details className="tile-query-group disclosure">
         <summary>
-          <strong>Comparison settings</strong>
-          <small>Trend or compare waves</small>
+          <strong>Breakout and comparison</strong>
+          <small>Banner or wave setup</small>
         </summary>
         {queryStatus.isImported ? <div className="empty-state compact">Wave comparison is not supported for imported local results yet.</div> : <TileComparisonControls {...props} />}
       </details>
@@ -1104,6 +1085,32 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         </summary>
         <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
         {queryStatus.isImported ? <div className="empty-state compact">Imported filters are captured in the local result; seeded saved filters and weights do not apply.</div> : <TileFilterWeightControls {...props} />}
+      </details>
+      <details className="tile-query-group disclosure">
+        <summary>
+          <strong>Saved settings</strong>
+          <small>Reusable banner, filter, and weight context</small>
+        </summary>
+        <div className="settings-provenance-row" aria-label="Current analytical setting provenance">
+          {provenancePickerConfigs.map((config) => (
+            config.row && (
+              <SettingProvenancePickerCard
+                key={config.kind}
+                row={config.row}
+                options={config.options}
+                activeOptionId={config.activeOptionId}
+                activeOption={config.activeOption}
+                emptyState={config.emptyState}
+                placeholder={config.placeholder}
+                selectLabel={config.selectLabel}
+                disabled={config.disabled}
+                recentlySaved={recentlySavedKind === config.kind && Boolean(config.activeOption)}
+                action={config.action}
+                onApply={config.onApply}
+              />
+            )
+          ))}
+        </div>
       </details>
       <details className="tile-query-group disclosure">
         <summary>
