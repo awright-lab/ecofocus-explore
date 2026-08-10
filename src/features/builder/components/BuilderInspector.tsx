@@ -583,7 +583,16 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         ? "Container"
         : selectedElement
           ? "Element"
-          : "Tile";
+          : "More tile styling";
+  const detailedControlHelper = settingsView === "page"
+    ? "Page setup and background"
+    : settingsView === "layout"
+      ? "Position, alignment, and layering"
+      : settingsView === "container"
+        ? "Tile surface, border, and effects"
+        : selectedElement
+          ? "Element appearance and content"
+          : "Display and advanced chart styling";
   const detailedControls = settingsView === "page"
     ? <PageInspector {...props} />
     : settingsView === "layout"
@@ -601,12 +610,14 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           {settingsView !== "home" && (
             <details className="advanced-inspector-details" open={settingsView === "page"}>
               <summary>
-                <strong>{detailedControlTitle} controls</strong>
-                <span>{settingsView === "page" ? "Page setup and background" : "Detailed editing controls"}</span>
+                <strong>{detailedControlTitle}</strong>
+                <span>{detailedControlHelper}</span>
               </summary>
-              <div className="panel-title with-action">
-                <h2>{detailedControlTitle}</h2>
-              </div>
+              {settingsView === "page" && (
+                <div className="panel-title with-action">
+                  <h2>{detailedControlTitle}</h2>
+                </div>
+              )}
               {detailedControls}
             </details>
           )}

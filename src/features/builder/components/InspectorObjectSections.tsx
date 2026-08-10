@@ -4,9 +4,7 @@ import { fontFamilies } from "../builderConstants";
 import { effectShadow, gradientCss } from "../builderHelpers";
 import {
   TileAnalysisDesignSection,
-  TileAnalysisDisplaySection,
-  TileAnalysisQuerySection,
-  TileAnalysisResultSection
+  TileAnalysisDisplaySection
 } from "./InspectorTileAnalysisSections";
 import type { DashboardCanvasElement } from "../../../../shared/types/dashboard";
 import type { BuilderInspectorProps } from "./BuilderInspector";
@@ -369,11 +367,26 @@ export function TileAnalysisInspector(props: BuilderInspectorProps) {
   }
 
   return (
-    <>
-      <TileAnalysisResultSection {...props} />
-      <TileAnalysisQuerySection {...props} />
-      <TileAnalysisDisplaySection {...props} />
-      <TileAnalysisDesignSection {...props} />
-    </>
+    <div className="tile-style-inspector">
+      <div className="tile-style-summary">
+        <span>Tile style</span>
+        <strong>{selectedTile.title || selectedTile.name}</strong>
+        <small>Data setup, imported query details, weights, filters, provenance, and derived outputs now live in the Data rail.</small>
+      </div>
+      <details className="tile-style-folder" open>
+        <summary>
+          <strong>Display</strong>
+          <small>Title placement and visible chart marks</small>
+        </summary>
+        <TileAnalysisDisplaySection {...props} />
+      </details>
+      <details className="tile-style-folder">
+        <summary>
+          <strong>Advanced design</strong>
+          <small>Colors, labels, bars, axes, container, and effects</small>
+        </summary>
+        <TileAnalysisDesignSection {...props} />
+      </details>
+    </div>
   );
 }

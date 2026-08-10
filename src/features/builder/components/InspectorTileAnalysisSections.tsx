@@ -1404,22 +1404,6 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
 
   return (
     <>
-              <label>
-                Visualization
-                <select
-                  value={selectedTile.visualization}
-                  onChange={(event) => {
-                    const nextVisualization = event.target.value as ChartType;
-                    updateSelectedTile(tileWithVisualization(selectedTile, nextVisualization));
-                  }}
-                >
-                  {getCompatibleChartTypes(selectedTile.result).map((item) => (
-                    <option value={item} key={item}>
-                      {getChartTypeLabel(item)}
-                    </option>
-                  ))}
-                </select>
-              </label>
               {selectedTile.visualization === "table" && (
                 <div className="table-convert-card">
                   <div className="explorer-section-header">
@@ -1460,9 +1444,6 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
                   </div>
                 </div>
               )}
-              <div className="panel-title subtle">
-                <h2>Display</h2>
-              </div>
               <div className="chart-title-edit-card">
                 <div className="explorer-section-header">
                   <strong>Chart title</strong>
@@ -1517,9 +1498,6 @@ export function TileAnalysisDesignSection(props: BuilderInspectorProps) {
 
   return (
     <>
-              <div className="panel-title subtle">
-                <h2>Design</h2>
-              </div>
               <div className="settings-menu">
                 <button type="button" className="menu-card" onClick={() => setDesignModal("chartColors")}>
                   <strong>Colors</strong>

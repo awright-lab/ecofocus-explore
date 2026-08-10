@@ -3550,6 +3550,87 @@ h2 {
   padding-bottom: 12px;
 }
 
+.tile-style-inspector {
+  display: grid;
+  gap: 8px;
+  padding-inline: 10px;
+}
+
+.tile-style-summary {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid #d9e4ea;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.tile-style-summary span {
+  color: #08715f;
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.tile-style-summary strong {
+  overflow: hidden;
+  color: #20342a;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tile-style-summary small {
+  color: #60756b;
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.tile-style-folder {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #dfe7ed;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.tile-style-folder summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tile-style-folder summary::-webkit-details-marker {
+  display: none;
+}
+
+.tile-style-folder summary strong {
+  color: #20342a;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.tile-style-folder summary small {
+  color: #687b72;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.tile-style-folder[open] {
+  padding-bottom: 10px;
+}
+
+.tile-style-folder[open] > :not(summary) {
+  margin-inline: 10px;
+}
+
 .assistant-palette-row button.active {
   border-color: #08715f;
   box-shadow: 0 0 0 3px rgba(15, 143, 127, 0.17), inset 0 0 0 1px rgba(255, 255, 255, 0.42);
