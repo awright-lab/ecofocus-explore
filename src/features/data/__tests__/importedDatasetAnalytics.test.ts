@@ -8,6 +8,7 @@ import {
   firstImportedDimensionField,
   firstImportedMeasureField,
   getImportedDatasetQuerySupport,
+  importedDatasetHasQueryableRows,
   importedFieldValues,
   runImportedDatasetQuery
 } from "../importedDatasetAnalytics";
@@ -324,7 +325,7 @@ describe("imported dataset measure analytics", () => {
     ]);
   });
 
-  it("skips record and identifier fields when choosing default imported analysis fields", () => {
+  it("skips record, identifier, and hidden admin fields when choosing default imported analysis fields", () => {
     const recordField = field("record", "record: Record number", "RECORD", {
       type: "numeric",
       modelingRole: "candidate_measure",
@@ -344,6 +345,12 @@ describe("imported dataset measure analytics", () => {
       distinctCount: 3,
       valueLabels: { "3": "Complete" }
     });
+    const hiddenField = field("edits", "edits: HIDDEN: This marker is used to track changes", "EDITS", {
+      type: "text",
+      modelingRole: "candidate_dimension",
+      nonEmptyCount: 4000,
+      distinctCount: 2
+    });
     const scoreField = field("score", "Score", "SCORE", {
       type: "numeric",
       modelingRole: "candidate_measure",
@@ -355,7 +362,7 @@ describe("imported dataset measure analytics", () => {
     });
     const importedSurvey = {
       ...dataset,
-      fields: [recordField, uuidField, statusField, scoreField]
+      fields: [recordField, uuidField, hiddenField, statusField, scoreField]
     };
 
     expect(firstImportedDimensionField(importedSurvey)?.id).toBe("status");
@@ -367,6 +374,32 @@ describe("imported dataset measure analytics", () => {
         label: "Reference field",
         recommendedAction: "Choose another field"
       }
+    });
+    expect(buildImportedFieldSuitability(hiddenField)).toMatchObject({
+      badges: ["Identifier"],
+      recommendedQueryMode: "modeling"
+    });
+  });
+
+  it("treats Netlify-backed row counts as queryable even when browser rows are compacted", () => {
+    const remoteDataset: ImportedDatasetRecord = {
+      ...dataset,
+      sourceType: "netlify",
+      remote: {
+        provider: "netlify",
+        projectUrl: "netlify",
+        bucket: "dataset-imports",
+        objectPath: "workspace-imports/imported_customers/customers.sav",
+        uploadedAt: "2026-07-03T00:00:00.000Z"
+      },
+      rowCount: 4000,
+      rows: [],
+      previewRows: []
+    };
+
+    expect(importedDatasetHasQueryableRows(remoteDataset)).toBe(true);
+    expect(getImportedDatasetQuerySupport(remoteDataset, segmentField)).toMatchObject({
+      executable: true
     });
   });
 

@@ -115,18 +115,21 @@ export function isLikelyImportedIdentifierField(field: ImportedDatasetField | nu
   const nameLooksLikeIdentifier =
     /(^|_|\b)(id|uuid|guid|record|respondent|participant_id|response_id|caseid|case_id)(\b|_)/.test(source) ||
     /\b(record number|respondent identifier|participant identifier|unique id|case id)\b/.test(label);
+  const looksLikeSystemField =
+    /(^|_|\b)(edit|edits|hidden|marker|markers|sys|system|admin|audit|timestamp)(\b|_)/.test(source) ||
+    /\b(hidden|internal|admin|audit|track changes|marker is used to track)\b/.test(label);
   const mostlyUnique =
     field.nonEmptyCount > 50 &&
     field.distinctCount <= field.nonEmptyCount &&
     field.distinctCount / Math.max(field.nonEmptyCount, 1) > 0.9;
-  return nameLooksLikeIdentifier || mostlyUnique;
+  return nameLooksLikeIdentifier || looksLikeSystemField || mostlyUnique;
 }
 
 export function isImportedFieldAnalysisCandidate(field: ImportedDatasetField | null | undefined) {
   return Boolean(field && !isLikelyImportedIdentifierField(field));
 }
 
-function importedDatasetHasRows(dataset: ImportedDatasetRecord | null | undefined) {
+export function importedDatasetHasQueryableRows(dataset: ImportedDatasetRecord | null | undefined) {
   return Boolean(dataset && ((dataset.rows?.length ?? 0) > 0 || (dataset.previewRows?.length ?? 0) > 0 || (dataset.remote?.provider === "netlify" && dataset.rowCount > 0)));
 }
 
@@ -526,7 +529,7 @@ export function buildImportedQueryRecommendations(
   }
 ): ImportedQueryRecommendationView[] {
   if (!dataset || !field || !isExecutableDimension(field)) return [];
-  if (!importedDatasetHasRows(dataset)) return [];
+  if (!importedDatasetHasQueryableRows(dataset)) return [];
 
   const bannerField = options?.bannerFields?.find((item) => item.id !== field.id) ?? null;
   const measureField = options?.measureField ?? firstImportedMeasureField(dataset);

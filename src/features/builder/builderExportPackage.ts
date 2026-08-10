@@ -10,6 +10,7 @@ import {
   tilePresentationNotes,
   trendSpanLabel
 } from "./components/CanvasRenderers";
+import { buildImportedResultProvenance } from "../data/importedDatasetAnalytics";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
 
 export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages: DashboardPage[]) {
@@ -68,39 +69,42 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
       tiles: page.tiles
         .filter((tile) => !tile.hidden)
         .sort((a, b) => a.layout.zIndex - b.layout.zIndex)
-        .map((tile) => ({
-          id: tile.id,
-          title: tile.title,
-          source: tile.source ?? null,
-          visualization: tile.visualization,
-          frame: {
-            x: tile.layout.x,
-            y: tile.layout.y,
-            width: tile.layout.width,
-            height: tile.layout.height,
-            zIndex: tile.layout.zIndex
-          },
-          query: tile.query,
-          appearance: tile.appearance,
-          exportHints: {
-            slideTitle: tile.title,
-            metricLabel: tile.result.metric.label,
-            questionLabel: resultSourceLabel(tile.result),
-            comparison: comparisonSummaryLabel(tile.query),
-            trendSpan: trendSpanLabel(tile.query),
-            sampleSize: sampleSizeLabel(tile.result),
-            weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
-            confidence: confidenceLevelLabel(resultConfidenceLevel(tile.result)),
-            narrativeNotes: tilePresentationNotes(tile)
-          },
-          result: {
-            columns: tile.result.columns,
-            table: tile.result.table,
-            notes: tile.result.notes,
-            warnings: tile.result.warnings,
-            annotations: tile.result.annotations
-          }
-        }))
+        .map((tile) => {
+          const imported = buildImportedResultProvenance(tile.result);
+          return {
+            id: tile.id,
+            title: tile.title,
+            source: tile.source ?? null,
+            visualization: tile.visualization,
+            frame: {
+              x: tile.layout.x,
+              y: tile.layout.y,
+              width: tile.layout.width,
+              height: tile.layout.height,
+              zIndex: tile.layout.zIndex
+            },
+            query: tile.query,
+            appearance: tile.appearance,
+            exportHints: {
+              slideTitle: tile.title,
+              metricLabel: tile.result.metric.label,
+              questionLabel: resultSourceLabel(tile.result),
+              comparison: comparisonSummaryLabel(tile.query),
+              trendSpan: trendSpanLabel(tile.query),
+              sampleSize: sampleSizeLabel(tile.result),
+              weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
+              confidence: imported ? "No significance testing for imported data" : confidenceLevelLabel(resultConfidenceLevel(tile.result)),
+              narrativeNotes: tilePresentationNotes(tile)
+            },
+            result: {
+              columns: tile.result.columns,
+              table: tile.result.table,
+              notes: tile.result.notes,
+              warnings: tile.result.warnings,
+              annotations: tile.result.annotations
+            }
+          };
+        })
     })),
     analysisLibrary: dashboard.analysisLibrary,
     presentationManifest: {

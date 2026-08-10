@@ -18,6 +18,7 @@ import {
   firstImportedDimensionField,
   firstImportedMeasureField,
   getImportedDatasetQuerySupport as getImportedExecutionSupport,
+  importedDatasetHasQueryableRows,
   isImportedFieldAnalysisCandidate,
   importedFieldValues
 } from "../../data/importedDatasetAnalytics";
@@ -154,7 +155,7 @@ export function GuidedDataQueryModal({
     chartType: selectedChart
   });
   const canCreate = datasetMode === "seeded" || importedSupport.executable;
-  const importedDatasetHasRows = Boolean(importedDataset && ((importedDataset.rows?.length ?? 0) > 0 || (importedDataset.previewRows?.length ?? 0) > 0));
+  const importedDatasetHasRows = importedDatasetHasQueryableRows(importedDataset);
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
   const importedRowCount = importedDataset?.rowCount ?? importedDataset?.rows?.length ?? 0;

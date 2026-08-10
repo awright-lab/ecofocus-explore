@@ -81,6 +81,31 @@ export function formatValue(value: number, format: AnalyticsQueryResponse["metri
   return formatImportedMeasureValue(value, metricId ?? "count");
 }
 
+function roundedPercentAxisProps(values: number[]) {
+  const max = Math.max(0, ...values);
+  const ceiling = Math.min(100, Math.max(40, Math.ceil(max / 10) * 10));
+  const step = ceiling <= 40 ? 10 : ceiling <= 60 ? 20 : 25;
+  const ticks = Array.from(
+    new Set([
+      0,
+      ...Array.from({ length: Math.floor(ceiling / step) }, (_, index) => (index + 1) * step),
+      ceiling
+    ])
+  ).sort((a, b) => a - b);
+  return {
+    domain: [0, ceiling] as [number, number],
+    ticks
+  };
+}
+
+function chartYAxisProps(result: AnalyticsQueryResponse, values: number[]) {
+  return result.metric.valueFormat === "percent" ? roundedPercentAxisProps(values) : {};
+}
+
+function resultColumnValues(result: AnalyticsQueryResponse) {
+  return result.table.flatMap((row) => result.columns.map((column) => Number(row.values[column.id] ?? 0)));
+}
+
 export function wrapWords(value: string, maxChars: number, maxLines: number) {
   const manualLines = value.split("\n");
   const wrappedLines = manualLines.flatMap((line) => {
@@ -461,6 +486,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
     value: row.values[column.id],
     base: row.bases[column.id]
   }));
+  const yAxisProps = chartYAxisProps(result, chartData.map((item) => Number(item.value ?? 0)));
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven vertical bar chart">
@@ -475,7 +501,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
             {chartData.map((item, index) => (
@@ -501,6 +527,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     ...row.values
   }));
+  const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven grouped bar chart">
@@ -515,7 +542,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
@@ -547,6 +574,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
     value: row.values[column.id],
     base: row.bases[column.id]
   }));
+  const xAxisProps = chartYAxisProps(result, chartData.map((item) => Number(item.value ?? 0)));
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven horizontal bar chart">
@@ -560,7 +588,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             })}
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} horizontal={false} />}
-          <XAxis type="number" tick={{ fill: appearance.xAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <XAxis type="number" tick={{ fill: appearance.xAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...xAxisProps} />
           <YAxis
             type="category"
             dataKey="axisLabel"
@@ -594,6 +622,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     ...row.values
   }));
+  const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven stacked bar chart">
@@ -608,7 +637,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
           </defs>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
@@ -636,6 +665,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     ...row.values
   }));
+  const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven line chart">
@@ -643,7 +673,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
         <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
           {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
           <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
           <Tooltip formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
           <Legend verticalAlign="top" height={36} />
           {result.columns.map((column, index) => (
