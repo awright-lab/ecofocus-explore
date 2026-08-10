@@ -347,6 +347,7 @@ export function ValueLabel(props: {
   width?: unknown;
   value?: unknown;
   payload?: { optionId: string };
+  columnId?: string;
   result: AnalyticsQueryResponse;
   appearance: TileAppearance;
 }) {
@@ -358,7 +359,7 @@ export function ValueLabel(props: {
   const y = Number(props.y ?? 0);
   const width = Number(props.width ?? 0);
   const value = Number(props.value ?? 0);
-  const annotation = payload && appearance.showAnnotations ? getAnnotation(result.annotations, payload.optionId, result.columns[0]?.id) : undefined;
+  const annotation = payload && appearance.showAnnotations ? getAnnotation(result.annotations, payload.optionId, props.columnId ?? result.columns[0]?.id) : undefined;
   const yOffset =
     appearance.labelPosition === "insideBottom"
       ? 18
@@ -532,7 +533,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
   return (
     <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven grouped bar chart">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
           <defs>
             {result.columns.map((column, index) => {
               const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
@@ -553,7 +554,9 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
               fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, column.id)})` : getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
               radius={[getBarStyle(appearance, column.id, appearance.primaryColor).radius, getBarStyle(appearance, column.id, appearance.primaryColor).radius, 0, 0]}
               barSize={appearance.barSize}
-            />
+            >
+              <LabelList content={(props) => <ValueLabel {...props} columnId={column.id} result={result} appearance={appearance} />} />
+            </Bar>
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -956,7 +959,7 @@ export const TileRenderer = memo(function TileRenderer({
         </div>
         {!imported && (
           <div className="tile-header-meta" aria-label="Analysis summary">
-            <span>{sampleSizeLabel(result)}</span>
+            {tile.appearance.showBases && <span>{sampleSizeLabel(result)}</span>}
             <small>{confidenceLevelLabel(resultConfidenceLevel(result))}</small>
           </div>
         )}
@@ -970,12 +973,12 @@ export const TileRenderer = memo(function TileRenderer({
               <span>{imported.metricLabel}</span>
               <span>Group: {imported.groupingLabel}</span>
               {imported.measureLabel && <span>Measure: {imported.measureLabel}</span>}
-              <span>{imported.baseLabel}</span>
+              {tile.appearance.showBases && <span>{imported.baseLabel}</span>}
             </>
           ) : (
             <>
               <span>{resultSourceLabel(result)}</span>
-              <span>{sampleSizeLabel(result)}</span>
+              {tile.appearance.showBases && <span>{sampleSizeLabel(result)}</span>}
               <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
               <span>{result.metric.label}</span>
               <span>{confidenceLevelLabel(resultConfidenceLevel(result))}</span>

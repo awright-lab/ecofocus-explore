@@ -3425,6 +3425,19 @@ h2 {
   gap: 9px;
 }
 
+.toggle-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toggle-row small {
+  color: #7a8b82;
+  font-size: 0.62rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
 .toggle-row input {
   justify-self: end;
   appearance: none;
@@ -3435,6 +3448,12 @@ h2 {
   border-radius: 999px;
   background: #ccd7dd;
   cursor: pointer;
+}
+
+.toggle-row input:disabled {
+  background: #d9e2e7;
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .toggle-row input::after {

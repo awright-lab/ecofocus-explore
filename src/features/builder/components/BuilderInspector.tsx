@@ -21,6 +21,7 @@ import {
 import { effectShadow, gradientCss } from "../builderHelpers";
 import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, resultSourceLabel, tileSourceKindLabel } from "./CanvasRenderers";
 import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
+import { buildExecutedColumnComparisonPresentation } from "./analysisSignificancePresentationModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
 import type {
   CanvasLayout,
@@ -401,6 +402,14 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   const activeDesignPaletteId = selectedTile
     ? (designPalettes.find((palette) => palette.colors.join(",") === selectedTile.appearance.palette.join(","))?.id ?? getPaletteId(selectedTile.appearance.palette))
     : "custom";
+  const executedSignificanceView = selectedTile ? buildExecutedColumnComparisonPresentation(selectedTile.result) : null;
+  const hasRenderableSignificanceMarkers = Boolean(
+    selectedTile
+    && (
+      selectedTile.result.annotations.length > 0
+      || (selectedTile.visualization === "table" && executedSignificanceView?.available && executedSignificanceView.significantComparisons > 0)
+    )
+  );
   const chartBasicsCard = selectedTile ? (
     <div className="assistant-style-card">
       <AssistantFolder title="Chart basics" helper={`${getChartTypeLabel(selectedTile.visualization)} · ${selectedTile.result.metric.label}`} defaultOpen>
@@ -416,10 +425,14 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           </select>
         </label>
         <label className="toggle-row">
-          <span>Show significance markers</span>
+          <span>
+            Show significance markers
+            {!hasRenderableSignificanceMarkers && <small>No markers available for this tile yet.</small>}
+          </span>
           <input
             type="checkbox"
-            checked={selectedTile.appearance.showAnnotations}
+            checked={selectedTile.appearance.showAnnotations && hasRenderableSignificanceMarkers}
+            disabled={!hasRenderableSignificanceMarkers}
             onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })}
           />
         </label>

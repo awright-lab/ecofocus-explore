@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type React from "react";
+import { rangeFill } from "../../design-system/DesignControls";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { buildImportedResultProvenance, getImportedDatasetQuerySupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
@@ -1456,6 +1457,7 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
                     min="10"
                     max="34"
                     value={selectedTile.appearance.titleFontSize}
+                    style={{ "--range-fill": rangeFill(selectedTile.appearance.titleFontSize, 10, 34) } as React.CSSProperties}
                     onChange={(event) => updateSelectedAppearance({ titleFontSize: Number(event.target.value) })}
                   />
                 </label>
@@ -1482,7 +1484,6 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
               <div className="toggle-list">
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> {selectedTile.visualization === "table" ? "Table guides" : "Chart grid"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> {selectedTile.visualization === "table" ? "Cell values" : "Value labels"}</label>
-                <label><input type="checkbox" checked={selectedTile.appearance.showAnnotations} onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })} /> {selectedTile.visualization === "table" ? "Highlights" : "Arrows"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>
     </>
