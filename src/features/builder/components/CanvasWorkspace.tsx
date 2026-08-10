@@ -18,6 +18,17 @@ function guideStateSignature(state: CompositionGuideState) {
   return `${state.snappedX}:${state.snappedY}:${state.guides.map((guide) => `${guide.orientation}:${guide.position}:${guide.label}`).join("|")}`;
 }
 
+const canvasResizeHandleClasses = {
+  top: "canvas-resize-handle canvas-resize-handle--top",
+  right: "canvas-resize-handle canvas-resize-handle--right",
+  bottom: "canvas-resize-handle canvas-resize-handle--bottom",
+  left: "canvas-resize-handle canvas-resize-handle--left",
+  topLeft: "canvas-resize-handle canvas-resize-handle--top-left",
+  topRight: "canvas-resize-handle canvas-resize-handle--top-right",
+  bottomRight: "canvas-resize-handle canvas-resize-handle--bottom-right",
+  bottomLeft: "canvas-resize-handle canvas-resize-handle--bottom-left"
+};
+
 type CanvasActionIconName = "addSlide" | "data" | "text" | "shape" | "image" | "comment" | "notes" | "fit";
 
 function CanvasActionIcon({ icon }: { icon: CanvasActionIconName }) {
@@ -451,6 +462,7 @@ export function CanvasWorkspace({
                 style={{ zIndex: element.layout.zIndex }}
                 dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
                 resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                resizeHandleClasses={canvasResizeHandleClasses}
                 disableDragging={element.locked}
                 enableResizing={!element.locked}
                 onDragStart={() => {
@@ -492,6 +504,7 @@ export function CanvasWorkspace({
                 style={{ zIndex: tile.layout.zIndex }}
                 dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
                 resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
+                resizeHandleClasses={canvasResizeHandleClasses}
                 disableDragging={tile.locked}
                 enableResizing={!tile.locked}
                 onDragStart={() => {
