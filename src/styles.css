@@ -11162,6 +11162,32 @@ code {
   contain: layout paint style;
 }
 
+.canvas-draggable-frame.selected {
+  z-index: 9000 !important;
+}
+
+.canvas-draggable-frame.selected::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: 30;
+  border: 2px solid #2b7fff;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.96), 0 8px 24px rgba(43, 127, 255, 0.16);
+  pointer-events: none;
+}
+
+.canvas-draggable-frame.selected .react-resizable-handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #2b7fff;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(17, 37, 65, 0.18);
+  opacity: 1;
+  z-index: 40;
+}
+
 .canvas-draggable-frame.react-draggable-dragging {
   z-index: 9999 !important;
   cursor: grabbing;

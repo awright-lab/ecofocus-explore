@@ -443,7 +443,7 @@ export function CanvasWorkspace({
             {activePage.elements.filter((element) => !element.hidden).map((element) => (
               <Rnd
                 key={element.id}
-                className="canvas-draggable-frame"
+                className={element.id === selectedElementId ? "canvas-draggable-frame selected" : "canvas-draggable-frame"}
                 bounds="parent"
                 scale={canvasScale}
                 size={{ width: element.layout.width, height: element.layout.height }}
@@ -481,7 +481,7 @@ export function CanvasWorkspace({
             {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
               <Rnd
                 key={tile.id}
-                className="canvas-draggable-frame"
+                className={tile.id === selectedTileId ? "canvas-draggable-frame selected" : "canvas-draggable-frame"}
                 bounds="parent"
                 scale={canvasScale}
                 dragHandleClassName="tile-drag-handle"
