@@ -7,6 +7,7 @@ import {
 } from "../../data/datasetModelingModel";
 import { normalizeDatasetSourceRefForImportedDataset } from "../../data/datasetSourceRegistry";
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
+import { buildLiveDatasetSourceFieldModelingSummary } from "../../data/liveDatasetFieldModel";
 import { buildLiveDatasetSourceReadinessView } from "../../data/liveDatasetSourceModel";
 import { listImportedDatasetFieldsFromNetlify } from "../../data/netlifyDatasetStore";
 import { makeWorkspaceHomePath } from "../../document/workspacePersistence";
@@ -537,6 +538,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 <div className="data-library-section-body">
                   {liveDatasetSources.map((source) => {
                     const readiness = buildLiveDatasetSourceReadinessView(source);
+                    const fieldModeling = buildLiveDatasetSourceFieldModelingSummary(source);
                     return (
                       <article className={`data-library-live-source-row ${source.status}`} key={source.sourceRef.id}>
                         <span><DataLibraryIcon icon="dataset" /></span>
@@ -545,6 +547,13 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                           <small>{readiness.statusLabel} · {readiness.modeLabel} · {source.objectType}</small>
                           <em>{source.objectPath}</em>
                           <b>{readiness.structureLabel}</b>
+                          {fieldModeling.inspectedFields > 0 && (
+                            <div className="data-library-live-source-chips" aria-label={`${source.label} field role summary`}>
+                              <span>{fieldModeling.modeledFields}/{fieldModeling.inspectedFields} modeled</span>
+                              <span>{fieldModeling.dimensions} groups</span>
+                              <span>{fieldModeling.measures} measures</span>
+                            </div>
+                          )}
                           <p>{readiness.readinessNote}</p>
                         </div>
                         <button

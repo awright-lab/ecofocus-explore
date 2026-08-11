@@ -1,7 +1,13 @@
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
-import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, LiveDatasetSourceDescriptor, LiveDatasetSourceInspectionReport } from "../../../shared/types/dataSource";
+import type {
+  DatasetConnectionProfile,
+  DatasetConnectionVerificationReport,
+  LiveDatasetFieldDescriptor,
+  LiveDatasetSourceDescriptor,
+  LiveDatasetSourceInspectionReport
+} from "../../../shared/types/dataSource";
 import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
@@ -313,6 +319,31 @@ export function updateWorkspaceLiveDatasetSourceInspection(
               diagnostics: report.diagnostics,
               nextStep: report.nextStep
             }
+          }
+        : source
+    )
+  };
+}
+
+export function updateWorkspaceLiveDatasetSourceFields(
+  workspace: DashboardWorkspace,
+  sourceRefId: string,
+  fields: LiveDatasetFieldDescriptor[]
+): DashboardWorkspace {
+  return {
+    ...workspace,
+    liveDatasetSources: (workspace.liveDatasetSources ?? []).map((source) =>
+      source.sourceRef.id === sourceRefId
+        ? {
+            ...source,
+            fieldCount: fields.length || source.fieldCount,
+            inspection: source.inspection
+              ? {
+                  ...source.inspection,
+                  fields,
+                  nextStep: "Field roles are modeled. Build the live query definition contract before creating live tables or charts."
+                }
+              : source.inspection
           }
         : source
     )

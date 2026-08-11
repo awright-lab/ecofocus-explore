@@ -3,12 +3,21 @@ import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnaps
 import type {
   DatasetConnectionProfile,
   DatasetConnectionVerificationReport,
+  LiveDatasetFieldDescriptor,
   LiveDatasetSourceDescriptor,
   LiveDatasetSourceInspectionReport
 } from "../../../shared/types/dataSource";
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
 import { buildDatasetConnectionProfiles, buildLiveDatasetSourceDescriptorForConnection, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
+import {
+  applySuggestedLiveDatasetFieldModeling,
+  buildLiveDatasetFieldModelingView,
+  buildLiveDatasetSourceFieldModelingSummary,
+  liveDatasetFieldRoleOptions,
+  updateLiveDatasetFieldModeling,
+  type LiveDatasetFieldModelingUpdate
+} from "../data/liveDatasetFieldModel";
 import { buildLiveDatasetSourceReadinessView } from "../data/liveDatasetSourceModel";
 import {
   createNewReportFromSeed,
@@ -22,6 +31,7 @@ import {
   saveDashboardWorkspace,
   updateWorkspaceDatasetConnectionVerification,
   updateWorkspaceLiveDatasetSourceInspection,
+  updateWorkspaceLiveDatasetSourceFields,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection,
   upsertWorkspaceImportedDataset
@@ -487,6 +497,26 @@ export function WorkspaceHome({
     setImportFeedback({ tone: "success", label: `${label} mapping saved.` });
   }
 
+  function updateLiveSourceFields(source: LiveDatasetSourceDescriptor, fields: LiveDatasetFieldDescriptor[] | undefined) {
+    if (!fields) return;
+    const nextWorkspace = updateWorkspaceLiveDatasetSourceFields(workspace, source.sourceRef.id, fields);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+  }
+
+  function applyLiveSourceSuggestedRoles(source: LiveDatasetSourceDescriptor) {
+    const fields = source.inspection?.fields;
+    if (!fields?.length) return;
+    updateLiveSourceFields(source, applySuggestedLiveDatasetFieldModeling(fields));
+    setImportFeedback({ tone: "success", label: `${source.label}: suggested field roles applied.` });
+  }
+
+  function updateLiveSourceFieldRole(source: LiveDatasetSourceDescriptor, fieldId: string, update: LiveDatasetFieldModelingUpdate) {
+    const fields = source.inspection?.fields;
+    if (!fields?.length) return;
+    updateLiveSourceFields(source, updateLiveDatasetFieldModeling(fields, fieldId, update));
+  }
+
   return (
     <main className="workspace-home-shell">
       <header className="workspace-home-header">
@@ -892,6 +922,7 @@ export function WorkspaceHome({
                   const isInspectingSource = inspectingLiveSourceId === source.sourceRef.id;
                   const readiness = buildLiveDatasetSourceReadinessView(source);
                   const inspectedFields = source.inspection?.fields ?? [];
+                  const fieldModelingSummary = buildLiveDatasetSourceFieldModelingSummary(source);
                   return (
                     <article className={`workspace-live-source-row ${source.status}`} key={source.sourceRef.id}>
                       <span><HomeIcon icon="dataset" /></span>
@@ -919,15 +950,41 @@ export function WorkspaceHome({
                               <small>{formatDateTime(source.inspection.inspectedAt)}</small>
                             </div>
                             {inspectedFields.length > 0 && (
-                              <div className="workspace-live-source-fields" aria-label={`${source.label} inspected fields`}>
-                                {inspectedFields.slice(0, 8).map((field) => (
-                                  <span key={field.id}>
-                                    {field.label}
-                                    <small>{field.type}</small>
-                                  </span>
-                                ))}
-                                {inspectedFields.length > 8 && <em>{inspectedFields.length - 8} more fields</em>}
-                              </div>
+                              <>
+                                <div className="workspace-live-source-modeling-summary">
+                                  <strong>{fieldModelingSummary.statusLabel}</strong>
+                                  <p>{fieldModelingSummary.guidance}</p>
+                                  <div className="workspace-live-source-fields" aria-label={`${source.label} field modeling summary`}>
+                                    {fieldModelingSummary.chips.map((chip) => <span key={chip}>{chip}</span>)}
+                                  </div>
+                                </div>
+                                <div className="workspace-live-field-list" aria-label={`${source.label} inspected fields`}>
+                                  {inspectedFields.slice(0, 8).map((field) => {
+                                    const fieldView = buildLiveDatasetFieldModelingView(field);
+                                    return (
+                                      <div className={`workspace-live-field-row ${fieldView.readinessTone}`} key={field.id}>
+                                        <div>
+                                          <strong>{field.label}</strong>
+                                          <small>{field.rawName} · {fieldView.typeLabel}</small>
+                                          <em>{fieldView.helper}</em>
+                                        </div>
+                                        <select
+                                          value={field.modelingRole ?? "unmodeled"}
+                                          onChange={(event) => updateLiveSourceFieldRole(source, field.id, {
+                                            modelingRole: event.target.value as LiveDatasetFieldModelingUpdate["modelingRole"]
+                                          })}
+                                          aria-label={`Model ${field.label}`}
+                                        >
+                                          {liveDatasetFieldRoleOptions.map((option) => (
+                                            <option value={option.id} key={option.id}>{option.label}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    );
+                                  })}
+                                  {inspectedFields.length > 8 && <p>{inspectedFields.length - 8} more inspected fields will be modeled in the full live field manager.</p>}
+                                </div>
+                              </>
                             )}
                             {source.inspection.diagnostics[0] && <p>{source.inspection.diagnostics[0]}</p>}
                             <p>{source.inspection.nextStep}</p>
@@ -1013,6 +1070,11 @@ export function WorkspaceHome({
                       >
                         {isInspectingSource ? "Inspecting..." : source.inspection?.status === "inspected" ? "Refresh fields" : "Inspect fields"}
                       </button>
+                      {inspectedFields.length > 0 && (
+                        <button type="button" className="workspace-home-secondary compact" onClick={() => applyLiveSourceSuggestedRoles(source)}>
+                          Suggest roles
+                        </button>
+                      )}
                       <button type="button" className="workspace-home-secondary compact" onClick={() => startEditingLiveSource(source)}>
                         Edit mapping
                       </button>

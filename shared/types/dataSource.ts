@@ -16,6 +16,7 @@ export type DatasetConnectionStatus = "setup_scaffold" | "configured" | "sync_re
 export type LiveDatasetSourceStatus = "available" | "needs_verification" | "unavailable" | "unsupported";
 export type DatasetConnectionVerificationStatus = "not_configured" | "ready_to_verify" | "verified" | "failed" | "unsupported";
 export type LiveDatasetSourceInspectionStatus = "not_inspected" | "inspected" | "failed" | "unsupported";
+export type LiveDatasetFieldRole = "unmodeled" | "dimension" | "measure" | "date" | "identifier";
 
 export interface DatasetConnectionProfile {
   id: string;
@@ -67,6 +68,10 @@ export interface LiveDatasetFieldDescriptor {
   label: string;
   rawName: string;
   type: "text" | "number" | "date" | "boolean" | "unknown";
+  modelingRole?: LiveDatasetFieldRole;
+  eligibleForFilter?: boolean;
+  eligibleForSegment?: boolean;
+  eligibleForBanner?: boolean;
   nullable?: boolean;
   sourceType?: string;
   distinctEstimate?: number;

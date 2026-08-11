@@ -6,6 +6,7 @@ import {
   removeWorkspaceLiveDatasetSource,
   updateWorkspaceDatasetConnectionVerification,
   updateWorkspaceLiveDatasetSourceInspection,
+  updateWorkspaceLiveDatasetSourceFields,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection
 } from "../workspacePersistence";
@@ -286,6 +287,59 @@ describe("workspace dataset connection persistence", () => {
         ],
         nextStep: "Map fields before enabling query creation."
       }
+    });
+  });
+
+  it("persists live source field role metadata", () => {
+    const initial = updateWorkspaceLiveDatasetSourceInspection(
+      workspace({
+        liveDatasetSources: [{
+          connectionId: "connection_snowflake",
+          objectType: "table",
+          objectPath: "SURVEY.PUBLIC.RESPONSES",
+          label: "Snowflake source",
+          syncMode: "live_query",
+          status: "available",
+          statusLabel: "Fields inspected",
+          sourceRef: {
+            id: "live:snowflake:connection_snowflake:default",
+            kind: "live_connection",
+            provider: "snowflake",
+            label: "Snowflake source",
+            datasetId: "responses",
+            connectionId: "connection_snowflake"
+          }
+        }]
+      }),
+      {
+        provider: "snowflake",
+        connectionId: "connection_snowflake",
+        sourceRefId: "live:snowflake:connection_snowflake:default",
+        objectPath: "SURVEY.PUBLIC.RESPONSES",
+        objectType: "table",
+        status: "inspected",
+        statusLabel: "Fields inspected",
+        inspectedAt: "2026-08-03T00:00:00.000Z",
+        fields: [
+          { id: "gender", label: "Gender", rawName: "GENDER", type: "text" },
+          { id: "age", label: "Age", rawName: "AGE", type: "number" }
+        ],
+        diagnostics: ["2 fields returned."],
+        nextStep: "Map fields before enabling query creation."
+      }
+    );
+
+    const updated = updateWorkspaceLiveDatasetSourceFields(initial, "live:snowflake:connection_snowflake:default", [
+      { id: "gender", label: "Gender", rawName: "GENDER", type: "text", modelingRole: "dimension", eligibleForFilter: true, eligibleForBanner: true },
+      { id: "age", label: "Age", rawName: "AGE", type: "number", modelingRole: "measure" }
+    ]);
+
+    expect(updated.liveDatasetSources[0].inspection).toMatchObject({
+      fields: [
+        { id: "gender", modelingRole: "dimension", eligibleForFilter: true, eligibleForBanner: true },
+        { id: "age", modelingRole: "measure" }
+      ],
+      nextStep: "Field roles are modeled. Build the live query definition contract before creating live tables or charts."
     });
   });
 });
