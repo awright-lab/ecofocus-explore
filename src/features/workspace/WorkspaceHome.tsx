@@ -12,6 +12,7 @@ import {
   makePublishedViewerPath,
   markReportOpened,
   removeWorkspaceDatasetConnection,
+  removeWorkspaceLiveDatasetSource,
   saveDashboardWorkspace,
   updateWorkspaceDatasetConnectionVerification,
   upsertWorkspaceLiveDatasetSource,
@@ -350,6 +351,15 @@ export function WorkspaceHome({
     if (source.status === "needs_verification") return "Needs verification";
     if (source.status === "unsupported") return "Unsupported";
     return "Unavailable";
+  }
+
+  function removeLiveSource(source: LiveDatasetSourceDescriptor) {
+    const shouldRemove = window.confirm(`Remove "${source.label}" from managed sources? This only removes the source descriptor; the connection setup plan stays saved.`);
+    if (!shouldRemove) return;
+    const nextWorkspace = removeWorkspaceLiveDatasetSource(workspace, source.sourceRef.id);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setImportFeedback({ tone: "success", label: `${source.label} removed from managed sources.` });
   }
 
   return (
@@ -770,6 +780,9 @@ export function WorkspaceHome({
                           Refresh
                         </button>
                       )}
+                      <button type="button" className="workspace-home-secondary compact danger" onClick={() => removeLiveSource(source)}>
+                        Remove
+                      </button>
                     </article>
                   );
                 })}

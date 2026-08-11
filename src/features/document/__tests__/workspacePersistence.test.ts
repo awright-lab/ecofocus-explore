@@ -3,6 +3,7 @@ import type { DashboardWorkspace } from "../../../../shared/types/dashboard";
 import type { DatasetConnectionProfile } from "../../../../shared/types/dataSource";
 import {
   removeWorkspaceDatasetConnection,
+  removeWorkspaceLiveDatasetSource,
   updateWorkspaceDatasetConnectionVerification,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection
@@ -149,5 +150,51 @@ describe("workspace dataset connection persistence", () => {
       objectPath: "SURVEY.PUBLIC.RESPONSES",
       status: "available"
     });
+  });
+
+  it("removes a single live dataset source descriptor", () => {
+    const initial = workspace({
+      liveDatasetSources: [
+        {
+          connectionId: "connection_snowflake",
+          objectType: "table",
+          objectPath: "SURVEY.PUBLIC.RESPONSES",
+          label: "Snowflake source",
+          syncMode: "live_query",
+          status: "available",
+          statusLabel: "Ready",
+          sourceRef: {
+            id: "live:snowflake:connection_snowflake:default",
+            kind: "live_connection",
+            provider: "snowflake",
+            label: "Snowflake source",
+            datasetId: "responses",
+            connectionId: "connection_snowflake"
+          }
+        },
+        {
+          connectionId: "connection_supabase",
+          objectType: "table",
+          objectPath: "public.imported_datasets",
+          label: "Supabase source",
+          syncMode: "live_query",
+          status: "needs_verification",
+          statusLabel: "Needs verification",
+          sourceRef: {
+            id: "live:supabase:connection_supabase:default",
+            kind: "live_connection",
+            provider: "supabase",
+            label: "Supabase source",
+            datasetId: "supabase",
+            connectionId: "connection_supabase"
+          }
+        }
+      ]
+    });
+
+    const updated = removeWorkspaceLiveDatasetSource(initial, "live:snowflake:connection_snowflake:default");
+
+    expect(updated.liveDatasetSources).toHaveLength(1);
+    expect(updated.liveDatasetSources[0].sourceRef.id).toBe("live:supabase:connection_supabase:default");
   });
 });

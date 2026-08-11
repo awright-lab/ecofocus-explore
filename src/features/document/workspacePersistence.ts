@@ -280,6 +280,13 @@ export function upsertWorkspaceLiveDatasetSource(workspace: DashboardWorkspace, 
   };
 }
 
+export function removeWorkspaceLiveDatasetSource(workspace: DashboardWorkspace, sourceRefId: string): DashboardWorkspace {
+  return {
+    ...workspace,
+    liveDatasetSources: (workspace.liveDatasetSources ?? []).filter((source) => source.sourceRef.id !== sourceRefId)
+  };
+}
+
 function connectionStatusFromVerification(report: DatasetConnectionVerificationReport): DatasetConnectionProfile["status"] {
   if (report.status === "verified") return "sync_ready";
   if (report.status === "ready_to_verify") return "configured";
