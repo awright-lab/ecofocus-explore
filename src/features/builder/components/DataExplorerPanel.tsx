@@ -542,14 +542,14 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         <span><DataLibraryIcon icon="dataset" /></span>
                         <div>
                           <strong>{source.label}</strong>
-                          <small>{readiness.statusLabel} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
+                          <small>{readiness.statusLabel} · {readiness.modeLabel} · {source.objectType}</small>
                           <em>{source.objectPath}</em>
                           <b>{readiness.structureLabel}</b>
                           <p>{readiness.readinessNote}</p>
                         </div>
                         <button
                           type="button"
-                          disabled={!readiness.canCreateQuery}
+                          onClick={openWorkspaceHome}
                           title={readiness.readinessNote}
                         >
                           {readiness.actionLabel}

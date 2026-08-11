@@ -1,11 +1,35 @@
 import type { LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
+import type { LiveAnalyticsSourceIdentity } from "../../../shared/types/analytics";
 
 export interface LiveDatasetSourceReadinessView {
   statusLabel: string;
+  modeLabel: string;
   structureLabel: string;
   readinessNote: string;
+  stageLabels: string[];
   canCreateQuery: boolean;
   actionLabel: string;
+}
+
+export interface LiveDatasetQueryDraft {
+  sourceIdentity: LiveAnalyticsSourceIdentity;
+  canCreateQuery: boolean;
+  reason: string;
+}
+
+export function liveSourceIdentity(source: LiveDatasetSourceDescriptor): LiveAnalyticsSourceIdentity {
+  return {
+    kind: "live",
+    sourceRef: source.sourceRef,
+    connectionId: source.connectionId,
+    provider: source.sourceRef.provider,
+    datasetLabel: source.label,
+    objectPath: source.objectPath,
+    objectType: source.objectType,
+    syncMode: source.syncMode,
+    rowCountEstimate: source.rowCountEstimate,
+    fieldCount: source.fieldCount
+  };
 }
 
 export function buildLiveDatasetSourceReadinessView(source: LiveDatasetSourceDescriptor): LiveDatasetSourceReadinessView {
@@ -15,31 +39,35 @@ export function buildLiveDatasetSourceReadinessView(source: LiveDatasetSourceDes
   ].filter(Boolean);
 
   const base = {
+    modeLabel: source.syncMode === "live_query" ? "Live source" : "Snapshot source",
     structureLabel: structureParts.length ? structureParts.join(" · ") : "Mapping saved",
+    stageLabels: ["Server readiness", "Source mapping", "Query support pending"],
     canCreateQuery: false,
-    actionLabel: "Query soon"
+    actionLabel: "Manage setup"
   };
 
   if (source.status === "available") {
     return {
       ...base,
-      statusLabel: "Ready",
-      readinessNote: "Mapped source. Live query creation is not enabled yet."
+      statusLabel: "Mapped source",
+      readinessNote: "Source mapping is saved. Query creation is pending provider-specific dataset support."
     };
   }
 
   if (source.status === "needs_verification") {
     return {
       ...base,
-      statusLabel: "Verify",
-      readinessNote: "Server verification needed before live query setup."
+      statusLabel: "Needs server check",
+      stageLabels: ["Server readiness needed", "Source mapping saved", "Query support pending"],
+      readinessNote: "Run server verification before enabling live query setup."
     };
   }
 
   if (source.status === "unsupported") {
     return {
       ...base,
-      statusLabel: "Unsupported",
+      statusLabel: "Query support pending",
+      stageLabels: ["Server readiness", "Source mapping", "Provider support pending"],
       readinessNote: "Provider support is not available yet."
     };
   }
@@ -47,6 +75,18 @@ export function buildLiveDatasetSourceReadinessView(source: LiveDatasetSourceDes
   return {
     ...base,
     statusLabel: "Unavailable",
+    stageLabels: ["Connection setup needed", "Source mapping pending", "Query support pending"],
     readinessNote: "Connection setup is incomplete."
+  };
+}
+
+export function buildLiveDatasetQueryDraft(source: LiveDatasetSourceDescriptor): LiveDatasetQueryDraft {
+  const readiness = buildLiveDatasetSourceReadinessView(source);
+  return {
+    sourceIdentity: liveSourceIdentity(source),
+    canCreateQuery: readiness.canCreateQuery,
+    reason: readiness.canCreateQuery
+      ? "Ready to create a live-source query."
+      : readiness.readinessNote
   };
 }

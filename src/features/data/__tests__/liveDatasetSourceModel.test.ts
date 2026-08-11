@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LiveDatasetSourceDescriptor } from "../../../../shared/types/dataSource";
-import { buildLiveDatasetSourceReadinessView } from "../liveDatasetSourceModel";
+import { buildLiveDatasetQueryDraft, buildLiveDatasetSourceReadinessView, liveSourceIdentity } from "../liveDatasetSourceModel";
 
 function source(overrides: Partial<LiveDatasetSourceDescriptor> = {}): LiveDatasetSourceDescriptor {
   return {
@@ -29,21 +29,51 @@ function source(overrides: Partial<LiveDatasetSourceDescriptor> = {}): LiveDatas
 describe("live dataset source model", () => {
   it("summarizes mapped but not-yet-queryable live sources honestly", () => {
     expect(buildLiveDatasetSourceReadinessView(source())).toMatchObject({
-      statusLabel: "Ready",
+      statusLabel: "Mapped source",
+      modeLabel: "Live source",
       structureLabel: "4,000 est. rows · 3,160 fields",
+      readinessNote: "Source mapping is saved. Query creation is pending provider-specific dataset support.",
       canCreateQuery: false,
-      actionLabel: "Query soon"
+      actionLabel: "Manage setup"
     });
   });
 
   it("explains verification requirements for unverified live sources", () => {
     expect(buildLiveDatasetSourceReadinessView(source({ status: "needs_verification" }))).toMatchObject({
-      statusLabel: "Verify",
-      readinessNote: "Server verification needed before live query setup."
+      statusLabel: "Needs server check",
+      stageLabels: ["Server readiness needed", "Source mapping saved", "Query support pending"],
+      readinessNote: "Run server verification before enabling live query setup."
     });
   });
 
   it("falls back to mapping saved when estimates are unavailable", () => {
     expect(buildLiveDatasetSourceReadinessView(source({ rowCountEstimate: undefined, fieldCount: undefined })).structureLabel).toBe("Mapping saved");
+  });
+
+  it("builds a provider-neutral live source identity", () => {
+    expect(liveSourceIdentity(source())).toMatchObject({
+      kind: "live",
+      connectionId: "connection_snowflake",
+      provider: "snowflake",
+      datasetLabel: "Snowflake source",
+      objectPath: "SURVEY.PUBLIC.RESPONSES",
+      objectType: "table",
+      syncMode: "live_query",
+      rowCountEstimate: 4000,
+      fieldCount: 3160
+    });
+  });
+
+  it("keeps live query drafts disabled until query support exists", () => {
+    expect(buildLiveDatasetQueryDraft(source())).toMatchObject({
+      canCreateQuery: false,
+      reason: "Source mapping is saved. Query creation is pending provider-specific dataset support.",
+      sourceIdentity: {
+        kind: "live",
+        sourceRef: {
+          id: "live:snowflake:connection_snowflake:default"
+        }
+      }
+    });
   });
 });

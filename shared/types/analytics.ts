@@ -52,7 +52,20 @@ export interface SeededAnalyticsSourceIdentity {
   questionLabel?: string;
 }
 
-export type AnalyticsSourceIdentity = ImportedAnalyticsSourceIdentity | SeededAnalyticsSourceIdentity;
+export interface LiveAnalyticsSourceIdentity {
+  kind: "live";
+  sourceRef: DatasetSourceRef;
+  connectionId: string;
+  provider: DatasetSourceRef["provider"];
+  datasetLabel: string;
+  objectPath: string;
+  objectType: "table" | "view" | "query";
+  syncMode: "live_query" | "snapshot";
+  rowCountEstimate?: number;
+  fieldCount?: number;
+}
+
+export type AnalyticsSourceIdentity = ImportedAnalyticsSourceIdentity | SeededAnalyticsSourceIdentity | LiveAnalyticsSourceIdentity;
 
 export type AnalyticsAuthoredRowKind = "option" | "net" | "topbox" | "bottombox";
 

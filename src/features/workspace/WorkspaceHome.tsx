@@ -802,7 +802,7 @@ export function WorkspaceHome({
               <div className="workspace-connection-plans__header">
                 <div>
                   <p className="workspace-home-kicker">Managed Sources</p>
-                  <h3>Live dataset source scaffolds</h3>
+                  <h3>Connected source mappings</h3>
                 </div>
                 <span>{liveDatasetSources.length} registered</span>
               </div>
@@ -816,9 +816,17 @@ export function WorkspaceHome({
                       <span><HomeIcon icon="dataset" /></span>
                       <div>
                         <strong>{source.label}</strong>
-                        <small>{readiness.statusLabel} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
+                        <small>{readiness.statusLabel} · {readiness.modeLabel} · {source.objectType}</small>
                         <em>{source.objectPath}</em>
                         <b>{readiness.structureLabel}</b>
+                        <ol className="workspace-live-source-stages" aria-label={`${source.label} setup stages`}>
+                          {readiness.stageLabels.map((stage, index) => (
+                            <li key={stage}>
+                              <span>{index + 1}</span>
+                              {stage}
+                            </li>
+                          ))}
+                        </ol>
                         <p>
                           {readiness.readinessNote}
                           {connection?.verification?.checkedAt ? ` Checked ${formatDateTime(connection.verification.checkedAt)}.` : ""}
