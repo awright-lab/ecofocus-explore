@@ -11,7 +11,9 @@ import {
   makeBuilderReportPath,
   makePublishedViewerPath,
   markReportOpened,
+  removeWorkspaceDatasetConnection,
   saveDashboardWorkspace,
+  upsertWorkspaceDatasetConnection,
   upsertWorkspaceImportedDataset
 } from "../document/workspacePersistence";
 
@@ -139,9 +141,12 @@ export function WorkspaceHome({
   const latestReport = reports[0] ?? null;
   const usableDatasets = importedDatasets.filter((dataset) => dataset.rowCount > 0);
   const metadataRichDatasets = importedDatasets.filter((dataset) => dataset.importMetadata?.metadataQuality === "metadata_rich");
-  const datasetConnections = workspace.datasetConnections?.length ? workspace.datasetConnections : buildDatasetConnectionProfiles();
+  const savedDatasetConnections = workspace.datasetConnections ?? [];
+  const liveDatasetSources = workspace.liveDatasetSources ?? [];
+  const connectionProfileOptions = buildDatasetConnectionProfiles();
   const selectedConnectionOption = datasetConnectionOption(selectedConnectionProvider);
-  const selectedConnectionProfile = datasetConnections.find((item) => item.provider === selectedConnectionProvider);
+  const selectedConnectionProfile = savedDatasetConnections.find((item) => item.provider === selectedConnectionProvider);
+  const availableConnectionCount = datasetConnectionOptions.length - savedDatasetConnections.length;
   const guidedSteps = [
     {
       icon: "dataset" as const,
@@ -231,15 +236,12 @@ export function WorkspaceHome({
   }
 
   function planConnection(provider: typeof datasetConnectionOptions[number]["provider"]) {
-    const existingConnections = workspace.datasetConnections ?? [];
-    const profile = buildDatasetConnectionProfiles().find((item) => item.provider === provider);
+    const profile = connectionProfileOptions.find((item) => item.provider === provider);
     if (!profile) return;
-    const nextWorkspace: DashboardWorkspace = {
-      ...workspace,
-      datasetConnections: existingConnections.some((item) => item.provider === provider)
-        ? existingConnections
-        : [...existingConnections, profile]
-    };
+    const nextWorkspace = upsertWorkspaceDatasetConnection(workspace, {
+      ...profile,
+      updatedAt: new Date().toISOString()
+    });
     onWorkspaceChange(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setShowConnectionOptions(true);
@@ -248,6 +250,15 @@ export function WorkspaceHome({
       tone: "success",
       label: `${profile.label} setup is saved as a planned source. Credentials and live sync come in the next connection pass.`
     });
+  }
+
+  function removeConnectionPlan(connection: DatasetConnectionProfile) {
+    const shouldRemove = window.confirm(`Remove the planned ${connection.label} connection? This only removes the setup plan; no data or credentials will be affected.`);
+    if (!shouldRemove) return;
+    const nextWorkspace = removeWorkspaceDatasetConnection(workspace, connection.id);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setImportFeedback({ tone: "success", label: `${connection.label} setup plan removed.` });
   }
 
   return (
@@ -499,7 +510,7 @@ export function WorkspaceHome({
           {showConnectionOptions && (
             <div className="workspace-connection-grid" aria-label="Database connection setup options">
               {datasetConnectionOptions.map((option) => {
-                const planned = datasetConnections.find((item) => item.provider === option.provider);
+                const planned = savedDatasetConnections.find((item) => item.provider === option.provider);
                 return (
                   <article className={planned ? "workspace-connection-card planned" : "workspace-connection-card"} key={option.provider}>
                     <div>
@@ -507,8 +518,9 @@ export function WorkspaceHome({
                       <strong>{option.label}</strong>
                     </div>
                     <p>{option.description}</p>
-                    <small>{option.bestFor} · {planned?.statusLabel ?? option.statusLabel}</small>
-                    <button
+                <small>{option.bestFor} · {planned?.statusLabel ?? option.statusLabel}</small>
+                <em>{planned ? "Setup plan saved" : "Not planned yet"}</em>
+                <button
                       type="button"
                       className="workspace-home-secondary compact"
                       onClick={() => {
@@ -528,9 +540,17 @@ export function WorkspaceHome({
               <div>
                 <p className="workspace-home-kicker">Connection Setup</p>
                 <h3>{selectedConnectionOption.label}</h3>
-                <span>{selectedConnectionProfile ? selectedConnectionProfile.statusLabel : "Not planned yet"}</span>
+                <span>{selectedConnectionProfile ? "Planned source" : "Available connector"}</span>
               </div>
               <p>{selectedConnectionOption.description}</p>
+              <div className="workspace-connection-readiness">
+                <strong>{selectedConnectionProfile ? selectedConnectionProfile.statusLabel : "Not configured"}</strong>
+                <span>
+                  {selectedConnectionProfile
+                    ? "This provider is saved as a setup plan. It is not connected until server-side credentials and verification are added."
+                    : "Review the requirements, then save a setup plan when you are ready to configure this source later."}
+                </span>
+              </div>
               <div className="workspace-connection-detail__columns">
                 <section>
                   <strong>Needed before live sync</strong>
@@ -559,6 +579,53 @@ export function WorkspaceHome({
                 </button>
               </div>
             </aside>
+          )}
+          {savedDatasetConnections.length > 0 && (
+            <section className="workspace-connection-plans" aria-label="Planned database connections">
+              <div className="workspace-connection-plans__header">
+                <div>
+                  <p className="workspace-home-kicker">Planned Sources</p>
+                  <h3>Database setup plans</h3>
+                </div>
+                <span>
+                  {savedDatasetConnections.length} planned
+                  {liveDatasetSources.length ? ` · ${liveDatasetSources.length} live source${liveDatasetSources.length === 1 ? "" : "s"}` : ""}
+                  {availableConnectionCount > 0 ? ` · ${availableConnectionCount} available` : ""}
+                </span>
+              </div>
+              <div className="workspace-connection-plan-list">
+                {savedDatasetConnections.map((connection) => {
+                  const option = datasetConnectionOption(connection.provider);
+                  return (
+                    <article className="workspace-connection-plan-row" key={connection.id}>
+                      <span><HomeIcon icon="dataset" /></span>
+                      <div>
+                        <strong>{connection.label}</strong>
+                        <small>{connection.statusLabel} · {option.bestFor}</small>
+                        <em>Waiting for server-side verification and credential setup.</em>
+                      </div>
+                      <button
+                        type="button"
+                        className="workspace-home-secondary compact"
+                        onClick={() => {
+                          setSelectedConnectionProvider(connection.provider);
+                          setShowConnectionOptions(true);
+                        }}
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        className="workspace-home-secondary compact danger"
+                        onClick={() => removeConnectionPlan(connection)}
+                      >
+                        Remove
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           )}
           <div className="workspace-dataset-grid">
             {importedDatasets.map((dataset) => {

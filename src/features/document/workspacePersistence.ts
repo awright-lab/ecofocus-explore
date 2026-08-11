@@ -1,6 +1,7 @@
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
+import type { DatasetConnectionProfile } from "../../../shared/types/dataSource";
 import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
@@ -246,6 +247,25 @@ export function removeWorkspaceImportedDataset(workspace: DashboardWorkspace, da
   return {
     ...workspace,
     importedDatasets: workspace.importedDatasets.filter((dataset) => dataset.id !== datasetId)
+  };
+}
+
+export function upsertWorkspaceDatasetConnection(workspace: DashboardWorkspace, connection: DatasetConnectionProfile): DashboardWorkspace {
+  const connections = workspace.datasetConnections ?? [];
+  return {
+    ...workspace,
+    datasetConnections: [
+      connection,
+      ...connections.filter((item) => item.id !== connection.id && item.provider !== connection.provider)
+    ]
+  };
+}
+
+export function removeWorkspaceDatasetConnection(workspace: DashboardWorkspace, connectionId: string): DashboardWorkspace {
+  return {
+    ...workspace,
+    datasetConnections: (workspace.datasetConnections ?? []).filter((connection) => connection.id !== connectionId),
+    liveDatasetSources: (workspace.liveDatasetSources ?? []).filter((source) => source.connectionId !== connectionId)
   };
 }
 
