@@ -13,6 +13,7 @@ import {
   markReportOpened,
   removeWorkspaceDatasetConnection,
   saveDashboardWorkspace,
+  updateWorkspaceDatasetConnectionVerification,
   upsertWorkspaceDatasetConnection,
   upsertWorkspaceImportedDataset
 } from "../document/workspacePersistence";
@@ -275,7 +276,7 @@ export function WorkspaceHome({
       const payload = await response.json() as DatasetConnectionVerificationReport | { error?: string; details?: string[] };
       if (!response.ok) {
         const errorPayload = isConnectionVerificationError(payload) ? payload : {};
-        setConnectionVerification({
+        const failureReport: DatasetConnectionVerificationReport = {
           provider: selectedConnectionProvider,
           connectionId: selectedConnectionProfile?.id,
           status: "failed",
@@ -283,13 +284,24 @@ export function WorkspaceHome({
           checkedAt: new Date().toISOString(),
           diagnostics: errorPayload.details ?? ["The server readiness check failed."],
           nextStep: "Check Netlify function logs and server environment variables."
-        });
+        };
+        setConnectionVerification(failureReport);
+        if (selectedConnectionProfile) {
+          const nextWorkspace = updateWorkspaceDatasetConnectionVerification(workspace, failureReport);
+          onWorkspaceChange(nextWorkspace);
+          saveDashboardWorkspace(nextWorkspace);
+        }
         return;
       }
       if (isConnectionVerificationError(payload)) return;
       setConnectionVerification(payload);
+      if (selectedConnectionProfile) {
+        const nextWorkspace = updateWorkspaceDatasetConnectionVerification(workspace, payload);
+        onWorkspaceChange(nextWorkspace);
+        saveDashboardWorkspace(nextWorkspace);
+      }
     } catch (error) {
-      setConnectionVerification({
+      const failureReport: DatasetConnectionVerificationReport = {
         provider: selectedConnectionProvider,
         connectionId: selectedConnectionProfile?.id,
         status: "failed",
@@ -297,7 +309,13 @@ export function WorkspaceHome({
         checkedAt: new Date().toISOString(),
         diagnostics: [error instanceof Error ? error.message : "The server readiness check could not be reached."],
         nextStep: "Run the app through Netlify Dev or deploy the verification function before checking readiness."
-      });
+      };
+      setConnectionVerification(failureReport);
+      if (selectedConnectionProfile) {
+        const nextWorkspace = updateWorkspaceDatasetConnectionVerification(workspace, failureReport);
+        onWorkspaceChange(nextWorkspace);
+        saveDashboardWorkspace(nextWorkspace);
+      }
     } finally {
       setIsVerifyingConnection(false);
     }
@@ -667,7 +685,7 @@ export function WorkspaceHome({
                       <span><HomeIcon icon="dataset" /></span>
                       <div>
                         <strong>{connection.label}</strong>
-                        <small>{connection.statusLabel} · {option.bestFor}</small>
+                        <small>{connection.verification?.statusLabel ?? connection.statusLabel} · {option.bestFor}</small>
                         <em>Waiting for server-side verification and credential setup.</em>
                       </div>
                       <button

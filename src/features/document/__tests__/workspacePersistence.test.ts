@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DashboardWorkspace } from "../../../../shared/types/dashboard";
 import type { DatasetConnectionProfile } from "../../../../shared/types/dataSource";
-import { removeWorkspaceDatasetConnection, upsertWorkspaceDatasetConnection } from "../workspacePersistence";
+import {
+  removeWorkspaceDatasetConnection,
+  updateWorkspaceDatasetConnectionVerification,
+  upsertWorkspaceDatasetConnection
+} from "../workspacePersistence";
 
 function connection(overrides: Partial<DatasetConnectionProfile> = {}): DatasetConnectionProfile {
   return {
@@ -71,5 +75,30 @@ describe("workspace dataset connection persistence", () => {
 
     expect(updated.datasetConnections).toEqual([]);
     expect(updated.liveDatasetSources).toEqual([]);
+  });
+
+  it("persists verification readiness on planned connections", () => {
+    const updated = updateWorkspaceDatasetConnectionVerification(
+      workspace({ datasetConnections: [connection()] }),
+      {
+        provider: "snowflake",
+        connectionId: "connection_snowflake",
+        status: "ready_to_verify",
+        statusLabel: "Ready for server verification",
+        checkedAt: "2026-08-02T00:00:00.000Z",
+        diagnostics: ["Environment variables are present."],
+        nextStep: "Run full non-production verification."
+      }
+    );
+
+    expect(updated.datasetConnections[0]).toMatchObject({
+      status: "configured",
+      statusLabel: "Ready for server verification",
+      updatedAt: "2026-08-02T00:00:00.000Z",
+      verification: {
+        status: "ready_to_verify",
+        diagnostics: ["Environment variables are present."]
+      }
+    });
   });
 });

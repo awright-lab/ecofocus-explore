@@ -1,7 +1,7 @@
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
-import type { DatasetConnectionProfile } from "../../../shared/types/dataSource";
+import type { DatasetConnectionProfile, DatasetConnectionVerificationReport } from "../../../shared/types/dataSource";
 import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
@@ -266,6 +266,39 @@ export function removeWorkspaceDatasetConnection(workspace: DashboardWorkspace, 
     ...workspace,
     datasetConnections: (workspace.datasetConnections ?? []).filter((connection) => connection.id !== connectionId),
     liveDatasetSources: (workspace.liveDatasetSources ?? []).filter((source) => source.connectionId !== connectionId)
+  };
+}
+
+function connectionStatusFromVerification(report: DatasetConnectionVerificationReport): DatasetConnectionProfile["status"] {
+  if (report.status === "verified") return "sync_ready";
+  if (report.status === "ready_to_verify") return "configured";
+  return "setup_scaffold";
+}
+
+export function updateWorkspaceDatasetConnectionVerification(
+  workspace: DashboardWorkspace,
+  report: DatasetConnectionVerificationReport
+): DashboardWorkspace {
+  const connections = workspace.datasetConnections ?? [];
+  return {
+    ...workspace,
+    datasetConnections: connections.map((connection) =>
+      connection.provider === report.provider && (!report.connectionId || connection.id === report.connectionId)
+        ? {
+            ...connection,
+            status: connectionStatusFromVerification(report),
+            statusLabel: report.statusLabel,
+            verification: {
+              status: report.status,
+              statusLabel: report.statusLabel,
+              checkedAt: report.checkedAt,
+              diagnostics: report.diagnostics,
+              nextStep: report.nextStep
+            },
+            updatedAt: report.checkedAt
+          }
+        : connection
+    )
   };
 }
 

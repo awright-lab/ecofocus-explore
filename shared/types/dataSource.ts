@@ -29,6 +29,13 @@ export interface DatasetConnectionProfile {
     schema?: string;
     projectUrl?: string;
   };
+  verification?: {
+    status: DatasetConnectionVerificationStatus;
+    statusLabel: string;
+    checkedAt: string;
+    diagnostics: string[];
+    nextStep: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
