@@ -1,6 +1,11 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
-import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
+import type {
+  DatasetConnectionProfile,
+  DatasetConnectionVerificationReport,
+  LiveDatasetSourceDescriptor,
+  LiveDatasetSourceInspectionReport
+} from "../../../shared/types/dataSource";
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
 import { buildDatasetConnectionProfiles, buildLiveDatasetSourceDescriptorForConnection, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
@@ -16,6 +21,7 @@ import {
   removeWorkspaceLiveDatasetSource,
   saveDashboardWorkspace,
   updateWorkspaceDatasetConnectionVerification,
+  updateWorkspaceLiveDatasetSourceInspection,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection,
   upsertWorkspaceImportedDataset
@@ -126,6 +132,12 @@ function isConnectionVerificationError(
   return "error" in payload || !("status" in payload);
 }
 
+function isSourceInspectionError(
+  payload: LiveDatasetSourceInspectionReport | { error?: string; details?: string[] }
+): payload is { error?: string; details?: string[] } {
+  return "error" in payload || !("status" in payload);
+}
+
 export function WorkspaceHome({
   workspace,
   onWorkspaceChange
@@ -140,6 +152,7 @@ export function WorkspaceHome({
   const [selectedConnectionProvider, setSelectedConnectionProvider] = useState<DatasetConnectionProfile["provider"]>("snowflake");
   const [connectionVerification, setConnectionVerification] = useState<DatasetConnectionVerificationReport | null>(null);
   const [isVerifyingConnection, setIsVerifyingConnection] = useState(false);
+  const [inspectingLiveSourceId, setInspectingLiveSourceId] = useState<string | null>(null);
   const [editingLiveSourceId, setEditingLiveSourceId] = useState<string | null>(null);
   const [liveSourceDraft, setLiveSourceDraft] = useState({
     label: "",
@@ -363,6 +376,72 @@ export function WorkspaceHome({
     onWorkspaceChange(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setImportFeedback({ tone: "success", label: `${source.label} removed from managed sources.` });
+  }
+
+  async function inspectLiveSource(source: LiveDatasetSourceDescriptor) {
+    setInspectingLiveSourceId(source.sourceRef.id);
+    setImportFeedback(null);
+    try {
+      const response = await fetch("/.netlify/functions/dataset-source-inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: source.sourceRef.provider,
+          connectionId: source.connectionId,
+          sourceRefId: source.sourceRef.id,
+          objectPath: source.objectPath,
+          objectType: source.objectType,
+          limit: 200
+        })
+      });
+      const payload = await response.json() as LiveDatasetSourceInspectionReport | { error?: string; details?: string[] };
+      const report: LiveDatasetSourceInspectionReport = !response.ok || isSourceInspectionError(payload)
+        ? {
+            provider: source.sourceRef.provider as DatasetConnectionProfile["provider"],
+            connectionId: source.connectionId,
+            sourceRefId: source.sourceRef.id,
+            objectPath: source.objectPath,
+            objectType: source.objectType,
+            status: "failed",
+            statusLabel: isSourceInspectionError(payload) ? payload.error ?? "Inspection failed" : "Inspection failed",
+            inspectedAt: new Date().toISOString(),
+            fields: [],
+            diagnostics: isSourceInspectionError(payload) ? payload.details ?? ["The source inspection failed."] : ["The source inspection failed."],
+            nextStep: "Check Netlify function logs, server credentials, and the mapped source path."
+          }
+        : payload;
+
+      const nextWorkspace = updateWorkspaceLiveDatasetSourceInspection(workspace, report);
+      onWorkspaceChange(nextWorkspace);
+      saveDashboardWorkspace(nextWorkspace);
+      setImportFeedback({
+        tone: report.status === "inspected" ? "success" : "error",
+        label:
+          report.status === "inspected"
+            ? `${source.label} inspected with ${report.fields.length.toLocaleString()} fields.`
+            : `${source.label}: ${report.statusLabel.toLowerCase()}.`
+      });
+    } catch (error) {
+      const failureReport: LiveDatasetSourceInspectionReport = {
+        provider: source.sourceRef.provider as DatasetConnectionProfile["provider"],
+        connectionId: source.connectionId,
+        sourceRefId: source.sourceRef.id,
+        objectPath: source.objectPath,
+        objectType: source.objectType,
+        status: "failed",
+        statusLabel: "Inspection unavailable",
+        inspectedAt: new Date().toISOString(),
+        fields: [],
+        diagnostics: [error instanceof Error ? error.message : "The source inspection function could not be reached."],
+        nextStep: "Run through Netlify Dev or deploy the inspection function before checking source fields."
+      };
+      const nextWorkspace = updateWorkspaceLiveDatasetSourceInspection(workspace, failureReport);
+      onWorkspaceChange(nextWorkspace);
+      saveDashboardWorkspace(nextWorkspace);
+      setImportFeedback({ tone: "error", label: `${source.label}: inspection unavailable.` });
+    } finally {
+      setInspectingLiveSourceId(null);
+    }
   }
 
   function startEditingLiveSource(source: LiveDatasetSourceDescriptor) {
@@ -810,7 +889,9 @@ export function WorkspaceHome({
                 {liveDatasetSources.map((source) => {
                   const connection = savedDatasetConnections.find((item) => item.id === source.connectionId);
                   const isEditingSource = editingLiveSourceId === source.sourceRef.id;
+                  const isInspectingSource = inspectingLiveSourceId === source.sourceRef.id;
                   const readiness = buildLiveDatasetSourceReadinessView(source);
+                  const inspectedFields = source.inspection?.fields ?? [];
                   return (
                     <article className={`workspace-live-source-row ${source.status}`} key={source.sourceRef.id}>
                       <span><HomeIcon icon="dataset" /></span>
@@ -831,6 +912,27 @@ export function WorkspaceHome({
                           {readiness.readinessNote}
                           {connection?.verification?.checkedAt ? ` Checked ${formatDateTime(connection.verification.checkedAt)}.` : ""}
                         </p>
+                        {source.inspection && (
+                          <section className={`workspace-live-source-inspection ${source.inspection.status}`}>
+                            <div>
+                              <strong>{source.inspection.statusLabel}</strong>
+                              <small>{formatDateTime(source.inspection.inspectedAt)}</small>
+                            </div>
+                            {inspectedFields.length > 0 && (
+                              <div className="workspace-live-source-fields" aria-label={`${source.label} inspected fields`}>
+                                {inspectedFields.slice(0, 8).map((field) => (
+                                  <span key={field.id}>
+                                    {field.label}
+                                    <small>{field.type}</small>
+                                  </span>
+                                ))}
+                                {inspectedFields.length > 8 && <em>{inspectedFields.length - 8} more fields</em>}
+                              </div>
+                            )}
+                            {source.inspection.diagnostics[0] && <p>{source.inspection.diagnostics[0]}</p>}
+                            <p>{source.inspection.nextStep}</p>
+                          </section>
+                        )}
                         {isEditingSource && (
                           <div className="workspace-live-source-editor">
                             <label>
@@ -903,6 +1005,14 @@ export function WorkspaceHome({
                           Refresh
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="workspace-home-secondary compact"
+                        onClick={() => void inspectLiveSource(source)}
+                        disabled={isInspectingSource}
+                      >
+                        {isInspectingSource ? "Inspecting..." : source.inspection?.status === "inspected" ? "Refresh fields" : "Inspect fields"}
+                      </button>
                       <button type="button" className="workspace-home-secondary compact" onClick={() => startEditingLiveSource(source)}>
                         Edit mapping
                       </button>

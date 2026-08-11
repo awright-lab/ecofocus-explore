@@ -40,13 +40,22 @@ export function buildLiveDatasetSourceReadinessView(source: LiveDatasetSourceDes
 
   const base = {
     modeLabel: source.syncMode === "live_query" ? "Live source" : "Snapshot source",
-    structureLabel: structureParts.length ? structureParts.join(" · ") : "Mapping saved",
+    structureLabel: structureParts.length ? structureParts.join(" · ") : source.inspection?.fields.length ? `${source.inspection.fields.length.toLocaleString()} inspected fields` : "Mapping saved",
     stageLabels: ["Server readiness", "Source mapping", "Query support pending"],
     canCreateQuery: false,
     actionLabel: "Manage setup"
   };
 
   if (source.status === "available") {
+    if (source.inspection?.status === "inspected") {
+      return {
+        ...base,
+        statusLabel: "Fields inspected",
+        stageLabels: ["Server readiness", "Source mapping", "Fields inspected", "Query support pending"],
+        readinessNote: "Field metadata is inspected. Map analytical roles before live query creation is enabled."
+      };
+    }
+
     return {
       ...base,
       statusLabel: "Mapped source",

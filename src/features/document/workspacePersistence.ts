@@ -1,7 +1,7 @@
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
-import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
+import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, LiveDatasetSourceDescriptor, LiveDatasetSourceInspectionReport } from "../../../shared/types/dataSource";
 import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
@@ -284,6 +284,38 @@ export function removeWorkspaceLiveDatasetSource(workspace: DashboardWorkspace, 
   return {
     ...workspace,
     liveDatasetSources: (workspace.liveDatasetSources ?? []).filter((source) => source.sourceRef.id !== sourceRefId)
+  };
+}
+
+export function updateWorkspaceLiveDatasetSourceInspection(
+  workspace: DashboardWorkspace,
+  report: LiveDatasetSourceInspectionReport
+): DashboardWorkspace {
+  return {
+    ...workspace,
+    liveDatasetSources: (workspace.liveDatasetSources ?? []).map((source) =>
+      source.sourceRef.id === report.sourceRefId
+        ? {
+            ...source,
+            objectPath: report.objectPath,
+            objectType: report.objectType,
+            fieldCount: report.fields.length || source.fieldCount,
+            statusLabel: report.statusLabel,
+            sourceRef: {
+              ...source.sourceRef,
+              objectPath: report.objectPath
+            },
+            inspection: {
+              status: report.status,
+              statusLabel: report.statusLabel,
+              inspectedAt: report.inspectedAt,
+              fields: report.fields,
+              diagnostics: report.diagnostics,
+              nextStep: report.nextStep
+            }
+          }
+        : source
+    )
   };
 }
 

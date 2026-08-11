@@ -5,6 +5,7 @@ import {
   removeWorkspaceDatasetConnection,
   removeWorkspaceLiveDatasetSource,
   updateWorkspaceDatasetConnectionVerification,
+  updateWorkspaceLiveDatasetSourceInspection,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection
 } from "../workspacePersistence";
@@ -233,5 +234,58 @@ describe("workspace dataset connection persistence", () => {
 
     expect(updated.liveDatasetSources).toHaveLength(1);
     expect(updated.liveDatasetSources[0].sourceRef.id).toBe("live:supabase:connection_supabase:default");
+  });
+
+  it("persists live source inspection metadata", () => {
+    const updated = updateWorkspaceLiveDatasetSourceInspection(
+      workspace({
+        liveDatasetSources: [{
+          connectionId: "connection_snowflake",
+          objectType: "table",
+          objectPath: "SURVEY.PUBLIC.RESPONSES",
+          label: "Snowflake source",
+          syncMode: "live_query",
+          status: "available",
+          statusLabel: "Mapped",
+          sourceRef: {
+            id: "live:snowflake:connection_snowflake:default",
+            kind: "live_connection",
+            provider: "snowflake",
+            label: "Snowflake source",
+            datasetId: "responses",
+            connectionId: "connection_snowflake"
+          }
+        }]
+      }),
+      {
+        provider: "snowflake",
+        connectionId: "connection_snowflake",
+        sourceRefId: "live:snowflake:connection_snowflake:default",
+        objectPath: "SURVEY.PUBLIC.RESPONSES",
+        objectType: "table",
+        status: "inspected",
+        statusLabel: "Fields inspected",
+        inspectedAt: "2026-08-03T00:00:00.000Z",
+        fields: [
+          { id: "gender", label: "Gender", rawName: "GENDER", type: "text", sourceType: "VARCHAR" },
+          { id: "age", label: "Age", rawName: "AGE", type: "number", sourceType: "NUMBER" }
+        ],
+        diagnostics: ["2 fields returned."],
+        nextStep: "Map fields before enabling query creation."
+      }
+    );
+
+    expect(updated.liveDatasetSources[0]).toMatchObject({
+      fieldCount: 2,
+      statusLabel: "Fields inspected",
+      inspection: {
+        status: "inspected",
+        fields: [
+          { rawName: "GENDER", type: "text" },
+          { rawName: "AGE", type: "number" }
+        ],
+        nextStep: "Map fields before enabling query creation."
+      }
+    });
   });
 });

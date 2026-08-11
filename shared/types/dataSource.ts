@@ -15,6 +15,7 @@ export interface DatasetSourceRef {
 export type DatasetConnectionStatus = "setup_scaffold" | "configured" | "sync_ready" | "disabled";
 export type LiveDatasetSourceStatus = "available" | "needs_verification" | "unavailable" | "unsupported";
 export type DatasetConnectionVerificationStatus = "not_configured" | "ready_to_verify" | "verified" | "failed" | "unsupported";
+export type LiveDatasetSourceInspectionStatus = "not_inspected" | "inspected" | "failed" | "unsupported";
 
 export interface DatasetConnectionProfile {
   id: string;
@@ -51,6 +52,24 @@ export interface LiveDatasetSourceDescriptor {
   syncMode: "live_query" | "snapshot";
   status: LiveDatasetSourceStatus;
   statusLabel: string;
+  inspection?: {
+    status: LiveDatasetSourceInspectionStatus;
+    statusLabel: string;
+    inspectedAt: string;
+    fields: LiveDatasetFieldDescriptor[];
+    diagnostics: string[];
+    nextStep: string;
+  };
+}
+
+export interface LiveDatasetFieldDescriptor {
+  id: string;
+  label: string;
+  rawName: string;
+  type: "text" | "number" | "date" | "boolean" | "unknown";
+  nullable?: boolean;
+  sourceType?: string;
+  distinctEstimate?: number;
 }
 
 export interface DatasetConnectionVerificationRequest {
@@ -64,6 +83,29 @@ export interface DatasetConnectionVerificationReport {
   status: DatasetConnectionVerificationStatus;
   statusLabel: string;
   checkedAt: string;
+  diagnostics: string[];
+  nextStep: string;
+}
+
+export interface LiveDatasetSourceInspectionRequest {
+  provider: DatasetConnectionProfile["provider"];
+  connectionId: string;
+  sourceRefId: string;
+  objectPath: string;
+  objectType: LiveDatasetSourceDescriptor["objectType"];
+  limit?: number;
+}
+
+export interface LiveDatasetSourceInspectionReport {
+  provider: DatasetConnectionProfile["provider"];
+  connectionId: string;
+  sourceRefId: string;
+  objectPath: string;
+  objectType: LiveDatasetSourceDescriptor["objectType"];
+  status: LiveDatasetSourceInspectionStatus;
+  statusLabel: string;
+  inspectedAt: string;
+  fields: LiveDatasetFieldDescriptor[];
   diagnostics: string[];
   nextStep: string;
 }

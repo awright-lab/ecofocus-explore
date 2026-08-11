@@ -50,6 +50,30 @@ describe("live dataset source model", () => {
     expect(buildLiveDatasetSourceReadinessView(source({ rowCountEstimate: undefined, fieldCount: undefined })).structureLabel).toBe("Mapping saved");
   });
 
+  it("distinguishes inspected fields from mapped-only live sources", () => {
+    expect(buildLiveDatasetSourceReadinessView(source({
+      rowCountEstimate: undefined,
+      fieldCount: undefined,
+      inspection: {
+        status: "inspected",
+        statusLabel: "Fields inspected",
+        inspectedAt: "2026-08-03T00:00:00.000Z",
+        fields: [
+          { id: "gender", label: "Gender", rawName: "GENDER", type: "text" },
+          { id: "age", label: "Age", rawName: "AGE", type: "number" }
+        ],
+        diagnostics: ["2 fields were read."],
+        nextStep: "Map analytical roles for these fields before enabling live query creation."
+      }
+    }))).toMatchObject({
+      statusLabel: "Fields inspected",
+      structureLabel: "2 inspected fields",
+      stageLabels: ["Server readiness", "Source mapping", "Fields inspected", "Query support pending"],
+      readinessNote: "Field metadata is inspected. Map analytical roles before live query creation is enabled.",
+      canCreateQuery: false
+    });
+  });
+
   it("builds a provider-neutral live source identity", () => {
     expect(liveSourceIdentity(source())).toMatchObject({
       kind: "live",

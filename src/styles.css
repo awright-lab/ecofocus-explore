@@ -1106,7 +1106,7 @@ textarea {
 
 .workspace-live-source-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
   gap: 10px;
   align-items: center;
   border: 1px solid rgba(216, 227, 235, 0.8);
@@ -1221,6 +1221,58 @@ textarea {
   color: #ffffff;
   font-size: 0.56rem;
   font-weight: 950;
+}
+
+.workspace-live-source-inspection {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+  border: 1px solid rgba(16, 154, 134, 0.16);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 9px;
+}
+
+.workspace-live-source-inspection.failed,
+.workspace-live-source-inspection.unsupported {
+  border-color: rgba(197, 83, 83, 0.18);
+  background: rgba(255, 248, 247, 0.78);
+}
+
+.workspace-live-source-inspection > div:first-child {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.workspace-live-source-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.workspace-live-source-fields span,
+.workspace-live-source-fields em {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgba(16, 154, 134, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #23424f;
+  padding: 4px 7px;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.workspace-live-source-fields small {
+  margin: 0;
+  color: #0f8f7f;
+  font-size: 0.56rem;
+  text-transform: uppercase;
 }
 
 .workspace-live-source-editor {
