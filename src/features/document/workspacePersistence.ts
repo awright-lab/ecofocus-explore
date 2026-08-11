@@ -82,6 +82,8 @@ function defaultWorkspace(): DashboardWorkspace {
     id: "local_workspace",
     label: "InsightCanvas Workspace",
     activeReportId: report.id,
+    datasetConnections: [],
+    liveDatasetSources: [],
     importedDatasets: [],
     reports: [report],
     publishedSnapshots: []
@@ -98,6 +100,8 @@ function migrateLegacyDashboard(): DashboardWorkspace | null {
       id: "local_workspace",
       label: "InsightCanvas Workspace",
       activeReportId: report.id,
+      datasetConnections: [],
+      liveDatasetSources: [],
       importedDatasets: dashboard.importedDatasets,
       reports: [report],
       publishedSnapshots: []
@@ -141,6 +145,8 @@ export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspac
     id: workspace.id ?? "local_workspace",
     label: workspace.label ?? "InsightCanvas Workspace",
     activeReportId,
+    datasetConnections: workspace.datasetConnections ?? [],
+    liveDatasetSources: workspace.liveDatasetSources ?? [],
     importedDatasets,
     reports,
     publishedSnapshots

@@ -11,3 +11,30 @@ export interface DatasetSourceRef {
   remoteRecordId?: string;
   objectPath?: string;
 }
+
+export type DatasetConnectionStatus = "setup_scaffold" | "configured" | "sync_ready" | "disabled";
+export type LiveDatasetSourceStatus = "available" | "needs_verification" | "unavailable" | "unsupported";
+
+export interface DatasetConnectionProfile {
+  id: string;
+  provider: Exclude<DatasetSourceProvider, "ecofocus_demo" | "local_file">;
+  label: string;
+  description: string;
+  status: DatasetConnectionStatus;
+  statusLabel: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LiveDatasetSourceDescriptor {
+  sourceRef: DatasetSourceRef;
+  connectionId: string;
+  objectType: "table" | "view" | "query";
+  objectPath: string;
+  label: string;
+  rowCountEstimate?: number;
+  fieldCount?: number;
+  syncMode: "live_query" | "snapshot";
+  status: LiveDatasetSourceStatus;
+  statusLabel: string;
+}

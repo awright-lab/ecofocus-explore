@@ -59,6 +59,13 @@ export function buildWorkspaceDatasetSourceRegistry(workspace: DashboardWorkspac
       fieldCount: dataset.fieldCount,
       statusLabel: dataset.importStatus?.label,
       detail: dataset.importStatus?.detail ?? dataset.importMetadata?.formatLabel
+    })),
+    ...(workspace.liveDatasetSources ?? []).map((source) => ({
+      ...source.sourceRef,
+      rowCount: source.rowCountEstimate,
+      fieldCount: source.fieldCount,
+      statusLabel: source.statusLabel,
+      detail: `${source.objectType} · ${source.syncMode === "live_query" ? "Live query" : "Snapshot"} · ${source.objectPath}`
     }))
   ];
 }

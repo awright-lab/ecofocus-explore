@@ -64,6 +64,27 @@ describe("dataset source registry", () => {
       id: "workspace",
       label: "Workspace",
       activeReportId: "report",
+      datasetConnections: [],
+      liveDatasetSources: [{
+        connectionId: "connection_snowflake",
+        objectType: "table",
+        objectPath: "ANALYTICS.SURVEY.RESPONSES",
+        label: "Snowflake responses",
+        syncMode: "live_query",
+        status: "needs_verification",
+        statusLabel: "Needs verification",
+        rowCountEstimate: 5000,
+        fieldCount: 24,
+        sourceRef: {
+          id: "live:snowflake:responses",
+          kind: "live_connection",
+          provider: "snowflake",
+          label: "Snowflake responses",
+          datasetId: "responses",
+          connectionId: "connection_snowflake",
+          objectPath: "ANALYTICS.SURVEY.RESPONSES"
+        }
+      }],
       importedDatasets: [importedDataset()],
       reports: [],
       publishedSnapshots: []
@@ -71,7 +92,14 @@ describe("dataset source registry", () => {
 
     expect(buildWorkspaceDatasetSourceRegistry(workspace).map((source) => source.kind)).toEqual([
       "seeded_demo",
-      "imported_file"
+      "imported_file",
+      "live_connection"
     ]);
+    expect(buildWorkspaceDatasetSourceRegistry(workspace).at(-1)).toMatchObject({
+      provider: "snowflake",
+      statusLabel: "Needs verification",
+      rowCount: 5000,
+      fieldCount: 24
+    });
   });
 });

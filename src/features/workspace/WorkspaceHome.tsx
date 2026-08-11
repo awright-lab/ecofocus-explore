@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
+import { buildDatasetConnectionProfiles, datasetConnectionOptions } from "../data/datasetConnectionModel";
 import {
   createNewReportFromSeed,
   duplicateReportRecord,
@@ -122,6 +123,7 @@ export function WorkspaceHome({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{ tone: "success" | "error"; label: string } | null>(null);
+  const [showConnectionOptions, setShowConnectionOptions] = useState(false);
   const reports = workspace.reports
     .filter((report) => !report.archived)
     .map((report) => buildReportLibraryItem(workspace, report))
@@ -135,6 +137,7 @@ export function WorkspaceHome({
   const latestReport = reports[0] ?? null;
   const usableDatasets = importedDatasets.filter((dataset) => dataset.rowCount > 0);
   const metadataRichDatasets = importedDatasets.filter((dataset) => dataset.importMetadata?.metadataQuality === "metadata_rich");
+  const datasetConnections = workspace.datasetConnections?.length ? workspace.datasetConnections : buildDatasetConnectionProfiles();
   const guidedSteps = [
     {
       icon: "dataset" as const,
@@ -221,6 +224,25 @@ export function WorkspaceHome({
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  function planConnection(provider: typeof datasetConnectionOptions[number]["provider"]) {
+    const existingConnections = workspace.datasetConnections ?? [];
+    const profile = buildDatasetConnectionProfiles().find((item) => item.provider === provider);
+    if (!profile) return;
+    const nextWorkspace: DashboardWorkspace = {
+      ...workspace,
+      datasetConnections: existingConnections.some((item) => item.provider === provider)
+        ? existingConnections
+        : [...existingConnections, profile]
+    };
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setShowConnectionOptions(true);
+    setImportFeedback({
+      tone: "success",
+      label: `${profile.label} setup is saved as a planned source. Credentials and live sync come in the next connection pass.`
+    });
   }
 
   return (
@@ -316,6 +338,10 @@ export function WorkspaceHome({
             <button type="button" className="workspace-home-secondary" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
               <HomeIcon icon="plus" />
               {isImporting ? "Importing..." : "Import dataset"}
+            </button>
+            <button type="button" className="workspace-home-secondary" onClick={() => setShowConnectionOptions((current) => !current)}>
+              <HomeIcon icon="dataset" />
+              Connect database
             </button>
             {importFeedback && <small className={`workspace-home-import-feedback ${importFeedback.tone}`}>{importFeedback.label}</small>}
           </div>
@@ -460,7 +486,31 @@ export function WorkspaceHome({
               <HomeIcon icon="plus" />
               Import data
             </button>
+            <button type="button" className="workspace-home-secondary" onClick={() => setShowConnectionOptions((current) => !current)}>
+              <HomeIcon icon="dataset" />
+              Connect database
+            </button>
           </div>
+          {showConnectionOptions && (
+            <div className="workspace-connection-grid" aria-label="Database connection setup options">
+              {datasetConnectionOptions.map((option) => {
+                const planned = datasetConnections.find((item) => item.provider === option.provider);
+                return (
+                  <article className={planned ? "workspace-connection-card planned" : "workspace-connection-card"} key={option.provider}>
+                    <div>
+                      <span><HomeIcon icon="dataset" /></span>
+                      <strong>{option.label}</strong>
+                    </div>
+                    <p>{option.description}</p>
+                    <small>{option.bestFor} · {planned?.statusLabel ?? option.statusLabel}</small>
+                    <button type="button" className="workspace-home-secondary compact" onClick={() => planConnection(option.provider)}>
+                      {planned ? "Setup planned" : "Plan setup"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
           <div className="workspace-dataset-grid">
             {importedDatasets.map((dataset) => {
               const summary = buildImportedDatasetStructureSummary(dataset);

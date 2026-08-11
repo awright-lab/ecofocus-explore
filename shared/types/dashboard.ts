@@ -1,7 +1,7 @@
 import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
 import type { ComparisonMode } from "./analytics";
-import type { DatasetSourceRef } from "./dataSource";
+import type { DatasetConnectionProfile, DatasetSourceRef, LiveDatasetSourceDescriptor } from "./dataSource";
 
 export type DashboardStatus = "draft" | "published";
 
@@ -662,6 +662,8 @@ export interface DashboardWorkspace {
   id: string;
   label: string;
   activeReportId: string;
+  datasetConnections: DatasetConnectionProfile[];
+  liveDatasetSources: LiveDatasetSourceDescriptor[];
   importedDatasets: ImportedDatasetRecord[];
   reports: DashboardReportRecord[];
   publishedSnapshots: PublishedDashboardSnapshot[];

@@ -476,6 +476,13 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
             {isImporting ? "Importing..." : "Import dataset"}
           </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setImportFeedback("Database connections are planned from Workspace Home. Use Import dataset here for local files.")}
+          >
+            Connect database
+          </button>
           {importFeedback && <small className="dataset-import-feedback">{importFeedback}</small>}
         </div>
         <section className="data-library-start-card" aria-label="Study start">
