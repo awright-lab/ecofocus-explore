@@ -929,6 +929,68 @@ textarea {
   align-items: center;
 }
 
+.workspace-connection-verification {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(216, 227, 235, 0.8);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 12px;
+}
+
+.workspace-connection-verification.ready_to_verify,
+.workspace-connection-verification.verified {
+  border-color: rgba(16, 154, 134, 0.24);
+  background: #f1fbf8;
+}
+
+.workspace-connection-verification.not_configured,
+.workspace-connection-verification.unsupported {
+  border-color: rgba(211, 148, 43, 0.24);
+  background: #fffaf0;
+}
+
+.workspace-connection-verification.failed {
+  border-color: rgba(197, 83, 83, 0.22);
+  background: #fff5f4;
+}
+
+.workspace-connection-verification > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.workspace-connection-verification strong,
+.workspace-connection-verification small,
+.workspace-connection-verification p,
+.workspace-connection-verification li,
+.workspace-connection-verification ul {
+  margin: 0;
+}
+
+.workspace-connection-verification strong {
+  color: #203341;
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.workspace-connection-verification small,
+.workspace-connection-verification p,
+.workspace-connection-verification li {
+  color: #526675;
+  font-size: 0.68rem;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.workspace-connection-verification ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+}
+
 .workspace-connection-plans {
   display: grid;
   gap: 11px;

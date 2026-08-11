@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
-import type { DatasetConnectionProfile } from "../../../shared/types/dataSource";
+import type { DatasetConnectionProfile, DatasetConnectionVerificationReport } from "../../../shared/types/dataSource";
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
 import { buildDatasetConnectionProfiles, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
@@ -116,6 +116,12 @@ function buildReportLibraryItem(workspace: DashboardWorkspace, report: Dashboard
   };
 }
 
+function isConnectionVerificationError(
+  payload: DatasetConnectionVerificationReport | { error?: string; details?: string[] }
+): payload is { error?: string; details?: string[] } {
+  return "error" in payload || !("status" in payload);
+}
+
 export function WorkspaceHome({
   workspace,
   onWorkspaceChange
@@ -128,6 +134,8 @@ export function WorkspaceHome({
   const [importFeedback, setImportFeedback] = useState<{ tone: "success" | "error"; label: string } | null>(null);
   const [showConnectionOptions, setShowConnectionOptions] = useState(false);
   const [selectedConnectionProvider, setSelectedConnectionProvider] = useState<DatasetConnectionProfile["provider"]>("snowflake");
+  const [connectionVerification, setConnectionVerification] = useState<DatasetConnectionVerificationReport | null>(null);
+  const [isVerifyingConnection, setIsVerifyingConnection] = useState(false);
   const reports = workspace.reports
     .filter((report) => !report.archived)
     .map((report) => buildReportLibraryItem(workspace, report))
@@ -250,6 +258,49 @@ export function WorkspaceHome({
       tone: "success",
       label: `${profile.label} setup is saved as a planned source. Credentials and live sync come in the next connection pass.`
     });
+  }
+
+  async function verifySelectedConnection() {
+    setIsVerifyingConnection(true);
+    setConnectionVerification(null);
+    try {
+      const response = await fetch("/.netlify/functions/dataset-connection-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: selectedConnectionProvider,
+          connectionId: selectedConnectionProfile?.id
+        })
+      });
+      const payload = await response.json() as DatasetConnectionVerificationReport | { error?: string; details?: string[] };
+      if (!response.ok) {
+        const errorPayload = isConnectionVerificationError(payload) ? payload : {};
+        setConnectionVerification({
+          provider: selectedConnectionProvider,
+          connectionId: selectedConnectionProfile?.id,
+          status: "failed",
+          statusLabel: errorPayload.error ?? "Verification failed",
+          checkedAt: new Date().toISOString(),
+          diagnostics: errorPayload.details ?? ["The server readiness check failed."],
+          nextStep: "Check Netlify function logs and server environment variables."
+        });
+        return;
+      }
+      if (isConnectionVerificationError(payload)) return;
+      setConnectionVerification(payload);
+    } catch (error) {
+      setConnectionVerification({
+        provider: selectedConnectionProvider,
+        connectionId: selectedConnectionProfile?.id,
+        status: "failed",
+        statusLabel: "Verification unavailable",
+        checkedAt: new Date().toISOString(),
+        diagnostics: [error instanceof Error ? error.message : "The server readiness check could not be reached."],
+        nextStep: "Run the app through Netlify Dev or deploy the verification function before checking readiness."
+      });
+    } finally {
+      setIsVerifyingConnection(false);
+    }
   }
 
   function removeConnectionPlan(connection: DatasetConnectionProfile) {
@@ -525,6 +576,7 @@ export function WorkspaceHome({
                       className="workspace-home-secondary compact"
                       onClick={() => {
                         setSelectedConnectionProvider(option.provider);
+                        setConnectionVerification(null);
                         setShowConnectionOptions(true);
                       }}
                     >
@@ -574,10 +626,24 @@ export function WorkspaceHome({
                 >
                   {selectedConnectionProfile ? "Setup plan saved" : "Save setup plan"}
                 </button>
-                <button type="button" className="workspace-home-secondary compact" disabled>
-                  Server verification coming next
+                <button type="button" className="workspace-home-secondary compact" onClick={() => void verifySelectedConnection()} disabled={isVerifyingConnection}>
+                  {isVerifyingConnection ? "Checking..." : "Check server readiness"}
                 </button>
               </div>
+              {connectionVerification && (
+                <section className={`workspace-connection-verification ${connectionVerification.status}`}>
+                  <div>
+                    <strong>{connectionVerification.statusLabel}</strong>
+                    <small>{formatDateTime(connectionVerification.checkedAt)}</small>
+                  </div>
+                  <ul>
+                    {connectionVerification.diagnostics.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <p>{connectionVerification.nextStep}</p>
+                </section>
+              )}
             </aside>
           )}
           {savedDatasetConnections.length > 0 && (
@@ -609,6 +675,7 @@ export function WorkspaceHome({
                         className="workspace-home-secondary compact"
                         onClick={() => {
                           setSelectedConnectionProvider(connection.provider);
+                          setConnectionVerification(null);
                           setShowConnectionOptions(true);
                         }}
                       >

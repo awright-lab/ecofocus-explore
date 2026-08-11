@@ -14,6 +14,7 @@ export interface DatasetSourceRef {
 
 export type DatasetConnectionStatus = "setup_scaffold" | "configured" | "sync_ready" | "disabled";
 export type LiveDatasetSourceStatus = "available" | "needs_verification" | "unavailable" | "unsupported";
+export type DatasetConnectionVerificationStatus = "not_configured" | "ready_to_verify" | "verified" | "failed" | "unsupported";
 
 export interface DatasetConnectionProfile {
   id: string;
@@ -43,4 +44,19 @@ export interface LiveDatasetSourceDescriptor {
   syncMode: "live_query" | "snapshot";
   status: LiveDatasetSourceStatus;
   statusLabel: string;
+}
+
+export interface DatasetConnectionVerificationRequest {
+  provider: DatasetConnectionProfile["provider"];
+  connectionId?: string;
+}
+
+export interface DatasetConnectionVerificationReport {
+  provider: DatasetConnectionProfile["provider"];
+  connectionId?: string;
+  status: DatasetConnectionVerificationStatus;
+  statusLabel: string;
+  checkedAt: string;
+  diagnostics: string[];
+  nextStep: string;
 }
