@@ -116,6 +116,7 @@ import type {
   SavedWeightProfile,
   PublishedDashboardSnapshot,
 } from "../../../shared/types/dashboard";
+import type { LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
 
 export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
@@ -195,6 +196,10 @@ export default function BuilderApp() {
   const [guidedDataQuery, setGuidedDataQuery] = useState<Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> & Omit<GuidedDataQueryLaunchOptions, "outputMode"> | null>(null);
   const activeOutcomeMode = outcomeModeView(activeProductMode);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
+  const workspaceLiveDatasetSources = useMemo<LiveDatasetSourceDescriptor[]>(
+    () => [...(workspace.liveDatasetSources ?? [])],
+    [workspace.liveDatasetSources]
+  );
   const workspaceImportedDatasets = useMemo(() => {
     const importedDatasetMap = new Map([
       ...dashboard.importedDatasets.map((dataset) => [dataset.id, dataset] as const),
@@ -1179,6 +1184,7 @@ export default function BuilderApp() {
           savedLibraryHandoff={savedLibraryHandoff}
           sourceSearch={sourceSearch}
           setSourceSearch={setSourceSearch}
+          liveDatasetSources={workspaceLiveDatasetSources}
           importedDatasets={workspaceImportedDatasets}
           importDataset={importDataset}
           updateImportedDatasetField={updateImportedDatasetField}
@@ -1500,6 +1506,7 @@ export default function BuilderApp() {
             savedLibraryHandoff,
             sourceSearch,
             setSourceSearch,
+            liveDatasetSources: workspaceLiveDatasetSources,
             importedDatasets: workspaceImportedDatasets,
             importDataset,
             updateImportedDatasetField,

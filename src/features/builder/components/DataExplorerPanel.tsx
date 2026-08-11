@@ -8,9 +8,10 @@ import {
 import { normalizeDatasetSourceRefForImportedDataset } from "../../data/datasetSourceRegistry";
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
 import { listImportedDatasetFieldsFromNetlify } from "../../data/netlifyDatasetStore";
+import { makeWorkspaceHomePath } from "../../document/workspacePersistence";
 
 type DataLibraryIconName = "dataset" | "variable" | "filter" | "segment" | "banner" | "chart";
-type LibrarySectionId = "datasets" | "suggested" | "fields" | "filters" | "segments" | "banners";
+type LibrarySectionId = "connected" | "datasets" | "suggested" | "fields" | "filters" | "segments" | "banners";
 const VARIABLE_TREE_ROW_HEIGHT = 28;
 const VARIABLE_TREE_VIEWPORT_HEIGHT = 360;
 const VARIABLE_TREE_OVERSCAN = 8;
@@ -66,6 +67,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     savedBanners,
     sourceSearch,
     setSourceSearch,
+    liveDatasetSources,
     applySavedBanner,
     bannerDraftName,
     setBannerDraftName,
@@ -100,6 +102,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const [libraryMode, setLibraryMode] = useState<"guided" | "browse">("guided");
   const [expandedLibrarySections, setExpandedLibrarySections] = useState<Record<LibrarySectionId, boolean>>({
+    connected: true,
     datasets: true,
     suggested: true,
     fields: false,
@@ -427,6 +430,17 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     });
   }
 
+  function liveSourceStatusLabel(status: typeof liveDatasetSources[number]["status"]) {
+    if (status === "available") return "Ready";
+    if (status === "needs_verification") return "Verify";
+    if (status === "unsupported") return "Unsupported";
+    return "Unavailable";
+  }
+
+  function openWorkspaceHome() {
+    window.location.hash = makeWorkspaceHomePath().replace(/^#/, "");
+  }
+
   async function handleImportFile(file: File | undefined) {
     if (!file) return;
     setIsImporting(true);
@@ -516,6 +530,41 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           </p>
         </section>
         <div className="mockup-library-stack" aria-label="Data library overview">
+          {liveDatasetSources.length > 0 && (
+            <section className={isSectionExpanded("connected") ? "mockup-library-section data-library-accordion open" : "mockup-library-section data-library-accordion"}>
+              {renderLibraryAccordionHeader({
+                sectionId: "connected",
+                icon: "dataset",
+                title: "Connected sources",
+                detail: `${liveDatasetSources.length} registered`,
+                action: <button type="button" onClick={openWorkspaceHome} aria-label="Manage connected sources">↗</button>
+              })}
+              {isSectionExpanded("connected") && (
+                <div className="data-library-section-body">
+                  {liveDatasetSources.map((source) => (
+                    <article className={`data-library-live-source-row ${source.status}`} key={source.sourceRef.id}>
+                      <span><DataLibraryIcon icon="dataset" /></span>
+                      <div>
+                        <strong>{source.label}</strong>
+                        <small>{liveSourceStatusLabel(source.status)} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
+                        <em>{source.objectPath}</em>
+                      </div>
+                      <button
+                        type="button"
+                        disabled
+                        title="Live query creation for registered database sources is not enabled yet."
+                      >
+                        Query soon
+                      </button>
+                    </article>
+                  ))}
+                  <small className="library-empty-note">
+                    Registered sources are workspace-managed. Query creation unlocks after provider-specific dataset mapping is connected.
+                  </small>
+                </div>
+              )}
+            </section>
+          )}
           <section className={isSectionExpanded("datasets") ? "mockup-library-section data-library-accordion open" : "mockup-library-section data-library-accordion"}>
             {renderLibraryAccordionHeader({
               sectionId: "datasets",

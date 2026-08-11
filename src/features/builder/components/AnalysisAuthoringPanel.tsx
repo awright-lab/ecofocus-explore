@@ -27,6 +27,7 @@ import {
 import type { SmartCompositionStarterId } from "./compositionBlockModel";
 import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, ImportedDatasetField, ImportedDatasetRecord, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
+import type { LiveDatasetSourceDescriptor } from "../../../../shared/types/dataSource";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
 export type GuidedDataQueryLaunchOptions = {
@@ -99,6 +100,7 @@ export type AnalysisAuthoringPanelProps = {
   savedLibraryHandoff: SavedLibraryHandoff;
   sourceSearch: string;
   setSourceSearch: (value: string) => void;
+  liveDatasetSources: LiveDatasetSourceDescriptor[];
   importedDatasets: ImportedDatasetRecord[];
   importDataset: (file: File) => Promise<ImportedDatasetRecord | null>;
   updateImportedDatasetField: (
