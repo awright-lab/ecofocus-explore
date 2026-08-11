@@ -313,6 +313,7 @@ export function useBuilderTileCommands({
         ? `${nextMetric === "sum" ? "Sum of" : "Average"} ${measureLabel} by ${fieldLabel}`
         : fieldLabel;
       const sourceLabel = `${dataset.title}: ${tileLabel}`;
+      const sourceRef = response.metadataRefs.source?.sourceRef;
       const tile: DashboardTile = {
         id: tileId,
         name: tileLabel,
@@ -321,6 +322,7 @@ export function useBuilderTileCommands({
           kind: "importedField",
           id: `${dataset.id}:${field.id}`,
           label: tileLabel,
+          sourceRef,
           datasetId: dataset.id,
           fieldId: field.id
         },

@@ -27,6 +27,7 @@ import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId 
 
 type GuidedOutputMode = "table" | "chart";
 type ImportedQueryMode = "categorical" | "measure";
+type ImportedAnalysisIntent = "responses" | "compare" | "measure";
 
 function supportedChartType(chartTypes: ChartType[]) {
   return chartTypes.find((item) => item !== "table") ?? "vertical_bar";
@@ -170,6 +171,36 @@ export function GuidedDataQueryModal({
     : importedBannerField
       ? `Count responses for ${importedGroupingLabel}, broken out by ${importedFieldDisplayLabel(importedBannerField)}`
       : `Count responses for ${importedGroupingLabel}`;
+  const importedAnalysisIntent: ImportedAnalysisIntent =
+    importedQueryMode === "measure" ? "measure" : importedBannerField ? "compare" : "responses";
+  const importedIntentOptions: Array<{
+    id: ImportedAnalysisIntent;
+    label: string;
+    helper: string;
+    disabled?: boolean;
+  }> = [
+    {
+      id: "responses",
+      label: "Show answers for this question",
+      helper: `Count how respondents answered ${importedGroupingLabel || "the selected field"}.`
+    },
+    {
+      id: "compare",
+      label: "Compare by a group",
+      helper: importedBannerFields.length
+        ? "Break the answers out by gender, segment, status, or another grouping field."
+        : "This dataset needs another group field before comparison is available.",
+      disabled: importedBannerFields.length === 0
+    },
+    {
+      id: "measure",
+      label: "Summarize a number",
+      helper: importedMeasureFields.length
+        ? "Average or total a numeric field across groups."
+        : "No numeric fields are modeled as measures yet.",
+      disabled: importedMeasureFields.length === 0
+    }
+  ];
   const querySummary =
     datasetMode === "seeded"
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
@@ -234,6 +265,32 @@ export function GuidedDataQueryModal({
     setSelectedImportedMeasureFieldId(recommendation.measureFieldId ?? "none");
     setOutputMode("chart");
     setChartType(recommendation.chartType);
+  }
+
+  function applyImportedAnalysisIntent(intent: ImportedAnalysisIntent) {
+    if (intent === "responses") {
+      setImportedQueryMode("categorical");
+      setImportedMetric("percent_selected");
+      setSelectedImportedBannerFieldId("none");
+      setSelectedImportedMeasureFieldId("none");
+      if (chartType === "table") setChartType("vertical_bar");
+      return;
+    }
+
+    if (intent === "compare") {
+      setImportedQueryMode("categorical");
+      setImportedMetric("percent_selected");
+      setSelectedImportedBannerFieldId(importedBannerField?.id ?? importedBannerFields[0]?.id ?? "none");
+      setSelectedImportedMeasureFieldId("none");
+      if (chartType === "donut" || chartType === "table") setChartType("grouped_bar");
+      return;
+    }
+
+    setImportedQueryMode("measure");
+    setImportedMetric("average");
+    setSelectedImportedMeasureFieldId(importedMeasureField?.id ?? importedMeasureFields[0]?.id ?? "none");
+    setSelectedImportedBannerFieldId(importedBannerField?.id ?? "none");
+    if (chartType === "donut" || chartType === "table") setChartType("vertical_bar");
   }
 
   return (
@@ -476,28 +533,6 @@ export function GuidedDataQueryModal({
               <>
                 {importedField ? (
                   <>
-                    {importedRecommendations.length > 0 && (
-                      <div className="guided-query-recommendations" aria-label="Imported query recommendations">
-                        <div className="guided-query-step__header compact">
-                          <span>★</span>
-                          <strong>Suggested setup</strong>
-                        </div>
-                        {importedRecommendations.map((recommendation) => (
-                          <button
-                            type="button"
-                            className={recommendation.recommended && (recommendation.id === importedQueryMode || (recommendation.id === "categorical_breakout" && importedQueryMode === "categorical")) ? "guided-query-recommendation active" : "guided-query-recommendation"}
-                            key={recommendation.id}
-                            onClick={() => applyImportedRecommendation(recommendation)}
-                          >
-                            <div>
-                              <strong>{recommendation.label}</strong>
-                              <small>{recommendation.description}</small>
-                            </div>
-                            <span>{recommendation.actionLabel}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
                     {!importedDatasetHasRows && (
                       <div className="guided-query-unsupported">
                         <strong>Labels imported, but no response rows are available</strong>
@@ -510,25 +545,24 @@ export function GuidedDataQueryModal({
                         </small>
                       </div>
                     )}
-                    <div className="guided-query-field-grid">
-                      <label>
-                        What do you want to show?
-                        <select
-                          value={importedQueryMode}
-                          onChange={(event) => {
-                            const nextMode = event.target.value as ImportedQueryMode;
-                            setImportedQueryMode(nextMode);
-                            setImportedMetric(nextMode === "measure" ? "average" : "percent_selected");
-                            if (nextMode === "measure") setSelectedImportedMeasureFieldId(importedMeasureFields[0]?.id ?? "none");
-                          }}
+                    <div className="guided-query-intent-grid" aria-label="What to show">
+                      {importedIntentOptions.map((intent) => (
+                        <button
+                          type="button"
+                          key={intent.id}
+                          className={importedAnalysisIntent === intent.id ? "active" : ""}
+                          disabled={intent.disabled}
+                          onClick={() => applyImportedAnalysisIntent(intent.id)}
                         >
-                          <option value="categorical">Responses for this field</option>
-                          <option value="measure">Average or sum a number</option>
-                        </select>
-                      </label>
+                          <strong>{intent.label}</strong>
+                          <small>{intent.helper}</small>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="guided-query-field-grid">
                       {importedQueryMode === "measure" && (
                         <label>
-                          Number to average or sum
+                          Number to summarize
                           <select value={selectedImportedMeasureFieldId} onChange={(event) => setSelectedImportedMeasureFieldId(event.target.value)}>
                             <option value="none">Choose a numeric field...</option>
                             {importedMeasureFields.map((field) => (
@@ -537,73 +571,109 @@ export function GuidedDataQueryModal({
                           </select>
                         </label>
                       )}
-                      <label>
-                        Optional breakout
-                        <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
-                          <option value="none">No breakout - all respondents</option>
-                          {importedBannerFields.map((field) => (
-                            <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        Result values
-                        <select value={effectiveImportedMetric} onChange={(event) => setImportedMetric(event.target.value as Metric)}>
-                          {importedQueryMode === "measure" ? (
-                            <>
-                              <option value="average">Average</option>
-                              <option value="sum">Sum</option>
-                            </>
-                          ) : (
-                            <>
-                            <option value="percent_selected">% of responses</option>
-                            <option value="count">Number of responses</option>
-                            </>
-                          )}
-                        </select>
-                      </label>
-                      {outputMode === "chart" && (
+                      {importedAnalysisIntent === "compare" && (
                         <label>
-                          Chart type
-                          <select value={selectedChart} onChange={(event) => setChartType(event.target.value as ChartType)}>
-                            <option value="vertical_bar">Column</option>
-                            <option value="horizontal_bar">Horizontal bar</option>
-                            {!importedBannerField && importedQueryMode === "categorical" && <option value="donut">Donut</option>}
-                            {importedBannerField && <option value="grouped_bar">Grouped bar</option>}
-                            {importedBannerField && <option value="stacked_bar">Stacked bar</option>}
-                            {importedBannerField && <option value="line_chart">Line chart</option>}
-                          </select>
-                        </label>
-                      )}
-                    </div>
-                    <div className="guided-query-field-grid">
-                      <label>
-                        Limit to
-                        <select
-                          value={selectedImportedFilterFieldId}
-                          onChange={(event) => {
-                            setSelectedImportedFilterFieldId(event.target.value);
-                            setSelectedImportedFilterValue("all");
-                          }}
-                        >
-                          <option value="none">No filter</option>
-                          {importedFilterFields.map((field) => (
-                            <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
-                          ))}
-                        </select>
-                      </label>
-                      {importedFilterField && (
-                        <label>
-                          Keep responses where
-                          <select value={selectedImportedFilterValue} onChange={(event) => setSelectedImportedFilterValue(event.target.value)}>
-                            <option value="all">Choose value...</option>
-                            {importedFilterValues.map((value) => (
-                              <option value={value} key={value}>{value}</option>
+                          Compare by
+                          <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
+                            {importedBannerFields.map((field) => (
+                              <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
                           </select>
                         </label>
                       )}
                     </div>
+                    <details className="guided-query-analysis-details">
+                      <summary>Analysis details</summary>
+                      <div className="guided-query-field-grid">
+                        <label>
+                          Result values
+                          <select value={effectiveImportedMetric} onChange={(event) => setImportedMetric(event.target.value as Metric)}>
+                            {importedQueryMode === "measure" ? (
+                              <>
+                                <option value="average">Average</option>
+                                <option value="sum">Sum</option>
+                              </>
+                            ) : (
+                              <>
+                              <option value="percent_selected">% of responses</option>
+                              <option value="count">Number of responses</option>
+                              </>
+                            )}
+                          </select>
+                        </label>
+                        {importedAnalysisIntent !== "compare" && (
+                          <label>
+                            Optional comparison group
+                            <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
+                              <option value="none">No group - all respondents</option>
+                              {importedBannerFields.map((field) => (
+                                <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {outputMode === "chart" && (
+                          <label>
+                            Chart type
+                            <select value={selectedChart} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                              <option value="vertical_bar">Column</option>
+                              <option value="horizontal_bar">Horizontal bar</option>
+                              {!importedBannerField && importedQueryMode === "categorical" && <option value="donut">Donut</option>}
+                              {importedBannerField && <option value="grouped_bar">Grouped bar</option>}
+                              {importedBannerField && <option value="stacked_bar">Stacked bar</option>}
+                              {importedBannerField && <option value="line_chart">Line chart</option>}
+                            </select>
+                          </label>
+                        )}
+                        <label>
+                          Limit to
+                          <select
+                            value={selectedImportedFilterFieldId}
+                            onChange={(event) => {
+                              setSelectedImportedFilterFieldId(event.target.value);
+                              setSelectedImportedFilterValue("all");
+                            }}
+                          >
+                            <option value="none">No filter</option>
+                            {importedFilterFields.map((field) => (
+                              <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
+                            ))}
+                          </select>
+                        </label>
+                        {importedFilterField && (
+                          <label>
+                            Keep responses where
+                            <select value={selectedImportedFilterValue} onChange={(event) => setSelectedImportedFilterValue(event.target.value)}>
+                              <option value="all">Choose value...</option>
+                              {importedFilterValues.map((value) => (
+                                <option value={value} key={value}>{value}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </div>
+                    </details>
+                    {importedRecommendations.length > 0 && (
+                      <details className="guided-query-analysis-details">
+                        <summary>Suggested setups</summary>
+                        <div className="guided-query-recommendations" aria-label="Imported query recommendations">
+                          {importedRecommendations.map((recommendation) => (
+                            <button
+                              type="button"
+                              className={recommendation.recommended && (recommendation.id === importedQueryMode || (recommendation.id === "categorical_breakout" && importedQueryMode === "categorical")) ? "guided-query-recommendation active" : "guided-query-recommendation"}
+                              key={recommendation.id}
+                              onClick={() => applyImportedRecommendation(recommendation)}
+                            >
+                              <div>
+                                <strong>{recommendation.label}</strong>
+                                <small>{recommendation.description}</small>
+                              </div>
+                              <span>{recommendation.actionLabel}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    )}
                     <div className={importedSupport.executable ? "guided-query-supported" : "guided-query-unsupported"}>
                       <strong>{importedSupport.executable ? "Ready to create" : importedSupport.reason}</strong>
                       <small>{importedSupport.executable ? "This will create a normal editable table or chart on the current slide." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>

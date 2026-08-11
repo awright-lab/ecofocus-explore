@@ -1,6 +1,7 @@
 import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
 import type { ComparisonMode } from "./analytics";
+import type { DatasetSourceRef } from "./dataSource";
 
 export type DashboardStatus = "draft" | "published";
 
@@ -106,6 +107,7 @@ export interface DashboardTile {
     kind: "question" | "variableSet" | "importedField";
     id: string;
     label: string;
+    sourceRef?: DatasetSourceRef;
     datasetId?: string;
     fieldId?: string;
   };
@@ -578,6 +580,7 @@ export interface ImportedDatasetRecord {
   id: string;
   title: string;
   sourceType: "local_file" | "supabase" | "netlify";
+  sourceRef?: DatasetSourceRef;
   fileName: string;
   fileType: "csv" | "xlsx" | "sav" | "unknown";
   remote?: {

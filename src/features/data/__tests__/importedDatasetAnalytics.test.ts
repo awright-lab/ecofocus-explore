@@ -86,6 +86,11 @@ describe("imported dataset measure analytics", () => {
     expect(result.metadataRefs.source).toMatchObject({
       kind: "imported",
       queryKind: "measure",
+      sourceRef: {
+        id: "imported:imported_customers",
+        kind: "imported_file",
+        provider: "local_file"
+      },
       datasetLabel: "Imported customers",
       primaryFieldLabel: "Segment",
       measureFieldLabel: "Annual spend",

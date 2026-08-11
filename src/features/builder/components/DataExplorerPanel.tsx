@@ -5,6 +5,7 @@ import {
   buildImportedDatasetStructureSummary,
   importedFieldDisplayLabel,
 } from "../../data/datasetModelingModel";
+import { normalizeDatasetSourceRefForImportedDataset } from "../../data/datasetSourceRegistry";
 import { buildImportedFieldSuitability, firstImportedDimensionField } from "../../data/importedDatasetAnalytics";
 import { listImportedDatasetFieldsFromNetlify } from "../../data/netlifyDatasetStore";
 
@@ -113,11 +114,12 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         id: dataset.id,
         title: dataset.title,
         meta: `${dataset.rowCount.toLocaleString()} rows · ${dataset.fieldCount} fields · ${dataset.importMetadata?.formatLabel ?? dataset.fileType.toUpperCase()}`,
+        sourceLabel: normalizeDatasetSourceRefForImportedDataset(dataset).kind === "workspace_database" ? "workspace database" : "file import",
         imported: true
       }))
     : [
-        { id: "ecofocus_2026", title: "2026 EcoFocus Study", meta: "12,540 responses", imported: false },
-        { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", imported: false }
+        { id: "ecofocus_2026", title: "2026 EcoFocus Study", meta: "12,540 responses", sourceLabel: "demo source", imported: false },
+        { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", sourceLabel: "demo source", imported: false }
       ];
   const modeledVariables = activeImportedDataset?.fields ?? [];
   const usesRemoteFieldPaging = activeImportedDataset?.remote?.provider === "netlify";
@@ -532,7 +534,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                       <span><DataLibraryIcon icon="dataset" /></span>
                       <div>
                         <strong>{dataset.title}</strong>
-                        <small>{dataset.meta}{dataset.imported ? " · imported" : ""}</small>
+                        <small>{dataset.meta} · {dataset.sourceLabel}</small>
                       </div>
                     </button>
                     {dataset.imported && (

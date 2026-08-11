@@ -1,3 +1,5 @@
+import type { DatasetSourceRef } from "./dataSource";
+
 export type DatasetId = "ecofocus_2023" | "ecofocus_2024" | "ecofocus_2025";
 
 export type QuestionId = "Q_PACKAGING_TRUST" | "Q_SUSTAINABILITY_IMPORTANCE" | "Q15_TOP2_BRAND_PRIORITIES";
@@ -26,6 +28,7 @@ export interface AnalyticsFilter {
 export interface ImportedAnalyticsSourceIdentity {
   kind: "imported";
   queryKind?: "categorical" | "measure";
+  sourceRef?: DatasetSourceRef;
   datasetId: string;
   datasetLabel: string;
   primaryFieldId: string;
@@ -42,6 +45,7 @@ export interface ImportedAnalyticsSourceIdentity {
 
 export interface SeededAnalyticsSourceIdentity {
   kind: "seeded";
+  sourceRef?: DatasetSourceRef;
   datasetId: DatasetId;
   datasetLabel?: string;
   questionId: QuestionId;
@@ -81,6 +85,7 @@ export interface AnalyticsQueryRequest {
   comparisonMode?: ComparisonMode;
   comparisonDatasets?: DatasetId[];
   authoredVariableSet?: AnalyticsAuthoredVariableSet;
+  sourceRef?: DatasetSourceRef;
   sourceIdentity?: AnalyticsSourceIdentity;
 }
 

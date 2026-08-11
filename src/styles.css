@@ -1493,7 +1493,13 @@ textarea {
   gap: 10px;
 }
 
+.guided-query-intent-grid {
+  display: grid;
+  gap: 9px;
+}
+
 .guided-query-choice-grid button,
+.guided-query-intent-grid button,
 .guided-query-output-toggle button,
 .guided-query-chip-row button {
   border: 1px solid rgba(214, 225, 232, 0.95);
@@ -1505,6 +1511,7 @@ textarea {
 }
 
 .guided-query-choice-grid button.active,
+.guided-query-intent-grid button.active,
 .guided-query-output-toggle button.active,
 .guided-query-chip-row button.active {
   border-color: rgba(0, 139, 137, 0.32);
@@ -1513,27 +1520,66 @@ textarea {
   box-shadow: 0 0 0 3px rgba(0, 139, 137, 0.08);
 }
 
-.guided-query-choice-grid button:disabled {
+.guided-query-choice-grid button:disabled,
+.guided-query-intent-grid button:disabled {
   cursor: not-allowed;
   opacity: 0.52;
 }
 
 .guided-query-choice-grid strong,
-.guided-query-choice-grid small {
+.guided-query-choice-grid small,
+.guided-query-intent-grid strong,
+.guided-query-intent-grid small {
   display: block;
 }
 
-.guided-query-choice-grid strong {
+.guided-query-choice-grid strong,
+.guided-query-intent-grid strong {
   font-size: 0.82rem;
   font-weight: 950;
 }
 
-.guided-query-choice-grid small {
+.guided-query-choice-grid small,
+.guided-query-intent-grid small {
   margin-top: 4px;
   color: #667786;
   font-size: 0.7rem;
   font-weight: 740;
   line-height: 1.35;
+}
+
+.guided-query-analysis-details {
+  border: 1px solid rgba(216, 227, 235, 0.9);
+  border-radius: 13px;
+  background: #f8fbfc;
+  padding: 0;
+}
+
+.guided-query-analysis-details summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  color: #253842;
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.guided-query-analysis-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.guided-query-analysis-details[open] {
+  padding-bottom: 12px;
+}
+
+.guided-query-analysis-details[open] summary {
+  border-bottom: 1px solid rgba(216, 227, 235, 0.9);
+  margin-bottom: 12px;
+}
+
+.guided-query-analysis-details > .guided-query-field-grid,
+.guided-query-analysis-details > .guided-query-recommendations {
+  margin-inline: 12px;
 }
 
 .guided-query-step label {

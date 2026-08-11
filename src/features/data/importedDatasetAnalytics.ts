@@ -1,6 +1,7 @@
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
+import { normalizeDatasetSourceRefForImportedDataset } from "./datasetSourceRegistry";
 import { importedSurveyQuestionDisplayLabel, importedSurveyQuestionPrompt } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetQueryConfig {
@@ -678,6 +679,7 @@ function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAna
   return {
     kind: "imported",
     queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",
+    sourceRef: normalizeDatasetSourceRefForImportedDataset(config.dataset),
     datasetId: config.dataset.id,
     datasetLabel: config.dataset.title,
     primaryFieldId: config.field.id,
@@ -705,6 +707,7 @@ function importedQuery(chartType: ChartType, metric: Metric, sourceIdentity: Imp
     confidenceLevel: 0.95,
     comparisonMode: "none",
     comparisonDatasets: [],
+    sourceRef: sourceIdentity.sourceRef,
     sourceIdentity
   };
 }

@@ -22,6 +22,7 @@ import {
 } from "./documentSeeds";
 import { defaultVisualizationForQuestion, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
+import { normalizeDatasetSourceRefForImportedDataset } from "../data/datasetSourceRegistry";
 import type { BreakById } from "../../../shared/types/analytics";
 import type { DashboardDraft, DashboardPage, ImportedDatasetField, ImportedDatasetRecord, PageThemePreset, TileAppearance } from "../../../shared/types/dashboard";
 
@@ -189,10 +190,11 @@ export function normalizeImportedDatasetField(field: Partial<ImportedDatasetFiel
 
 export function normalizeImportedDataset(dataset: Partial<ImportedDatasetRecord>, index: number): ImportedDatasetRecord {
   const rowCount = dataset.rowCount ?? dataset.previewRows?.length ?? 0;
-  return {
+  const normalized: ImportedDatasetRecord = {
     id: dataset.id ?? `imported_dataset_${index + 1}`,
     title: dataset.title ?? dataset.fileName ?? `Imported dataset ${index + 1}`,
     sourceType: dataset.sourceType ?? "local_file",
+    sourceRef: dataset.sourceRef,
     fileName: dataset.fileName ?? dataset.title ?? `dataset_${index + 1}`,
     fileType: dataset.fileType ?? "unknown",
     remote: dataset.remote,
@@ -213,6 +215,10 @@ export function normalizeImportedDataset(dataset: Partial<ImportedDatasetRecord>
     previewRows: dataset.previewRows ?? [],
     modelingStatus: dataset.modelingStatus ?? "initial_model",
     notes: dataset.notes ?? []
+  };
+  return {
+    ...normalized,
+    sourceRef: normalizeDatasetSourceRefForImportedDataset(normalized)
   };
 }
 
