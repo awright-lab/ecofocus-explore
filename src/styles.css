@@ -5642,7 +5642,9 @@ h2 {
 
 .data-library-live-source-row strong,
 .data-library-live-source-row small,
-.data-library-live-source-row em {
+.data-library-live-source-row em,
+.data-library-live-source-row b,
+.data-library-live-source-row p {
   display: block;
   overflow: hidden;
   margin: 0;
@@ -5666,6 +5668,20 @@ h2 {
   color: #7a8994;
   font-size: 0.56rem;
   font-style: normal;
+  font-weight: 720;
+}
+
+.data-library-live-source-row b {
+  margin-top: 2px;
+  color: #0f776d;
+  font-size: 0.56rem;
+  font-weight: 950;
+}
+
+.data-library-live-source-row p {
+  margin-top: 2px;
+  color: #72818b;
+  font-size: 0.55rem;
   font-weight: 720;
 }
 

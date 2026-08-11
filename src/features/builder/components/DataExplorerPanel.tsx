@@ -437,6 +437,21 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     return "Unavailable";
   }
 
+  function liveSourceStructureLabel(source: typeof liveDatasetSources[number]) {
+    const pieces = [
+      source.rowCountEstimate !== undefined ? `${source.rowCountEstimate.toLocaleString()} est. rows` : null,
+      source.fieldCount !== undefined ? `${source.fieldCount.toLocaleString()} fields` : null
+    ].filter(Boolean);
+    return pieces.length ? pieces.join(" · ") : "Mapping saved";
+  }
+
+  function liveSourceReadinessNote(source: typeof liveDatasetSources[number]) {
+    if (source.status === "available") return "Mapped source. Live query creation is not enabled yet.";
+    if (source.status === "needs_verification") return "Server verification needed before live query setup.";
+    if (source.status === "unsupported") return "Provider support is not available yet.";
+    return "Connection setup is incomplete.";
+  }
+
   function openWorkspaceHome() {
     window.location.hash = makeWorkspaceHomePath().replace(/^#/, "");
   }
@@ -548,6 +563,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         <strong>{source.label}</strong>
                         <small>{liveSourceStatusLabel(source.status)} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
                         <em>{source.objectPath}</em>
+                        <b>{liveSourceStructureLabel(source)}</b>
+                        <p>{liveSourceReadinessNote(source)}</p>
                       </div>
                       <button
                         type="button"
