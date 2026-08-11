@@ -4,6 +4,7 @@ import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, Liv
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
 import { buildDatasetConnectionProfiles, buildLiveDatasetSourceDescriptorForConnection, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
+import { buildLiveDatasetSourceReadinessView } from "../data/liveDatasetSourceModel";
 import {
   createNewReportFromSeed,
   duplicateReportRecord,
@@ -353,13 +354,6 @@ export function WorkspaceHome({
           ? `${source.label} is registered as a live dataset source.`
           : `${source.label} is registered, but ${source.statusLabel.toLowerCase()}.`
     });
-  }
-
-  function sourceStatusLabel(source: LiveDatasetSourceDescriptor) {
-    if (source.status === "available") return "Available";
-    if (source.status === "needs_verification") return "Needs verification";
-    if (source.status === "unsupported") return "Unsupported";
-    return "Unavailable";
   }
 
   function removeLiveSource(source: LiveDatasetSourceDescriptor) {
@@ -816,15 +810,17 @@ export function WorkspaceHome({
                 {liveDatasetSources.map((source) => {
                   const connection = savedDatasetConnections.find((item) => item.id === source.connectionId);
                   const isEditingSource = editingLiveSourceId === source.sourceRef.id;
+                  const readiness = buildLiveDatasetSourceReadinessView(source);
                   return (
                     <article className={`workspace-live-source-row ${source.status}`} key={source.sourceRef.id}>
                       <span><HomeIcon icon="dataset" /></span>
                       <div>
                         <strong>{source.label}</strong>
-                        <small>{sourceStatusLabel(source)} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
+                        <small>{readiness.statusLabel} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
                         <em>{source.objectPath}</em>
+                        <b>{readiness.structureLabel}</b>
                         <p>
-                          {source.statusLabel}
+                          {readiness.readinessNote}
                           {connection?.verification?.checkedAt ? ` Checked ${formatDateTime(connection.verification.checkedAt)}.` : ""}
                         </p>
                         {isEditingSource && (
