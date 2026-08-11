@@ -3607,6 +3607,53 @@ h2 {
   line-height: 1.35;
 }
 
+.format-panel-stack {
+  display: grid;
+  gap: 12px;
+  padding-inline: 10px;
+}
+
+.format-panel-stack label {
+  display: grid;
+  gap: 7px;
+  color: #344550;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.format-summary-card {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #dce8e5;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff, #f7fcfb);
+}
+
+.format-summary-card span {
+  color: #007a73;
+  font-size: 0.62rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.format-summary-card strong {
+  overflow: hidden;
+  color: #172033;
+  font-size: 0.86rem;
+  font-weight: 950;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.format-summary-card small {
+  color: #5f706a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .tile-style-folder {
   display: grid;
   gap: 8px;
@@ -11770,6 +11817,36 @@ td span {
   color: #42534c;
   font-size: 0.75rem;
   font-weight: 850;
+}
+
+.value-label-format-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dfeae6;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fbfefd;
+}
+
+.value-label-format-card label {
+  display: grid;
+  gap: 6px;
+  color: #42534c;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.value-label-format-card select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid #d7e3df;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #1e342e;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .segmented-button-row {

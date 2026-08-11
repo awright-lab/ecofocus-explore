@@ -19,7 +19,7 @@ export type LeftPanelView = "pages" | "layers" | "insert" | "data" | "brand";
 export type ExploreView = "source" | "analyze" | "library";
 export type SourceLibraryView = "variableSets" | "questions";
 export type AnalysisLibraryView = "variableSets" | "templates" | "derivedOutputs" | "segments" | "banners" | "filters" | "weights";
-export type SettingsView = "home" | "page" | "layout" | "element" | "chart" | "container";
+export type SettingsView = "home" | "page" | "layout" | "element" | "chart" | "container" | "effects" | "options";
 export type MultiSelectedObject = { id: string; type: "tile" | "element" };
 export type SavedLibraryHandoff = {
   view: AnalysisLibraryView;

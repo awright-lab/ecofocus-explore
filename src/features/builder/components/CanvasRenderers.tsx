@@ -76,9 +76,31 @@ export function SvgBarGradientDef({
   );
 }
 
-export function formatValue(value: number, format: AnalyticsQueryResponse["metric"]["valueFormat"], metricId?: AnalyticsQueryResponse["metric"]["id"]) {
-  if (format === "percent") return `${value}%`;
+type ValueLabelFormatOptions = {
+  percentDecimals?: TileAppearance["labelPercentDecimals"];
+  percentRounding?: TileAppearance["labelPercentRounding"];
+};
+
+export function formatValue(
+  value: number,
+  format: AnalyticsQueryResponse["metric"]["valueFormat"],
+  metricId?: AnalyticsQueryResponse["metric"]["id"],
+  options: ValueLabelFormatOptions = {}
+) {
+  if (format === "percent") {
+    const decimals = options.percentDecimals ?? 0;
+    const factor = 10 ** decimals;
+    const rounded = options.percentRounding === "ceil" ? Math.ceil(value * factor) / factor : Math.round(value * factor) / factor;
+    return `${rounded.toFixed(decimals)}%`;
+  }
   return formatImportedMeasureValue(value, metricId ?? "count");
+}
+
+function valueLabelFormatOptions(appearance: TileAppearance): ValueLabelFormatOptions {
+  return {
+    percentDecimals: appearance.labelPercentDecimals ?? 0,
+    percentRounding: appearance.labelPercentRounding ?? "nearest"
+  };
 }
 
 function roundedPercentAxisProps(values: number[]) {
@@ -378,7 +400,7 @@ export function ValueLabel(props: {
       className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}
       style={{ fill: annotation ? undefined : appearance.labelColor, fontSize: appearance.labelFontSize }}
     >
-      {formatValue(value, result.metric.valueFormat, result.metric.id)}
+      {formatValue(value, result.metric.valueFormat, result.metric.id, valueLabelFormatOptions(appearance))}
       {annotation ? (annotation.direction === "up" ? "↑" : "↓") : ""}
     </text>
   );
@@ -430,7 +452,7 @@ export function HorizontalValueLabel(props: {
       className="chart-value"
       style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize }}
     >
-      {formatValue(value, result.metric.valueFormat, result.metric.id)}
+      {formatValue(value, result.metric.valueFormat, result.metric.id, valueLabelFormatOptions(appearance))}
     </text>
   );
 }
@@ -720,7 +742,11 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
             innerRadius="48%"
             outerRadius="78%"
             paddingAngle={2}
-            label={appearance.showValueLabels ? (entry) => formatValue(Number(entry.value ?? 0), result.metric.valueFormat, result.metric.id) : false}
+            label={
+              appearance.showValueLabels
+                ? (entry) => formatValue(Number(entry.value ?? 0), result.metric.valueFormat, result.metric.id, valueLabelFormatOptions(appearance))
+                : false
+            }
           >
             {chartData.map((item) => (
               <Cell key={item.optionId} fill={item.fill} />

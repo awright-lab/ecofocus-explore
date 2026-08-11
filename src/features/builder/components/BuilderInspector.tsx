@@ -44,14 +44,15 @@ import type {
 import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputModel";
 
-type AssistantRailIcon = "style" | "page" | "layout" | "tile" | "data" | "insight";
+type AssistantRailIcon = "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
 
 function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
   const paths: Record<AssistantRailIcon, ReactNode> = {
     style: <><path d="M5 19c3.8 1.2 6.5-1.1 6.5-4.1 0-1.4-1-2.6-2.4-2.6H7.5A3.5 3.5 0 0 1 4 8.8C4 5.9 6.5 4 9.8 4H12c4.4 0 8 3.3 8 7.5S16.6 19 12.2 19H11" /><circle cx="9" cy="7.5" r="1" /><circle cx="13" cy="7.4" r="1" /><circle cx="16" cy="10.2" r="1" /></>,
     page: <><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h4" /></>,
     layout: <><rect x="4" y="5" width="7" height="6" rx="1.5" /><rect x="13" y="5" width="7" height="6" rx="1.5" /><rect x="4" y="13" width="16" height="6" rx="1.5" /></>,
-    tile: <><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M7 15h10" /><path d="M8 12l2.4-3 2.4 2 2-2.5L17 12" /></>,
+    effects: <><path d="M12 4v3" /><path d="M12 17v3" /><path d="M4 12h3" /><path d="M17 12h3" /><path d="m6.6 6.6 2.1 2.1" /><path d="m15.3 15.3 2.1 2.1" /><path d="m17.4 6.6-2.1 2.1" /><path d="m8.7 15.3-2.1 2.1" /><circle cx="12" cy="12" r="3.2" /></>,
+    options: <><path d="M6 5v14" /><path d="M18 5v14" /><path d="M6 9h12" /><path d="M6 15h12" /><circle cx="10" cy="9" r="1.8" /><circle cx="14" cy="15" r="1.8" /></>,
     data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
     insight: <><path d="M12 3.5 13.7 8l4.8 1.6-4.8 1.7L12 16l-1.7-4.7-4.8-1.7L10.3 8z" /><path d="M18 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" /></>
   };
@@ -330,7 +331,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           helper: "Use the Brand panel starters for KPI strips, insight callouts, chart commentary, or opportunity cards."
         };
   const assistantRailItems: Array<{
-    id: "style" | "page" | "layout" | "tile" | "data" | "insight";
+    id: "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
     label: string;
     icon: AssistantRailIcon;
     disabled?: boolean;
@@ -341,8 +342,8 @@ export function BuilderInspector(props: BuilderInspectorProps) {
       id: "style",
       label: "Style",
       icon: "style",
-      active: inspectorSurface === "style" && settingsView === "home",
-      helper: "Show the main style assistant."
+      active: inspectorSurface === "style" && (settingsView === "home" || settingsView === "chart" || settingsView === "element" || settingsView === "container"),
+      helper: selectedTile || selectedElement ? "Edit fill, color, type, and visible marks." : "Show the main style assistant."
     },
     {
       id: "page",
@@ -352,20 +353,20 @@ export function BuilderInspector(props: BuilderInspectorProps) {
       helper: "Edit page theme, background, grid, and slide setup."
     },
     {
-      id: "layout",
-      label: "Arrange",
-      icon: "layout",
+      id: "effects",
+      label: "Effects",
+      icon: "effects",
       disabled: !selectedTile && !selectedElement,
-      active: inspectorSurface === "style" && settingsView === "layout",
-      helper: "Align, layer, resize, and position the selected object."
+      active: inspectorSurface === "style" && settingsView === "effects",
+      helper: "Edit shadow, glow, transparency, and soft edges."
     },
     {
-      id: "tile",
-      label: selectedElement ? "Element" : "Tile",
-      icon: "tile",
+      id: "options",
+      label: "Options",
+      icon: "options",
       disabled: !selectedTile && !selectedElement,
-      active: inspectorSurface === "style" && (settingsView === "chart" || settingsView === "element" || settingsView === "container"),
-      helper: selectedElement ? "Edit the selected element styling." : "Edit chart, tile, and container styling."
+      active: inspectorSurface === "style" && (settingsView === "options" || settingsView === "layout"),
+      helper: selectedTile ? "Edit series, gap width, size, and position." : "Edit size, position, and text box options."
     },
     {
       id: "data",
@@ -388,10 +389,11 @@ export function BuilderInspector(props: BuilderInspectorProps) {
       return;
     }
     setInspectorSurface("style");
-    if (itemId === "style") setSettingsView("home");
+    if (itemId === "style") setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home");
     if (itemId === "page") setSettingsView("page");
     if (itemId === "layout") setSettingsView("layout");
-    if (itemId === "tile") setSettingsView(selectedElement ? "element" : "chart");
+    if (itemId === "effects") setSettingsView("effects");
+    if (itemId === "options") setSettingsView("options");
   }
   const chartTypeOptions = selectedTile
     ? defaultDataset.chartTypes
@@ -508,7 +510,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             <em>selected only</em>
           </button>
           <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
-            <span className="layout-suggestion-icon"><AssistantIcon icon="tile" /></span>
+            <span className="layout-suggestion-icon"><AssistantIcon icon="options" /></span>
             <span><strong>Lead chart frame</strong><small>Make this object wide and readable</small></span>
             <em>top section</em>
           </button>
@@ -592,25 +594,37 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     ? "Page"
     : settingsView === "layout"
       ? "Arrange"
-      : settingsView === "container"
-        ? "Container"
-        : selectedElement
-          ? "Element"
-          : "More tile styling";
+      : settingsView === "effects"
+        ? "Effects"
+        : settingsView === "options"
+          ? selectedElement
+            ? "Object options"
+            : "Series options"
+          : settingsView === "container"
+            ? "Container"
+            : selectedElement
+              ? "Element"
+              : "More tile styling";
   const detailedControlHelper = settingsView === "page"
     ? "Page setup and background"
     : settingsView === "layout"
       ? "Position, alignment, and layering"
-      : settingsView === "container"
-        ? "Tile surface, border, and effects"
-        : selectedElement
-          ? "Element appearance and content"
-          : "Display and advanced chart styling";
+      : settingsView === "effects"
+        ? "Shadow, glow, transparency, and surface treatment"
+        : settingsView === "options"
+          ? selectedElement
+            ? "Size, position, and text box behavior"
+            : "Series spacing, label offsets, size, and position"
+          : settingsView === "container"
+            ? "Tile surface, border, and effects"
+            : selectedElement
+              ? "Element appearance and content"
+              : "Display and advanced chart styling";
   const detailedControls = settingsView === "page"
     ? <PageInspector {...props} />
     : settingsView === "layout"
       ? <LayoutInspector {...props} />
-      : settingsView === "chart" || settingsView === "element" || settingsView === "container"
+      : settingsView === "chart" || settingsView === "element" || settingsView === "container" || settingsView === "effects" || settingsView === "options"
         ? <ObjectInspector {...props} />
         : null;
 
@@ -621,7 +635,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           {(settingsView === "chart" || settingsView === "element" || settingsView === "container") && chartBasicsCard}
           {settingsView === "layout" && multiSelectionCard}
           {settingsView !== "home" && (
-            <details className="advanced-inspector-details" open={settingsView === "page"}>
+            <details className="advanced-inspector-details" open={settingsView === "page" || settingsView === "effects" || settingsView === "options"}>
               <summary>
                 <strong>{detailedControlTitle}</strong>
                 <span>{detailedControlHelper}</span>

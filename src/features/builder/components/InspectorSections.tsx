@@ -349,24 +349,264 @@ export function LayoutInspector(props: BuilderInspectorProps) {
 export function ObjectInspector(props: BuilderInspectorProps) {
   const { settingsView, selectedElement, selectedTile } = props;
 
-  if (settingsView !== "element" && settingsView !== "chart" && settingsView !== "container") {
+  if (settingsView !== "element" && settingsView !== "chart" && settingsView !== "container" && settingsView !== "effects" && settingsView !== "options") {
     return null;
   }
 
   return (
     <>
-      <div className="panel-title subtle">
-        <h2>{selectedElement ? "Element" : "Tile"}</h2>
-      </div>
+      {settingsView !== "effects" && settingsView !== "options" && (
+        <div className="panel-title subtle">
+          <h2>{selectedElement ? "Element" : "Tile"}</h2>
+        </div>
+      )}
       {selectedElement ? (
-        <ElementInspector {...props} />
+        settingsView === "effects" ? (
+          <ElementEffectsInspector {...props} />
+        ) : settingsView === "options" ? (
+          <ElementOptionsInspector {...props} />
+        ) : (
+          <ElementInspector {...props} />
+        )
       ) : !selectedTile ? (
         <div className="empty-state compact">Select a canvas item to edit its display.</div>
+      ) : settingsView === "effects" ? (
+        <TileEffectsInspector {...props} />
+      ) : settingsView === "options" ? (
+        <TileOptionsInspector {...props} />
       ) : settingsView === "container" ? (
         <TileContainerInspector {...props} />
       ) : (
         <TileAnalysisInspector {...props} />
       )}
     </>
+  );
+}
+
+export function TileEffectsInspector(props: BuilderInspectorProps) {
+  const { selectedTile, setDesignModal, updateSelectedAppearance } = props;
+
+  if (!selectedTile) {
+    return null;
+  }
+
+  return (
+    <div className="format-panel-stack">
+      <div className="format-summary-card">
+        <span>Effects</span>
+        <strong>{selectedTile.title || selectedTile.name}</strong>
+        <small>Shadow, glow, transparency, and surface effects for this tile.</small>
+      </div>
+      <button type="button" className="design-popover-button" onClick={() => setDesignModal("tileEffects")}>
+        <span className="effect-button-preview" style={{ boxShadow: effectShadow({ ...selectedTile.appearance, shadow: selectedTile.appearance.shadow || selectedTile.appearance.glow }) }} />
+        <span>Shadow and glow</span>
+        <small>{selectedTile.appearance.shadow || selectedTile.appearance.glow ? "On" : "None"}</small>
+      </button>
+      <label>
+        Transparency
+        <input
+          type="range"
+          min="20"
+          max="100"
+          value={selectedTile.appearance.opacity}
+          style={{ "--range-fill": rangeFill(selectedTile.appearance.opacity, 20, 100) } as React.CSSProperties}
+          onChange={(event) => updateSelectedAppearance({ opacity: Number(event.target.value) })}
+        />
+      </label>
+      <label>
+        Corners
+        <input
+          type="range"
+          min="0"
+          max="36"
+          value={selectedTile.appearance.borderRadius}
+          style={{ "--range-fill": rangeFill(selectedTile.appearance.borderRadius, 0, 36) } as React.CSSProperties}
+          onChange={(event) => updateSelectedAppearance({ borderRadius: Number(event.target.value) })}
+        />
+      </label>
+    </div>
+  );
+}
+
+export function ElementEffectsInspector(props: BuilderInspectorProps) {
+  const { selectedElement, setDesignModal, updateSelectedElement } = props;
+
+  if (!selectedElement) {
+    return null;
+  }
+
+  return (
+    <div className="format-panel-stack">
+      <div className="format-summary-card">
+        <span>Effects</span>
+        <strong>{selectedElement.name}</strong>
+        <small>Shadow, glow, border softness, and transparency for this object.</small>
+      </div>
+      <button type="button" className="design-popover-button" onClick={() => setDesignModal("elementEffects")}>
+        <span className="effect-button-preview" style={{ boxShadow: effectShadow({ ...selectedElement.style, shadow: selectedElement.style.shadow || selectedElement.style.glow }) }} />
+        <span>Shadow and glow</span>
+        <small>{selectedElement.style.shadow || selectedElement.style.glow ? "On" : "None"}</small>
+      </button>
+      <label>
+        Transparency
+        <input
+          type="range"
+          min="10"
+          max="100"
+          value={selectedElement.style.opacity}
+          style={{ "--range-fill": rangeFill(selectedElement.style.opacity, 10, 100) } as React.CSSProperties}
+          onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, opacity: Number(event.target.value) } })}
+        />
+      </label>
+      {selectedElement.type !== "circle" && selectedElement.type !== "image" && (
+        <label>
+          Soft corners
+          <input
+            type="range"
+            min="0"
+            max="48"
+            value={selectedElement.style.borderRadius}
+            style={{ "--range-fill": rangeFill(selectedElement.style.borderRadius, 0, 48) } as React.CSSProperties}
+            onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, borderRadius: Number(event.target.value) } })}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
+export function TileOptionsInspector(props: BuilderInspectorProps) {
+  const { selectedTile, updateSelectedAppearance, updateSelectedLayout } = props;
+
+  if (!selectedTile) {
+    return null;
+  }
+
+  return (
+    <div className="format-panel-stack">
+      <div className="format-summary-card">
+        <span>Series options</span>
+        <strong>{selectedTile.visualization === "horizontal_bar" ? "Horizontal bars" : getPaletteId(selectedTile.appearance.palette) === "custom" ? "Custom chart" : "Chart options"}</strong>
+        <small>Position, size, spacing, labels, and chart-specific behavior.</small>
+      </div>
+      <div className="layout-grid">
+        <label>
+          X
+          <input type="number" value={selectedTile.layout.x} onChange={(event) => updateSelectedLayout({ x: Number(event.target.value) })} />
+        </label>
+        <label>
+          Y
+          <input type="number" value={selectedTile.layout.y} onChange={(event) => updateSelectedLayout({ y: Number(event.target.value) })} />
+        </label>
+        <label>
+          W
+          <input type="number" value={selectedTile.layout.width} onChange={(event) => updateSelectedLayout({ width: Number(event.target.value) })} />
+        </label>
+        <label>
+          H
+          <input type="number" value={selectedTile.layout.height} onChange={(event) => updateSelectedLayout({ height: Number(event.target.value) })} />
+        </label>
+      </div>
+      {selectedTile.visualization !== "table" && (
+        <>
+          <label>
+            Series overlap
+            <input
+              type="range"
+              min="0"
+              max="24"
+              value={selectedTile.appearance.barGap}
+              style={{ "--range-fill": rangeFill(selectedTile.appearance.barGap, 0, 24) } as React.CSSProperties}
+              onChange={(event) => updateSelectedAppearance({ barGap: Number(event.target.value) })}
+            />
+          </label>
+          <label>
+            Gap width
+            <input
+              type="range"
+              min="4"
+              max="64"
+              value={selectedTile.appearance.barCategoryGap}
+              style={{ "--range-fill": rangeFill(selectedTile.appearance.barCategoryGap, 4, 64) } as React.CSSProperties}
+              onChange={(event) => updateSelectedAppearance({ barCategoryGap: Number(event.target.value) })}
+            />
+          </label>
+          <label>
+            Label offset
+            <input
+              type="range"
+              min="0"
+              max="32"
+              value={selectedTile.appearance.labelOffset}
+              style={{ "--range-fill": rangeFill(selectedTile.appearance.labelOffset, 0, 32) } as React.CSSProperties}
+              onChange={(event) => updateSelectedAppearance({ labelOffset: Number(event.target.value) })}
+            />
+          </label>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function ElementOptionsInspector(props: BuilderInspectorProps) {
+  const { selectedElement, updateSelectedElement, updateSelectedLayout } = props;
+
+  if (!selectedElement) {
+    return null;
+  }
+
+  return (
+    <div className="format-panel-stack">
+      <div className="format-summary-card">
+        <span>{selectedElement.type === "text" ? "Text box options" : "Object options"}</span>
+        <strong>{selectedElement.name}</strong>
+        <small>Position, size, text behavior, and object-specific settings.</small>
+      </div>
+      <div className="layout-grid">
+        <label>
+          X
+          <input type="number" value={selectedElement.layout.x} onChange={(event) => updateSelectedLayout({ x: Number(event.target.value) })} />
+        </label>
+        <label>
+          Y
+          <input type="number" value={selectedElement.layout.y} onChange={(event) => updateSelectedLayout({ y: Number(event.target.value) })} />
+        </label>
+        <label>
+          W
+          <input type="number" value={selectedElement.layout.width} onChange={(event) => updateSelectedLayout({ width: Number(event.target.value) })} />
+        </label>
+        <label>
+          H
+          <input type="number" value={selectedElement.layout.height} onChange={(event) => updateSelectedLayout({ height: Number(event.target.value) })} />
+        </label>
+      </div>
+      {selectedElement.type === "text" && (
+        <>
+          <label>
+            Text padding
+            <input
+              type="range"
+              min="0"
+              max="40"
+              value={selectedElement.style.padding}
+              style={{ "--range-fill": rangeFill(selectedElement.style.padding, 0, 40) } as React.CSSProperties}
+              onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, padding: Number(event.target.value) } })}
+            />
+          </label>
+          <label>
+            Line height
+            <input
+              type="range"
+              min="0.8"
+              max="2"
+              step="0.05"
+              value={selectedElement.style.lineHeight}
+              style={{ "--range-fill": rangeFill(selectedElement.style.lineHeight, 0.8, 2) } as React.CSSProperties}
+              onChange={(event) => updateSelectedElement({ style: { ...selectedElement.style, lineHeight: Number(event.target.value) } })}
+            />
+          </label>
+        </>
+      )}
+    </div>
   );
 }

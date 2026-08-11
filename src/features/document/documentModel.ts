@@ -606,7 +606,9 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             titleY: tile.appearance?.titleY ?? defaultAppearance.titleY,
             titleWidth: tile.appearance?.titleWidth ?? defaultAppearance.titleWidth,
             titleFontSize: tile.appearance?.titleFontSize ?? defaultAppearance.titleFontSize,
-            titleTextAlign: tile.appearance?.titleTextAlign ?? defaultAppearance.titleTextAlign
+            titleTextAlign: tile.appearance?.titleTextAlign ?? defaultAppearance.titleTextAlign,
+            labelPercentDecimals: tile.appearance?.labelPercentDecimals ?? defaultAppearance.labelPercentDecimals,
+            labelPercentRounding: tile.appearance?.labelPercentRounding ?? defaultAppearance.labelPercentRounding
           }
         };
       })

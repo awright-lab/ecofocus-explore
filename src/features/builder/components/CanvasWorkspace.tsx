@@ -197,6 +197,7 @@ export function CanvasWorkspace({
   onSelectElement,
   onDrop,
   onOpenPageDesign,
+  onOpenFormat,
   onOpenLayout,
   onOpenDataLibrary,
   onOpenInsertPanel,
@@ -232,6 +233,7 @@ export function CanvasWorkspace({
   onSelectElement: (elementId: string) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onOpenPageDesign: () => void;
+  onOpenFormat: () => void;
   onOpenLayout: () => void;
   onOpenDataLibrary: () => void;
   onOpenInsertPanel: () => void;
@@ -415,6 +417,7 @@ export function CanvasWorkspace({
         <span className="floating-format-bar__divider" />
         {hasSelection ? (
           <div className="selection-action-group" aria-label="Selected object actions">
+            <button type="button" onClick={onOpenFormat}>Format</button>
             <button type="button" onClick={onOpenLayout}>Position</button>
             <button type="button" onClick={onBringForward}>Front</button>
             <button type="button" onClick={onDuplicateSelection}>Duplicate</button>

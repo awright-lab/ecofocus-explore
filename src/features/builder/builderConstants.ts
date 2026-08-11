@@ -82,6 +82,8 @@ export const defaultAppearance: TileAppearance = {
   labelFontSize: 12,
   labelPosition: "top",
   labelOffset: 8,
+  labelPercentDecimals: 0,
+  labelPercentRounding: "nearest",
   barRadius: 6,
   barGap: 8,
   barCategoryGap: 24,

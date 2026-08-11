@@ -1301,6 +1301,7 @@ export default function BuilderApp() {
             void handleCanvasDrop(event);
           }}
           onOpenPageDesign={() => setSettingsView("page")}
+          onOpenFormat={() => setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home")}
           onOpenLayout={() => setSettingsView("layout")}
           onOpenDataLibrary={() => openGuidedDataQuery({ outputMode: "table" })}
           onOpenInsertPanel={() => setLeftPanelView("insert")}

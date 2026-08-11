@@ -60,6 +60,8 @@ export interface TileAppearance {
   labelFontSize: number;
   labelPosition: "top" | "insideTop" | "insideBottom" | "center";
   labelOffset: number;
+  labelPercentDecimals: 0 | 1 | 2;
+  labelPercentRounding: "nearest" | "ceil";
   barRadius: number;
   barGap: number;
   barCategoryGap: number;

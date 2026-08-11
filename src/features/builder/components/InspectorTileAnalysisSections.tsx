@@ -76,7 +76,7 @@ import { buildSegmentProfileProvenanceView, type SegmentProfileProvenanceView } 
 import { buildAnalysisStatisticsContext, confidenceLevelLabel, supportedConfidenceLevels, type AnalysisStatisticsContextView } from "./analysisStatisticsContextModel";
 import { buildExecutedSignificanceExplanationView, type ExecutedSignificanceExplanationView } from "./analysisSignificancePresentationModel";
 import { buildCompositionStarterProvenanceHelper } from "./compositionBlockModel";
-import type { DashboardTile, ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
+import type { DashboardTile, ImportedDatasetField, ImportedDatasetRecord, TileAppearance } from "../../../../shared/types/dashboard";
 
 export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const {
@@ -1403,6 +1403,9 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
     return null;
   }
 
+  const showsPercentValueLabelControls =
+    selectedTile.visualization !== "table" && selectedTile.appearance.showValueLabels && selectedTile.result.metric.valueFormat === "percent";
+
   return (
     <>
               {selectedTile.visualization === "table" && (
@@ -1486,6 +1489,39 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> {selectedTile.visualization === "table" ? "Cell values" : "Value labels"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>
               </div>
+              {showsPercentValueLabelControls && (
+                <div className="value-label-format-card">
+                  <div className="explorer-section-header">
+                    <strong>Percent labels</strong>
+                    <small>Controls chart value labels only.</small>
+                  </div>
+                  <label>
+                    Decimal places
+                    <select
+                      value={selectedTile.appearance.labelPercentDecimals ?? 0}
+                      onChange={(event) =>
+                        updateSelectedAppearance({ labelPercentDecimals: Number(event.target.value) as TileAppearance["labelPercentDecimals"] })
+                      }
+                    >
+                      <option value={0}>0 decimals</option>
+                      <option value={1}>1 decimal, 0.0%</option>
+                      <option value={2}>2 decimals, 0.00%</option>
+                    </select>
+                  </label>
+                  <label>
+                    Rounding
+                    <select
+                      value={selectedTile.appearance.labelPercentRounding ?? "nearest"}
+                      onChange={(event) =>
+                        updateSelectedAppearance({ labelPercentRounding: event.target.value as TileAppearance["labelPercentRounding"] })
+                      }
+                    >
+                      <option value="nearest">Round to nearest</option>
+                      <option value="ceil">Round up</option>
+                    </select>
+                  </label>
+                </div>
+              )}
     </>
   );
 }
