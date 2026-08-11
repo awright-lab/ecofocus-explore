@@ -152,6 +152,43 @@ describe("workspace dataset connection persistence", () => {
     });
   });
 
+  it("preserves editable live source mapping metadata", () => {
+    const updated = upsertWorkspaceLiveDatasetSource(
+      workspace(),
+      {
+        connectionId: "connection_snowflake",
+        objectType: "view",
+        objectPath: "SURVEY.PUBLIC.CLEAN_RESPONSES",
+        label: "Clean survey responses",
+        syncMode: "live_query",
+        status: "available",
+        statusLabel: "Ready",
+        rowCountEstimate: 4000,
+        fieldCount: 3160,
+        sourceRef: {
+          id: "live:snowflake:connection_snowflake:default",
+          kind: "live_connection",
+          provider: "snowflake",
+          label: "Clean survey responses",
+          datasetId: "responses",
+          connectionId: "connection_snowflake",
+          objectPath: "SURVEY.PUBLIC.CLEAN_RESPONSES"
+        }
+      }
+    );
+
+    expect(updated.liveDatasetSources[0]).toMatchObject({
+      label: "Clean survey responses",
+      objectType: "view",
+      rowCountEstimate: 4000,
+      fieldCount: 3160,
+      sourceRef: {
+        label: "Clean survey responses",
+        objectPath: "SURVEY.PUBLIC.CLEAN_RESPONSES"
+      }
+    });
+  });
+
   it("removes a single live dataset source descriptor", () => {
     const initial = workspace({
       liveDatasetSources: [

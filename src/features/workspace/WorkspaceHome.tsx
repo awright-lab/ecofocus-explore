@@ -139,6 +139,15 @@ export function WorkspaceHome({
   const [selectedConnectionProvider, setSelectedConnectionProvider] = useState<DatasetConnectionProfile["provider"]>("snowflake");
   const [connectionVerification, setConnectionVerification] = useState<DatasetConnectionVerificationReport | null>(null);
   const [isVerifyingConnection, setIsVerifyingConnection] = useState(false);
+  const [editingLiveSourceId, setEditingLiveSourceId] = useState<string | null>(null);
+  const [liveSourceDraft, setLiveSourceDraft] = useState({
+    label: "",
+    objectPath: "",
+    objectType: "table" as LiveDatasetSourceDescriptor["objectType"],
+    syncMode: "live_query" as LiveDatasetSourceDescriptor["syncMode"],
+    rowCountEstimate: "",
+    fieldCount: ""
+  });
   const reports = workspace.reports
     .filter((report) => !report.archived)
     .map((report) => buildReportLibraryItem(workspace, report))
@@ -360,6 +369,49 @@ export function WorkspaceHome({
     onWorkspaceChange(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setImportFeedback({ tone: "success", label: `${source.label} removed from managed sources.` });
+  }
+
+  function startEditingLiveSource(source: LiveDatasetSourceDescriptor) {
+    setEditingLiveSourceId(source.sourceRef.id);
+    setLiveSourceDraft({
+      label: source.label,
+      objectPath: source.objectPath,
+      objectType: source.objectType,
+      syncMode: source.syncMode,
+      rowCountEstimate: source.rowCountEstimate?.toString() ?? "",
+      fieldCount: source.fieldCount?.toString() ?? ""
+    });
+  }
+
+  function liveSourceDraftNumber(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : undefined;
+  }
+
+  function saveLiveSourceMapping(source: LiveDatasetSourceDescriptor) {
+    const label = liveSourceDraft.label.trim() || source.label;
+    const objectPath = liveSourceDraft.objectPath.trim() || source.objectPath;
+    const updated: LiveDatasetSourceDescriptor = {
+      ...source,
+      label,
+      objectPath,
+      objectType: liveSourceDraft.objectType,
+      syncMode: liveSourceDraft.syncMode,
+      rowCountEstimate: liveSourceDraftNumber(liveSourceDraft.rowCountEstimate),
+      fieldCount: liveSourceDraftNumber(liveSourceDraft.fieldCount),
+      sourceRef: {
+        ...source.sourceRef,
+        label,
+        objectPath
+      }
+    };
+    const nextWorkspace = upsertWorkspaceLiveDatasetSource(workspace, updated);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setEditingLiveSourceId(null);
+    setImportFeedback({ tone: "success", label: `${label} mapping saved.` });
   }
 
   return (
@@ -763,6 +815,7 @@ export function WorkspaceHome({
               <div className="workspace-live-source-list">
                 {liveDatasetSources.map((source) => {
                   const connection = savedDatasetConnections.find((item) => item.id === source.connectionId);
+                  const isEditingSource = editingLiveSourceId === source.sourceRef.id;
                   return (
                     <article className={`workspace-live-source-row ${source.status}`} key={source.sourceRef.id}>
                       <span><HomeIcon icon="dataset" /></span>
@@ -774,12 +827,81 @@ export function WorkspaceHome({
                           {source.statusLabel}
                           {connection?.verification?.checkedAt ? ` Checked ${formatDateTime(connection.verification.checkedAt)}.` : ""}
                         </p>
+                        {isEditingSource && (
+                          <div className="workspace-live-source-editor">
+                            <label>
+                              <span>Source label</span>
+                              <input
+                                value={liveSourceDraft.label}
+                                onChange={(event) => setLiveSourceDraft((current) => ({ ...current, label: event.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              <span>Table, view, or query path</span>
+                              <input
+                                value={liveSourceDraft.objectPath}
+                                onChange={(event) => setLiveSourceDraft((current) => ({ ...current, objectPath: event.target.value }))}
+                                placeholder="DATABASE.SCHEMA.TABLE"
+                              />
+                            </label>
+                            <label>
+                              <span>Object type</span>
+                              <select
+                                value={liveSourceDraft.objectType}
+                                onChange={(event) => setLiveSourceDraft((current) => ({ ...current, objectType: event.target.value as LiveDatasetSourceDescriptor["objectType"] }))}
+                              >
+                                <option value="table">Table</option>
+                                <option value="view">View</option>
+                                <option value="query">Saved query</option>
+                              </select>
+                            </label>
+                            <label>
+                              <span>Mode</span>
+                              <select
+                                value={liveSourceDraft.syncMode}
+                                onChange={(event) => setLiveSourceDraft((current) => ({ ...current, syncMode: event.target.value as LiveDatasetSourceDescriptor["syncMode"] }))}
+                              >
+                                <option value="live_query">Live query</option>
+                                <option value="snapshot">Snapshot</option>
+                              </select>
+                            </label>
+                            <label>
+                              <span>Rows estimate</span>
+                              <input
+                                inputMode="numeric"
+                                value={liveSourceDraft.rowCountEstimate}
+                                onChange={(event) => setLiveSourceDraft((current) => ({ ...current, rowCountEstimate: event.target.value }))}
+                                placeholder="Optional"
+                              />
+                            </label>
+                            <label>
+                              <span>Fields</span>
+                              <input
+                                inputMode="numeric"
+                                value={liveSourceDraft.fieldCount}
+                                onChange={(event) => setLiveSourceDraft((current) => ({ ...current, fieldCount: event.target.value }))}
+                                placeholder="Optional"
+                              />
+                            </label>
+                            <div className="workspace-live-source-editor__actions">
+                              <button type="button" className="workspace-home-primary compact" onClick={() => saveLiveSourceMapping(source)}>
+                                Save mapping
+                              </button>
+                              <button type="button" className="workspace-home-secondary compact" onClick={() => setEditingLiveSourceId(null)}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {connection && (
                         <button type="button" className="workspace-home-secondary compact" onClick={() => registerLiveSource(connection)}>
                           Refresh
                         </button>
                       )}
+                      <button type="button" className="workspace-home-secondary compact" onClick={() => startEditingLiveSource(source)}>
+                        Edit mapping
+                      </button>
                       <button type="button" className="workspace-home-secondary compact danger" onClick={() => removeLiveSource(source)}>
                         Remove
                       </button>
