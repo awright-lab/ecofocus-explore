@@ -22,6 +22,12 @@ export interface DatasetConnectionProfile {
   description: string;
   status: DatasetConnectionStatus;
   statusLabel: string;
+  connectionSummary?: {
+    account?: string;
+    database?: string;
+    schema?: string;
+    projectUrl?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

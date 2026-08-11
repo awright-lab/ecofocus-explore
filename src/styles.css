@@ -795,6 +795,92 @@ textarea {
   font-weight: 900;
 }
 
+.workspace-connection-detail {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(16, 154, 134, 0.22);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(103, 80, 214, 0.08), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.99), rgba(242, 251, 249, 0.96));
+  padding: 16px;
+  box-shadow: 0 16px 36px rgba(26, 39, 56, 0.07);
+}
+
+.workspace-connection-detail > div:first-child {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-connection-detail h3,
+.workspace-connection-detail p,
+.workspace-connection-detail ul {
+  margin: 0;
+}
+
+.workspace-connection-detail h3 {
+  color: #172430;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.workspace-connection-detail > div:first-child span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #eaf8f6;
+  color: #08715f;
+  padding: 6px 9px;
+  font-size: 0.66rem;
+  font-weight: 950;
+}
+
+.workspace-connection-detail > p,
+.workspace-connection-detail p,
+.workspace-connection-detail li,
+.workspace-connection-detail small {
+  color: #526675;
+  font-size: 0.73rem;
+  font-weight: 760;
+  line-height: 1.45;
+}
+
+.workspace-connection-detail__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.workspace-connection-detail__columns section {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(216, 227, 235, 0.78);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.workspace-connection-detail__columns strong {
+  color: #263847;
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.workspace-connection-detail__columns ul {
+  display: grid;
+  gap: 5px;
+  padding-left: 18px;
+}
+
+.workspace-connection-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .workspace-dataset-card {
   display: grid;
   gap: 12px;

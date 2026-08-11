@@ -1,8 +1,9 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
+import type { DatasetConnectionProfile } from "../../../shared/types/dataSource";
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
-import { buildDatasetConnectionProfiles, datasetConnectionOptions } from "../data/datasetConnectionModel";
+import { buildDatasetConnectionProfiles, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
 import {
   createNewReportFromSeed,
   duplicateReportRecord,
@@ -124,6 +125,7 @@ export function WorkspaceHome({
   const [isImporting, setIsImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{ tone: "success" | "error"; label: string } | null>(null);
   const [showConnectionOptions, setShowConnectionOptions] = useState(false);
+  const [selectedConnectionProvider, setSelectedConnectionProvider] = useState<DatasetConnectionProfile["provider"]>("snowflake");
   const reports = workspace.reports
     .filter((report) => !report.archived)
     .map((report) => buildReportLibraryItem(workspace, report))
@@ -138,6 +140,8 @@ export function WorkspaceHome({
   const usableDatasets = importedDatasets.filter((dataset) => dataset.rowCount > 0);
   const metadataRichDatasets = importedDatasets.filter((dataset) => dataset.importMetadata?.metadataQuality === "metadata_rich");
   const datasetConnections = workspace.datasetConnections?.length ? workspace.datasetConnections : buildDatasetConnectionProfiles();
+  const selectedConnectionOption = datasetConnectionOption(selectedConnectionProvider);
+  const selectedConnectionProfile = datasetConnections.find((item) => item.provider === selectedConnectionProvider);
   const guidedSteps = [
     {
       icon: "dataset" as const,
@@ -239,6 +243,7 @@ export function WorkspaceHome({
     onWorkspaceChange(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setShowConnectionOptions(true);
+    setSelectedConnectionProvider(provider);
     setImportFeedback({
       tone: "success",
       label: `${profile.label} setup is saved as a planned source. Credentials and live sync come in the next connection pass.`
@@ -503,13 +508,57 @@ export function WorkspaceHome({
                     </div>
                     <p>{option.description}</p>
                     <small>{option.bestFor} · {planned?.statusLabel ?? option.statusLabel}</small>
-                    <button type="button" className="workspace-home-secondary compact" onClick={() => planConnection(option.provider)}>
-                      {planned ? "Setup planned" : "Plan setup"}
+                    <button
+                      type="button"
+                      className="workspace-home-secondary compact"
+                      onClick={() => {
+                        setSelectedConnectionProvider(option.provider);
+                        setShowConnectionOptions(true);
+                      }}
+                    >
+                      {planned ? "View setup" : "View requirements"}
                     </button>
                   </article>
                 );
               })}
             </div>
+          )}
+          {showConnectionOptions && (
+            <aside className="workspace-connection-detail" aria-label={`${selectedConnectionOption.label} setup detail`}>
+              <div>
+                <p className="workspace-home-kicker">Connection Setup</p>
+                <h3>{selectedConnectionOption.label}</h3>
+                <span>{selectedConnectionProfile ? selectedConnectionProfile.statusLabel : "Not planned yet"}</span>
+              </div>
+              <p>{selectedConnectionOption.description}</p>
+              <div className="workspace-connection-detail__columns">
+                <section>
+                  <strong>Needed before live sync</strong>
+                  <ul>
+                    {selectedConnectionOption.setupRequirements.map((requirement) => (
+                      <li key={requirement}>{requirement}</li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <strong>Current boundary</strong>
+                  <p>{selectedConnectionOption.nextStep}</p>
+                  <small>No credentials are stored in the browser. Live verification will run server-side when that adapter is added.</small>
+                </section>
+              </div>
+              <div className="workspace-connection-detail__actions">
+                <button
+                  type="button"
+                  className="workspace-home-primary compact"
+                  onClick={() => planConnection(selectedConnectionProvider)}
+                >
+                  {selectedConnectionProfile ? "Setup plan saved" : "Save setup plan"}
+                </button>
+                <button type="button" className="workspace-home-secondary compact" disabled>
+                  Server verification coming next
+                </button>
+              </div>
+            </aside>
           )}
           <div className="workspace-dataset-grid">
             {importedDatasets.map((dataset) => {
