@@ -1,4 +1,4 @@
-import type { DatasetConnectionProfile } from "../../../shared/types/dataSource";
+import type { DatasetConnectionProfile, LiveDatasetSourceDescriptor, LiveDatasetSourceStatus } from "../../../shared/types/dataSource";
 
 export interface DatasetConnectionOption {
   provider: DatasetConnectionProfile["provider"];
@@ -64,4 +64,53 @@ export function buildDatasetConnectionProfiles(now = new Date().toISOString()): 
 
 export function datasetConnectionOption(provider: DatasetConnectionProfile["provider"]) {
   return datasetConnectionOptions.find((option) => option.provider === provider) ?? datasetConnectionOptions[0];
+}
+
+function liveSourceStatusForConnection(connection: DatasetConnectionProfile): LiveDatasetSourceStatus {
+  if (connection.verification?.status === "verified" || connection.status === "sync_ready") return "available";
+  if (connection.verification?.status === "ready_to_verify" || connection.status === "configured") return "needs_verification";
+  if (connection.verification?.status === "unsupported") return "unsupported";
+  return "unavailable";
+}
+
+function liveSourceStatusLabel(status: LiveDatasetSourceStatus, connection: DatasetConnectionProfile) {
+  if (status === "available") return "Ready for live source setup";
+  if (status === "needs_verification") return "Needs server verification before live queries";
+  if (status === "unsupported") return "Provider not supported yet";
+  return connection.verification?.statusLabel ?? "Connection setup incomplete";
+}
+
+function defaultObjectPathForConnection(connection: DatasetConnectionProfile) {
+  const database = connection.connectionSummary?.database ?? "ANALYTICS";
+  const schema = connection.connectionSummary?.schema ?? "PUBLIC";
+  if (connection.provider === "snowflake") return `${database}.${schema}.RESPONSES`;
+  if (connection.provider === "netlify") return "workspace.imported_datasets";
+  if (connection.provider === "supabase") return "public.imported_datasets";
+  return "public.responses";
+}
+
+export function buildLiveDatasetSourceDescriptorForConnection(connection: DatasetConnectionProfile): LiveDatasetSourceDescriptor {
+  const status = liveSourceStatusForConnection(connection);
+  const objectPath = defaultObjectPathForConnection(connection);
+  const datasetId = `live_${connection.id.replace(/^connection_/, "")}_default`;
+  const label = `${connection.label} source`;
+
+  return {
+    connectionId: connection.id,
+    objectType: "table",
+    objectPath,
+    label,
+    syncMode: connection.provider === "netlify" ? "snapshot" : "live_query",
+    status,
+    statusLabel: liveSourceStatusLabel(status, connection),
+    sourceRef: {
+      id: `live:${connection.provider}:${connection.id}:default`,
+      kind: "live_connection",
+      provider: connection.provider,
+      label,
+      datasetId,
+      connectionId: connection.id,
+      objectPath
+    }
+  };
 }

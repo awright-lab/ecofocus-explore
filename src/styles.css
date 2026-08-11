@@ -1037,7 +1037,7 @@ textarea {
 
 .workspace-connection-plan-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   gap: 9px;
   align-items: center;
   border: 1px solid rgba(216, 227, 235, 0.8);
@@ -1084,6 +1084,101 @@ textarea {
   font-size: 0.64rem;
   font-style: normal;
   font-weight: 760;
+}
+
+.workspace-live-source-panel {
+  display: grid;
+  gap: 11px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(16, 154, 134, 0.2);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(16, 154, 134, 0.08), transparent 34%),
+    rgba(255, 255, 255, 0.94);
+  padding: 14px;
+  box-shadow: 0 12px 28px rgba(26, 39, 56, 0.055);
+}
+
+.workspace-live-source-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-live-source-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(216, 227, 235, 0.8);
+  border-radius: 14px;
+  background: #fbfdfe;
+  padding: 10px;
+}
+
+.workspace-live-source-row.available {
+  border-color: rgba(16, 154, 134, 0.24);
+  background: #f1fbf8;
+}
+
+.workspace-live-source-row.needs_verification {
+  border-color: rgba(211, 148, 43, 0.22);
+  background: #fffaf0;
+}
+
+.workspace-live-source-row.unavailable,
+.workspace-live-source-row.unsupported {
+  border-color: rgba(197, 83, 83, 0.18);
+  background: #fff8f7;
+}
+
+.workspace-live-source-row > span {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  background: #edf9f7;
+  color: #08715f;
+}
+
+.workspace-live-source-row strong,
+.workspace-live-source-row small,
+.workspace-live-source-row em,
+.workspace-live-source-row p {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+}
+
+.workspace-live-source-row strong {
+  color: #172430;
+  font-size: 0.8rem;
+  font-weight: 950;
+}
+
+.workspace-live-source-row small {
+  margin-top: 2px;
+  color: #607380;
+  font-size: 0.67rem;
+  font-weight: 900;
+}
+
+.workspace-live-source-row em {
+  margin-top: 3px;
+  color: #7a8994;
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.workspace-live-source-row p {
+  margin-top: 5px;
+  color: #506370;
+  font-size: 0.68rem;
+  font-weight: 760;
+  line-height: 1.35;
 }
 
 .workspace-dataset-card {

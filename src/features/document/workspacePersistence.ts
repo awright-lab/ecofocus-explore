@@ -1,7 +1,7 @@
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
-import type { DatasetConnectionProfile, DatasetConnectionVerificationReport } from "../../../shared/types/dataSource";
+import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
 import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
 export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
@@ -266,6 +266,17 @@ export function removeWorkspaceDatasetConnection(workspace: DashboardWorkspace, 
     ...workspace,
     datasetConnections: (workspace.datasetConnections ?? []).filter((connection) => connection.id !== connectionId),
     liveDatasetSources: (workspace.liveDatasetSources ?? []).filter((source) => source.connectionId !== connectionId)
+  };
+}
+
+export function upsertWorkspaceLiveDatasetSource(workspace: DashboardWorkspace, source: LiveDatasetSourceDescriptor): DashboardWorkspace {
+  const liveDatasetSources = workspace.liveDatasetSources ?? [];
+  return {
+    ...workspace,
+    liveDatasetSources: [
+      source,
+      ...liveDatasetSources.filter((item) => item.sourceRef.id !== source.sourceRef.id)
+    ]
   };
 }
 

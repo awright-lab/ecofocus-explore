@@ -1,9 +1,9 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { DashboardReportRecord, DashboardWorkspace, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
-import type { DatasetConnectionProfile, DatasetConnectionVerificationReport } from "../../../shared/types/dataSource";
+import type { DatasetConnectionProfile, DatasetConnectionVerificationReport, LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
 import { importedDatasetImportFeedback, importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
 import { buildImportedDatasetStructureSummary, importedFieldTypeLabel } from "../data/datasetModelingModel";
-import { buildDatasetConnectionProfiles, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
+import { buildDatasetConnectionProfiles, buildLiveDatasetSourceDescriptorForConnection, datasetConnectionOption, datasetConnectionOptions } from "../data/datasetConnectionModel";
 import {
   createNewReportFromSeed,
   duplicateReportRecord,
@@ -14,6 +14,7 @@ import {
   removeWorkspaceDatasetConnection,
   saveDashboardWorkspace,
   updateWorkspaceDatasetConnectionVerification,
+  upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection,
   upsertWorkspaceImportedDataset
 } from "../document/workspacePersistence";
@@ -328,6 +329,27 @@ export function WorkspaceHome({
     onWorkspaceChange(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setImportFeedback({ tone: "success", label: `${connection.label} setup plan removed.` });
+  }
+
+  function registerLiveSource(connection: DatasetConnectionProfile) {
+    const source = buildLiveDatasetSourceDescriptorForConnection(connection);
+    const nextWorkspace = upsertWorkspaceLiveDatasetSource(workspace, source);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setImportFeedback({
+      tone: source.status === "available" || source.status === "needs_verification" ? "success" : "error",
+      label:
+        source.status === "available"
+          ? `${source.label} is registered as a live dataset source.`
+          : `${source.label} is registered, but ${source.statusLabel.toLowerCase()}.`
+    });
+  }
+
+  function sourceStatusLabel(source: LiveDatasetSourceDescriptor) {
+    if (source.status === "available") return "Available";
+    if (source.status === "needs_verification") return "Needs verification";
+    if (source.status === "unsupported") return "Unsupported";
+    return "Unavailable";
   }
 
   return (
@@ -701,11 +723,53 @@ export function WorkspaceHome({
                       </button>
                       <button
                         type="button"
+                        className="workspace-home-secondary compact"
+                        onClick={() => registerLiveSource(connection)}
+                      >
+                        Register source
+                      </button>
+                      <button
+                        type="button"
                         className="workspace-home-secondary compact danger"
                         onClick={() => removeConnectionPlan(connection)}
                       >
                         Remove
                       </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {liveDatasetSources.length > 0 && (
+            <section className="workspace-live-source-panel" aria-label="Managed live dataset sources">
+              <div className="workspace-connection-plans__header">
+                <div>
+                  <p className="workspace-home-kicker">Managed Sources</p>
+                  <h3>Live dataset source scaffolds</h3>
+                </div>
+                <span>{liveDatasetSources.length} registered</span>
+              </div>
+              <div className="workspace-live-source-list">
+                {liveDatasetSources.map((source) => {
+                  const connection = savedDatasetConnections.find((item) => item.id === source.connectionId);
+                  return (
+                    <article className={`workspace-live-source-row ${source.status}`} key={source.sourceRef.id}>
+                      <span><HomeIcon icon="dataset" /></span>
+                      <div>
+                        <strong>{source.label}</strong>
+                        <small>{sourceStatusLabel(source)} · {source.syncMode === "live_query" ? "Live query" : "Snapshot"} · {source.objectType}</small>
+                        <em>{source.objectPath}</em>
+                        <p>
+                          {source.statusLabel}
+                          {connection?.verification?.checkedAt ? ` Checked ${formatDateTime(connection.verification.checkedAt)}.` : ""}
+                        </p>
+                      </div>
+                      {connection && (
+                        <button type="button" className="workspace-home-secondary compact" onClick={() => registerLiveSource(connection)}>
+                          Refresh
+                        </button>
+                      )}
                     </article>
                   );
                 })}

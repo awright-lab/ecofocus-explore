@@ -4,6 +4,7 @@ import type { DatasetConnectionProfile } from "../../../../shared/types/dataSour
 import {
   removeWorkspaceDatasetConnection,
   updateWorkspaceDatasetConnectionVerification,
+  upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection
 } from "../workspacePersistence";
 
@@ -99,6 +100,54 @@ describe("workspace dataset connection persistence", () => {
         status: "ready_to_verify",
         diagnostics: ["Environment variables are present."]
       }
+    });
+  });
+
+  it("upserts live dataset source descriptors", () => {
+    const updated = upsertWorkspaceLiveDatasetSource(
+      workspace({
+        liveDatasetSources: [{
+          connectionId: "connection_snowflake",
+          objectType: "table",
+          objectPath: "OLD.RESPONSES",
+          label: "Old source",
+          syncMode: "live_query",
+          status: "needs_verification",
+          statusLabel: "Needs verification",
+          sourceRef: {
+            id: "live:snowflake:connection_snowflake:default",
+            kind: "live_connection",
+            provider: "snowflake",
+            label: "Old source",
+            datasetId: "old",
+            connectionId: "connection_snowflake"
+          }
+        }]
+      }),
+      {
+        connectionId: "connection_snowflake",
+        objectType: "table",
+        objectPath: "SURVEY.PUBLIC.RESPONSES",
+        label: "Snowflake source",
+        syncMode: "live_query",
+        status: "available",
+        statusLabel: "Ready for live source setup",
+        sourceRef: {
+          id: "live:snowflake:connection_snowflake:default",
+          kind: "live_connection",
+          provider: "snowflake",
+          label: "Snowflake source",
+          datasetId: "responses",
+          connectionId: "connection_snowflake"
+        }
+      }
+    );
+
+    expect(updated.liveDatasetSources).toHaveLength(1);
+    expect(updated.liveDatasetSources[0]).toMatchObject({
+      label: "Snowflake source",
+      objectPath: "SURVEY.PUBLIC.RESPONSES",
+      status: "available"
     });
   });
 });
