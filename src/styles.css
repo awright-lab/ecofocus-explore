@@ -10248,31 +10248,31 @@ button:disabled {
 
 .design-modal-backdrop {
   position: fixed;
-  top: 42px;
-  right: 0;
+  top: 58px;
   bottom: 0;
-  left: 58px;
+  left: 0;
   z-index: 60;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  background: rgba(14, 18, 22, 0.08);
+  width: 280px;
+  background: transparent;
 }
 
 .design-modal {
   display: grid;
   align-content: start;
   gap: 10px;
-  width: min(332px, calc(100vw - 82px));
-  height: calc(100vh - 58px);
-  max-height: calc(100vh - 58px);
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
   overflow: auto;
   overflow-x: hidden;
   border-right: 1px solid #dfe6ea;
   border-radius: 0;
   padding: 12px 14px 14px;
-  background: #ffffff;
-  box-shadow: 18px 0 40px rgba(14, 18, 22, 0.14);
+  background: #f8fafb;
+  box-shadow: 12px 0 24px rgba(23, 35, 48, 0.1);
 }
 
 .design-modal-header {
