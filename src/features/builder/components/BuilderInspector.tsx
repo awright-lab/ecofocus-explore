@@ -413,7 +413,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     )
   );
   const chartBasicsCard = selectedTile ? (
-    <div className="assistant-style-card">
+    <div className="assistant-style-card assistant-style-card--flush">
       <AssistantFolder title="Chart basics" helper={`${getChartTypeLabel(selectedTile.visualization)} · ${selectedTile.result.metric.label}`} defaultOpen>
         <label>
           Chart type
@@ -450,8 +450,16 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     </div>
   ) : null;
 
+  const selectedObjectHeader = selectedTile || selectedElement || multiSelectionSummary.count ? (
+    <div className="assistant-object-header">
+      <span>{inspectorFocus.label}</span>
+      <strong>{inspectorFocus.title}</strong>
+      <small>{inspectorFocus.helper}</small>
+    </div>
+  ) : null;
+
   const styleQuickCard = selectedTile ? (
-    <div className="assistant-style-card">
+    <div className="assistant-style-card assistant-style-card--flush">
       <AssistantFolder title="Theme and type" helper={`${designPalettes.find((palette) => palette.id === activeDesignPaletteId)?.label ?? "Custom"} palette`}>
         <span className="assistant-field-label">Color theme</span>
         <div className="assistant-palette-row" aria-label="Color theme">
@@ -501,7 +509,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   );
 
   const positionShortcutsCard = selectedTile || selectedElement ? (
-    <div className="assistant-style-card">
+    <div className="assistant-style-card assistant-style-card--flush">
       <AssistantFolder title="Position shortcuts" helper="Moves the selected object only">
         <div className="layout-suggestion-list">
           <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
@@ -630,12 +638,18 @@ export function BuilderInspector(props: BuilderInspectorProps) {
 
   const styleSurface = (
     <>
+          {selectedObjectHeader}
           {settingsView === "home" && styleQuickCard}
+          {selectedTile && (settingsView === "chart" || settingsView === "container") && (
+            <>
+              {chartBasicsCard}
+              {styleQuickCard}
+            </>
+          )}
           {settingsView === "layout" && positionShortcutsCard}
-          {(settingsView === "chart" || settingsView === "element" || settingsView === "container") && chartBasicsCard}
           {settingsView === "layout" && multiSelectionCard}
           {settingsView !== "home" && (
-            <details className="advanced-inspector-details" open={settingsView === "page" || settingsView === "effects" || settingsView === "options"}>
+            <details className="advanced-inspector-details" open={settingsView === "page" || settingsView === "effects" || settingsView === "options" || settingsView === "container"}>
               <summary>
                 <strong>{detailedControlTitle}</strong>
                 <span>{detailedControlHelper}</span>
@@ -652,6 +666,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   );
   const dataSurface = selectedTile ? (
     <>
+      {selectedObjectHeader}
       <div className="inspector-story-card">
         <span>Selected analysis</span>
         <strong>{dataContext?.source}</strong>
@@ -678,6 +693,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   );
   const insightSurface = (
     <>
+      {selectedObjectHeader}
       {outcomeMode && (
         <div className={`outcome-inspector-card ${outcomeMode}`}>
           <span>

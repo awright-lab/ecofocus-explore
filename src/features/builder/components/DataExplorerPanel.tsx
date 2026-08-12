@@ -506,23 +506,15 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
               </small>
             </div>
           </div>
-          <div className="data-library-start-actions">
-            <button type="button" onClick={() => activeImportedField ? openQueryForImportedField(activeImportedField, "table") : openGuidedDataQuery({ outputMode: "table" })}>
+          <button className="data-library-primary-action" type="button" onClick={() => activeImportedField ? openQueryForImportedField(activeImportedField, "table") : openGuidedDataQuery({ outputMode: "table" })}>
               <DataLibraryIcon icon="chart" />
-              Create first table
+              Create analysis
+          </button>
+          {activeImportedDataset && (
+            <button className="data-library-text-action" type="button" onClick={() => openLibraryFolder("fields")}>
+              Browse fields, filters, segments, and banners
             </button>
-            <button type="button" onClick={() => activeImportedField ? openQueryForImportedField(activeImportedField, "chart") : openGuidedDataQuery({ outputMode: "chart" })}>
-              <DataLibraryIcon icon="chart" />
-              Create chart
-            </button>
-            <button type="button" onClick={() => openLibraryFolder("fields")}>
-              <DataLibraryIcon icon="variable" />
-              Browse all fields
-            </button>
-          </div>
-          <p>
-            Use the guided query flow first. Open the full field library when you need a specific variable, filter, segment, or banner.
-          </p>
+          )}
         </section>
         <div className="mockup-library-stack" aria-label="Data library overview">
           {liveDatasetSources.length > 0 && (
@@ -629,16 +621,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 <div className="data-library-section-body">
                   {activeImportedDataset ? (
                     <>
-                  {activeImportedField && (
-                    <button type="button" className="data-library-suggestion-card" onClick={() => openQueryForImportedField(activeImportedField)}>
-                      <span><DataLibraryIcon icon="chart" /></span>
-                      <strong>Create analysis from selected field</strong>
-                      <small>{importedFieldDisplayLabel(activeImportedField)}</small>
-                    </button>
-                  )}
                   <button type="button" className="data-library-suggestion-card" onClick={() => openLibraryFolder("fields")}>
                     <span><DataLibraryIcon icon="variable" /></span>
-                    <strong>Browse the full study library</strong>
+                    <strong>Browse study fields</strong>
                     <small>{activeImportedDataset.fieldCount.toLocaleString()} fields, filters, segments, and banners.</small>
                   </button>
                     </>

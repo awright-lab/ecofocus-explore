@@ -4118,12 +4118,53 @@ h2 {
   box-shadow: none;
 }
 
+.assistant-style-card--flush {
+  padding-top: 0;
+}
+
+.assistant-object-header {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0 8px;
+  padding: 12px;
+  border: 1px solid rgba(214, 226, 234, 0.88);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(246, 251, 252, 0.94)),
+    #ffffff;
+  box-shadow: 0 14px 36px rgba(29, 44, 58, 0.07);
+}
+
+.assistant-object-header span {
+  color: #008b89;
+  font-size: 0.62rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.assistant-object-header strong {
+  overflow: hidden;
+  color: #111e2a;
+  font-size: 0.88rem;
+  font-weight: 950;
+  line-height: 1.16;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-object-header small {
+  color: #667987;
+  font-size: 0.68rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
 .assistant-folder {
   overflow: hidden;
-  border: 1px solid rgba(219, 229, 235, 0.95);
-  border-radius: 14px;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(22, 37, 52, 0.045);
+  border: 1px solid rgba(219, 229, 235, 0.76);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 26px rgba(22, 37, 52, 0.04);
 }
 
 .assistant-folder summary {
@@ -4149,7 +4190,7 @@ h2 {
   height: 22px;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: #f2f7f7;
+  background: rgba(238, 246, 247, 0.95);
   color: #08715f;
   font-size: 0.82rem;
   font-weight: 950;
@@ -4186,7 +4227,7 @@ h2 {
 .assistant-folder-body {
   display: grid;
   gap: 10px;
-  border-top: 1px solid #edf3f4;
+  border-top: 1px solid rgba(237, 243, 244, 0.9);
   padding: 11px 12px 12px;
 }
 
@@ -4352,9 +4393,10 @@ h2 {
 }
 
 .advanced-inspector-details {
-  border: 1px solid #e2e7ed;
-  border-radius: 12px;
-  background: #f9fbfc;
+  overflow: hidden;
+  border: 1px solid rgba(224, 232, 238, 0.8);
+  border-radius: 16px;
+  background: rgba(250, 252, 253, 0.72);
   padding: 0;
 }
 
@@ -4363,7 +4405,7 @@ h2 {
   gap: 3px;
   cursor: pointer;
   list-style: none;
-  padding: 12px;
+  padding: 11px 12px;
 }
 
 .advanced-inspector-details summary::-webkit-details-marker {
@@ -4371,18 +4413,21 @@ h2 {
 }
 
 .advanced-inspector-details summary strong {
-  color: #243243;
-  font-size: 0.84rem;
+  color: #2c3a47;
+  font-size: 0.78rem;
 }
 
 .advanced-inspector-details summary span {
-  color: #73808d;
-  font-size: 0.72rem;
+  color: #738390;
+  font-size: 0.66rem;
   font-weight: 650;
 }
 
 .advanced-inspector-details[open] {
+  border-color: rgba(203, 219, 229, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   padding-bottom: 12px;
+  box-shadow: 0 12px 28px rgba(29, 44, 58, 0.045);
 }
 
 .tile-style-inspector {
@@ -5633,12 +5678,12 @@ h2 {
 
 .data-library-start-card {
   display: grid;
-  gap: 10px;
-  border: 1px solid rgba(0, 139, 137, 0.18);
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff, #f2fbf9);
-  padding: 12px;
-  box-shadow: 0 12px 26px rgba(20, 39, 48, 0.055);
+  gap: 8px;
+  border: 1px solid rgba(217, 229, 235, 0.92);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 10px;
+  box-shadow: 0 10px 24px rgba(20, 39, 48, 0.04);
 }
 
 .data-library-start-card__header {
@@ -5667,7 +5712,7 @@ h2 {
 
 .data-library-start-card__header strong {
   color: #142532;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 950;
   white-space: nowrap;
 }
@@ -5684,12 +5729,7 @@ h2 {
   margin: 0;
 }
 
-.data-library-start-actions {
-  display: grid;
-  gap: 7px;
-}
-
-.data-library-start-actions button,
+.data-library-primary-action,
 .data-library-suggestion-card {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);
@@ -5706,22 +5746,39 @@ h2 {
   text-align: left;
 }
 
-.data-library-start-actions button:first-child {
+.data-library-primary-action {
   background: #08715f;
   color: #ffffff;
   box-shadow: 0 10px 22px rgba(0, 111, 105, 0.16);
 }
 
-.data-library-start-actions button:hover,
+.data-library-primary-action:hover,
 .data-library-suggestion-card:hover {
   border-color: rgba(0, 139, 137, 0.34);
   background: #f4fbfa;
   color: #08715f;
 }
 
-.data-library-start-actions button:first-child:hover {
+.data-library-primary-action:hover {
   background: #006f67;
   color: #ffffff;
+}
+
+.data-library-text-action {
+  min-height: 26px;
+  border: 0;
+  background: transparent;
+  color: #08715f;
+  padding: 2px 4px;
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-align: left;
+}
+
+.data-library-text-action:hover {
+  color: #005d56;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .data-library-suggested-section {
