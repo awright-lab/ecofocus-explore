@@ -1,4 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  FilePlus2,
+  ImagePlus,
+  Maximize2,
+  MessageSquare,
+  Shapes,
+  Sparkles,
+  StickyNote,
+  Table2,
+  Type,
+  X,
+  type LucideIcon
+} from "lucide-react";
 import { Rnd } from "react-rnd";
 import { canvasHeight, canvasWidth } from "../builderConstants";
 import { buildCompositionGuideObjects, buildCompositionGuideState, type CompositionGuideObject, type CompositionGuideState } from "./compositionGuidesModel";
@@ -43,24 +58,19 @@ function CanvasSelectionHandles() {
 type CanvasActionIconName = "addSlide" | "data" | "text" | "shape" | "image" | "comment" | "notes" | "fit";
 
 function CanvasActionIcon({ icon }: { icon: CanvasActionIconName }) {
-  const paths: Record<CanvasActionIconName, ReactNode> = {
-    addSlide: <><rect x="5" y="6" width="14" height="12" rx="2" /><path d="M12 9v6M9 12h6" /></>,
-    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
-    text: <><path d="M5 6h14M12 6v12M9 18h6" /></>,
-    shape: <rect x="6" y="6" width="12" height="12" rx="2" />,
-    image: <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6.5 17 4.2-4.2 2.6 2.6 2.1-2.1 2.1 3.7" /></>,
-    comment: <><path d="M5 6h14v9H9l-4 4z" /><path d="M8 10h8M8 13h5" /></>,
-    notes: <><path d="M6 4h10l2 2v14H6z" /><path d="M16 4v4h4M9 12h6M9 15h6" /></>,
-    fit: <><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" /><path d="M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5" /></>
+  const icons: Record<CanvasActionIconName, LucideIcon> = {
+    addSlide: FilePlus2,
+    data: Table2,
+    text: Type,
+    shape: Shapes,
+    image: ImagePlus,
+    comment: MessageSquare,
+    notes: StickyNote,
+    fit: Maximize2
   };
+  const Icon = icons[icon];
 
-  return (
-    <svg className="canvas-action-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
-        {paths[icon]}
-      </g>
-    </svg>
-  );
+  return <Icon className="canvas-action-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
 function MockupStorySlide() {
@@ -580,16 +590,16 @@ export function CanvasWorkspace({
         </div>
       </div>
       <div className="story-arc-pill" role="status">
-        <span className="story-arc-pill__icon" aria-hidden="true">✦</span>
+        <span className="story-arc-pill__icon" aria-hidden="true"><Sparkles className="story-arc-icon" strokeWidth={1.9} /></span>
         <strong>{storyGuidance.pageRoleLabel} story arc:</strong>
         <span>{storyGuidance.arcLabel}</span>
-        <button type="button" aria-label="Dismiss story suggestion">×</button>
+        <button type="button" aria-label="Dismiss story suggestion"><X className="canvas-action-icon" aria-hidden="true" strokeWidth={2} /></button>
       </div>
       <div className="canvas-bottom-bar" aria-label="Story page actions">
         <div className="slide-nav-controls">
-          <button type="button" className="icon-button" disabled={!previousPage} onClick={() => previousPage && onSetActivePage(previousPage.id)}>‹</button>
+          <button type="button" className="icon-button" disabled={!previousPage} onClick={() => previousPage && onSetActivePage(previousPage.id)}><ChevronLeft className="canvas-action-icon" aria-hidden="true" strokeWidth={2} /></button>
           <strong>Slide {activePage.order} of {sortedPages.length}</strong>
-          <button type="button" className="icon-button" disabled={!nextPage} onClick={() => nextPage && onSetActivePage(nextPage.id)}>›</button>
+          <button type="button" className="icon-button" disabled={!nextPage} onClick={() => nextPage && onSetActivePage(nextPage.id)}><ChevronRight className="canvas-action-icon" aria-hidden="true" strokeWidth={2} /></button>
         </div>
         <div className="canvas-insert-actions">
           <button type="button" onClick={onAddPage}><CanvasActionIcon icon="addSlide" />Add slide</button>

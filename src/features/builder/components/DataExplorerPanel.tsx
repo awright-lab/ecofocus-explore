@@ -1,4 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  ChartNoAxesColumn,
+  ChevronRight,
+  Database,
+  Diamond,
+  Filter,
+  Monitor,
+  Rows3,
+  type LucideIcon
+} from "lucide-react";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
 import {
@@ -42,22 +52,17 @@ function compactVariableRoleLabel(field: ImportedDatasetField) {
 }
 
 function DataLibraryIcon({ icon }: { icon: DataLibraryIconName }) {
-  const paths: Record<DataLibraryIconName, ReactNode> = {
-    dataset: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
-    variable: <><path d="M5 19V9" /><path d="M12 19V5" /><path d="M19 19v-7" /><path d="M3.5 19h17" /></>,
-    filter: <><path d="M5 6h14l-5.5 6.3V18l-3 1v-6.7z" /></>,
-    segment: <><path d="M12 4 20 12l-8 8-8-8z" /><circle cx="12" cy="12" r="2" /></>,
-    banner: <><path d="M5 5h14v12H5z" /><path d="M8 20h8" /><path d="M12 17v3" /></>,
-    chart: <><path d="M5 19V5" /><path d="M5 19h15" /><rect x="8" y="11" width="2.8" height="5" rx=".8" /><rect x="13" y="8" width="2.8" height="8" rx=".8" /><rect x="18" y="6" width="2.8" height="10" rx=".8" /></>
+  const icons: Record<DataLibraryIconName, LucideIcon> = {
+    dataset: Database,
+    variable: ChartNoAxesColumn,
+    filter: Filter,
+    segment: Diamond,
+    banner: Monitor,
+    chart: Rows3
   };
+  const Icon = icons[icon];
 
-  return (
-    <svg className="data-library-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
-        {paths[icon]}
-      </g>
-    </svg>
-  );
+  return <Icon className="data-library-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
 export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
@@ -234,7 +239,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           onClick={() => toggleLibrarySection(sectionId)}
           aria-expanded={expanded}
         >
-          <span className="data-library-accordion-chevron">›</span>
+          <span className="data-library-accordion-chevron"><ChevronRight className="data-library-chevron-icon" aria-hidden="true" strokeWidth={2} /></span>
           <span className="data-library-folder-icon"><DataLibraryIcon icon={icon} /></span>
           <span>
             <strong>{title}</strong>

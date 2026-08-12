@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { bannerDimensions, comparisonDatasetOptions, defaultDataset, filterDimensions } from "../builderConstants";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import {
@@ -302,7 +303,7 @@ export function GuidedDataQueryModal({
             <h2>{modalTitle}</h2>
             <small>{modalHelper}</small>
           </div>
-          <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query">×</button>
+          <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
         </header>
 
         <div className="guided-query-body">

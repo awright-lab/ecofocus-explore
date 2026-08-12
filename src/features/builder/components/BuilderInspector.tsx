@@ -1,4 +1,15 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
+import {
+  ChartNoAxesColumn,
+  Database,
+  FileText,
+  LayoutDashboard,
+  Lightbulb,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+  type LucideIcon
+} from "lucide-react";
 import { BuilderPanel, type OutcomeWorkspaceMode } from "./BuilderChrome";
 import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
 import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
@@ -47,23 +58,18 @@ import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputMode
 type AssistantRailIcon = "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
 
 function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
-  const paths: Record<AssistantRailIcon, ReactNode> = {
-    style: <><path d="M5 19c3.8 1.2 6.5-1.1 6.5-4.1 0-1.4-1-2.6-2.4-2.6H7.5A3.5 3.5 0 0 1 4 8.8C4 5.9 6.5 4 9.8 4H12c4.4 0 8 3.3 8 7.5S16.6 19 12.2 19H11" /><circle cx="9" cy="7.5" r="1" /><circle cx="13" cy="7.4" r="1" /><circle cx="16" cy="10.2" r="1" /></>,
-    page: <><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h4" /></>,
-    layout: <><rect x="4" y="5" width="7" height="6" rx="1.5" /><rect x="13" y="5" width="7" height="6" rx="1.5" /><rect x="4" y="13" width="16" height="6" rx="1.5" /></>,
-    effects: <><path d="M12 4v3" /><path d="M12 17v3" /><path d="M4 12h3" /><path d="M17 12h3" /><path d="m6.6 6.6 2.1 2.1" /><path d="m15.3 15.3 2.1 2.1" /><path d="m17.4 6.6-2.1 2.1" /><path d="m8.7 15.3-2.1 2.1" /><circle cx="12" cy="12" r="3.2" /></>,
-    options: <><path d="M6 5v14" /><path d="M18 5v14" /><path d="M6 9h12" /><path d="M6 15h12" /><circle cx="10" cy="9" r="1.8" /><circle cx="14" cy="15" r="1.8" /></>,
-    data: <><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
-    insight: <><path d="M12 3.5 13.7 8l4.8 1.6-4.8 1.7L12 16l-1.7-4.7-4.8-1.7L10.3 8z" /><path d="M18 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" /></>
+  const icons: Record<AssistantRailIcon, LucideIcon> = {
+    style: Palette,
+    page: FileText,
+    layout: LayoutDashboard,
+    effects: Sparkles,
+    options: SlidersHorizontal,
+    data: Database,
+    insight: Lightbulb
   };
+  const Icon = icons[icon];
 
-  return (
-    <svg className="assistant-rail-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
-        {paths[icon]}
-      </g>
-    </svg>
-  );
+  return <Icon className="assistant-rail-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
 function AssistantFolder({
@@ -513,7 +519,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
       <AssistantFolder title="Position shortcuts" helper="Moves the selected object only">
         <div className="layout-suggestion-list">
           <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
-            <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
+            <span className="layout-suggestion-icon"><ChartNoAxesColumn className="assistant-rail-icon" aria-hidden="true" strokeWidth={1.9} /></span>
             <span><strong>Left chart column</strong><small>Place this object in the left half</small></span>
             <em>selected only</em>
           </button>
@@ -817,7 +823,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             ))}
           </div>
           <div className="inspector-shell-title">
-            <h2><span aria-hidden="true">✣</span> Design + Insight Assistant</h2>
+            <h2><span aria-hidden="true"><Sparkles className="inspector-title-icon" strokeWidth={1.9} /></span> Design + Insight Assistant</h2>
             <small>{assistantRailItems.find((item) => item.active)?.helper ?? "Choose a tool for the current canvas context."}</small>
           </div>
           {inspectorSurface === "style" && styleSurface}
