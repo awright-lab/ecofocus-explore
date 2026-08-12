@@ -362,7 +362,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     },
     {
       id: "options",
-      label: "Options",
+      label: selectedElement?.type === "text" ? "Text" : selectedTile ? "Series" : "Format",
       icon: "options",
       disabled: !selectedTile && !selectedElement,
       active: inspectorSurface === "style" && (settingsView === "options" || settingsView === "layout"),
@@ -815,6 +815,7 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           </div>
           <div className="inspector-shell-title">
             <h2><span aria-hidden="true">✣</span> Design + Insight Assistant</h2>
+            <small>{assistantRailItems.find((item) => item.active)?.helper ?? "Choose a tool for the current canvas context."}</small>
           </div>
           {inspectorSurface === "style" && styleSurface}
           {inspectorSurface === "data" && dataSurface}

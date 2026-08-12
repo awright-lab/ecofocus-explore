@@ -3786,7 +3786,7 @@ h2 {
 
 .story-inspector {
   gap: 12px;
-  padding-right: 66px;
+  padding-right: 68px;
 }
 
 .assistant-side-rail {
@@ -3796,23 +3796,25 @@ h2 {
   bottom: 0;
   display: grid;
   align-content: start;
-  gap: 4px;
-  width: 58px;
-  border-left: 1px solid #e0e6eb;
-  background: #ffffff;
-  padding: 52px 5px 12px;
+  gap: 6px;
+  width: 60px;
+  border-left: 1px solid rgba(217, 226, 233, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 252, 0.96)),
+    #ffffff;
+  padding: 58px 6px 12px;
 }
 
 .assistant-side-rail button {
   display: grid;
   place-items: center;
-  gap: 3px;
-  min-height: 48px;
+  gap: 4px;
+  min-height: 50px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 14px;
   background: transparent;
   color: #34434e;
-  padding: 5px 1px;
+  padding: 6px 2px;
   font-size: 0.55rem;
   font-weight: 850;
   line-height: 1.05;
@@ -3833,7 +3835,7 @@ h2 {
 
 .assistant-side-rail button.active,
 .assistant-side-rail button:hover {
-  background: #f2f8f7;
+  background: rgba(238, 249, 248, 0.96);
   color: #08715f;
 }
 
@@ -3849,8 +3851,9 @@ h2 {
 }
 
 .inspector-shell-title {
-  display: block;
-  padding-bottom: 4px;
+  display: grid;
+  gap: 4px;
+  padding: 2px 0 8px;
   border-bottom: 0;
 }
 
@@ -4402,7 +4405,9 @@ h2 {
 
 .advanced-inspector-details summary {
   display: grid;
-  gap: 3px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-items: center;
   cursor: pointer;
   list-style: none;
   padding: 11px 12px;
@@ -4413,14 +4418,36 @@ h2 {
 }
 
 .advanced-inspector-details summary strong {
+  overflow: hidden;
   color: #2c3a47;
   font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .advanced-inspector-details summary span {
+  grid-column: 1 / -1;
   color: #738390;
   font-size: 0.66rem;
   font-weight: 650;
+}
+
+.advanced-inspector-details summary::after {
+  content: "Open";
+  display: inline-grid;
+  place-items: center;
+  min-width: 42px;
+  min-height: 22px;
+  border-radius: 999px;
+  background: #eef6f6;
+  color: #08715f;
+  font-size: 0.58rem;
+  font-weight: 950;
+}
+
+.advanced-inspector-details[open] summary::after {
+  content: "Close";
+  background: #e5f5f2;
 }
 
 .advanced-inspector-details[open] {
@@ -4480,6 +4507,13 @@ h2 {
   color: #344550;
   font-size: 0.72rem;
   font-weight: 850;
+}
+
+.inspector-shell-title small {
+  color: #6b7c88;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .format-summary-card {
