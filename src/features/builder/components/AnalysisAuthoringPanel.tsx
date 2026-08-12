@@ -1,7 +1,5 @@
-import { useState } from "react";
+import { lazy, memo, Suspense, useMemo, useState } from "react";
 import { BuilderPanel } from "./BuilderChrome";
-import { DataExplorerPanel } from "./DataExplorerPanel";
-import { ReportPageTree } from "./ReportPageTree";
 import {
   bannerDimensions,
   comparisonDatasetOptions,
@@ -29,6 +27,13 @@ import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Me
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorPalette, ImportedDatasetField, ImportedDatasetRecord, PageTemplatePreset, PageThemePreset, SavedAnalyticalTemplate, SavedBanner, SavedCompositionBlock, SavedDerivedDefinition, SavedDesignAsset, SavedFilterSet, SavedSegmentProfile, SavedVariableSet, SavedWeightProfile, TextBlockPreset, TextStylePreset } from "../../../../shared/types/dashboard";
 import type { LiveDatasetSourceDescriptor } from "../../../../shared/types/dataSource";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
+
+const DataExplorerPanel = lazy(() =>
+  import("./DataExplorerPanel").then((module) => ({ default: module.DataExplorerPanel }))
+);
+const ReportPageTree = lazy(() =>
+  import("./ReportPageTree").then((module) => ({ default: module.ReportPageTree }))
+);
 
 export type GuidedDataQueryLaunchOptions = {
   outputMode?: "table" | "chart";
@@ -217,7 +222,7 @@ export type AnalysisAuthoringPanelProps = {
   error: string | null;
 };
 
-export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
+export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   const {
   leftPanelView,
   setLeftPanelView,
@@ -349,7 +354,10 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
   saveCurrentWeight,
   error
   } = props;
-  const insertionContext = buildInsertionContextView({ activePage, layerItems, selectedTileId, selectedElementId });
+  const insertionContext = useMemo(
+    () => buildInsertionContextView({ activePage, layerItems, selectedTileId, selectedElementId }),
+    [activePage, layerItems, selectedElementId, selectedTileId]
+  );
   const [editingCompositionBlockId, setEditingCompositionBlockId] = useState<string | null>(null);
   const [compositionBlockDraft, setCompositionBlockDraft] = useState({
     label: "",
@@ -368,11 +376,14 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
     placementLabel: string;
     helper: string;
   } | null>(null);
-  const smartCompositionStarters = buildSmartCompositionStarterViews({
-    selectedTile,
-    hasSourceContext: Boolean(selectedVariableSet || selectedQuestion),
-    hasComparisonQuery: query.comparisonMode !== "none" || query.breakBy !== "SUMMARY"
-  });
+  const smartCompositionStarters = useMemo(
+    () => buildSmartCompositionStarterViews({
+      selectedTile,
+      hasSourceContext: Boolean(selectedVariableSet || selectedQuestion),
+      hasComparisonQuery: query.comparisonMode !== "none" || query.breakBy !== "SUMMARY"
+    }),
+    [query.breakBy, query.comparisonMode, selectedQuestion, selectedTile, selectedVariableSet]
+  );
 
   function startEditingCompositionBlock(block: SavedCompositionBlock) {
     setEditingCompositionBlockId(block.id);
@@ -507,31 +518,33 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
           ) : (
             <>
               {leftPanelView === "pages" && (
-                <ReportPageTree
-                  sortedPages={sortedPages}
-                  activePage={activePage}
-                  selectedTileId={selectedTileId}
-                  selectedElementId={selectedElementId}
-                  multiSelectedObjects={multiSelectedObjects}
-                  toggleMultiSelectedObject={toggleMultiSelectedObject}
-                  clearMultiSelection={clearMultiSelection}
-                  pageTemplates={pageTemplates}
-                  pageThemes={pageThemes}
-                  setActivePageId={setActivePageId}
-                  selectPage={selectPage}
-                  selectTile={selectTile}
-                  selectElement={selectElement}
-                  recordReportTreeSelectionCue={recordReportTreeSelectionCue}
-                  updateTile={updateTile}
-                  updateElement={updateElement}
-                  renamePage={renamePage}
-                  addPage={addPage}
-                  duplicateActivePage={duplicateActivePage}
-                  duplicatePageById={duplicatePageById}
-                  deleteActivePage={deleteActivePage}
-                  deletePageById={deletePageById}
-                  movePage={movePage}
-                />
+                <Suspense fallback={<div className="panel-section-loading">Loading pages...</div>}>
+                  <ReportPageTree
+                    sortedPages={sortedPages}
+                    activePage={activePage}
+                    selectedTileId={selectedTileId}
+                    selectedElementId={selectedElementId}
+                    multiSelectedObjects={multiSelectedObjects}
+                    toggleMultiSelectedObject={toggleMultiSelectedObject}
+                    clearMultiSelection={clearMultiSelection}
+                    pageTemplates={pageTemplates}
+                    pageThemes={pageThemes}
+                    setActivePageId={setActivePageId}
+                    selectPage={selectPage}
+                    selectTile={selectTile}
+                    selectElement={selectElement}
+                    recordReportTreeSelectionCue={recordReportTreeSelectionCue}
+                    updateTile={updateTile}
+                    updateElement={updateElement}
+                    renamePage={renamePage}
+                    addPage={addPage}
+                    duplicateActivePage={duplicateActivePage}
+                    duplicatePageById={duplicatePageById}
+                    deleteActivePage={deleteActivePage}
+                    deletePageById={deletePageById}
+                    movePage={movePage}
+                  />
+                </Suspense>
               )}
 
               {leftPanelView === "insert" && (
@@ -909,10 +922,12 @@ export function AnalysisAuthoringPanel(props: AnalysisAuthoringPanelProps) {
               </>
               )}
 
-              <DataExplorerPanel {...props} />
+              <Suspense fallback={<div className="panel-section-loading">Loading data library...</div>}>
+                <DataExplorerPanel {...props} />
+              </Suspense>
               {error && <div className="error">{error}</div>}
               </>
               )}
         </BuilderPanel>
   );
-}
+});

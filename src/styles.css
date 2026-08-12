@@ -13735,3 +13735,15 @@ button:active:not(:disabled) {
   background: rgba(244, 249, 250, 0.78);
   backdrop-filter: blur(10px);
 }
+
+.panel-section-loading {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  color: #617475;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1px solid rgba(203, 218, 221, 0.7);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
