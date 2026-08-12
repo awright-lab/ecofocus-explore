@@ -2898,9 +2898,13 @@ h1 {
 
 .tool-rail-icon,
 .data-library-chevron-icon,
+.data-library-search-icon,
+.data-library-action-icon,
 .modal-close-icon,
 .story-arc-icon,
-.inspector-title-icon {
+.inspector-title-icon,
+.mockup-kpi-icon,
+.mockup-toolbar-icon {
   display: block;
   width: 1em;
   height: 1em;

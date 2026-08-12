@@ -6,11 +6,18 @@ import {
   ImagePlus,
   Maximize2,
   MessageSquare,
+  Move,
+  Rocket,
   Shapes,
   Sparkles,
   StickyNote,
   Table2,
+  Trash2,
   Type,
+  UsersRound,
+  Heart,
+  Settings,
+  Copy,
   X,
   type LucideIcon
 } from "lucide-react";
@@ -93,12 +100,12 @@ function MockupStorySlide() {
 
       <div className="mockup-kpi-strip" aria-label="Key performance indicators">
         {[
-          { icon: "◎", value: "84%", label: "Care About Workplace Culture", helper: "vs. 78% in 2024 ↑", tone: "teal" },
-          { icon: "♡", value: "41%", label: "Feel Supported at Work", helper: "vs. 35% in 2024 ↑", tone: "indigo" },
-          { icon: "↗", value: "2x", label: "Growth in Job-Seeker Influence", helper: "vs. 2024 ↑", tone: "coral" }
+          { icon: UsersRound, value: "84%", label: "Care About Workplace Culture", helper: "vs. 78% in 2024 ↑", tone: "teal" },
+          { icon: Heart, value: "41%", label: "Feel Supported at Work", helper: "vs. 35% in 2024 ↑", tone: "indigo" },
+          { icon: Rocket, value: "2x", label: "Growth in Job-Seeker Influence", helper: "vs. 2024 ↑", tone: "coral" }
         ].map((item) => (
           <article className={`mockup-kpi-card ${item.tone}`} key={item.value}>
-            <span>{item.icon}</span>
+            <span><item.icon className="mockup-kpi-icon" aria-hidden="true" strokeWidth={1.9} /></span>
             <strong>{item.value}</strong>
             <p>{item.label}</p>
             <small>{item.helper}</small>
@@ -108,10 +115,10 @@ function MockupStorySlide() {
 
       <section className="mockup-chart-card mockup-selected-chart">
         <div className="mockup-object-toolbar" aria-hidden="true">
-          <button type="button">✥</button>
-          <button type="button">⚙</button>
-          <button type="button">▣</button>
-          <button type="button">⌫</button>
+          <button type="button"><Move className="mockup-toolbar-icon" strokeWidth={1.9} /></button>
+          <button type="button"><Settings className="mockup-toolbar-icon" strokeWidth={1.9} /></button>
+          <button type="button"><Copy className="mockup-toolbar-icon" strokeWidth={1.9} /></button>
+          <button type="button"><Trash2 className="mockup-toolbar-icon" strokeWidth={1.9} /></button>
         </div>
         {["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((handle) => <span key={handle} className={`mockup-resize-handle ${handle}`} />)}
         <div className="mockup-chart-heading">

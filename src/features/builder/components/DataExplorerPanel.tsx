@@ -5,6 +5,8 @@ import {
   Database,
   Diamond,
   Filter,
+  Search,
+  SquareArrowOutUpRight,
   Monitor,
   Rows3,
   type LucideIcon
@@ -472,7 +474,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       <div className="data-explorer">
         <div className="data-library-search-row">
           <label className="data-library-search" aria-label="Search data library">
-            <span aria-hidden="true">⌕</span>
+            <span aria-hidden="true"><Search className="data-library-search-icon" strokeWidth={1.9} /></span>
             <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search data library" />
           </label>
           <button type="button" className="data-library-filter-button" aria-label="Filter data library">
@@ -529,7 +531,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                 icon: "dataset",
                 title: "Connected sources",
                 detail: `${liveDatasetSources.length} registered`,
-                action: <button type="button" onClick={openWorkspaceHome} aria-label="Manage connected sources">↗</button>
+                action: <button type="button" onClick={openWorkspaceHome} aria-label="Manage connected sources"><SquareArrowOutUpRight className="data-library-action-icon" aria-hidden="true" strokeWidth={1.9} /></button>
               })}
               {isSectionExpanded("connected") && (
                 <div className="data-library-section-body">
