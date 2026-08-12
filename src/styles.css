@@ -12691,36 +12691,61 @@ code {
   justify-self: center;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: min(620px, 90%);
-  min-height: 42px;
-  border: 1px solid #bee1e5;
+  gap: 9px;
+  max-width: min(640px, 92%);
+  min-height: 38px;
+  border: 1px solid rgba(186, 218, 224, 0.95);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.92);
   color: #1d3f47;
-  padding: 0 14px;
-  box-shadow: 0 14px 32px rgba(21, 61, 72, 0.13);
+  padding: 0 8px 0 12px;
+  box-shadow: 0 14px 32px rgba(21, 61, 72, 0.11);
+  backdrop-filter: blur(12px);
+}
+
+.story-arc-pill__icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e9fffb, #f4f0ff);
+  color: #008b89;
+  font-size: 0.78rem;
+  box-shadow: inset 0 0 0 1px rgba(0, 139, 137, 0.12);
 }
 
 .story-arc-pill strong {
+  flex: 0 0 auto;
   color: #08715f;
   font-size: 0.78rem;
 }
 
 .story-arc-pill span {
+  overflow: hidden;
   color: #263743;
   font-size: 0.78rem;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .story-arc-pill button {
-  min-width: 24px;
-  min-height: 24px;
+  flex: 0 0 auto;
+  min-width: 26px;
+  min-height: 26px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: #607078;
   padding: 0;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.story-arc-pill button:hover {
+  background: #eef8f7;
+  color: #007a73;
 }
 
 .canvas-bottom-bar {
@@ -13638,6 +13663,6 @@ button:active:not(:disabled) {
 }
 
 .story-arc-pill {
-  min-height: 46px;
+  min-height: 38px;
   border-radius: 999px;
 }

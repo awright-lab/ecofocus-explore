@@ -580,6 +580,7 @@ export function CanvasWorkspace({
         </div>
       </div>
       <div className="story-arc-pill" role="status">
+        <span className="story-arc-pill__icon" aria-hidden="true">✦</span>
         <strong>{storyGuidance.pageRoleLabel} story arc:</strong>
         <span>{storyGuidance.arcLabel}</span>
         <button type="button" aria-label="Dismiss story suggestion">×</button>
