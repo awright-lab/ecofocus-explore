@@ -10104,21 +10104,39 @@ h2 {
 .page-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: center;
+  gap: 18px;
+  align-items: flex-start;
   border-bottom: 0;
-  padding: 0 8px;
+  padding: 0 10px 2px;
 }
 
-.page-header > div:first-child {
+.page-header__identity {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
 }
 
-.page-header > div:first-child small {
+.page-header__identity .eyebrow {
+  color: #0b7567;
+  font-size: 0.68rem;
+  letter-spacing: 0.035em;
+}
+
+.page-header__identity h2 {
+  overflow: hidden;
+  max-width: 720px;
+  color: #172033;
+  font-size: clamp(1.12rem, 1.35vw, 1.42rem);
+  line-height: 1.06;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-header__identity small {
   color: #687a71;
   font-size: 0.76rem;
   font-weight: 700;
+  line-height: 1.25;
 }
 
 .canvas-toolbar,
@@ -10130,7 +10148,7 @@ h2 {
   justify-content: flex-end;
 }
 
-.canvas-toolbar > span {
+.canvas-element-count {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
@@ -10163,15 +10181,6 @@ h2 {
   color: #405045;
   font-size: 0.74rem;
   text-align: right;
-}
-
-.page-header span {
-  border-radius: 999px;
-  background: #ffffff;
-  color: #536259;
-  padding: 5px 9px;
-  font-size: 0.76rem;
-  font-weight: 800;
 }
 
 .floating-format-bar {

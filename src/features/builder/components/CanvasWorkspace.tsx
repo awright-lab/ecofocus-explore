@@ -386,13 +386,13 @@ export function CanvasWorkspace({
       aria-label="Dashboard canvas"
     >
       <div className="page-header">
-        <div>
+        <div className="page-header__identity">
           <p className="eyebrow">Story canvas · Slide {activePage.order}</p>
           <h2>{activePage.title}</h2>
           <small>Compose analytical tiles, narrative sections, and reusable report blocks.</small>
         </div>
         <div className="canvas-toolbar">
-          <span>{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
+          <span className="canvas-element-count">{activePage.tiles.length + activePage.elements.length} element{activePage.tiles.length + activePage.elements.length === 1 ? "" : "s"}</span>
           <div className="zoom-control" aria-label="Canvas zoom">
             <button type="button" className="mini-button" onClick={() => onZoomChange(canvasZoom - 10)}>-</button>
             <input
