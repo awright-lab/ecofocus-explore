@@ -12408,11 +12408,11 @@ code {
 .canvas-draggable-frame:not(.selected):hover::before {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -4px;
   z-index: 45;
-  border: 1.5px solid rgba(43, 127, 255, 0.72);
-  border-radius: 11px;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 8px 18px rgba(43, 127, 255, 0.1);
+  border: 1.5px solid rgba(43, 127, 255, 0.78);
+  border-radius: 13px;
+  box-shadow: 0 10px 24px rgba(43, 127, 255, 0.1);
   pointer-events: none;
 }
 
@@ -12427,8 +12427,8 @@ code {
   inset: -4px;
   z-index: 30;
   border: 2px solid #2b7fff;
-  border-radius: 12px;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.96), 0 8px 24px rgba(43, 127, 255, 0.16);
+  border-radius: 13px;
+  box-shadow: 0 9px 24px rgba(43, 127, 255, 0.16);
   pointer-events: none;
 }
 
@@ -12514,16 +12514,16 @@ code {
 .canvas-selection-handles {
   position: absolute;
   inset: -4px;
-  z-index: 65;
+  z-index: 72;
   pointer-events: none;
 }
 
 .canvas-selection-handle {
   position: absolute;
   display: block;
-  border: 2px solid #2b7fff;
+  border: 1.5px solid #2b7fff;
   background: #ffffff;
-  box-shadow: 0 2px 10px rgba(17, 37, 65, 0.24), 0 0 0 2px rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 10px rgba(17, 37, 65, 0.2);
 }
 
 .canvas-selection-handle.nw,
@@ -12562,8 +12562,8 @@ code {
 .canvas-selection-handle.n,
 .canvas-selection-handle.s {
   left: 50%;
-  width: 22px;
-  height: 8px;
+  width: 26px;
+  height: 7px;
   border-radius: 999px;
   transform: translateX(-50%);
 }
@@ -12581,8 +12581,8 @@ code {
 .canvas-selection-handle.e,
 .canvas-selection-handle.w {
   top: 50%;
-  width: 8px;
-  height: 22px;
+  width: 7px;
+  height: 26px;
   border-radius: 999px;
   transform: translateY(-50%);
 }
@@ -12595,6 +12595,26 @@ code {
 .canvas-selection-handle.w {
   left: 0;
   transform: translate(-35%, -50%);
+}
+
+.canvas-selection-hint {
+  position: absolute;
+  left: 50%;
+  top: -32px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid rgba(206, 220, 232, 0.88);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #435365;
+  padding: 0 9px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  box-shadow: 0 10px 22px rgba(20, 38, 56, 0.12);
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .canvas-draggable-frame.react-draggable-dragging {
@@ -13484,8 +13504,8 @@ button:active:not(:disabled) {
 
 .canvas-draggable-frame.selected > .dashboard-tile,
 .canvas-draggable-frame.selected > .canvas-element {
-  border-color: rgba(43, 127, 255, 0.28) !important;
-  box-shadow: var(--shadow-card-hover) !important;
+  border-color: rgba(43, 127, 255, 0.18) !important;
+  box-shadow: 0 18px 42px rgba(21, 35, 52, 0.12) !important;
 }
 
 .canvas-draggable-frame.selected > .dashboard-tile::before,
@@ -13498,6 +13518,12 @@ button:active:not(:disabled) {
   background: transparent !important;
   box-shadow: none !important;
   opacity: 0 !important;
+}
+
+.canvas-draggable-frame.selected .canvas-selection-handle {
+  background: #ffffff;
+  border-color: #2b7fff;
+  box-shadow: 0 2px 10px rgba(17, 37, 65, 0.2);
 }
 
 .chart-card {

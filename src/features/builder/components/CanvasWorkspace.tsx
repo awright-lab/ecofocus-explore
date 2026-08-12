@@ -35,6 +35,7 @@ function CanvasSelectionHandles() {
       {["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((handle) => (
         <span key={handle} className={`canvas-selection-handle ${handle}`} />
       ))}
+      <span className="canvas-selection-hint">Drag or resize</span>
     </div>
   );
 }
