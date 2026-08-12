@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, memo, Suspense, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ChartNoAxesColumn,
   Database,
@@ -11,8 +11,6 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { BuilderPanel, type OutcomeWorkspaceMode } from "./BuilderChrome";
-import { LayoutInspector, ObjectInspector, PageInspector } from "./InspectorSections";
-import { TileAnalysisQuerySection, TileAnalysisResultSection } from "./InspectorTileAnalysisSections";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import type { MultiSelectionLayoutAction } from "./multiSelectionModel";
 import { buildStoryGuidanceView } from "./storyGuidanceModel";
@@ -54,6 +52,22 @@ import type {
 } from "../../../../shared/types/dashboard";
 import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
 import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputModel";
+
+const TileAnalysisQuerySection = lazy(() =>
+  import("./InspectorTileAnalysisSections").then((module) => ({ default: module.TileAnalysisQuerySection }))
+);
+const TileAnalysisResultSection = lazy(() =>
+  import("./InspectorTileAnalysisSections").then((module) => ({ default: module.TileAnalysisResultSection }))
+);
+const LayoutInspector = lazy(() =>
+  import("./InspectorSections").then((module) => ({ default: module.LayoutInspector }))
+);
+const ObjectInspector = lazy(() =>
+  import("./InspectorSections").then((module) => ({ default: module.ObjectInspector }))
+);
+const PageInspector = lazy(() =>
+  import("./InspectorSections").then((module) => ({ default: module.PageInspector }))
+);
 
 type AssistantRailIcon = "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
 
@@ -182,7 +196,7 @@ export type BuilderInspectorProps = {
   comparisonDatasets: DatasetId[];
 };
 
-export function BuilderInspector(props: BuilderInspectorProps) {
+export const BuilderInspector = memo(function BuilderInspector(props: BuilderInspectorProps) {
   const {
   outcomeMode,
   outcomeLabel,
@@ -241,42 +255,55 @@ export function BuilderInspector(props: BuilderInspectorProps) {
   comparisonDatasets
   } = props;
   const [inspectorSurface, setInspectorSurface] = useState<"style" | "data" | "insight">("style");
-  const multiSelectionSummary = buildMultiSelectionSummary(activePage, multiSelectedObjects);
-  const inspectorFocus = multiSelectionSummary.count
-    ? {
-        label: "Multi-selection",
-        title: `${multiSelectionSummary.count} objects selected`,
-        helper: `${multiSelectionSummary.tiles.length} tiles and ${multiSelectionSummary.elements.length} elements on ${activePage.title}.`
-      }
-    : selectedTile
-      ? {
-          label: "Selected tile",
-          title: selectedTile.title || selectedTile.name,
-          helper: "Analysis, chart style, layout, and reusable analytical workflows."
-        }
-      : selectedElement
+  const multiSelectionSummary = useMemo(
+    () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
+    [activePage, multiSelectedObjects]
+  );
+  const inspectorFocus = useMemo(
+    () =>
+      multiSelectionSummary.count
         ? {
-            label: "Selected element",
-            title: selectedElement.name,
-            helper: "Element styling, layout, layering, and canvas placement."
+            label: "Multi-selection",
+            title: `${multiSelectionSummary.count} objects selected`,
+            helper: `${multiSelectionSummary.tiles.length} tiles and ${multiSelectionSummary.elements.length} elements on ${activePage.title}.`
           }
-        : {
-            label: "Page focus",
-            title: activePage.title,
-            helper: "Page design, grid, templates, master provenance, and canvas defaults."
-          };
+        : selectedTile
+          ? {
+              label: "Selected tile",
+              title: selectedTile.title || selectedTile.name,
+              helper: "Analysis, chart style, layout, and reusable analytical workflows."
+            }
+          : selectedElement
+            ? {
+                label: "Selected element",
+                title: selectedElement.name,
+                helper: "Element styling, layout, layering, and canvas placement."
+              }
+            : {
+                label: "Page focus",
+                title: activePage.title,
+                helper: "Page design, grid, templates, master provenance, and canvas defaults."
+              },
+    [activePage.title, multiSelectionSummary, selectedElement, selectedTile]
+  );
   const insightNotes = selectedTile?.result.notes ?? [];
   const insightWarnings = selectedTile?.result.warnings ?? [];
-  const storyGuidance = buildStoryGuidanceView(activePage, selectedTile, selectedElement, dashboardPageCount);
-  const dataContext = selectedTile
-    ? {
-        source: resultSourceLabel(selectedTile.result),
-        banner: comparisonSummaryLabel(selectedTile.query),
-        chart: getChartTypeLabel(selectedTile.visualization),
-        rows: selectedTile.result.table.length,
-        columns: selectedTile.result.columns.length
-      }
-    : null;
+  const storyGuidance = useMemo(
+    () => buildStoryGuidanceView(activePage, selectedTile, selectedElement, dashboardPageCount),
+    [activePage, dashboardPageCount, selectedElement, selectedTile]
+  );
+  const dataContext = useMemo(
+    () => selectedTile
+      ? {
+          source: resultSourceLabel(selectedTile.result),
+          banner: comparisonSummaryLabel(selectedTile.query),
+          chart: getChartTypeLabel(selectedTile.visualization),
+          rows: selectedTile.result.table.length,
+          columns: selectedTile.result.columns.length
+        }
+      : null,
+    [selectedTile]
+  );
   const leadColumn = selectedTile?.result.columns[0] ?? null;
   const leadRow = selectedTile?.result.table[0] ?? null;
   const leadValue = leadColumn && leadRow ? leadRow.values[leadColumn.id] : undefined;
@@ -401,12 +428,15 @@ export function BuilderInspector(props: BuilderInspectorProps) {
     if (itemId === "effects") setSettingsView("effects");
     if (itemId === "options") setSettingsView("options");
   }
-  const chartTypeOptions = selectedTile
-    ? defaultDataset.chartTypes
+  const chartTypeOptions = useMemo(
+    () => selectedTile
+      ? defaultDataset.chartTypes
         .filter((chartTypeOption) => chartTypeOption.supportedMetrics.includes(selectedTile.query.metric))
         .filter((chartTypeOption) => !chartTypeOption.minSeries || selectedTile.result.columns.length >= chartTypeOption.minSeries)
         .map((chartTypeOption) => chartTypeOption.id)
-    : [];
+      : [],
+    [selectedTile]
+  );
   const activeDesignPaletteId = selectedTile
     ? (designPalettes.find((palette) => palette.colors.join(",") === selectedTile.appearance.palette.join(","))?.id ?? getPaletteId(selectedTile.appearance.palette))
     : "custom";
@@ -665,7 +695,9 @@ export function BuilderInspector(props: BuilderInspectorProps) {
                   <h2>{detailedControlTitle}</h2>
                 </div>
               )}
-              {detailedControls}
+              <Suspense fallback={<div className="panel-section-loading">Loading detailed controls...</div>}>
+                {detailedControls}
+              </Suspense>
             </details>
           )}
     </>
@@ -684,10 +716,14 @@ export function BuilderInspector(props: BuilderInspectorProps) {
         </div>
       </div>
       <AssistantFolder title="Edit analysis" helper={`${dataContext?.chart} · ${dataContext?.banner}`} defaultOpen>
-        <TileAnalysisQuerySection {...props} />
+        <Suspense fallback={<div className="panel-section-loading">Loading analysis controls...</div>}>
+          <TileAnalysisQuerySection {...props} />
+        </Suspense>
       </AssistantFolder>
       <AssistantFolder title="Details and provenance" helper={`${dataContext?.rows} rows · ${dataContext?.columns} columns`}>
-        <TileAnalysisResultSection {...props} />
+        <Suspense fallback={<div className="panel-section-loading">Loading provenance...</div>}>
+          <TileAnalysisResultSection {...props} />
+        </Suspense>
       </AssistantFolder>
     </>
   ) : (
@@ -831,4 +867,4 @@ export function BuilderInspector(props: BuilderInspectorProps) {
           {inspectorSurface === "insight" && insightSurface}
         </BuilderPanel>
   );
-}
+});
