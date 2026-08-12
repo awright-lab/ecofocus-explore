@@ -225,52 +225,76 @@ export default function BuilderApp() {
   const pageTemplates = dashboard.designLibrary.pageTemplates;
   const pageMasters = dashboard.designLibrary.pageMasters;
   const sortedPages = useMemo(() => [...dashboard.pages].sort((a, b) => a.order - b.order), [dashboard.pages]);
-  const activePage = sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0];
-  const selectedTile = activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
-  const selectedElement = activePage?.elements.find((element) => element.id === selectedElementId) ?? null;
-  const activeMultiSelectedObjects = multiSelectedObjects.filter((item) =>
-    item.type === "tile"
-      ? activePage.tiles.some((tile) => tile.id === item.id)
-      : activePage.elements.some((element) => element.id === item.id)
+  const activePage = useMemo(
+    () => sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0],
+    [activePageId, sortedPages]
   );
+  const selectedTile = useMemo(
+    () => activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null,
+    [activePage?.tiles, selectedTileId]
+  );
+  const selectedElement = useMemo(
+    () => activePage?.elements.find((element) => element.id === selectedElementId) ?? null,
+    [activePage?.elements, selectedElementId]
+  );
+  const activeMultiSelectedObjects = useMemo(() => {
+    const tileIds = new Set(activePage.tiles.map((tile) => tile.id));
+    const elementIds = new Set(activePage.elements.map((element) => element.id));
+    return multiSelectedObjects.filter((item) => (item.type === "tile" ? tileIds.has(item.id) : elementIds.has(item.id)));
+  }, [activePage.elements, activePage.tiles, multiSelectedObjects]);
   const selectedTextElement = selectedElement?.type === "text" ? selectedElement : null;
-  const workspaceSelectionLabel =
-    activeMultiSelectedObjects.length > 0
-      ? `${activeMultiSelectedObjects.length} objects selected`
-      : selectedTile
-        ? `Editing analytical tile: ${selectedTile.title || selectedTile.name}`
-        : selectedElement
-          ? `Editing ${selectedElement.type} element: ${selectedElement.name}`
-          : "No object selected";
-  const selectedTileQuestion = selectedTile
-    ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion
-    : null;
-  const selectedTileFilterDimension =
-    selectedTile?.query.filters[0]?.field ? filterDimensions.find((item) => item.id === selectedTile.query.filters[0]?.field) : undefined;
-  const chartStyleTargets =
-    selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
-      ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
-      : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [];
-  const selectedChartPart = selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null;
+  const workspaceSelectionLabel = useMemo(
+    () =>
+      activeMultiSelectedObjects.length > 0
+        ? `${activeMultiSelectedObjects.length} objects selected`
+        : selectedTile
+          ? `Editing analytical tile: ${selectedTile.title || selectedTile.name}`
+          : selectedElement
+            ? `Editing ${selectedElement.type} element: ${selectedElement.name}`
+            : "No object selected",
+    [activeMultiSelectedObjects.length, selectedElement, selectedTile]
+  );
+  const selectedTileQuestion = useMemo(
+    () => selectedTile ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion : null,
+    [selectedTile]
+  );
+  const selectedTileFilterDimension = useMemo(
+    () => selectedTile?.query.filters[0]?.field ? filterDimensions.find((item) => item.id === selectedTile.query.filters[0]?.field) : undefined,
+    [selectedTile]
+  );
+  const chartStyleTargets = useMemo(
+    () =>
+      selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
+        ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
+        : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [],
+    [selectedTile]
+  );
+  const selectedChartPart = useMemo(
+    () => selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null,
+    [chartStyleTargets, selectedChartPartId]
+  );
   const canvasScale = canvasZoom / 100;
-  const layerItems: LayerItem[] = [
-    ...activePage.tiles.map((tile) => ({
-      id: tile.id,
-      type: "tile" as const,
-      name: tile.name,
-      hidden: tile.hidden,
-      locked: tile.locked,
-      zIndex: tile.layout.zIndex
-    })),
-    ...activePage.elements.map((element) => ({
-      id: element.id,
-      type: "element" as const,
-      name: element.name,
-      hidden: element.hidden,
-      locked: element.locked,
-      zIndex: element.layout.zIndex
-    }))
-  ].sort((a, b) => b.zIndex - a.zIndex);
+  const layerItems: LayerItem[] = useMemo(
+    () => [
+      ...activePage.tiles.map((tile) => ({
+        id: tile.id,
+        type: "tile" as const,
+        name: tile.name,
+        hidden: tile.hidden,
+        locked: tile.locked,
+        zIndex: tile.layout.zIndex
+      })),
+      ...activePage.elements.map((element) => ({
+        id: element.id,
+        type: "element" as const,
+        name: element.name,
+        hidden: element.hidden,
+        locked: element.locked,
+        zIndex: element.layout.zIndex
+      }))
+    ].sort((a, b) => b.zIndex - a.zIndex),
+    [activePage.elements, activePage.tiles]
+  );
 
   function saveSelectedTileVariableSet() {
     if (!selectedTile || !selectedTileQuestion) return;
@@ -950,6 +974,26 @@ export default function BuilderApp() {
   const handleCanvasDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     void handleCanvasDropEvent(event);
   }, [handleCanvasDropEvent]);
+  const recordReportTreeSelectionCue = useCallback((cue: Omit<NonNullable<typeof reportTreeSelectionCue>, "createdAt">) => {
+    setReportTreeSelectionCue({ ...cue, createdAt: Date.now() });
+  }, [setReportTreeSelectionCue]);
+  const recordSavedLibraryInsertionCue = useCallback((cue: Omit<NonNullable<typeof savedLibraryInsertionCue>, "createdAt">) => {
+    setSavedLibraryInsertionCue({ ...cue, createdAt: Date.now() });
+  }, [setSavedLibraryInsertionCue]);
+  const recordSavedSettingOriginCue = useCallback((kind: "banner" | "filter" | "weight", label: string, tileId: string) => {
+    setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() });
+  }, [setSavedSettingOriginCue]);
+  const recordDerivedOutputLibraryActionCue = useCallback((cue: Omit<NonNullable<typeof derivedOutputLibraryActionCue>, "createdAt">) => {
+    setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() });
+  }, [setDerivedOutputLibraryActionCue]);
+  const completeSavedSettingOriginCue = useCallback((tileId: string) => {
+    setSavedSettingOriginCue((current) => current?.tileId === tileId ? { ...current, status: "refreshed", createdAt: Date.now() } : current);
+  }, [setSavedSettingOriginCue]);
+  const recordRelatedObjectNavigationCue = useCallback((cue: Omit<NonNullable<typeof relatedObjectNavigationCue>, "createdAt">) => {
+    setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() });
+  }, [setRelatedObjectNavigationCue]);
+  const focusSelectedTileInspector = useCallback(() => setSettingsView("chart"), [setSettingsView]);
+  const closeGuidedDataQuery = useCallback(() => setGuidedDataQuery(null), []);
   const openPageDesignPanel = useCallback(() => setSettingsView("page"), []);
   const openSelectionFormatPanel = useCallback(() => {
     setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home");
@@ -1184,8 +1228,8 @@ export default function BuilderApp() {
           chooseLayer={chooseLayer}
           selectTile={selectTile}
           selectElement={selectElement}
-          recordReportTreeSelectionCue={(cue) => setReportTreeSelectionCue({ ...cue, createdAt: Date.now() })}
-          recordSavedLibraryInsertionCue={(cue) => setSavedLibraryInsertionCue({ ...cue, createdAt: Date.now() })}
+          recordReportTreeSelectionCue={recordReportTreeSelectionCue}
+          recordSavedLibraryInsertionCue={recordSavedLibraryInsertionCue}
           updateTile={updateTile}
           updateElement={updateElement}
           sortedPages={sortedPages}
@@ -1203,9 +1247,9 @@ export default function BuilderApp() {
           pageThemes={pageThemes}
           selectedTextElement={selectedTextElement}
           selectedTile={selectedTile}
-          focusSelectedTileInspector={() => setSettingsView("chart")}
-          recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() })}
-          recordDerivedOutputLibraryActionCue={(cue) => setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() })}
+          focusSelectedTileInspector={focusSelectedTileInspector}
+          recordSavedSettingOriginCue={recordSavedSettingOriginCue}
+          recordDerivedOutputLibraryActionCue={recordDerivedOutputLibraryActionCue}
           designPalettes={designPalettes}
           applyPaletteToTile={applyPaletteToTile}
           textStylePresets={textStylePresets}
@@ -1438,12 +1482,10 @@ export default function BuilderApp() {
           saveSelectedTileWeight={saveSelectedTileWeight}
           onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
           savedSettingOriginCue={savedSettingOriginCue}
-          recordSavedSettingOriginCue={(kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() })}
-          completeSavedSettingOriginCue={(tileId) => {
-            setSavedSettingOriginCue((current) => current?.tileId === tileId ? { ...current, status: "refreshed", createdAt: Date.now() } : current);
-          }}
+          recordSavedSettingOriginCue={recordSavedSettingOriginCue}
+          completeSavedSettingOriginCue={completeSavedSettingOriginCue}
           relatedObjectNavigationCue={relatedObjectNavigationCue}
-          recordRelatedObjectNavigationCue={(cue) => setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() })}
+          recordRelatedObjectNavigationCue={recordRelatedObjectNavigationCue}
           reportTreeSelectionCue={reportTreeSelectionCue}
           savedLibraryInsertionCue={savedLibraryInsertionCue}
           derivedOutputCreationCue={derivedOutputCreationCue}
@@ -1496,8 +1538,8 @@ export default function BuilderApp() {
             chooseLayer,
             selectTile,
             selectElement,
-            recordReportTreeSelectionCue: (cue) => setReportTreeSelectionCue({ ...cue, createdAt: Date.now() }),
-            recordSavedLibraryInsertionCue: (cue) => setSavedLibraryInsertionCue({ ...cue, createdAt: Date.now() }),
+            recordReportTreeSelectionCue,
+            recordSavedLibraryInsertionCue,
             updateTile,
             updateElement,
             sortedPages,
@@ -1515,9 +1557,9 @@ export default function BuilderApp() {
             pageThemes,
             selectedTextElement,
             selectedTile,
-            focusSelectedTileInspector: () => setSettingsView("chart"),
-            recordSavedSettingOriginCue: (kind, label, tileId) => setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() }),
-            recordDerivedOutputLibraryActionCue: (cue) => setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() }),
+            focusSelectedTileInspector,
+            recordSavedSettingOriginCue,
+            recordDerivedOutputLibraryActionCue,
             designPalettes,
             applyPaletteToTile,
             textStylePresets,
@@ -1644,7 +1686,7 @@ export default function BuilderApp() {
             }}
             initialOutputMode={guidedDataQuery.outputMode}
             launchContext={guidedDataQuery}
-            onClose={() => setGuidedDataQuery(null)}
+            onClose={closeGuidedDataQuery}
           />
         </Suspense>
       )}
