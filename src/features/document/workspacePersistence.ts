@@ -5,6 +5,7 @@ import type {
   DatasetConnectionProfile,
   DatasetConnectionVerificationReport,
   LiveDatasetFieldDescriptor,
+  LiveDatasetQueryDefinition,
   LiveDatasetSourceDescriptor,
   LiveDatasetSourceInspectionReport
 } from "../../../shared/types/dataSource";
@@ -344,6 +345,44 @@ export function updateWorkspaceLiveDatasetSourceFields(
                   nextStep: "Field roles are modeled. Build the live query definition contract before creating live tables or charts."
                 }
               : source.inspection
+          }
+        : source
+    )
+  };
+}
+
+export function upsertWorkspaceLiveDatasetQueryDefinition(
+  workspace: DashboardWorkspace,
+  sourceRefId: string,
+  definition: LiveDatasetQueryDefinition
+): DashboardWorkspace {
+  return {
+    ...workspace,
+    liveDatasetSources: (workspace.liveDatasetSources ?? []).map((source) => {
+      if (source.sourceRef.id !== sourceRefId) return source;
+      const existing = source.queryDefinitions ?? [];
+      return {
+        ...source,
+        queryDefinitions: existing.some((item) => item.id === definition.id)
+          ? existing.map((item) => item.id === definition.id ? definition : item)
+          : [definition, ...existing]
+      };
+    })
+  };
+}
+
+export function removeWorkspaceLiveDatasetQueryDefinition(
+  workspace: DashboardWorkspace,
+  sourceRefId: string,
+  definitionId: string
+): DashboardWorkspace {
+  return {
+    ...workspace,
+    liveDatasetSources: (workspace.liveDatasetSources ?? []).map((source) =>
+      source.sourceRef.id === sourceRefId
+        ? {
+            ...source,
+            queryDefinitions: (source.queryDefinitions ?? []).filter((definition) => definition.id !== definitionId)
           }
         : source
     )

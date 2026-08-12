@@ -1,6 +1,7 @@
 import type { LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
 import type { LiveAnalyticsSourceIdentity } from "../../../shared/types/analytics";
 import { buildLiveDatasetSourceFieldModelingSummary } from "./liveDatasetFieldModel";
+import { buildLiveDatasetSourceQueryDefinitionSummary } from "./liveDatasetQueryDefinitionModel";
 
 export interface LiveDatasetSourceReadinessView {
   statusLabel: string;
@@ -50,18 +51,23 @@ export function buildLiveDatasetSourceReadinessView(source: LiveDatasetSourceDes
   if (source.status === "available") {
     if (source.inspection?.status === "inspected") {
       const fieldModeling = buildLiveDatasetSourceFieldModelingSummary(source);
+      const definitionSummary = buildLiveDatasetSourceQueryDefinitionSummary(source);
       const hasModeledFields = fieldModeling.modeledFields > 0;
+      const hasDefinitions = definitionSummary.savedCount > 0;
       return {
         ...base,
-        statusLabel: hasModeledFields ? fieldModeling.statusLabel : "Fields inspected",
+        statusLabel: hasDefinitions ? definitionSummary.statusLabel : hasModeledFields ? fieldModeling.statusLabel : "Fields inspected",
         stageLabels: [
           "Server readiness",
           "Source mapping",
           "Fields inspected",
           hasModeledFields ? "Field roles modeled" : "Field roles pending",
+          ...(hasDefinitions ? ["Query definitions saved"] : []),
           "Query support pending"
         ],
-        readinessNote: hasModeledFields
+        readinessNote: hasDefinitions
+          ? definitionSummary.guidance
+          : hasModeledFields
           ? "Field roles are modeled as source metadata. Live query creation still needs the live query definition pass."
           : "Field metadata is inspected. Map analytical roles before live query creation is enabled."
       };

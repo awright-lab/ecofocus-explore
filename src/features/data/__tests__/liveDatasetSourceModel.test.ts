@@ -95,6 +95,41 @@ describe("live dataset source model", () => {
     });
   });
 
+  it("shows saved live query definitions without enabling query creation", () => {
+    expect(buildLiveDatasetSourceReadinessView(source({
+      queryDefinitions: [{
+        id: "live_query_definition_1",
+        label: "Responses by Gender",
+        sourceRefId: "live:snowflake:connection_snowflake:default",
+        kind: "categorical",
+        primaryFieldId: "gender",
+        primaryFieldLabel: "Gender",
+        metric: "count",
+        outputMode: "table",
+        status: "execution_pending",
+        statusLabel: "Execution pending",
+        notes: ["Count responses by Gender."],
+        createdAt: "2026-08-03T00:00:00.000Z",
+        updatedAt: "2026-08-03T00:00:00.000Z"
+      }],
+      inspection: {
+        status: "inspected",
+        statusLabel: "Fields inspected",
+        inspectedAt: "2026-08-03T00:00:00.000Z",
+        fields: [
+          { id: "gender", label: "Gender", rawName: "GENDER", type: "text", modelingRole: "dimension", eligibleForFilter: true }
+        ],
+        diagnostics: ["1 field was read."],
+        nextStep: "Map analytical roles for these fields before enabling live query creation."
+      }
+    }))).toMatchObject({
+      statusLabel: "Definitions saved",
+      stageLabels: ["Server readiness", "Source mapping", "Fields inspected", "Field roles modeled", "Query definitions saved", "Query support pending"],
+      readinessNote: "Live query definitions are saved as metadata. Execution still needs the provider query runner.",
+      canCreateQuery: false
+    });
+  });
+
   it("builds a provider-neutral live source identity", () => {
     expect(liveSourceIdentity(source())).toMatchObject({
       kind: "live",

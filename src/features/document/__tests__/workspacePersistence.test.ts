@@ -7,6 +7,8 @@ import {
   updateWorkspaceDatasetConnectionVerification,
   updateWorkspaceLiveDatasetSourceInspection,
   updateWorkspaceLiveDatasetSourceFields,
+  removeWorkspaceLiveDatasetQueryDefinition,
+  upsertWorkspaceLiveDatasetQueryDefinition,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection
 } from "../workspacePersistence";
@@ -341,5 +343,48 @@ describe("workspace dataset connection persistence", () => {
       ],
       nextStep: "Field roles are modeled. Build the live query definition contract before creating live tables or charts."
     });
+  });
+
+  it("upserts and removes live source query definitions", () => {
+    const initial = workspace({
+      liveDatasetSources: [{
+        connectionId: "connection_snowflake",
+        objectType: "table",
+        objectPath: "SURVEY.PUBLIC.RESPONSES",
+        label: "Snowflake source",
+        syncMode: "live_query",
+        status: "available",
+        statusLabel: "Fields modeled",
+        sourceRef: {
+          id: "live:snowflake:connection_snowflake:default",
+          kind: "live_connection",
+          provider: "snowflake",
+          label: "Snowflake source",
+          datasetId: "responses",
+          connectionId: "connection_snowflake"
+        }
+      }]
+    });
+    const definition = {
+      id: "live_query_definition_1",
+      label: "Responses by Gender",
+      sourceRefId: "live:snowflake:connection_snowflake:default",
+      kind: "categorical" as const,
+      primaryFieldId: "gender",
+      primaryFieldLabel: "Gender",
+      metric: "count" as const,
+      outputMode: "table" as const,
+      status: "execution_pending" as const,
+      statusLabel: "Execution pending",
+      notes: ["Count responses by Gender."],
+      createdAt: "2026-08-03T00:00:00.000Z",
+      updatedAt: "2026-08-03T00:00:00.000Z"
+    };
+
+    const saved = upsertWorkspaceLiveDatasetQueryDefinition(initial, "live:snowflake:connection_snowflake:default", definition);
+    const removed = removeWorkspaceLiveDatasetQueryDefinition(saved, "live:snowflake:connection_snowflake:default", definition.id);
+
+    expect(saved.liveDatasetSources[0].queryDefinitions).toEqual([definition]);
+    expect(removed.liveDatasetSources[0].queryDefinitions).toEqual([]);
   });
 });

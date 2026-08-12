@@ -18,6 +18,12 @@ import {
   updateLiveDatasetFieldModeling,
   type LiveDatasetFieldModelingUpdate
 } from "../data/liveDatasetFieldModel";
+import {
+  buildLiveDatasetQueryDefinitionDraft,
+  buildLiveDatasetQueryDefinitionReadiness,
+  createLiveDatasetQueryDefinition,
+  liveDatasetQueryDefinitionSummary
+} from "../data/liveDatasetQueryDefinitionModel";
 import { buildLiveDatasetSourceReadinessView } from "../data/liveDatasetSourceModel";
 import {
   createNewReportFromSeed,
@@ -32,6 +38,8 @@ import {
   updateWorkspaceDatasetConnectionVerification,
   updateWorkspaceLiveDatasetSourceInspection,
   updateWorkspaceLiveDatasetSourceFields,
+  removeWorkspaceLiveDatasetQueryDefinition,
+  upsertWorkspaceLiveDatasetQueryDefinition,
   upsertWorkspaceLiveDatasetSource,
   upsertWorkspaceDatasetConnection,
   upsertWorkspaceImportedDataset
@@ -517,6 +525,25 @@ export function WorkspaceHome({
     updateLiveSourceFields(source, updateLiveDatasetFieldModeling(fields, fieldId, update));
   }
 
+  function saveLiveSourceQueryDefinition(source: LiveDatasetSourceDescriptor) {
+    const definition = createLiveDatasetQueryDefinition(source);
+    if (!definition) {
+      setImportFeedback({ tone: "error", label: `${source.label}: model at least one group field before saving a live query definition.` });
+      return;
+    }
+    const nextWorkspace = upsertWorkspaceLiveDatasetQueryDefinition(workspace, source.sourceRef.id, definition);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setImportFeedback({ tone: "success", label: `${definition.label} saved as a live query definition.` });
+  }
+
+  function deleteLiveSourceQueryDefinition(source: LiveDatasetSourceDescriptor, definitionId: string) {
+    const nextWorkspace = removeWorkspaceLiveDatasetQueryDefinition(workspace, source.sourceRef.id, definitionId);
+    onWorkspaceChange(nextWorkspace);
+    saveDashboardWorkspace(nextWorkspace);
+    setImportFeedback({ tone: "success", label: `${source.label}: live query definition removed.` });
+  }
+
   return (
     <main className="workspace-home-shell">
       <header className="workspace-home-header">
@@ -923,6 +950,8 @@ export function WorkspaceHome({
                   const readiness = buildLiveDatasetSourceReadinessView(source);
                   const inspectedFields = source.inspection?.fields ?? [];
                   const fieldModelingSummary = buildLiveDatasetSourceFieldModelingSummary(source);
+                  const queryDefinitionDraft = buildLiveDatasetQueryDefinitionDraft(source);
+                  const queryDefinitions = source.queryDefinitions ?? [];
                   return (
                     <article className={`workspace-live-source-row ${source.status}`} key={source.sourceRef.id}>
                       <span><HomeIcon icon="dataset" /></span>
@@ -984,6 +1013,44 @@ export function WorkspaceHome({
                                   })}
                                   {inspectedFields.length > 8 && <p>{inspectedFields.length - 8} more inspected fields will be modeled in the full live field manager.</p>}
                                 </div>
+                                <div className={queryDefinitionDraft.canSave ? "workspace-live-query-definition ready" : "workspace-live-query-definition"}>
+                                  <div>
+                                    <strong>{queryDefinitionDraft.label}</strong>
+                                    <p>{queryDefinitionDraft.summary}</p>
+                                    <small>{queryDefinitionDraft.reason}</small>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="workspace-home-secondary compact"
+                                    onClick={() => saveLiveSourceQueryDefinition(source)}
+                                    disabled={!queryDefinitionDraft.canSave}
+                                  >
+                                    Save definition
+                                  </button>
+                                </div>
+                                {queryDefinitions.length > 0 && (
+                                  <div className="workspace-live-query-definition-list" aria-label={`${source.label} saved live query definitions`}>
+                                    {queryDefinitions.map((definition) => {
+                                      const definitionReadiness = buildLiveDatasetQueryDefinitionReadiness(source, definition);
+                                      return (
+                                        <article className={`workspace-live-query-definition-row ${definitionReadiness.tone}`} key={definition.id}>
+                                          <div>
+                                            <strong>{definition.label}</strong>
+                                            <small>{liveDatasetQueryDefinitionSummary(definition)}</small>
+                                            <em>{definitionReadiness.reason}</em>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="workspace-home-secondary compact danger"
+                                            onClick={() => deleteLiveSourceQueryDefinition(source, definition.id)}
+                                          >
+                                            Remove
+                                          </button>
+                                        </article>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </>
                             )}
                             {source.inspection.diagnostics[0] && <p>{source.inspection.diagnostics[0]}</p>}

@@ -1330,6 +1330,52 @@ textarea {
   font-weight: 900;
 }
 
+.workspace-live-query-definition {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(216, 227, 235, 0.84);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 9px;
+}
+
+.workspace-live-query-definition.ready {
+  border-color: rgba(16, 154, 134, 0.2);
+  background: #f4fcfa;
+}
+
+.workspace-live-query-definition-list {
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-live-query-definition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(216, 227, 235, 0.84);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.workspace-live-query-definition-row.stale,
+.workspace-live-query-definition-row.blocked {
+  border-color: rgba(211, 148, 43, 0.22);
+  background: #fffaf0;
+}
+
+.workspace-live-query-definition-row em {
+  margin-top: 3px;
+  color: #7a8994;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 760;
+}
+
 .workspace-live-source-editor {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

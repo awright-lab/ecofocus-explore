@@ -552,6 +552,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                               <span>{fieldModeling.modeledFields}/{fieldModeling.inspectedFields} modeled</span>
                               <span>{fieldModeling.dimensions} groups</span>
                               <span>{fieldModeling.measures} measures</span>
+                              {(source.queryDefinitions?.length ?? 0) > 0 && <span>{source.queryDefinitions?.length} query definitions</span>}
                             </div>
                           )}
                           <p>{readiness.readinessNote}</p>

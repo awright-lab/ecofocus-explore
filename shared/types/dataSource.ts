@@ -17,6 +17,9 @@ export type LiveDatasetSourceStatus = "available" | "needs_verification" | "unav
 export type DatasetConnectionVerificationStatus = "not_configured" | "ready_to_verify" | "verified" | "failed" | "unsupported";
 export type LiveDatasetSourceInspectionStatus = "not_inspected" | "inspected" | "failed" | "unsupported";
 export type LiveDatasetFieldRole = "unmodeled" | "dimension" | "measure" | "date" | "identifier";
+export type LiveDatasetQueryDefinitionKind = "categorical" | "measure";
+export type LiveDatasetQueryDefinitionMetric = "count" | "percent" | "average" | "sum";
+export type LiveDatasetQueryDefinitionStatus = "definition_ready" | "execution_pending" | "unsupported";
 
 export interface DatasetConnectionProfile {
   id: string;
@@ -53,6 +56,7 @@ export interface LiveDatasetSourceDescriptor {
   syncMode: "live_query" | "snapshot";
   status: LiveDatasetSourceStatus;
   statusLabel: string;
+  queryDefinitions?: LiveDatasetQueryDefinition[];
   inspection?: {
     status: LiveDatasetSourceInspectionStatus;
     statusLabel: string;
@@ -61,6 +65,26 @@ export interface LiveDatasetSourceDescriptor {
     diagnostics: string[];
     nextStep: string;
   };
+}
+
+export interface LiveDatasetQueryDefinition {
+  id: string;
+  label: string;
+  sourceRefId: string;
+  kind: LiveDatasetQueryDefinitionKind;
+  primaryFieldId: string;
+  primaryFieldLabel: string;
+  measureFieldId?: string;
+  measureFieldLabel?: string;
+  breakoutFieldId?: string;
+  breakoutFieldLabel?: string;
+  metric: LiveDatasetQueryDefinitionMetric;
+  outputMode: "table" | "chart";
+  status: LiveDatasetQueryDefinitionStatus;
+  statusLabel: string;
+  notes: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LiveDatasetFieldDescriptor {
