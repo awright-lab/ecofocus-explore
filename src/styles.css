@@ -12399,6 +12399,7 @@ code {
   will-change: transform;
   contain: layout style;
   overflow: visible !important;
+  transition: filter 160ms ease;
 }
 
 .canvas-draggable-frame.selected {
@@ -12430,6 +12431,13 @@ code {
   border-radius: 13px;
   box-shadow: 0 9px 24px rgba(43, 127, 255, 0.16);
   pointer-events: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.canvas-draggable-frame.selected:hover::after,
+.canvas-draggable-frame.selected:focus-within::after {
+  border-color: #1f73ff;
+  box-shadow: 0 12px 28px rgba(43, 127, 255, 0.2);
 }
 
 .canvas-resize-handle {
@@ -12455,6 +12463,16 @@ code {
   width: 22px;
   height: 22px;
   border-radius: 999px;
+}
+
+.canvas-draggable-frame.selected .canvas-resize-handle--top-left,
+.canvas-draggable-frame.selected .canvas-resize-handle--bottom-right {
+  cursor: nwse-resize;
+}
+
+.canvas-draggable-frame.selected .canvas-resize-handle--top-right,
+.canvas-draggable-frame.selected .canvas-resize-handle--bottom-left {
+  cursor: nesw-resize;
 }
 
 .canvas-draggable-frame.selected .canvas-resize-handle--top-left {
@@ -12483,6 +12501,7 @@ code {
   width: 34px;
   height: 18px;
   border-radius: 999px;
+  cursor: ns-resize;
   transform: translateX(-50%);
 }
 
@@ -12500,6 +12519,7 @@ code {
   width: 18px;
   height: 34px;
   border-radius: 999px;
+  cursor: ew-resize;
   transform: translateY(-50%);
 }
 
@@ -12524,6 +12544,7 @@ code {
   border: 1.5px solid #2b7fff;
   background: #ffffff;
   box-shadow: 0 2px 10px rgba(17, 37, 65, 0.2);
+  transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
 .canvas-selection-handle.nw,
@@ -12597,6 +12618,26 @@ code {
   transform: translate(-35%, -50%);
 }
 
+.canvas-draggable-frame.selected:hover .canvas-selection-handle {
+  box-shadow: 0 3px 12px rgba(17, 37, 65, 0.24);
+}
+
+.canvas-draggable-frame.selected:hover .canvas-selection-handle.nw {
+  transform: translate(-42%, -42%);
+}
+
+.canvas-draggable-frame.selected:hover .canvas-selection-handle.ne {
+  transform: translate(42%, -42%);
+}
+
+.canvas-draggable-frame.selected:hover .canvas-selection-handle.se {
+  transform: translate(42%, 42%);
+}
+
+.canvas-draggable-frame.selected:hover .canvas-selection-handle.sw {
+  transform: translate(-42%, 42%);
+}
+
 .canvas-selection-hint {
   position: absolute;
   left: 50%;
@@ -12612,9 +12653,21 @@ code {
   font-size: 0.68rem;
   font-weight: 850;
   letter-spacing: 0;
+  opacity: 0;
   box-shadow: 0 10px 22px rgba(20, 38, 56, 0.12);
-  transform: translateX(-50%);
+  transform: translate(-50%, 4px);
+  transition: opacity 160ms ease, transform 160ms ease;
   white-space: nowrap;
+}
+
+.canvas-draggable-frame.selected:hover .canvas-selection-hint,
+.canvas-draggable-frame.selected:focus-within .canvas-selection-hint {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.canvas-draggable-frame.react-draggable-dragging .canvas-selection-hint {
+  opacity: 0;
 }
 
 .canvas-draggable-frame.react-draggable-dragging {
