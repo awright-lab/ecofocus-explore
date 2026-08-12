@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
-import BuilderApp from "./features/builder/BuilderApp";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { loadDashboardWorkspace, parseWorkspaceRoute } from "./features/document/workspacePersistence";
-import { WorkspaceHome } from "./features/workspace/WorkspaceHome";
+
+const BuilderApp = lazy(() => import("./features/builder/BuilderApp"));
+const WorkspaceHome = lazy(() =>
+  import("./features/workspace/WorkspaceHome").then((module) => ({ default: module.WorkspaceHome }))
+);
 
 export default function App() {
   const [route, setRoute] = useState(() => parseWorkspaceRoute());
@@ -22,8 +25,16 @@ export default function App() {
   }, []);
 
   if (route.mode === "home") {
-    return <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />;
+    return (
+      <Suspense fallback={<div className="app-route-loading">Loading workspace...</div>}>
+        <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />
+      </Suspense>
+    );
   }
 
-  return <BuilderApp key={`${route.mode}:${route.reportId ?? "active"}`} />;
+  return (
+    <Suspense fallback={<div className="app-route-loading">Loading report...</div>}>
+      <BuilderApp key={`${route.mode}:${route.reportId ?? "active"}`} />
+    </Suspense>
+  );
 }

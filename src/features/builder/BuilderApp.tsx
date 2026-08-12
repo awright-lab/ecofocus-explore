@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   axisFontSizePresets,
   bannerDimensions,
@@ -13,13 +13,10 @@ import {
   filterDimensions,
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
-import { importDatasetForWorkspace } from "../data/importDatasetWorkspaceService";
-import { exportCoreDocument, type CoreExportTarget } from "../export/coreDocumentExports";
+import type { CoreExportTarget } from "../export/coreDocumentExports";
 import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
-import { BuilderDesignModal } from "./components/BuilderDesignModal";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
-import { GuidedDataQueryModal } from "./components/GuidedDataQueryModal";
 import type { GuidedDataQueryLaunchOptions } from "./components/AnalysisAuthoringPanel";
 import {
   CanvasElementRenderer,
@@ -117,6 +114,13 @@ import type {
   PublishedDashboardSnapshot,
 } from "../../../shared/types/dashboard";
 import type { LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
+
+const BuilderDesignModal = lazy(() =>
+  import("./components/BuilderDesignModal").then((module) => ({ default: module.BuilderDesignModal }))
+);
+const GuidedDataQueryModal = lazy(() =>
+  import("./components/GuidedDataQueryModal").then((module) => ({ default: module.GuidedDataQueryModal }))
+);
 
 export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
@@ -859,10 +863,12 @@ export default function BuilderApp() {
       return;
     }
 
+    const { exportCoreDocument } = await import("../export/coreDocumentExports");
     await exportCoreDocument(dashboard, sortedPages, target);
   }
 
   async function importDataset(file: File) {
+    const { importDatasetForWorkspace } = await import("../data/importDatasetWorkspaceService");
     const result = await importDatasetForWorkspace(file);
     if (result.error || !result.dataset) {
       setError(result.error ?? "Dataset import failed.");
@@ -1422,32 +1428,35 @@ export default function BuilderApp() {
         />
       </section>
       {designModal && (
-        <BuilderDesignModal
-          designModal={designModal}
-          designModalRef={designModalRef}
-          activePage={activePage}
-          selectedTile={selectedTile}
-          selectedElement={selectedElement}
-          selectedChartPart={selectedChartPart}
-          selectedChartPartId={selectedChartPartId}
-          setDesignModal={setDesignModal}
-          setSelectedChartPartId={setSelectedChartPartId}
-          updateActivePage={updateActivePage}
-          updateSelectedElement={updateSelectedElement}
-          updateSelectedAppearance={updateSelectedAppearance}
-          updateSelectedBarStyle={updateSelectedBarStyle}
-          updateSelectedAxisLabel={updateSelectedAxisLabel}
-          applyPalettePresetToBars={applyPalettePresetToBars}
-          applyPaletteColorToSelectedBar={applyPaletteColorToSelectedBar}
-          applySolidColorToBars={applySolidColorToBars}
-          clearBarColorOverrides={clearBarColorOverrides}
-          applySelectedElementEffectPreset={applySelectedElementEffectPreset}
-          applySelectedTileEffectPreset={applySelectedTileEffectPreset}
-        />
+        <Suspense fallback={<div className="builder-modal-loading">Loading design controls...</div>}>
+          <BuilderDesignModal
+            designModal={designModal}
+            designModalRef={designModalRef}
+            activePage={activePage}
+            selectedTile={selectedTile}
+            selectedElement={selectedElement}
+            selectedChartPart={selectedChartPart}
+            selectedChartPartId={selectedChartPartId}
+            setDesignModal={setDesignModal}
+            setSelectedChartPartId={setSelectedChartPartId}
+            updateActivePage={updateActivePage}
+            updateSelectedElement={updateSelectedElement}
+            updateSelectedAppearance={updateSelectedAppearance}
+            updateSelectedBarStyle={updateSelectedBarStyle}
+            updateSelectedAxisLabel={updateSelectedAxisLabel}
+            applyPalettePresetToBars={applyPalettePresetToBars}
+            applyPaletteColorToSelectedBar={applyPaletteColorToSelectedBar}
+            applySolidColorToBars={applySolidColorToBars}
+            clearBarColorOverrides={clearBarColorOverrides}
+            applySelectedElementEffectPreset={applySelectedElementEffectPreset}
+            applySelectedTileEffectPreset={applySelectedTileEffectPreset}
+          />
+        </Suspense>
       )}
       {guidedDataQuery && (
-        <GuidedDataQueryModal
-          props={{
+        <Suspense fallback={<div className="builder-modal-loading">Loading query builder...</div>}>
+          <GuidedDataQueryModal
+            props={{
             leftPanelView,
             setLeftPanelView,
             layerItems,
@@ -1604,11 +1613,12 @@ export default function BuilderApp() {
             setWeightDraftName,
             saveCurrentWeight,
             error
-          }}
-          initialOutputMode={guidedDataQuery.outputMode}
-          launchContext={guidedDataQuery}
-          onClose={() => setGuidedDataQuery(null)}
-        />
+            }}
+            initialOutputMode={guidedDataQuery.outputMode}
+            launchContext={guidedDataQuery}
+            onClose={() => setGuidedDataQuery(null)}
+          />
+        </Suspense>
       )}
     </main>
   );
