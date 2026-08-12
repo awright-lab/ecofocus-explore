@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MutableRefObject, type ReactNode } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -86,7 +86,7 @@ type CanvasElementFrameProps = {
   canvasScale: number;
   snapToGrid: boolean;
   gridSize: number;
-  compositionObjects: CompositionGuideObject[];
+  compositionObjectsRef: MutableRefObject<CompositionGuideObject[]>;
   updateGuideState: (movingObject: CompositionGuideObject, immediate?: boolean) => void;
   clearGuideState: () => void;
   onSelectElement: (elementId: string) => void;
@@ -100,7 +100,7 @@ const CanvasElementFrame = memo(function CanvasElementFrame({
   canvasScale,
   snapToGrid,
   gridSize,
-  compositionObjects,
+  compositionObjectsRef,
   updateGuideState,
   clearGuideState,
   onSelectElement,
@@ -128,7 +128,7 @@ const CanvasElementFrame = memo(function CanvasElementFrame({
       onDragStop={(_, data) => {
         const guideState = buildCompositionGuideState({
           movingObject: { id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } },
-          objects: compositionObjects
+          objects: compositionObjectsRef.current
         });
         onUpdateElementLayout(element.id, { x: guideState.snappedX, y: guideState.snappedY });
         clearGuideState();
@@ -154,7 +154,7 @@ type CanvasTileFrameProps = {
   canvasScale: number;
   snapToGrid: boolean;
   gridSize: number;
-  compositionObjects: CompositionGuideObject[];
+  compositionObjectsRef: MutableRefObject<CompositionGuideObject[]>;
   updateGuideState: (movingObject: CompositionGuideObject, immediate?: boolean) => void;
   clearGuideState: () => void;
   onSelectTile: (tileId: string) => void;
@@ -176,7 +176,7 @@ const CanvasTileFrame = memo(function CanvasTileFrame({
   canvasScale,
   snapToGrid,
   gridSize,
-  compositionObjects,
+  compositionObjectsRef,
   updateGuideState,
   clearGuideState,
   onSelectTile,
@@ -209,7 +209,7 @@ const CanvasTileFrame = memo(function CanvasTileFrame({
       onDragStop={(_, data) => {
         const guideState = buildCompositionGuideState({
           movingObject: { id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } },
-          objects: compositionObjects
+          objects: compositionObjectsRef.current
         });
         onUpdateTileLayout(tile.id, { x: guideState.snappedX, y: guideState.snappedY });
         clearGuideState();
@@ -349,7 +349,7 @@ function MockupStorySlide() {
   );
 }
 
-export function CanvasWorkspace({
+export const CanvasWorkspace = memo(function CanvasWorkspace({
   outcomeMode,
   outcomeCanvasLabel,
   activePage,
@@ -433,6 +433,7 @@ export function CanvasWorkspace({
   const guideObjectRef = useRef<CompositionGuideObject | null>(null);
   const guideSignatureRef = useRef("");
   const lastGuideUpdateRef = useRef(0);
+  const compositionObjectsRef = useRef<CompositionGuideObject[]>([]);
   const [activeGuideState, setActiveGuideState] = useState<CompositionGuideState | null>(null);
   const [isCanvasFullscreen, setIsCanvasFullscreen] = useState(false);
   const compositionObjects = useMemo(
@@ -443,6 +444,7 @@ export function CanvasWorkspace({
       ]),
     [activePage.tiles, activePage.elements]
   );
+  compositionObjectsRef.current = compositionObjects;
   const multiSelectionSummary = useMemo(
     () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
     [activePage, multiSelectedObjects]
@@ -505,7 +507,7 @@ export function CanvasWorkspace({
         guideFrameRef.current = null;
       }
       lastGuideUpdateRef.current = performance.now();
-      const nextGuideState = buildCompositionGuideState({ movingObject, objects: compositionObjects });
+      const nextGuideState = buildCompositionGuideState({ movingObject, objects: compositionObjectsRef.current });
       const nextSignature = guideStateSignature(nextGuideState);
       guideSignatureRef.current = nextSignature;
       setActiveGuideState(nextGuideState);
@@ -519,13 +521,13 @@ export function CanvasWorkspace({
       guideFrameRef.current = null;
       const nextObject = guideObjectRef.current;
       if (!nextObject) return;
-      const nextGuideState = buildCompositionGuideState({ movingObject: nextObject, objects: compositionObjects });
+      const nextGuideState = buildCompositionGuideState({ movingObject: nextObject, objects: compositionObjectsRef.current });
       const nextSignature = guideStateSignature(nextGuideState);
       if (nextSignature === guideSignatureRef.current) return;
       guideSignatureRef.current = nextSignature;
       setActiveGuideState(nextGuideState);
     });
-  }, [compositionObjects]);
+  }, []);
   const clearGuideState = useCallback(() => {
     guideObjectRef.current = null;
     guideSignatureRef.current = "";
@@ -662,7 +664,7 @@ export function CanvasWorkspace({
                 canvasScale={canvasScale}
                 snapToGrid={activePage.snapToGrid}
                 gridSize={activePage.gridSize}
-                compositionObjects={compositionObjects}
+                compositionObjectsRef={compositionObjectsRef}
                 updateGuideState={updateGuideState}
                 clearGuideState={clearGuideState}
                 onSelectElement={onSelectElement}
@@ -678,7 +680,7 @@ export function CanvasWorkspace({
                 canvasScale={canvasScale}
                 snapToGrid={activePage.snapToGrid}
                 gridSize={activePage.gridSize}
-                compositionObjects={compositionObjects}
+                compositionObjectsRef={compositionObjectsRef}
                 updateGuideState={updateGuideState}
                 clearGuideState={clearGuideState}
                 onSelectTile={onSelectTile}
@@ -740,4 +742,4 @@ export function CanvasWorkspace({
       </div>
     </section>
   );
-}
+});
