@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -79,6 +79,161 @@ function CanvasActionIcon({ icon }: { icon: CanvasActionIconName }) {
 
   return <Icon className="canvas-action-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
+
+type CanvasElementFrameProps = {
+  element: DashboardCanvasElement;
+  selected: boolean;
+  canvasScale: number;
+  snapToGrid: boolean;
+  gridSize: number;
+  compositionObjects: CompositionGuideObject[];
+  updateGuideState: (movingObject: CompositionGuideObject, immediate?: boolean) => void;
+  clearGuideState: () => void;
+  onSelectElement: (elementId: string) => void;
+  onUpdateElementLayout: (elementId: string, updates: Partial<DashboardCanvasElement["layout"]>) => void;
+  renderElement: (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => ReactNode;
+};
+
+const CanvasElementFrame = memo(function CanvasElementFrame({
+  element,
+  selected,
+  canvasScale,
+  snapToGrid,
+  gridSize,
+  compositionObjects,
+  updateGuideState,
+  clearGuideState,
+  onSelectElement,
+  onUpdateElementLayout,
+  renderElement
+}: CanvasElementFrameProps) {
+  return (
+    <Rnd
+      className={selected ? "canvas-draggable-frame selected" : "canvas-draggable-frame"}
+      bounds="parent"
+      scale={canvasScale}
+      size={{ width: element.layout.width, height: element.layout.height }}
+      position={{ x: element.layout.x, y: element.layout.y }}
+      style={{ zIndex: element.layout.zIndex }}
+      dragGrid={snapToGrid ? [gridSize, gridSize] : undefined}
+      resizeGrid={snapToGrid ? [gridSize, gridSize] : undefined}
+      resizeHandleClasses={canvasResizeHandleClasses}
+      disableDragging={element.locked}
+      enableResizing={!element.locked}
+      onDragStart={() => {
+        onSelectElement(element.id);
+        updateGuideState({ id: element.id, type: "element", layout: element.layout }, true);
+      }}
+      onDrag={(_, data) => updateGuideState({ id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } })}
+      onDragStop={(_, data) => {
+        const guideState = buildCompositionGuideState({
+          movingObject: { id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } },
+          objects: compositionObjects
+        });
+        onUpdateElementLayout(element.id, { x: guideState.snappedX, y: guideState.snappedY });
+        clearGuideState();
+      }}
+      onResizeStop={(_, __, ref, ___, position) =>
+        onUpdateElementLayout(element.id, {
+          width: ref.offsetWidth,
+          height: ref.offsetHeight,
+          x: position.x,
+          y: position.y
+        })
+      }
+    >
+      {renderElement(element, selected, () => onSelectElement(element.id))}
+      {selected && <CanvasSelectionHandles />}
+    </Rnd>
+  );
+});
+
+type CanvasTileFrameProps = {
+  tile: DashboardTile;
+  selected: boolean;
+  canvasScale: number;
+  snapToGrid: boolean;
+  gridSize: number;
+  compositionObjects: CompositionGuideObject[];
+  updateGuideState: (movingObject: CompositionGuideObject, immediate?: boolean) => void;
+  clearGuideState: () => void;
+  onSelectTile: (tileId: string) => void;
+  onUpdateTileLayout: (tileId: string, updates: Partial<DashboardTile["layout"]>) => void;
+  onUpdateTileTitle: (tileId: string, title: string) => void;
+  onUpdateTileAppearance: (tileId: string, updates: Partial<DashboardTile["appearance"]>) => void;
+  renderTile: (
+    tile: DashboardTile,
+    selected: boolean,
+    onSelect: () => void,
+    onTitleChange: (title: string) => void,
+    onTitleAppearanceChange: (updates: Partial<DashboardTile["appearance"]>) => void
+  ) => ReactNode;
+};
+
+const CanvasTileFrame = memo(function CanvasTileFrame({
+  tile,
+  selected,
+  canvasScale,
+  snapToGrid,
+  gridSize,
+  compositionObjects,
+  updateGuideState,
+  clearGuideState,
+  onSelectTile,
+  onUpdateTileLayout,
+  onUpdateTileTitle,
+  onUpdateTileAppearance,
+  renderTile
+}: CanvasTileFrameProps) {
+  return (
+    <Rnd
+      className={selected ? "canvas-draggable-frame selected" : "canvas-draggable-frame"}
+      bounds="parent"
+      scale={canvasScale}
+      dragHandleClassName="tile-drag-handle"
+      minWidth={320}
+      minHeight={220}
+      size={{ width: tile.layout.width, height: tile.layout.height }}
+      position={{ x: tile.layout.x, y: tile.layout.y }}
+      style={{ zIndex: tile.layout.zIndex }}
+      dragGrid={snapToGrid ? [gridSize, gridSize] : undefined}
+      resizeGrid={snapToGrid ? [gridSize, gridSize] : undefined}
+      resizeHandleClasses={canvasResizeHandleClasses}
+      disableDragging={tile.locked}
+      enableResizing={!tile.locked}
+      onDragStart={() => {
+        onSelectTile(tile.id);
+        updateGuideState({ id: tile.id, type: "tile", layout: tile.layout }, true);
+      }}
+      onDrag={(_, data) => updateGuideState({ id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } })}
+      onDragStop={(_, data) => {
+        const guideState = buildCompositionGuideState({
+          movingObject: { id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } },
+          objects: compositionObjects
+        });
+        onUpdateTileLayout(tile.id, { x: guideState.snappedX, y: guideState.snappedY });
+        clearGuideState();
+      }}
+      onResizeStop={(_, __, ref, ___, position) =>
+        onUpdateTileLayout(tile.id, {
+          width: ref.offsetWidth,
+          height: ref.offsetHeight,
+          x: position.x,
+          y: position.y
+        })
+      }
+    >
+      {renderTile(
+        tile,
+        selected,
+        () => onSelectTile(tile.id),
+        (title) => onUpdateTileTitle(tile.id, title),
+        (updates) => onUpdateTileAppearance(tile.id, updates)
+      )}
+      {selected && <CanvasSelectionHandles />}
+    </Rnd>
+  );
+});
 
 function MockupStorySlide() {
   const bars = [
@@ -292,23 +447,40 @@ export function CanvasWorkspace({
     () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
     [activePage, multiSelectedObjects]
   );
-  const selectedObjectLabel =
-    multiSelectionSummary.count > 1
-      ? `${multiSelectionSummary.count} objects selected`
-      : selectedTileId
-        ? activePage.tiles.find((tile) => tile.id === selectedTileId)?.title ?? "Tile selected"
-        : selectedElementId
-          ? activePage.elements.find((element) => element.id === selectedElementId)?.name ?? "Element selected"
-          : "Page canvas";
+  const selectedTile = useMemo(
+    () => activePage.tiles.find((tile) => tile.id === selectedTileId) ?? null,
+    [activePage.tiles, selectedTileId]
+  );
+  const selectedElement = useMemo(
+    () => activePage.elements.find((element) => element.id === selectedElementId) ?? null,
+    [activePage.elements, selectedElementId]
+  );
+  const visibleElements = useMemo(
+    () => activePage.elements.filter((element) => !element.hidden),
+    [activePage.elements]
+  );
+  const visibleTiles = useMemo(
+    () => activePage.tiles.filter((tile) => !tile.hidden),
+    [activePage.tiles]
+  );
+  const selectedObjectLabel = useMemo(
+    () =>
+      multiSelectionSummary.count > 1
+        ? `${multiSelectionSummary.count} objects selected`
+        : selectedTile
+          ? selectedTile.title
+          : selectedElement
+            ? selectedElement.name
+            : "Page canvas",
+    [multiSelectionSummary.count, selectedElement, selectedTile]
+  );
   const activePageIndex = sortedPages.findIndex((page) => page.id === activePage.id);
   const previousPage = activePageIndex > 0 ? sortedPages[activePageIndex - 1] : null;
   const nextPage = activePageIndex >= 0 && activePageIndex < sortedPages.length - 1 ? sortedPages[activePageIndex + 1] : null;
   const showMockupStorySurface = false;
-  const storyGuidance = buildStoryGuidanceView(
-    activePage,
-    activePage.tiles.find((tile) => tile.id === selectedTileId) ?? null,
-    activePage.elements.find((element) => element.id === selectedElementId) ?? null,
-    sortedPages.length
+  const storyGuidance = useMemo(
+    () => buildStoryGuidanceView(activePage, selectedTile, selectedElement, sortedPages.length),
+    [activePage, selectedElement, selectedTile, sortedPages.length]
   );
   const outcomePreviewHelper =
     outcomeMode === "dashboard"
@@ -482,94 +654,39 @@ export function CanvasWorkspace({
                 </div>
               </div>
             )}
-            {activePage.elements.filter((element) => !element.hidden).map((element) => (
-              <Rnd
+            {visibleElements.map((element) => (
+              <CanvasElementFrame
                 key={element.id}
-                className={element.id === selectedElementId ? "canvas-draggable-frame selected" : "canvas-draggable-frame"}
-                bounds="parent"
-                scale={canvasScale}
-                size={{ width: element.layout.width, height: element.layout.height }}
-                position={{ x: element.layout.x, y: element.layout.y }}
-                style={{ zIndex: element.layout.zIndex }}
-                dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                resizeHandleClasses={canvasResizeHandleClasses}
-                disableDragging={element.locked}
-                enableResizing={!element.locked}
-                onDragStart={() => {
-                  onSelectElement(element.id);
-                  updateGuideState({ id: element.id, type: "element", layout: element.layout }, true);
-                }}
-                onDrag={(_, data) => updateGuideState({ id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } })}
-                onDragStop={(_, data) => {
-                  const guideState = buildCompositionGuideState({
-                    movingObject: { id: element.id, type: "element", layout: { ...element.layout, x: data.x, y: data.y } },
-                    objects: compositionObjects
-                  });
-                  onUpdateElementLayout(element.id, { x: guideState.snappedX, y: guideState.snappedY });
-                  clearGuideState();
-                }}
-                onResizeStop={(_, __, ref, ___, position) =>
-                  onUpdateElementLayout(element.id, {
-                    width: ref.offsetWidth,
-                    height: ref.offsetHeight,
-                    x: position.x,
-                    y: position.y
-                  })
-                }
-              >
-                {renderElement(element, element.id === selectedElementId, () => onSelectElement(element.id))}
-                {element.id === selectedElementId && <CanvasSelectionHandles />}
-              </Rnd>
+                element={element}
+                selected={element.id === selectedElementId}
+                canvasScale={canvasScale}
+                snapToGrid={activePage.snapToGrid}
+                gridSize={activePage.gridSize}
+                compositionObjects={compositionObjects}
+                updateGuideState={updateGuideState}
+                clearGuideState={clearGuideState}
+                onSelectElement={onSelectElement}
+                onUpdateElementLayout={onUpdateElementLayout}
+                renderElement={renderElement}
+              />
             ))}
-            {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
-              <Rnd
+            {visibleTiles.map((tile) => (
+              <CanvasTileFrame
                 key={tile.id}
-                className={tile.id === selectedTileId ? "canvas-draggable-frame selected" : "canvas-draggable-frame"}
-                bounds="parent"
-                scale={canvasScale}
-                dragHandleClassName="tile-drag-handle"
-                minWidth={320}
-                minHeight={220}
-                size={{ width: tile.layout.width, height: tile.layout.height }}
-                position={{ x: tile.layout.x, y: tile.layout.y }}
-                style={{ zIndex: tile.layout.zIndex }}
-                dragGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                resizeGrid={activePage.snapToGrid ? [activePage.gridSize, activePage.gridSize] : undefined}
-                resizeHandleClasses={canvasResizeHandleClasses}
-                disableDragging={tile.locked}
-                enableResizing={!tile.locked}
-                onDragStart={() => {
-                  onSelectTile(tile.id);
-                  updateGuideState({ id: tile.id, type: "tile", layout: tile.layout }, true);
-                }}
-                onDrag={(_, data) => updateGuideState({ id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } })}
-                onDragStop={(_, data) => {
-                  const guideState = buildCompositionGuideState({
-                    movingObject: { id: tile.id, type: "tile", layout: { ...tile.layout, x: data.x, y: data.y } },
-                    objects: compositionObjects
-                  });
-                  onUpdateTileLayout(tile.id, { x: guideState.snappedX, y: guideState.snappedY });
-                  clearGuideState();
-                }}
-                onResizeStop={(_, __, ref, ___, position) =>
-                  onUpdateTileLayout(tile.id, {
-                    width: ref.offsetWidth,
-                    height: ref.offsetHeight,
-                    x: position.x,
-                    y: position.y
-                  })
-                }
-              >
-                {renderTile(
-                  tile,
-                  tile.id === selectedTileId,
-                  () => onSelectTile(tile.id),
-                  (title) => onUpdateTileTitle(tile.id, title),
-                  (updates) => onUpdateTileAppearance(tile.id, updates)
-                )}
-                {tile.id === selectedTileId && <CanvasSelectionHandles />}
-              </Rnd>
+                tile={tile}
+                selected={tile.id === selectedTileId}
+                canvasScale={canvasScale}
+                snapToGrid={activePage.snapToGrid}
+                gridSize={activePage.gridSize}
+                compositionObjects={compositionObjects}
+                updateGuideState={updateGuideState}
+                clearGuideState={clearGuideState}
+                onSelectTile={onSelectTile}
+                onUpdateTileLayout={onUpdateTileLayout}
+                onUpdateTileTitle={onUpdateTileTitle}
+                onUpdateTileAppearance={onUpdateTileAppearance}
+                renderTile={renderTile}
+              />
             ))}
             {multiSelectionSummary.bounds && multiSelectionSummary.count > 1 && (
               <div

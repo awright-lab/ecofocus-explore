@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   axisFontSizePresets,
   bannerDimensions,
@@ -104,6 +104,8 @@ import type {
 } from "../../../shared/types/analytics";
 import type {
   DashboardDraft,
+  DashboardCanvasElement,
+  DashboardTile,
   GradientStop,
   GradientType,
   SavedAnalyticalTemplate,
@@ -819,7 +821,7 @@ export default function BuilderApp() {
 
   const {
     startDataSourceDrag,
-    handleCanvasDrop,
+    handleCanvasDrop: handleCanvasDropEvent,
     addTileFromQuery,
     addTileFromSourceWithVisualization,
     addTileFromVariableSet,
@@ -944,6 +946,45 @@ export default function BuilderApp() {
     updateTileLayout,
     updateElementLayout
   });
+
+  const handleCanvasDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    void handleCanvasDropEvent(event);
+  }, [handleCanvasDropEvent]);
+  const openPageDesignPanel = useCallback(() => setSettingsView("page"), []);
+  const openSelectionFormatPanel = useCallback(() => {
+    setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home");
+  }, [selectedElement, selectedTile]);
+  const openLayoutPanel = useCallback(() => setSettingsView("layout"), []);
+  const openDataQueryPanel = useCallback(() => openGuidedDataQuery({ outputMode: "table" }), []);
+  const openInsertPanel = useCallback(() => setLeftPanelView("insert"), []);
+  const bringSelectionForward = useCallback(() => changeSelectedLayer("front"), [changeSelectedLayer]);
+  const addCanvasPage = useCallback(() => addPage(), [addPage]);
+  const updateCanvasTileTitle = useCallback((tileId: string, title: string) => updateTile(tileId, { title }), [updateTile]);
+  const updateCanvasTileAppearance = useCallback((tileId: string, updates: Partial<DashboardTile["appearance"]>) => {
+    const tile = activePage.tiles.find((item) => item.id === tileId);
+    if (tile) updateTile(tileId, { appearance: { ...tile.appearance, ...updates } });
+  }, [activePage.tiles, updateTile]);
+  const renderCanvasTile = useCallback((
+    tile: DashboardTile,
+    selected: boolean,
+    onSelect: () => void,
+    onTitleChange: (title: string) => void,
+    onTitleAppearanceChange: (updates: Partial<DashboardTile["appearance"]>) => void
+  ) => (
+    <TileRenderer
+      tile={tile}
+      selected={selected}
+      onSelect={onSelect}
+      onTitleChange={onTitleChange}
+      onTitleAppearanceChange={onTitleAppearanceChange}
+    />
+  ), []);
+  const renderCanvasElement = useCallback(
+    (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => (
+      <CanvasElementRenderer element={element} selected={selected} onSelect={onSelect} />
+    ),
+    []
+  );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1309,36 +1350,23 @@ export default function BuilderApp() {
           onSelectPage={selectPage}
           onSelectTile={selectTile}
           onSelectElement={selectElement}
-          onDrop={(event) => {
-            void handleCanvasDrop(event);
-          }}
-          onOpenPageDesign={() => setSettingsView("page")}
-          onOpenFormat={() => setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home")}
-          onOpenLayout={() => setSettingsView("layout")}
-          onOpenDataLibrary={() => openGuidedDataQuery({ outputMode: "table" })}
-          onOpenInsertPanel={() => setLeftPanelView("insert")}
-          onBringForward={() => changeSelectedLayer("front")}
+          onDrop={handleCanvasDrop}
+          onOpenPageDesign={openPageDesignPanel}
+          onOpenFormat={openSelectionFormatPanel}
+          onOpenLayout={openLayoutPanel}
+          onOpenDataLibrary={openDataQueryPanel}
+          onOpenInsertPanel={openInsertPanel}
+          onBringForward={bringSelectionForward}
           onDuplicateSelection={duplicateSelectedItem}
           onDeleteSelection={deleteSelectedItem}
-          onAddPage={() => addPage()}
+          onAddPage={addCanvasPage}
           onSetActivePage={setActivePageId}
           onUpdateTileLayout={updateTileLayout}
-          onUpdateTileTitle={(tileId, title) => updateTile(tileId, { title })}
-          onUpdateTileAppearance={(tileId, updates) => {
-            const tile = activePage.tiles.find((item) => item.id === tileId);
-            if (tile) updateTile(tileId, { appearance: { ...tile.appearance, ...updates } });
-          }}
+          onUpdateTileTitle={updateCanvasTileTitle}
+          onUpdateTileAppearance={updateCanvasTileAppearance}
           onUpdateElementLayout={updateElementLayout}
-          renderTile={(tile, selected, onSelect, onTitleChange, onTitleAppearanceChange) => (
-            <TileRenderer
-              tile={tile}
-              selected={selected}
-              onSelect={onSelect}
-              onTitleChange={onTitleChange}
-              onTitleAppearanceChange={onTitleAppearanceChange}
-            />
-          )}
-          renderElement={(element, selected, onSelect) => <CanvasElementRenderer element={element} selected={selected} onSelect={onSelect} />}
+          renderTile={renderCanvasTile}
+          renderElement={renderCanvasElement}
         />
 
         <BuilderInspector
