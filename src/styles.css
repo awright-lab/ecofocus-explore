@@ -10131,19 +10131,27 @@ h2 {
 }
 
 .canvas-toolbar > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid rgba(216, 226, 232, 0.82);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
   color: #65736b;
+  padding: 0 10px;
   font-size: 0.74rem;
   font-weight: 800;
+  box-shadow: 0 7px 18px rgba(34, 42, 54, 0.055);
 }
 
 .zoom-control {
   flex-wrap: nowrap;
   justify-content: center;
-  border: 1px solid #dfe3ea;
-  border-radius: 10px;
-  padding: 3px 6px;
-  background: #ffffff;
-  box-shadow: 0 8px 18px rgba(34, 42, 54, 0.06);
+  border: 1px solid rgba(216, 226, 232, 0.88);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 22px rgba(34, 42, 54, 0.07);
 }
 
 .zoom-control input {
@@ -10174,10 +10182,19 @@ h2 {
   min-height: 40px;
   border: 1px solid #d8e1e7;
   border-radius: 16px;
-  padding: 5px 7px 5px 10px;
+  padding: 5px 7px 5px 11px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 14px 32px rgba(25, 33, 45, 0.12);
   backdrop-filter: blur(12px);
+}
+
+.floating-format-bar:not(.has-selection) {
+  gap: 8px;
+  min-height: 36px;
+  border-color: rgba(213, 225, 231, 0.76);
+  padding: 4px 6px 4px 10px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(25, 33, 45, 0.075);
 }
 
 .floating-format-bar.has-selection {
@@ -10210,10 +10227,22 @@ h2 {
   white-space: nowrap;
 }
 
+.floating-format-bar:not(.has-selection) .floating-format-bar__context {
+  min-width: 92px;
+}
+
+.floating-format-bar:not(.has-selection) .floating-format-bar__context strong {
+  max-width: 132px;
+}
+
 .floating-format-bar__divider {
   width: 1px;
   height: 22px;
   background: #e3e7ef;
+}
+
+.floating-format-bar:not(.has-selection) .floating-format-bar__divider {
+  display: none;
 }
 
 .floating-format-bar button {
@@ -10229,8 +10258,32 @@ h2 {
   background: #f1f4f8;
 }
 
+.floating-format-bar button.primary-action {
+  border-color: rgba(0, 128, 115, 0.24);
+  background: linear-gradient(135deg, #007f72, #00a98f);
+  color: #ffffff;
+  box-shadow: 0 9px 18px rgba(0, 127, 114, 0.16);
+}
+
+.floating-format-bar button.primary-action:hover:not(:disabled) {
+  background: linear-gradient(135deg, #006f65, #008f7e);
+  color: #ffffff;
+}
+
+.floating-format-bar button.danger-action {
+  color: #994143;
+}
+
+.floating-format-bar button.danger-action:hover:not(:disabled) {
+  background: #fff1f1;
+  color: #8b2f32;
+}
+
 .floating-format-bar small {
+  border-radius: 999px;
+  background: rgba(240, 246, 244, 0.82);
   color: #68766e;
+  padding: 6px 9px;
   font-size: 0.74rem;
   font-weight: 750;
 }
@@ -13387,6 +13440,11 @@ button:active:not(:disabled) {
   box-shadow: 0 16px 38px rgba(25, 33, 45, 0.13);
 }
 
+.floating-format-bar:not(.has-selection) {
+  border-color: rgba(207, 221, 229, 0.7);
+  box-shadow: 0 10px 24px rgba(25, 33, 45, 0.075);
+}
+
 .floating-format-bar.has-selection {
   border-color: rgba(0, 139, 137, 0.28);
   box-shadow: 0 18px 40px rgba(17, 90, 72, 0.17);
@@ -13395,6 +13453,16 @@ button:active:not(:disabled) {
 .floating-format-bar button:hover:not(:disabled) {
   background: #eef8f7;
   color: #007a73;
+}
+
+.floating-format-bar button.primary-action,
+.floating-format-bar button.primary-action:hover:not(:disabled) {
+  color: #ffffff;
+}
+
+.floating-format-bar button.danger-action:hover:not(:disabled) {
+  background: #fff1f1;
+  color: #8b2f32;
 }
 
 .multi-selection-canvas-bounds {

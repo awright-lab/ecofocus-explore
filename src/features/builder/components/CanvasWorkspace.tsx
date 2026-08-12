@@ -413,18 +413,18 @@ export function CanvasWorkspace({
           <span>{hasSelection ? "Editing" : "Canvas"}</span>
           <strong>{selectedObjectLabel}</strong>
         </div>
-        <button type="button" onClick={onOpenPageDesign}>Page design</button>
+        <button type="button" className="page-action" onClick={onOpenPageDesign}>Page design</button>
         <span className="floating-format-bar__divider" />
         {hasSelection ? (
           <div className="selection-action-group" aria-label="Selected object actions">
-            <button type="button" onClick={onOpenFormat}>Format</button>
+            <button type="button" className="primary-action" onClick={onOpenFormat}>Format</button>
             <button type="button" onClick={onOpenLayout}>Position</button>
             <button type="button" onClick={onBringForward}>Front</button>
             <button type="button" onClick={onDuplicateSelection}>Duplicate</button>
-            <button type="button" onClick={onDeleteSelection}>Delete</button>
+            <button type="button" className="danger-action" onClick={onDeleteSelection}>Delete</button>
           </div>
         ) : (
-          <small>Select an object for quick actions</small>
+          <small>Select an object to format it</small>
         )}
       </div>
       {outcomeMode && (
