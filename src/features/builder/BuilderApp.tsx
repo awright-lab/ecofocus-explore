@@ -1008,6 +1008,9 @@ export default function BuilderApp() {
     const tile = activePage.tiles.find((item) => item.id === tileId);
     if (tile) updateTile(tileId, { appearance: { ...tile.appearance, ...updates } });
   }, [activePage.tiles, updateTile]);
+  const toggleCanvasGrid = useCallback(() => {
+    updateActivePage({ showCanvasGrid: !activePage.showCanvasGrid });
+  }, [activePage.showCanvasGrid, updateActivePage]);
   const renderCanvasTile = useCallback((
     tile: DashboardTile,
     selected: boolean,
@@ -1213,7 +1216,7 @@ export default function BuilderApp() {
           onBackToWorkspace={openWorkspaceHome}
           onRenameDashboard={renameDashboard}
           onZoomChange={updateCanvasZoom}
-          onToggleCanvasGrid={() => updateActivePage({ showCanvasGrid: !activePage.showCanvasGrid })}
+          onToggleCanvasGrid={toggleCanvasGrid}
           selectionLabel={workspaceSelectionLabel}
         />
         <AnalysisAuthoringPanel

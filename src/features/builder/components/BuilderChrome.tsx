@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import {
   Atom,
   Bell,
@@ -144,7 +144,7 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
   return <Icon className="chrome-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
-export function BuilderHeader({
+export const BuilderHeader = memo(function BuilderHeader({
   dashboard,
   activeProductMode,
   setActiveProductMode,
@@ -179,10 +179,10 @@ export function BuilderHeader({
   onPublish: () => void;
   onUnpublish: () => void;
 }) {
-  const readiness = buildPublishReadinessView(dashboard);
-  const exportContext = buildExportPackageContextView(dashboard, readiness);
+  const readiness = useMemo(() => buildPublishReadinessView(dashboard), [dashboard]);
+  const exportContext = useMemo(() => buildExportPackageContextView(dashboard, readiness), [dashboard, readiness]);
   const [exportConfirmation, setExportConfirmation] = useState<ExportPackageConfirmationView | null>(null);
-  const activeOutcomeMode = outcomeModeView(activeProductMode);
+  const activeOutcomeMode = useMemo(() => outcomeModeView(activeProductMode), [activeProductMode]);
 
   useEffect(() => {
     if (!exportConfirmation) return undefined;
@@ -265,9 +265,11 @@ export function BuilderHeader({
       )}
     </header>
   );
-}
+});
 
-export function WorkspaceModeStrip({
+const zoomOptions = Array.from({ length: 26 }, (_, index) => 35 + index * 5);
+
+export const WorkspaceModeStrip = memo(function WorkspaceModeStrip({
   pageTitle,
   saveState,
   canvasZoom,
@@ -288,7 +290,7 @@ export function WorkspaceModeStrip({
   onToggleCanvasGrid: () => void;
   selectionLabel: string;
 }) {
-  const saveStateView = buildDocumentSaveStateView(saveState);
+  const saveStateView = useMemo(() => buildDocumentSaveStateView(saveState), [saveState]);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(pageTitle);
 
@@ -360,7 +362,7 @@ export function WorkspaceModeStrip({
         <button type="button" title="Zoom out" onClick={() => onZoomChange(canvasZoom - 10)}><ChromeIcon icon="zoomOut" /></button>
         <label className="workspace-zoom-select" aria-label="Canvas zoom">
           <select value={canvasZoom} onChange={(event) => onZoomChange(Number(event.target.value))}>
-            {Array.from({ length: 26 }, (_, index) => 35 + index * 5).map((zoom) => (
+            {zoomOptions.map((zoom) => (
               <option value={zoom} key={zoom}>{zoom}%</option>
             ))}
           </select>
@@ -370,7 +372,7 @@ export function WorkspaceModeStrip({
       </div>
     </div>
   );
-}
+});
 
 export function ToolRail({
   activeView,
