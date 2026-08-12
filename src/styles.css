@@ -12727,13 +12727,14 @@ code {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  border: 1px solid #dce4ea;
-  border-radius: 10px;
-  background: #ffffff;
-  padding: 6px 10px;
-  box-shadow: 0 10px 24px rgba(28, 41, 53, 0.06);
+  gap: 14px;
+  min-height: 54px;
+  border: 1px solid rgba(216, 226, 234, 0.92);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 7px 12px;
+  box-shadow: 0 14px 30px rgba(28, 41, 53, 0.075);
+  backdrop-filter: blur(12px);
 }
 
 .slide-nav-controls,
@@ -12745,10 +12746,53 @@ code {
   min-width: 0;
 }
 
+.slide-nav-controls,
+.canvas-bottom-tools {
+  position: relative;
+}
+
+.slide-nav-controls::after,
+.canvas-bottom-tools::before {
+  content: "";
+  width: 1px;
+  height: 26px;
+  background: rgba(216, 226, 234, 0.92);
+}
+
+.slide-nav-controls::after {
+  margin-left: 4px;
+}
+
+.canvas-bottom-tools::before {
+  margin-right: 4px;
+}
+
 .slide-nav-controls strong {
-  color: #273843;
-  font-size: 0.78rem;
+  color: #172b36;
+  font-size: 0.8rem;
+  font-weight: 850;
   white-space: nowrap;
+}
+
+.canvas-bottom-bar .slide-nav-controls .icon-button {
+  width: 34px;
+  height: 34px;
+  border-color: rgba(208, 221, 230, 0.95);
+  background: #ffffff;
+  color: #52626f;
+  box-shadow: 0 8px 18px rgba(28, 41, 53, 0.07);
+}
+
+.canvas-bottom-bar .slide-nav-controls .icon-button:hover:not(:disabled) {
+  border-color: rgba(0, 139, 137, 0.22);
+  background: #eef8f7;
+  color: #007a73;
+  box-shadow: 0 10px 22px rgba(0, 139, 137, 0.1);
+}
+
+.canvas-bottom-bar .slide-nav-controls .icon-button:disabled {
+  opacity: 0.46;
+  box-shadow: none;
 }
 
 .canvas-insert-actions {
@@ -12761,21 +12805,22 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 30px;
+  gap: 6px;
+  min-height: 32px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
-  color: #2f3f49;
-  padding: 0 8px;
+  color: #31434d;
+  padding: 0 9px;
   font-size: 0.76rem;
-  font-weight: 800;
+  font-weight: 850;
   white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
 .canvas-action-icon {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   color: currentColor;
 }
@@ -12787,7 +12832,10 @@ code {
 
 .canvas-insert-actions button:hover,
 .canvas-bottom-tools button:hover {
-  background: #f2f5f7;
+  background: #eef8f7;
+  color: #007a73;
+  box-shadow: inset 0 0 0 1px rgba(0, 139, 137, 0.12);
+  transform: translateY(-1px);
 }
 
 .text-element {
