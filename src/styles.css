@@ -3796,29 +3796,30 @@ h2 {
   bottom: 0;
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 5px;
   width: 60px;
   border-left: 1px solid rgba(217, 226, 233, 0.92);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 252, 0.96)),
     #ffffff;
-  padding: 58px 6px 12px;
+  padding: 56px 6px 12px;
 }
 
 .assistant-side-rail button {
+  position: relative;
   display: grid;
   place-items: center;
   gap: 4px;
-  min-height: 50px;
-  border: 0;
-  border-radius: 14px;
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 13px;
   background: transparent;
   color: #34434e;
   padding: 6px 2px;
   font-size: 0.55rem;
   font-weight: 850;
   line-height: 1.05;
-  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
 }
 
 .assistant-side-rail button span {
@@ -3829,14 +3830,35 @@ h2 {
 }
 
 .assistant-rail-icon {
-  width: 19px;
-  height: 19px;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9;
+}
+
+.assistant-side-rail__outcome {
+  margin-top: 8px;
+}
+
+.assistant-side-rail__outcome::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: rgba(215, 226, 233, 0.9);
 }
 
 .assistant-side-rail button.active,
 .assistant-side-rail button:hover {
+  border-color: rgba(0, 139, 137, 0.18);
   background: rgba(238, 249, 248, 0.96);
   color: #08715f;
+  box-shadow: 0 8px 18px rgba(0, 139, 137, 0.08);
+}
+
+.assistant-side-rail button:hover:not(:disabled) {
+  transform: translateX(-1px);
 }
 
 .assistant-side-rail button:disabled {
@@ -13524,8 +13546,9 @@ button:active:not(:disabled) {
 
 .assistant-side-rail button:hover,
 .assistant-side-rail button.active {
+  border-color: rgba(0, 139, 137, 0.18);
   background: #eef9f8;
-  box-shadow: inset 3px 0 0 #008b89;
+  box-shadow: 0 8px 18px rgba(0, 139, 137, 0.08);
 }
 
 .assistant-side-rail button:disabled:hover {

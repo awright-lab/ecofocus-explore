@@ -801,7 +801,10 @@ export function BuilderInspector(props: BuilderInspectorProps) {
             {assistantRailItems.map((item) => (
               <button
                 type="button"
-                className={item.active ? "active" : ""}
+                className={[
+                  item.active ? "active" : "",
+                  item.id === "data" || item.id === "insight" ? "assistant-side-rail__outcome" : ""
+                ].filter(Boolean).join(" ")}
                 key={item.id}
                 disabled={item.disabled}
                 title={item.helper}
