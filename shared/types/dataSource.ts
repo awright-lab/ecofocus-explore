@@ -20,6 +20,7 @@ export type LiveDatasetFieldRole = "unmodeled" | "dimension" | "measure" | "date
 export type LiveDatasetQueryDefinitionKind = "categorical" | "measure";
 export type LiveDatasetQueryDefinitionMetric = "count" | "percent" | "average" | "sum";
 export type LiveDatasetQueryDefinitionStatus = "definition_ready" | "execution_pending" | "unsupported";
+export type LiveDatasetQueryExecutionStatus = "executed" | "unsupported" | "failed";
 
 export interface DatasetConnectionProfile {
   id: string;
@@ -137,4 +138,45 @@ export interface LiveDatasetSourceInspectionReport {
   fields: LiveDatasetFieldDescriptor[];
   diagnostics: string[];
   nextStep: string;
+}
+
+export interface LiveDatasetQueryExecutionRequest {
+  provider: DatasetConnectionProfile["provider"];
+  connectionId: string;
+  source: LiveDatasetSourceDescriptor;
+  definition: LiveDatasetQueryDefinition;
+  limit?: number;
+}
+
+export interface LiveDatasetQueryExecutionResultRow {
+  id: string;
+  label: string;
+  values: Record<string, number>;
+  bases: Record<string, number>;
+}
+
+export interface LiveDatasetQueryExecutionResult {
+  columns: Array<{ id: string; label: string }>;
+  rows: LiveDatasetQueryExecutionResultRow[];
+  metric: {
+    id: LiveDatasetQueryDefinitionMetric;
+    label: string;
+    valueFormat: "number" | "percent";
+  };
+  rowCount: number;
+  totalBase: number;
+  truncated: boolean;
+  generatedAt: string;
+}
+
+export interface LiveDatasetQueryExecutionReport {
+  provider: DatasetConnectionProfile["provider"];
+  connectionId: string;
+  sourceRefId: string;
+  definitionId: string;
+  status: LiveDatasetQueryExecutionStatus;
+  statusLabel: string;
+  diagnostics: string[];
+  nextStep: string;
+  result: LiveDatasetQueryExecutionResult | null;
 }

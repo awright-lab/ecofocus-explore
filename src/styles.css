@@ -1355,7 +1355,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
   border: 1px solid rgba(216, 227, 235, 0.84);
   border-radius: 12px;
   background: #ffffff;
@@ -1373,6 +1373,82 @@ textarea {
   color: #7a8994;
   font-size: 0.58rem;
   font-style: normal;
+  font-weight: 760;
+}
+
+.workspace-live-query-definition-actions {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.workspace-live-definition-preview {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  border: 1px solid rgba(216, 227, 235, 0.86);
+  border-radius: 12px;
+  background: #f8fbfc;
+  padding: 8px;
+}
+
+.workspace-live-definition-preview.executed {
+  border-color: rgba(16, 154, 134, 0.22);
+  background: linear-gradient(135deg, rgba(239, 253, 249, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.workspace-live-definition-preview.failed,
+.workspace-live-definition-preview.unsupported {
+  border-color: rgba(211, 148, 43, 0.24);
+  background: #fffaf0;
+}
+
+.workspace-live-definition-preview div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.workspace-live-definition-preview div span {
+  color: #64727c;
+  font-size: 0.58rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.workspace-live-definition-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.workspace-live-definition-preview th,
+.workspace-live-definition-preview td {
+  border-top: 1px solid rgba(216, 227, 235, 0.72);
+  padding: 5px 0;
+  color: #172430;
+  font-size: 0.6rem;
+}
+
+.workspace-live-definition-preview th {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-live-definition-preview td {
+  width: 72px;
+  color: #00796d;
+  font-weight: 900;
+  text-align: right;
+}
+
+.workspace-live-definition-preview p {
+  margin: 0;
+  color: #64727c;
+  font-size: 0.58rem;
   font-weight: 760;
 }
 

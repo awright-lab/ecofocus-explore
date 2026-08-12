@@ -4,6 +4,7 @@ import type {
   DatasetConnectionProfile,
   DatasetConnectionVerificationReport,
   LiveDatasetFieldDescriptor,
+  LiveDatasetQueryExecutionReport,
   LiveDatasetSourceDescriptor,
   LiveDatasetSourceInspectionReport
 } from "../../../shared/types/dataSource";
@@ -156,6 +157,12 @@ function isSourceInspectionError(
   return "error" in payload || !("status" in payload);
 }
 
+function isLiveQueryExecutionError(
+  payload: LiveDatasetQueryExecutionReport | { error?: string; details?: string[] }
+): payload is { error?: string; details?: string[] } {
+  return "error" in payload || !("status" in payload);
+}
+
 export function WorkspaceHome({
   workspace,
   onWorkspaceChange
@@ -171,6 +178,8 @@ export function WorkspaceHome({
   const [connectionVerification, setConnectionVerification] = useState<DatasetConnectionVerificationReport | null>(null);
   const [isVerifyingConnection, setIsVerifyingConnection] = useState(false);
   const [inspectingLiveSourceId, setInspectingLiveSourceId] = useState<string | null>(null);
+  const [runningLiveDefinitionId, setRunningLiveDefinitionId] = useState<string | null>(null);
+  const [liveDefinitionPreview, setLiveDefinitionPreview] = useState<LiveDatasetQueryExecutionReport | null>(null);
   const [editingLiveSourceId, setEditingLiveSourceId] = useState<string | null>(null);
   const [liveSourceDraft, setLiveSourceDraft] = useState({
     label: "",
@@ -542,6 +551,63 @@ export function WorkspaceHome({
     onWorkspaceChange(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setImportFeedback({ tone: "success", label: `${source.label}: live query definition removed.` });
+  }
+
+  async function runLiveSourceQueryDefinition(source: LiveDatasetSourceDescriptor, definitionId: string) {
+    const definition = (source.queryDefinitions ?? []).find((item) => item.id === definitionId);
+    if (!definition) return;
+    setRunningLiveDefinitionId(definition.id);
+    setLiveDefinitionPreview(null);
+    setImportFeedback(null);
+    try {
+      const response = await fetch("/.netlify/functions/live-dataset-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source,
+          definition,
+          limit: 50
+        })
+      });
+      const payload = await response.json() as LiveDatasetQueryExecutionReport | { error?: string; details?: string[] };
+      const report: LiveDatasetQueryExecutionReport = !response.ok || isLiveQueryExecutionError(payload)
+        ? {
+            provider: source.sourceRef.provider as DatasetConnectionProfile["provider"],
+            connectionId: source.connectionId,
+            sourceRefId: source.sourceRef.id,
+            definitionId: definition.id,
+            status: "failed",
+            statusLabel: isLiveQueryExecutionError(payload) ? payload.error ?? "Live query failed" : "Live query failed",
+            diagnostics: isLiveQueryExecutionError(payload) ? payload.details ?? ["The live query failed."] : ["The live query failed."],
+            nextStep: "Check Netlify function logs, server credentials, and the saved definition.",
+            result: null
+          }
+        : payload;
+
+      setLiveDefinitionPreview(report);
+      setImportFeedback({
+        tone: report.status === "executed" ? "success" : "error",
+        label:
+          report.status === "executed"
+            ? `${definition.label}: live preview returned ${report.result?.rowCount.toLocaleString() ?? "0"} groups.`
+            : `${definition.label}: ${report.statusLabel.toLowerCase()}.`
+      });
+    } catch (error) {
+      setLiveDefinitionPreview({
+        provider: source.sourceRef.provider as DatasetConnectionProfile["provider"],
+        connectionId: source.connectionId,
+        sourceRefId: source.sourceRef.id,
+        definitionId: definition.id,
+        status: "failed",
+        statusLabel: "Live query unavailable",
+        diagnostics: [error instanceof Error ? error.message : "The live query function could not be reached."],
+        nextStep: "Run through Netlify Dev or deploy the live query function before previewing saved definitions.",
+        result: null
+      });
+      setImportFeedback({ tone: "error", label: `${definition.label}: live query unavailable.` });
+    } finally {
+      setRunningLiveDefinitionId(null);
+    }
   }
 
   return (
@@ -1032,20 +1098,53 @@ export function WorkspaceHome({
                                   <div className="workspace-live-query-definition-list" aria-label={`${source.label} saved live query definitions`}>
                                     {queryDefinitions.map((definition) => {
                                       const definitionReadiness = buildLiveDatasetQueryDefinitionReadiness(source, definition);
+                                      const preview = liveDefinitionPreview?.definitionId === definition.id ? liveDefinitionPreview : null;
                                       return (
                                         <article className={`workspace-live-query-definition-row ${definitionReadiness.tone}`} key={definition.id}>
                                           <div>
                                             <strong>{definition.label}</strong>
                                             <small>{liveDatasetQueryDefinitionSummary(definition)}</small>
                                             <em>{definitionReadiness.reason}</em>
+                                            {preview && (
+                                              <section className={`workspace-live-definition-preview ${preview.status}`}>
+                                                <div>
+                                                  <strong>{preview.statusLabel}</strong>
+                                                  <span>{preview.result ? `${preview.result.metric.label} · base ${preview.result.totalBase.toLocaleString()}` : "No result preview"}</span>
+                                                </div>
+                                                {preview.result && preview.result.rows.length > 0 && (
+                                                  <table>
+                                                    <tbody>
+                                                      {preview.result.rows.slice(0, 5).map((row) => (
+                                                        <tr key={row.id}>
+                                                          <th scope="row">{row.label}</th>
+                                                          <td>{(row.values.summary ?? 0).toLocaleString()}</td>
+                                                        </tr>
+                                                      ))}
+                                                    </tbody>
+                                                  </table>
+                                                )}
+                                                <p>{preview.diagnostics[0] ?? preview.nextStep}</p>
+                                                {preview.status !== "executed" && <p>{preview.nextStep}</p>}
+                                              </section>
+                                            )}
                                           </div>
-                                          <button
-                                            type="button"
-                                            className="workspace-home-secondary compact danger"
-                                            onClick={() => deleteLiveSourceQueryDefinition(source, definition.id)}
-                                          >
-                                            Remove
-                                          </button>
+                                          <div className="workspace-live-query-definition-actions">
+                                            <button
+                                              type="button"
+                                              className="workspace-home-secondary compact"
+                                              onClick={() => runLiveSourceQueryDefinition(source, definition.id)}
+                                              disabled={runningLiveDefinitionId === definition.id}
+                                            >
+                                              {runningLiveDefinitionId === definition.id ? "Running..." : "Run preview"}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="workspace-home-secondary compact danger"
+                                              onClick={() => deleteLiveSourceQueryDefinition(source, definition.id)}
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
                                         </article>
                                       );
                                     })}
