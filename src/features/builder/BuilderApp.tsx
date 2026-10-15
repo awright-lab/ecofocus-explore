@@ -1,4 +1,29 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PublishedCanvas } from "./components/PublishedCanvas";
+import {
+  Database,
+  FileText,
+  Layers,
+  Palette,
+  Plus,
+  Presentation,
+  Type,
+  X,
+} from "lucide-react";
+import {
+  StudioCommandMenu,
+  StudioHelp,
+  StudioRail,
+  type StudioCommand,
+} from "./components/StudioTools";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   axisFontSizePresets,
   bannerDimensions,
@@ -14,7 +39,13 @@ import {
 } from "./builderConstants";
 import { downloadDashboardExportSpec } from "./builderExportPackage";
 import type { CoreExportTarget } from "../export/coreDocumentExports";
-import { BuilderHeader, BuilderPanel, WorkspaceModeStrip, outcomeModeView, type WorkspaceProductMode } from "./components/BuilderChrome";
+import {
+  BuilderHeader,
+  BuilderPanel,
+  WorkspaceModeStrip,
+  outcomeModeView,
+  type WorkspaceProductMode,
+} from "./components/BuilderChrome";
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
 import type { GuidedDataQueryLaunchOptions } from "./components/AnalysisAuthoringPanel";
@@ -28,7 +59,12 @@ import {
   tileSourceKindLabel,
 } from "./components/CanvasRenderers";
 import { CanvasWorkspace } from "./components/CanvasWorkspace";
-import { defaultVisualizationForQuestion, getChartTypeLabel, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
+import {
+  defaultVisualizationForQuestion,
+  getChartTypeLabel,
+  getCompatibleChartTypes,
+  getQuestionLabel,
+} from "../analytics/analyticsDisplay";
 import { useAnalysisAuthoring } from "../analytics/useAnalysisAuthoring";
 import { useBuilderDocumentSessionCommands } from "./hooks/useBuilderDocumentSessionCommands";
 import { useEditorSessionState } from "./hooks/useEditorSessionState";
@@ -55,7 +91,7 @@ import {
   stripHexAlpha,
   svgLinearGradientVector,
   themePreviewBackground,
-  hsvToRgb
+  hsvToRgb,
 } from "./builderHelpers";
 import {
   defaultVariableSetRows,
@@ -79,7 +115,7 @@ import {
   saveDashboardWorkspace,
   updateWorkspaceImportedDatasetField,
   upsertWorkspaceImportedDataset,
-  upsertDraftReport
+  upsertDraftReport,
 } from "../document/workspacePersistence";
 import type {
   AnalysisLibraryView,
@@ -88,7 +124,7 @@ import type {
   LayerItem,
   LeftPanelView,
   SettingsView,
-  SourceLibraryView
+  SourceLibraryView,
 } from "./builderTypes";
 import type {
   AnalyticsQueryRequest,
@@ -100,7 +136,7 @@ import type {
   FilterFieldId,
   Metric,
   QuestionId,
-  WeightId
+  WeightId,
 } from "../../../shared/types/analytics";
 import type {
   DashboardDraft,
@@ -118,25 +154,41 @@ import type {
 import type { LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
 
 const BuilderDesignModal = lazy(() =>
-  import("./components/BuilderDesignModal").then((module) => ({ default: module.BuilderDesignModal }))
+  import("./components/BuilderDesignModal").then((module) => ({
+    default: module.BuilderDesignModal,
+  })),
 );
 const GuidedDataQueryModal = lazy(() =>
-  import("./components/GuidedDataQueryModal").then((module) => ({ default: module.GuidedDataQueryModal }))
+  import("./components/GuidedDataQueryModal").then((module) => ({
+    default: module.GuidedDataQueryModal,
+  })),
 );
 
 export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
   const [workspace, setWorkspace] = useState(() => loadDashboardWorkspace());
   const initialRoute = parseWorkspaceRoute();
-  const initialReport = findReport(workspace, initialRoute.reportId) ?? findReport(workspace, workspace.activeReportId) ?? workspace.reports[0];
+  const initialReport =
+    findReport(workspace, initialRoute.reportId) ??
+    findReport(workspace, workspace.activeReportId) ??
+    workspace.reports[0];
   const initialPublishedSnapshot =
     initialRoute.mode === "published"
-      ? findPublishedSnapshot(workspace, initialRoute.reportId ?? initialReport.id, initialRoute.snapshotId)
+      ? findPublishedSnapshot(
+          workspace,
+          initialRoute.reportId ?? initialReport.id,
+          initialRoute.snapshotId,
+        )
       : null;
-  const [activeReportId, setActiveReportId] = useState(initialPublishedSnapshot?.reportId ?? initialReport.id);
-  const [publishedSnapshot, setPublishedSnapshot] = useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
+  const [activeReportId, setActiveReportId] = useState(
+    initialPublishedSnapshot?.reportId ?? initialReport.id,
+  );
+  const [publishedSnapshot, setPublishedSnapshot] =
+    useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
   const [dashboard, setDashboardState] = useState<DashboardDraft>(() =>
-    initialPublishedSnapshot ? initialPublishedSnapshot.dashboard : normalizeDashboard(initialReport.draft)
+    initialPublishedSnapshot
+      ? initialPublishedSnapshot.dashboard
+      : normalizeDashboard(initialReport.draft),
   );
   const {
     history,
@@ -196,23 +248,89 @@ export default function BuilderApp() {
     isLoading,
     setIsLoading,
     error,
-    setError
+    setError,
   } = useEditorSessionState();
-  const [activeProductMode, setActiveProductMode] = useState<WorkspaceProductMode>("story");
-  const [guidedDataQuery, setGuidedDataQuery] = useState<Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> & Omit<GuidedDataQueryLaunchOptions, "outputMode"> | null>(null);
+  const [activeProductMode, setActiveProductMode] =
+    useState<WorkspaceProductMode>("story");
+  const [guidedDataQuery, setGuidedDataQuery] = useState<
+    | (Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> &
+        Omit<GuidedDataQueryLaunchOptions, "outputMode">)
+    | null
+  >(null);
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [inspectorPinned, setInspectorPinned] = useState(false);
+  const [hiddenInspectorSelection, setHiddenInspectorSelection] = useState<
+    string | null
+  >(null);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [fitRequest, setFitRequest] = useState(0);
+  const selectionKey =
+    selectedTileId ??
+    selectedElementId ??
+    (multiSelectedObjects.length
+      ? multiSelectedObjects.map((item) => item.id).join(":")
+      : null);
+  const inspectorOpen =
+    inspectorPinned ||
+    Boolean(selectionKey && hiddenInspectorSelection !== selectionKey);
   const activeOutcomeMode = outcomeModeView(activeProductMode);
+  const changePanel = useCallback(
+    (view: LeftPanelView) => {
+      setLeftPanelView(view);
+      setLeftOpen(true);
+    },
+    [setLeftPanelView],
+  );
+  function chooseTool(view: LeftPanelView) {
+    setLeftOpen((current) => (leftPanelView === view ? !current : true));
+    setLeftPanelView(view);
+  }
+  function changeProductMode(mode: WorkspaceProductMode) {
+    setActiveProductMode(mode);
+    if (mode === "data") changePanel("data");
+    else if (mode === "design") changePanel("brand");
+    else {
+      setLeftOpen(false);
+      if (mode === "story") setInspectorPinned(false);
+    }
+  }
+  function toggleInspector() {
+    if (inspectorOpen) {
+      setInspectorPinned(false);
+      setHiddenInspectorSelection(selectionKey);
+    } else {
+      setInspectorPinned(true);
+      setHiddenInspectorSelection(null);
+    }
+  }
+  useEffect(() => {
+    function handleCommand(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((current) => !current);
+      }
+    }
+    window.addEventListener("keydown", handleCommand);
+    return () => window.removeEventListener("keydown", handleCommand);
+  }, []);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
   const workspaceLiveDatasetSources = useMemo<LiveDatasetSourceDescriptor[]>(
     () => [...(workspace.liveDatasetSources ?? [])],
-    [workspace.liveDatasetSources]
+    [workspace.liveDatasetSources],
   );
   const workspaceImportedDatasets = useMemo(() => {
     const importedDatasetMap = new Map([
-      ...dashboard.importedDatasets.map((dataset) => [dataset.id, dataset] as const),
-      ...(workspace.importedDatasets ?? []).map((dataset) => [dataset.id, dataset] as const)
+      ...dashboard.importedDatasets.map(
+        (dataset) => [dataset.id, dataset] as const,
+      ),
+      ...(workspace.importedDatasets ?? []).map(
+        (dataset) => [dataset.id, dataset] as const,
+      ),
     ]);
     return Array.from(importedDatasetMap.values()).sort(
-      (a, b) => new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime()
+      (a, b) =>
+        new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime(),
     );
   }, [dashboard.importedDatasets, workspace.importedDatasets]);
   const designPalettes = dashboard.designLibrary.palettes;
@@ -224,25 +342,37 @@ export default function BuilderApp() {
   const pageThemes = dashboard.designLibrary.pageThemes;
   const pageTemplates = dashboard.designLibrary.pageTemplates;
   const pageMasters = dashboard.designLibrary.pageMasters;
-  const sortedPages = useMemo(() => [...dashboard.pages].sort((a, b) => a.order - b.order), [dashboard.pages]);
+  const sortedPages = useMemo(
+    () => [...dashboard.pages].sort((a, b) => a.order - b.order),
+    [dashboard.pages],
+  );
   const activePage = useMemo(
-    () => sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0],
-    [activePageId, sortedPages]
+    () =>
+      sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0],
+    [activePageId, sortedPages],
   );
   const selectedTile = useMemo(
     () => activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null,
-    [activePage?.tiles, selectedTileId]
+    [activePage?.tiles, selectedTileId],
   );
   const selectedElement = useMemo(
-    () => activePage?.elements.find((element) => element.id === selectedElementId) ?? null,
-    [activePage?.elements, selectedElementId]
+    () =>
+      activePage?.elements.find(
+        (element) => element.id === selectedElementId,
+      ) ?? null,
+    [activePage?.elements, selectedElementId],
   );
   const activeMultiSelectedObjects = useMemo(() => {
     const tileIds = new Set(activePage.tiles.map((tile) => tile.id));
-    const elementIds = new Set(activePage.elements.map((element) => element.id));
-    return multiSelectedObjects.filter((item) => (item.type === "tile" ? tileIds.has(item.id) : elementIds.has(item.id)));
+    const elementIds = new Set(
+      activePage.elements.map((element) => element.id),
+    );
+    return multiSelectedObjects.filter((item) =>
+      item.type === "tile" ? tileIds.has(item.id) : elementIds.has(item.id),
+    );
   }, [activePage.elements, activePage.tiles, multiSelectedObjects]);
-  const selectedTextElement = selectedElement?.type === "text" ? selectedElement : null;
+  const selectedTextElement =
+    selectedElement?.type === "text" ? selectedElement : null;
   const workspaceSelectionLabel = useMemo(
     () =>
       activeMultiSelectedObjects.length > 0
@@ -252,48 +382,73 @@ export default function BuilderApp() {
           : selectedElement
             ? `Editing ${selectedElement.type} element: ${selectedElement.name}`
             : "No object selected",
-    [activeMultiSelectedObjects.length, selectedElement, selectedTile]
+    [activeMultiSelectedObjects.length, selectedElement, selectedTile],
   );
   const selectedTileQuestion = useMemo(
-    () => selectedTile ? defaultDataset.questions.find((item) => item.id === selectedTile.query.question) ?? defaultQuestion : null,
-    [selectedTile]
+    () =>
+      selectedTile
+        ? (defaultDataset.questions.find(
+            (item) => item.id === selectedTile.query.question,
+          ) ?? defaultQuestion)
+        : null,
+    [selectedTile],
   );
   const selectedTileFilterDimension = useMemo(
-    () => selectedTile?.query.filters[0]?.field ? filterDimensions.find((item) => item.id === selectedTile.query.filters[0]?.field) : undefined,
-    [selectedTile]
+    () =>
+      selectedTile?.query.filters[0]?.field
+        ? filterDimensions.find(
+            (item) => item.id === selectedTile.query.filters[0]?.field,
+          )
+        : undefined,
+    [selectedTile],
   );
   const chartStyleTargets = useMemo(
     () =>
-      selectedTile && ["vertical_bar", "horizontal_bar", "donut"].includes(selectedTile.visualization)
-        ? selectedTile.result.table.map((row) => ({ id: row.optionId, label: row.label }))
-        : selectedTile?.result.columns.map((column) => ({ id: column.id, label: column.label })) ?? [],
-    [selectedTile]
+      selectedTile &&
+      ["vertical_bar", "horizontal_bar", "donut"].includes(
+        selectedTile.visualization,
+      )
+        ? selectedTile.result.table.map((row) => ({
+            id: row.optionId,
+            label: row.label,
+          }))
+        : (selectedTile?.result.columns.map((column) => ({
+            id: column.id,
+            label: column.label,
+          })) ?? []),
+    [selectedTile],
   );
   const selectedChartPart = useMemo(
-    () => selectedChartPartId === "all" ? null : chartStyleTargets.find((target) => target.id === selectedChartPartId) ?? null,
-    [chartStyleTargets, selectedChartPartId]
+    () =>
+      selectedChartPartId === "all"
+        ? null
+        : (chartStyleTargets.find(
+            (target) => target.id === selectedChartPartId,
+          ) ?? null),
+    [chartStyleTargets, selectedChartPartId],
   );
   const canvasScale = canvasZoom / 100;
   const layerItems: LayerItem[] = useMemo(
-    () => [
-      ...activePage.tiles.map((tile) => ({
-        id: tile.id,
-        type: "tile" as const,
-        name: tile.name,
-        hidden: tile.hidden,
-        locked: tile.locked,
-        zIndex: tile.layout.zIndex
-      })),
-      ...activePage.elements.map((element) => ({
-        id: element.id,
-        type: "element" as const,
-        name: element.name,
-        hidden: element.hidden,
-        locked: element.locked,
-        zIndex: element.layout.zIndex
-      }))
-    ].sort((a, b) => b.zIndex - a.zIndex),
-    [activePage.elements, activePage.tiles]
+    () =>
+      [
+        ...activePage.tiles.map((tile) => ({
+          id: tile.id,
+          type: "tile" as const,
+          name: tile.name,
+          hidden: tile.hidden,
+          locked: tile.locked,
+          zIndex: tile.layout.zIndex,
+        })),
+        ...activePage.elements.map((element) => ({
+          id: element.id,
+          type: "element" as const,
+          name: element.name,
+          hidden: element.hidden,
+          locked: element.locked,
+          zIndex: element.layout.zIndex,
+        })),
+      ].sort((a, b) => b.zIndex - a.zIndex),
+    [activePage.elements, activePage.tiles],
   );
 
   function saveSelectedTileVariableSet() {
@@ -301,7 +456,8 @@ export default function BuilderApp() {
 
     const sourceQuestionIds =
       selectedTile.source?.kind === "variableSet"
-        ? savedVariableSets.find((item) => item.id === selectedTile.source?.id)?.questionIds ?? [selectedTileQuestion.id]
+        ? (savedVariableSets.find((item) => item.id === selectedTile.source?.id)
+            ?.questionIds ?? [selectedTileQuestion.id])
         : [selectedTileQuestion.id];
 
     const nextVariableSet: SavedVariableSet = {
@@ -315,7 +471,9 @@ export default function BuilderApp() {
       rowMode: "authored",
       rows:
         selectedTile.source?.kind === "variableSet"
-          ? savedVariableSets.find((item) => item.id === selectedTile.source?.id)?.rows ?? defaultVariableSetRows(selectedTileQuestion.id)
+          ? (savedVariableSets.find(
+              (item) => item.id === selectedTile.source?.id,
+            )?.rows ?? defaultVariableSetRows(selectedTileQuestion.id))
           : defaultVariableSetRows(selectedTileQuestion.id),
       breakBy: selectedTile.query.breakBy,
       metric: selectedTile.query.metric,
@@ -323,8 +481,10 @@ export default function BuilderApp() {
       comparisonMode: selectedTile.query.comparisonMode ?? "none",
       comparisonDatasets: selectedTile.query.comparisonDatasets ?? [],
       weight: selectedTile.query.weight,
-      filterField: (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ?? null,
-      filterValue: selectedTile.query.filters[0]?.values[0] ?? "all"
+      filterField:
+        (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ??
+        null,
+      filterValue: selectedTile.query.filters[0]?.values[0] ?? "all",
     };
 
     setDashboard((current) => ({
@@ -332,8 +492,11 @@ export default function BuilderApp() {
       status: "draft",
       analysisLibrary: {
         ...current.analysisLibrary,
-        variableSets: [nextVariableSet, ...current.analysisLibrary.variableSets]
-      }
+        variableSets: [
+          nextVariableSet,
+          ...current.analysisLibrary.variableSets,
+        ],
+      },
     }));
     setError(null);
   }
@@ -346,7 +509,7 @@ export default function BuilderApp() {
       datasetId: defaultDataset.id,
       label: `${selectedTile.title.trim() || "Tile"} banner`,
       description: `Saved from tile: ${bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy}`,
-      breakBy: selectedTile.query.breakBy
+      breakBy: selectedTile.query.breakBy,
     };
 
     setDashboard((current) => ({
@@ -354,8 +517,8 @@ export default function BuilderApp() {
       status: "draft",
       analysisLibrary: {
         ...current.analysisLibrary,
-        banners: [nextBanner, ...current.analysisLibrary.banners]
-      }
+        banners: [nextBanner, ...current.analysisLibrary.banners],
+      },
     }));
     setError(null);
   }
@@ -368,11 +531,14 @@ export default function BuilderApp() {
       datasetId: defaultDataset.id,
       label: `${selectedTile.title.trim() || "Tile"} filter`,
       description:
-        selectedTile.query.filters[0]?.field && selectedTile.query.filters[0]?.values[0] !== "all"
+        selectedTile.query.filters[0]?.field &&
+        selectedTile.query.filters[0]?.values[0] !== "all"
           ? `Saved from tile filter for ${filterDimensions.find((item) => item.id === selectedTile.query.filters[0]?.field)?.label ?? selectedTile.query.filters[0]?.field}`
           : "No segment filter applied.",
-      filterField: (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ?? null,
-      filterValue: selectedTile.query.filters[0]?.values[0] ?? "all"
+      filterField:
+        (selectedTile.query.filters[0]?.field as FilterFieldId | undefined) ??
+        null,
+      filterValue: selectedTile.query.filters[0]?.values[0] ?? "all",
     };
 
     setDashboard((current) => ({
@@ -380,8 +546,8 @@ export default function BuilderApp() {
       status: "draft",
       analysisLibrary: {
         ...current.analysisLibrary,
-        filters: [nextFilter, ...current.analysisLibrary.filters]
-      }
+        filters: [nextFilter, ...current.analysisLibrary.filters],
+      },
     }));
     setError(null);
   }
@@ -396,7 +562,7 @@ export default function BuilderApp() {
       description: selectedTile.query.weight
         ? `Uses ${defaultDataset.weights.find((item) => item.id === selectedTile.query.weight)?.label ?? selectedTile.query.weight}`
         : "No weight applied.",
-      weight: selectedTile.query.weight
+      weight: selectedTile.query.weight,
     };
 
     setDashboard((current) => ({
@@ -404,8 +570,8 @@ export default function BuilderApp() {
       status: "draft",
       analysisLibrary: {
         ...current.analysisLibrary,
-        weights: [nextWeight, ...current.analysisLibrary.weights]
-      }
+        weights: [nextWeight, ...current.analysisLibrary.weights],
+      },
     }));
     setError(null);
   }
@@ -413,26 +579,47 @@ export default function BuilderApp() {
   function saveSelectedTileAnalyticalTemplate() {
     if (!selectedTile || !selectedTileQuestion) return;
 
-    const tileTitle = selectedTile.title.trim() || selectedTileQuestion.shortLabel;
+    const tileTitle =
+      selectedTile.title.trim() || selectedTileQuestion.shortLabel;
     const activeFilter = selectedTile.query.filters[0];
-    const activeFilterField = activeFilter ? filterDimensions.find((item) => item.id === activeFilter.field) : undefined;
-    const activeFilterValue = activeFilterField && activeFilter ? activeFilterField.values.find((item) => item.id === activeFilter.values[0]) : undefined;
+    const activeFilterField = activeFilter
+      ? filterDimensions.find((item) => item.id === activeFilter.field)
+      : undefined;
+    const activeFilterValue =
+      activeFilterField && activeFilter
+        ? activeFilterField.values.find(
+            (item) => item.id === activeFilter.values[0],
+          )
+        : undefined;
     const comparisonDatasetsLabel =
-      selectedTile.query.comparisonMode === "wave" && selectedTile.query.comparisonDatasets?.length
+      selectedTile.query.comparisonMode === "wave" &&
+      selectedTile.query.comparisonDatasets?.length
         ? selectedTile.query.comparisonDatasets
-            .map((datasetId) => comparisonDatasetOptions.find((item) => item.id === datasetId)?.label ?? datasetId)
+            .map(
+              (datasetId) =>
+                comparisonDatasetOptions.find((item) => item.id === datasetId)
+                  ?.label ?? datasetId,
+            )
             .join(", ")
         : "";
     const fallbackSource = {
       kind: "question" as const,
       id: selectedTileQuestion.id,
-      label: selectedTileQuestion.shortLabel
+      label: selectedTileQuestion.shortLabel,
     };
     const source =
       selectedTile.source?.kind === "variableSet"
-        ? { kind: "variableSet" as const, id: selectedTile.source.id, label: selectedTile.source.label }
+        ? {
+            kind: "variableSet" as const,
+            id: selectedTile.source.id,
+            label: selectedTile.source.label,
+          }
         : selectedTile.source?.kind === "question"
-          ? { kind: "question" as const, id: selectedTile.source.id, label: selectedTile.source.label }
+          ? {
+              kind: "question" as const,
+              id: selectedTile.source.id,
+              label: selectedTile.source.label,
+            }
           : fallbackSource;
     const nextTemplate: SavedAnalyticalTemplate = {
       id: `analysis_template_${Date.now()}`,
@@ -443,22 +630,29 @@ export default function BuilderApp() {
       query: {
         ...selectedTile.query,
         chartType: selectedTile.visualization,
-        confidenceLevel: selectedTile.query.confidenceLevel ?? 0.95
+        confidenceLevel: selectedTile.query.confidenceLevel ?? 0.95,
       },
       visualization: selectedTile.visualization,
       summary: {
         sourceLabel: source.label,
-        bannerLabel: bannerDimensions.find((item) => item.id === selectedTile.query.breakBy)?.label ?? selectedTile.query.breakBy,
+        bannerLabel:
+          bannerDimensions.find(
+            (item) => item.id === selectedTile.query.breakBy,
+          )?.label ?? selectedTile.query.breakBy,
         filterLabel:
           activeFilter && activeFilter.values[0] !== "all"
             ? `${activeFilterField?.label ?? activeFilter.field}: ${activeFilterValue?.label ?? activeFilter.values[0]}`
             : "No filter",
         weightLabel: selectedTile.query.weight
-          ? defaultDataset.weights.find((item) => item.id === selectedTile.query.weight)?.label ?? selectedTile.query.weight
+          ? (defaultDataset.weights.find(
+              (item) => item.id === selectedTile.query.weight,
+            )?.label ?? selectedTile.query.weight)
           : "Unweighted",
         confidenceLabel: `${Math.round((selectedTile.query.confidenceLevel ?? 0.95) * 100)}% confidence`,
-        comparisonLabel: comparisonDatasetsLabel ? `Wave comparison: ${comparisonDatasetsLabel}` : "No wave comparison"
-      }
+        comparisonLabel: comparisonDatasetsLabel
+          ? `Wave comparison: ${comparisonDatasetsLabel}`
+          : "No wave comparison",
+      },
     };
 
     setDashboard((current) => ({
@@ -466,14 +660,17 @@ export default function BuilderApp() {
       status: "draft",
       analysisLibrary: {
         ...current.analysisLibrary,
-        templates: [nextTemplate, ...current.analysisLibrary.templates]
-      }
+        templates: [nextTemplate, ...current.analysisLibrary.templates],
+      },
     }));
     setError(null);
   }
 
-  function viewSavedSettingInLibrary(view: AnalysisLibraryView, handoff?: { action?: "derivedDefinitionSaved"; itemId?: string }) {
-    setLeftPanelView("data");
+  function viewSavedSettingInLibrary(
+    view: AnalysisLibraryView,
+    handoff?: { action?: "derivedDefinitionSaved"; itemId?: string },
+  ) {
+    changePanel("data");
     setExploreView("library");
     setAnalysisLibraryView(view);
     setSavedLibraryHandoff({ view, ...handoff, createdAt: Date.now() });
@@ -501,7 +698,10 @@ export default function BuilderApp() {
     const report = findReport(workspace, reportId);
     if (!report || report.id === activeReportId) return;
 
-    const nextWorkspace = markReportOpened(upsertDraftReport(workspace, dashboard, activeReportId), report.id);
+    const nextWorkspace = markReportOpened(
+      upsertDraftReport(workspace, dashboard, activeReportId),
+      report.id,
+    );
     setWorkspace(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setActiveReportId(report.id);
@@ -513,7 +713,9 @@ export default function BuilderApp() {
   }
 
   function createReport() {
-    const next = createNewReportFromSeed(upsertDraftReport(workspace, dashboard, activeReportId));
+    const next = createNewReportFromSeed(
+      upsertDraftReport(workspace, dashboard, activeReportId),
+    );
     setWorkspace(next.workspace);
     saveDashboardWorkspace(next.workspace);
     setActiveReportId(next.report.id);
@@ -525,11 +727,19 @@ export default function BuilderApp() {
   }
 
   function duplicateReport() {
-    const sourceWorkspace = upsertDraftReport(workspace, dashboard, activeReportId);
+    const sourceWorkspace = upsertDraftReport(
+      workspace,
+      dashboard,
+      activeReportId,
+    );
     const sourceReport = findReport(sourceWorkspace, activeReportId);
     if (!sourceReport) return;
 
-    const next = duplicateReportRecord(sourceWorkspace, { ...sourceReport, draft: dashboard, title: dashboard.title });
+    const next = duplicateReportRecord(sourceWorkspace, {
+      ...sourceReport,
+      draft: dashboard,
+      title: dashboard.title,
+    });
     setWorkspace(next.workspace);
     saveDashboardWorkspace(next.workspace);
     setActiveReportId(next.report.id);
@@ -541,7 +751,10 @@ export default function BuilderApp() {
   }
 
   function createPublishedDashboardSnapshot(current: DashboardDraft) {
-    const next = createPublishedSnapshot(upsertDraftReport(workspace, current, activeReportId), { ...current, id: activeReportId });
+    const next = createPublishedSnapshot(
+      upsertDraftReport(workspace, current, activeReportId),
+      { ...current, id: activeReportId },
+    );
     setWorkspace(next.workspace);
     saveDashboardWorkspace(next.workspace);
     setPublishedSnapshot(next.snapshot);
@@ -551,8 +764,11 @@ export default function BuilderApp() {
 
   function openPublishedDashboardSnapshot(current: DashboardDraft) {
     const snapshot =
-      findPublishedSnapshot(workspace, current.id, current.publishMetadata.publishedSnapshotId) ??
-      findPublishedSnapshot(workspace, current.id, null);
+      findPublishedSnapshot(
+        workspace,
+        current.id,
+        current.publishMetadata.publishedSnapshotId,
+      ) ?? findPublishedSnapshot(workspace, current.id, null);
     if (!snapshot) return;
 
     setPublishedSnapshot(snapshot);
@@ -577,11 +793,18 @@ export default function BuilderApp() {
     let settleTimer: number | undefined;
     const saveTimer = window.setTimeout(() => {
       try {
-        const nextWorkspace = upsertDraftReport(workspace, dashboard, activeReportId);
+        const nextWorkspace = upsertDraftReport(
+          workspace,
+          dashboard,
+          activeReportId,
+        );
         setWorkspace(nextWorkspace);
         saveDashboardWorkspace(nextWorkspace);
         setSaveState("Saved just now");
-        settleTimer = window.setTimeout(() => setSaveState("Saved locally"), 2200);
+        settleTimer = window.setTimeout(
+          () => setSaveState("Saved locally"),
+          2200,
+        );
       } catch {
         setSaveState("Save error");
       }
@@ -612,7 +835,11 @@ export default function BuilderApp() {
       const route = parseWorkspaceRoute();
 
       if (route.mode === "published") {
-        const snapshot = findPublishedSnapshot(workspace, route.reportId ?? activeReportId, route.snapshotId);
+        const snapshot = findPublishedSnapshot(
+          workspace,
+          route.reportId ?? activeReportId,
+          route.snapshotId,
+        );
         if (!snapshot) return;
         setPublishedSnapshot(snapshot);
         setActiveReportId(snapshot.reportId);
@@ -691,7 +918,7 @@ export default function BuilderApp() {
     publishDashboard,
     unpublishDashboard,
     openPublishedReport,
-    closePublishedReport
+    closePublishedReport,
   } = useBuilderDocumentSessionCommands({
     dashboard,
     setDashboardState,
@@ -719,7 +946,7 @@ export default function BuilderApp() {
     setCanvasZoom,
     setViewerMode,
     createPublishedSnapshot: createPublishedDashboardSnapshot,
-    openPublishedSnapshot: openPublishedDashboardSnapshot
+    openPublishedSnapshot: openPublishedDashboardSnapshot,
   });
 
   const {
@@ -801,14 +1028,14 @@ export default function BuilderApp() {
     applySegmentProfile,
     deleteSegmentProfile,
     applySavedWeight,
-    saveCurrentWeight
+    saveCurrentWeight,
   } = useAnalysisAuthoring({
     dashboard,
     setDashboard,
     sourceSearch,
     selectedDataSource,
     setSelectedDataSource,
-    setError
+    setError,
   });
 
   useEffect(() => {
@@ -825,7 +1052,10 @@ export default function BuilderApp() {
   }, [selectedQuestion.id, selectedQuestion.shortLabel, selectedVariableSet]);
 
   useEffect(() => {
-    setBannerDraftName(bannerDimensions.find((item) => item.id === breakBy)?.label ?? "Saved banner");
+    setBannerDraftName(
+      bannerDimensions.find((item) => item.id === breakBy)?.label ??
+        "Saved banner",
+    );
   }, [breakBy]);
 
   useEffect(() => {
@@ -840,7 +1070,12 @@ export default function BuilderApp() {
   }, [filterField, filterValue]);
 
   useEffect(() => {
-    setWeightDraftName(weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? "Saved weight" : "Unweighted sample");
+    setWeightDraftName(
+      weight
+        ? (defaultDataset.weights.find((item) => item.id === weight)?.label ??
+            "Saved weight")
+        : "Unweighted sample",
+    );
   }, [weight]);
 
   const {
@@ -860,7 +1095,7 @@ export default function BuilderApp() {
     duplicateDerivedOutputFromLibrary,
     createDerivedOutputTile,
     createDerivedOutputFromDefinition,
-    recreateDerivedOutputTile
+    recreateDerivedOutputTile,
   } = useBuilderTileCommands({
     activePage,
     canvasScale,
@@ -876,11 +1111,14 @@ export default function BuilderApp() {
     updateTile,
     applyQuestionSelection,
     applyVariableSetSelection,
-    recordDerivedOutputCreationCue: (cue) => setDerivedOutputCreationCue({ ...cue, createdAt: Date.now() }),
-    recordDerivedOutputRecreationCue: (cue) => setDerivedOutputRecreationCue({ ...cue, createdAt: Date.now() }),
-    recordDerivedDefinitionRecreationCue: (cue) => setDerivedDefinitionRecreationCue({ ...cue, createdAt: Date.now() }),
+    recordDerivedOutputCreationCue: (cue) =>
+      setDerivedOutputCreationCue({ ...cue, createdAt: Date.now() }),
+    recordDerivedOutputRecreationCue: (cue) =>
+      setDerivedOutputRecreationCue({ ...cue, createdAt: Date.now() }),
+    recordDerivedDefinitionRecreationCue: (cue) =>
+      setDerivedDefinitionRecreationCue({ ...cue, createdAt: Date.now() }),
     setIsLoading,
-    setError
+    setError,
   });
 
   async function exportDashboardSpec(target: CoreExportTarget) {
@@ -889,19 +1127,24 @@ export default function BuilderApp() {
       return;
     }
 
-    const { exportCoreDocument } = await import("../export/coreDocumentExports");
+    const { exportCoreDocument } =
+      await import("../export/coreDocumentExports");
     await exportCoreDocument(dashboard, sortedPages, target);
   }
 
   async function importDataset(file: File) {
-    const { importDatasetForWorkspace } = await import("../data/importDatasetWorkspaceService");
+    const { importDatasetForWorkspace } =
+      await import("../data/importDatasetWorkspaceService");
     const result = await importDatasetForWorkspace(file);
     if (result.error || !result.dataset) {
       setError(result.error ?? "Dataset import failed.");
       return null;
     }
 
-    const nextWorkspace = upsertWorkspaceImportedDataset(workspace, result.dataset);
+    const nextWorkspace = upsertWorkspaceImportedDataset(
+      workspace,
+      result.dataset,
+    );
     setWorkspace(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setError(null);
@@ -911,9 +1154,14 @@ export default function BuilderApp() {
   function updateImportedDatasetField(
     datasetId: string,
     fieldId: string,
-    updates: Parameters<typeof updateWorkspaceImportedDatasetField>[3]
+    updates: Parameters<typeof updateWorkspaceImportedDatasetField>[3],
   ) {
-    const nextWorkspace = updateWorkspaceImportedDatasetField(workspace, datasetId, fieldId, updates);
+    const nextWorkspace = updateWorkspaceImportedDatasetField(
+      workspace,
+      datasetId,
+      fieldId,
+      updates,
+    );
     setWorkspace(nextWorkspace);
     saveDashboardWorkspace(nextWorkspace);
     setError(null);
@@ -923,7 +1171,9 @@ export default function BuilderApp() {
     setDashboard((current) => ({
       ...current,
       status: "draft",
-      importedDatasets: current.importedDatasets.filter((dataset) => dataset.id !== datasetId)
+      importedDatasets: current.importedDatasets.filter(
+        (dataset) => dataset.id !== datasetId,
+      ),
     }));
     const nextWorkspace = removeWorkspaceImportedDataset(workspace, datasetId);
     setWorkspace(nextWorkspace);
@@ -936,7 +1186,7 @@ export default function BuilderApp() {
     setExploreView("source");
     setGuidedDataQuery({
       ...options,
-      outputMode: options?.outputMode ?? "table"
+      outputMode: options?.outputMode ?? "table",
     });
   }
 
@@ -955,7 +1205,7 @@ export default function BuilderApp() {
     updateSelectedAxisLabel,
     updateSelectedLayout,
     alignSelected,
-    applyLayoutPreset
+    applyLayoutPreset,
   } = useBuilderDesignCommands({
     activePage,
     selectedTile,
@@ -968,91 +1218,189 @@ export default function BuilderApp() {
     updateSelectedTile,
     updateSelectedElement,
     updateTileLayout,
-    updateElementLayout
+    updateElementLayout,
   });
 
-  const handleCanvasDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    void handleCanvasDropEvent(event);
-  }, [handleCanvasDropEvent]);
-  const recordReportTreeSelectionCue = useCallback((cue: Omit<NonNullable<typeof reportTreeSelectionCue>, "createdAt">) => {
-    setReportTreeSelectionCue({ ...cue, createdAt: Date.now() });
-  }, [setReportTreeSelectionCue]);
-  const recordSavedLibraryInsertionCue = useCallback((cue: Omit<NonNullable<typeof savedLibraryInsertionCue>, "createdAt">) => {
-    setSavedLibraryInsertionCue({ ...cue, createdAt: Date.now() });
-  }, [setSavedLibraryInsertionCue]);
-  const recordSavedSettingOriginCue = useCallback((kind: "banner" | "filter" | "weight", label: string, tileId: string) => {
-    setSavedSettingOriginCue({ kind, label, tileId, status: "applied", createdAt: Date.now() });
-  }, [setSavedSettingOriginCue]);
-  const recordDerivedOutputLibraryActionCue = useCallback((cue: Omit<NonNullable<typeof derivedOutputLibraryActionCue>, "createdAt">) => {
-    setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() });
-  }, [setDerivedOutputLibraryActionCue]);
-  const completeSavedSettingOriginCue = useCallback((tileId: string) => {
-    setSavedSettingOriginCue((current) => current?.tileId === tileId ? { ...current, status: "refreshed", createdAt: Date.now() } : current);
-  }, [setSavedSettingOriginCue]);
-  const recordRelatedObjectNavigationCue = useCallback((cue: Omit<NonNullable<typeof relatedObjectNavigationCue>, "createdAt">) => {
-    setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() });
-  }, [setRelatedObjectNavigationCue]);
-  const focusSelectedTileInspector = useCallback(() => setSettingsView("chart"), [setSettingsView]);
+  const handleCanvasDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      void handleCanvasDropEvent(event);
+    },
+    [handleCanvasDropEvent],
+  );
+  const recordReportTreeSelectionCue = useCallback(
+    (cue: Omit<NonNullable<typeof reportTreeSelectionCue>, "createdAt">) => {
+      setReportTreeSelectionCue({ ...cue, createdAt: Date.now() });
+    },
+    [setReportTreeSelectionCue],
+  );
+  const recordSavedLibraryInsertionCue = useCallback(
+    (cue: Omit<NonNullable<typeof savedLibraryInsertionCue>, "createdAt">) => {
+      setSavedLibraryInsertionCue({ ...cue, createdAt: Date.now() });
+    },
+    [setSavedLibraryInsertionCue],
+  );
+  const recordSavedSettingOriginCue = useCallback(
+    (kind: "banner" | "filter" | "weight", label: string, tileId: string) => {
+      setSavedSettingOriginCue({
+        kind,
+        label,
+        tileId,
+        status: "applied",
+        createdAt: Date.now(),
+      });
+    },
+    [setSavedSettingOriginCue],
+  );
+  const recordDerivedOutputLibraryActionCue = useCallback(
+    (
+      cue: Omit<NonNullable<typeof derivedOutputLibraryActionCue>, "createdAt">,
+    ) => {
+      setDerivedOutputLibraryActionCue({ ...cue, createdAt: Date.now() });
+    },
+    [setDerivedOutputLibraryActionCue],
+  );
+  const completeSavedSettingOriginCue = useCallback(
+    (tileId: string) => {
+      setSavedSettingOriginCue((current) =>
+        current?.tileId === tileId
+          ? { ...current, status: "refreshed", createdAt: Date.now() }
+          : current,
+      );
+    },
+    [setSavedSettingOriginCue],
+  );
+  const recordRelatedObjectNavigationCue = useCallback(
+    (
+      cue: Omit<NonNullable<typeof relatedObjectNavigationCue>, "createdAt">,
+    ) => {
+      setRelatedObjectNavigationCue({ ...cue, createdAt: Date.now() });
+    },
+    [setRelatedObjectNavigationCue],
+  );
+  const focusSelectedTileInspector = useCallback(() => {
+    setSettingsView("chart");
+    setInspectorPinned(true);
+  }, [setSettingsView]);
   const closeGuidedDataQuery = useCallback(() => setGuidedDataQuery(null), []);
-  const openPageDesignPanel = useCallback(() => setSettingsView("page"), []);
+  const openPageDesignPanel = useCallback(() => {
+    setSettingsView("page");
+    setInspectorPinned(true);
+  }, [setSettingsView]);
   const openSelectionFormatPanel = useCallback(() => {
-    setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home");
+    setInspectorPinned(true);
+    setSettingsView(
+      selectedElement ? "element" : selectedTile ? "chart" : "home",
+    );
   }, [selectedElement, selectedTile]);
-  const openLayoutPanel = useCallback(() => setSettingsView("layout"), []);
-  const openDataQueryPanel = useCallback(() => openGuidedDataQuery({ outputMode: "table" }), []);
-  const openInsertPanel = useCallback(() => setLeftPanelView("insert"), []);
-  const bringSelectionForward = useCallback(() => changeSelectedLayer("front"), [changeSelectedLayer]);
+  const openLayoutPanel = useCallback(() => {
+    setSettingsView("layout");
+    setInspectorPinned(true);
+  }, [setSettingsView]);
+  const openDataQueryPanel = useCallback(
+    () => openGuidedDataQuery({ outputMode: "table" }),
+    [],
+  );
+  const openInsertPanel = useCallback(
+    () => changePanel("insert"),
+    [changePanel],
+  );
+  const bringSelectionForward = useCallback(
+    () => changeSelectedLayer("front"),
+    [changeSelectedLayer],
+  );
   const addCanvasPage = useCallback(() => addPage(), [addPage]);
-  const updateCanvasTileTitle = useCallback((tileId: string, title: string) => updateTile(tileId, { title }), [updateTile]);
-  const updateCanvasTileAppearance = useCallback((tileId: string, updates: Partial<DashboardTile["appearance"]>) => {
-    const tile = activePage.tiles.find((item) => item.id === tileId);
-    if (tile) updateTile(tileId, { appearance: { ...tile.appearance, ...updates } });
-  }, [activePage.tiles, updateTile]);
+  const updateCanvasTileTitle = useCallback(
+    (tileId: string, title: string) => updateTile(tileId, { title }),
+    [updateTile],
+  );
+  const updateCanvasTileAppearance = useCallback(
+    (tileId: string, updates: Partial<DashboardTile["appearance"]>) => {
+      const tile = activePage.tiles.find((item) => item.id === tileId);
+      if (tile)
+        updateTile(tileId, { appearance: { ...tile.appearance, ...updates } });
+    },
+    [activePage.tiles, updateTile],
+  );
   const toggleCanvasGrid = useCallback(() => {
     updateActivePage({ showCanvasGrid: !activePage.showCanvasGrid });
   }, [activePage.showCanvasGrid, updateActivePage]);
-  const renderCanvasTile = useCallback((
-    tile: DashboardTile,
-    selected: boolean,
-    onSelect: () => void,
-    onTitleChange: (title: string) => void,
-    onTitleAppearanceChange: (updates: Partial<DashboardTile["appearance"]>) => void
-  ) => (
-    <TileRenderer
-      tile={tile}
-      selected={selected}
-      onSelect={onSelect}
-      onTitleChange={onTitleChange}
-      onTitleAppearanceChange={onTitleAppearanceChange}
-    />
-  ), []);
-  const renderCanvasElement = useCallback(
-    (element: DashboardCanvasElement, selected: boolean, onSelect: () => void) => (
-      <CanvasElementRenderer element={element} selected={selected} onSelect={onSelect} />
+  const renderCanvasTile = useCallback(
+    (
+      tile: DashboardTile,
+      selected: boolean,
+      onSelect: () => void,
+      onTitleChange: (title: string) => void,
+      onTitleAppearanceChange: (
+        updates: Partial<DashboardTile["appearance"]>,
+      ) => void,
+    ) => (
+      <TileRenderer
+        tile={tile}
+        selected={selected}
+        onSelect={onSelect}
+        onTitleChange={onTitleChange}
+        onTitleAppearanceChange={onTitleAppearanceChange}
+      />
     ),
-    []
+    [],
+  );
+  const renderCanvasElement = useCallback(
+    (
+      element: DashboardCanvasElement,
+      selected: boolean,
+      onSelect: () => void,
+    ) => (
+      <CanvasElementRenderer
+        element={element}
+        selected={selected}
+        onSelect={onSelect}
+      />
+    ),
+    [],
   );
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      const isEditingText = target?.tagName === "INPUT" || target?.tagName === "SELECT" || target?.tagName === "TEXTAREA";
+      const isEditingText =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "SELECT" ||
+        target?.tagName === "TEXTAREA";
 
       if (isEditingText) return;
 
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) && (selectedTile || selectedElement)) {
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+          event.key,
+        ) &&
+        (selectedTile || selectedElement)
+      ) {
         event.preventDefault();
         const layout = selectedTile?.layout ?? selectedElement?.layout;
         if (!layout) return;
 
-        const distance = event.shiftKey ? activePage.gridSize : activePage.snapToGrid ? activePage.gridSize : 1;
+        const distance = event.shiftKey
+          ? activePage.gridSize
+          : activePage.snapToGrid
+            ? activePage.gridSize
+            : 1;
         const nextPosition = {
-          x: event.key === "ArrowLeft" ? layout.x - distance : event.key === "ArrowRight" ? layout.x + distance : layout.x,
-          y: event.key === "ArrowUp" ? layout.y - distance : event.key === "ArrowDown" ? layout.y + distance : layout.y
+          x:
+            event.key === "ArrowLeft"
+              ? layout.x - distance
+              : event.key === "ArrowRight"
+                ? layout.x + distance
+                : layout.x,
+          y:
+            event.key === "ArrowUp"
+              ? layout.y - distance
+              : event.key === "ArrowDown"
+                ? layout.y + distance
+                : layout.y,
         };
         updateSelectedLayout({
           x: Math.max(0, nextPosition.x),
-          y: Math.max(0, nextPosition.y)
+          y: Math.max(0, nextPosition.y),
         });
       }
 
@@ -1066,12 +1414,20 @@ export default function BuilderApp() {
         duplicateSelectedItem();
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "z" &&
+        !event.shiftKey
+      ) {
         event.preventDefault();
         undo();
       }
 
-      if ((event.metaKey || event.ctrlKey) && (event.key.toLowerCase() === "y" || (event.shiftKey && event.key.toLowerCase() === "z"))) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        (event.key.toLowerCase() === "y" ||
+          (event.shiftKey && event.key.toLowerCase() === "z"))
+      ) {
         event.preventDefault();
         redo();
       }
@@ -1082,25 +1438,48 @@ export default function BuilderApp() {
   }, [dashboard, history, future, selectedTile, selectedElement, activePage]);
 
   if (viewerMode) {
-    const viewerPath = publishedSnapshot?.viewerPath ?? dashboard.publishMetadata.viewerPath ?? "";
+    const viewerPath =
+      publishedSnapshot?.viewerPath ??
+      dashboard.publishMetadata.viewerPath ??
+      "";
     return (
       <main className="published-shell">
         <header className="published-header">
           <div className="published-header__copy">
-            <span className="published-kicker">{publishedSnapshot ? "Published snapshot" : dashboard.status === "published" ? "Published report" : "Report preview"}</span>
+            <span className="published-kicker">
+              {publishedSnapshot
+                ? "Published snapshot"
+                : dashboard.status === "published"
+                  ? "Published report"
+                  : "Report preview"}
+            </span>
             <h1>{dashboard.title}</h1>
             <small className="published-version-cue">
               {publishedSnapshot
                 ? `${publishedSnapshot.versionLabel} · ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(publishedSnapshot.publishedAt))}`
                 : publishMetadataLabel(dashboard)}
             </small>
-            {viewerPath && <small className="published-url-cue">{`${window.location.origin}${window.location.pathname}${viewerPath}`}</small>}
+            {viewerPath && (
+              <small className="published-url-cue">{`${window.location.origin}${window.location.pathname}${viewerPath}`}</small>
+            )}
           </div>
           <div className="published-header__actions">
             <span className="status published">{dashboard.status}</span>
-            <button type="button" className="secondary" onClick={closePublishedViewer}>Back to draft</button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={closePublishedViewer}
+            >
+              Back to draft
+            </button>
             {dashboard.status === "published" && !publishedSnapshot && (
-              <button type="button" className="secondary" onClick={unpublishDashboard}>Unpublish</button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={unpublishDashboard}
+              >
+                Unpublish
+              </button>
             )}
           </div>
         </header>
@@ -1111,7 +1490,11 @@ export default function BuilderApp() {
               <button
                 type="button"
                 key={page.id}
-                className={page.id === activePage.id ? "published-page-tab active" : "published-page-tab"}
+                className={
+                  page.id === activePage.id
+                    ? "published-page-tab active"
+                    : "published-page-tab"
+                }
                 onClick={() => setActivePageId(page.id)}
               >
                 <span>{page.order}</span>
@@ -1127,65 +1510,183 @@ export default function BuilderApp() {
                 <h2>{activePage.title}</h2>
               </div>
               <span className="published-page-meta">
-                {activePage.tiles.filter((tile) => !tile.hidden).length} tile{activePage.tiles.filter((tile) => !tile.hidden).length === 1 ? "" : "s"}
+                {activePage.tiles.filter((tile) => !tile.hidden).length} tile
+                {activePage.tiles.filter((tile) => !tile.hidden).length === 1
+                  ? ""
+                  : "s"}
               </span>
             </div>
-            <div className="published-stage-scroll">
-              <div
-                className="published-canvas"
-                style={{
-                  width: canvasWidth,
-                  height: canvasHeight,
-                  background: canvasBackground(activePage),
-                  backgroundSize: canvasBackgroundSize(activePage),
-                  backgroundRepeat: canvasBackgroundRepeat(activePage),
-                  backgroundPosition: canvasBackgroundPosition(activePage)
-                }}
-              >
-                {activePage.elements.filter((element) => !element.hidden).map((element) => (
-                  <div
-                    key={element.id}
-                    className="published-canvas-item"
-                    style={{
-                      left: element.layout.x,
-                      top: element.layout.y,
-                      width: element.layout.width,
-                      height: element.layout.height,
-                      zIndex: element.layout.zIndex
-                    }}
-                  >
-                    <CanvasElementRenderer element={element} selected={false} onSelect={() => undefined} />
-                  </div>
-                ))}
-                {activePage.tiles.filter((tile) => !tile.hidden).map((tile) => (
-                  <div
-                    key={tile.id}
-                    className="published-canvas-item"
-                    style={{
-                      left: tile.layout.x,
-                      top: tile.layout.y,
-                      width: tile.layout.width,
-                      height: tile.layout.height,
-                      zIndex: tile.layout.zIndex
-                    }}
-                  >
-                    <TileRenderer tile={tile} selected={false} onSelect={() => undefined} onTitleChange={() => undefined} onTitleAppearanceChange={() => undefined} titleEditable={false} />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PublishedCanvas background={{
+              background:canvasBackground(activePage),backgroundSize:canvasBackgroundSize(activePage),backgroundRepeat:canvasBackgroundRepeat(activePage),backgroundPosition:canvasBackgroundPosition(activePage)
+            }}>
+                {activePage.elements
+                  .filter((element) => !element.hidden)
+                  .map((element) => (
+                    <div
+                      key={element.id}
+                      className="published-canvas-item"
+                      style={{
+                        left: element.layout.x,
+                        top: element.layout.y,
+                        width: element.layout.width,
+                        height: element.layout.height,
+                        zIndex: element.layout.zIndex,
+                      }}
+                    >
+                      <CanvasElementRenderer
+                        element={element}
+                        selected={false}
+                        onSelect={() => undefined}
+                      />
+                    </div>
+                  ))}
+                {activePage.tiles
+                  .filter((tile) => !tile.hidden)
+                  .map((tile) => (
+                    <div
+                      key={tile.id}
+                      className="published-canvas-item"
+                      style={{
+                        left: tile.layout.x,
+                        top: tile.layout.y,
+                        width: tile.layout.width,
+                        height: tile.layout.height,
+                        zIndex: tile.layout.zIndex,
+                      }}
+                    >
+                      <TileRenderer
+                        tile={tile}
+                        selected={false}
+                        onSelect={() => undefined}
+                        onTitleChange={() => undefined}
+                        onTitleAppearanceChange={() => undefined}
+                        titleEditable={false}
+                      />
+                    </div>
+                  ))}
+            </PublishedCanvas>
           </div>
         </section>
       </main>
     );
   }
 
+  const studioCommands: StudioCommand[] = [
+    {
+      id: "analysis",
+      label: "Create a table or chart",
+      group: "Create",
+      icon: Plus,
+      run: () => openGuidedDataQuery({ outputMode: "table" }),
+    },
+    {
+      id: "text",
+      label: "Add text",
+      group: "Create",
+      icon: Type,
+      run: () => addCanvasElement("text"),
+    },
+    {
+      id: "image",
+      label: "Add an image or shape",
+      group: "Create",
+      run: () => changePanel("insert"),
+    },
+    {
+      id: "pages",
+      label: "Manage pages and templates",
+      group: "Workspace",
+      icon: FileText,
+      run: () => changePanel("pages"),
+    },
+    {
+      id: "data",
+      label: "Data library, imports, filters, and segments",
+      group: "Workspace",
+      icon: Database,
+      run: () => changePanel("data"),
+    },
+    {
+      id: "analysisLibrary",
+      label: "Saved analyses, banners, weights, and derived outputs",
+      group: "Workspace",
+      run: () => {
+        changePanel("data");
+        setExploreView("library");
+      },
+    },
+    {
+      id: "brand",
+      label: "Themes, typography, and story sections",
+      group: "Design",
+      icon: Palette,
+      run: () => changePanel("brand"),
+    },
+    {
+      id: "layers",
+      label: "Arrange, lock, and show layers",
+      group: "Design",
+      icon: Layers,
+      run: () => changePanel("layers"),
+    },
+    {
+      id: "page",
+      label: "Page background, grid, and master",
+      group: "Design",
+      run: openPageDesignPanel,
+    },
+    {
+      id: "properties",
+      label: "Open object properties",
+      group: "Design",
+      run: () => setInspectorPinned(true),
+    },
+    { id: "new", label: "New report", group: "Document", run: createReport },
+    {
+      id: "duplicate",
+      label: "Duplicate this report",
+      group: "Document",
+      run: duplicateReport,
+    },
+    {
+      id: "home",
+      label: "Back to all reports",
+      group: "Document",
+      run: openWorkspaceHome,
+    },
+    {
+      id: "share",
+      label: "Publish a snapshot",
+      group: "Deliver",
+      run: publishDashboard,
+    },
+    ...(["dashboard", "report", "present"] as const).map((mode) => ({
+      id: mode,
+      label: `Preview as ${mode === "present" ? "a presentation" : `a ${mode}`}`,
+      group: "Deliver",
+      icon: Presentation,
+      run: () => changeProductMode(mode),
+    })),
+    ...(["pptx", "pdf", "xlsx", "json"] as const).map((target) => ({
+      id: target,
+      label: `Export ${target === "pptx" ? "PowerPoint" : target === "xlsx" ? "Excel tables" : target.toUpperCase()}`,
+      group: "Deliver",
+      run: () => void exportDashboardSpec(target),
+    })),
+    {
+      id: "help",
+      label: "Studio guide and keyboard shortcuts",
+      group: "Help",
+      run: () => setHelpOpen(true),
+    },
+  ];
+
   return (
     <main className="builder-shell">
       <BuilderHeader
         dashboard={dashboard}
         activeProductMode={activeProductMode}
-        setActiveProductMode={setActiveProductMode}
+        setActiveProductMode={changeProductMode}
         reports={reportRecords}
         activeReportId={activeReportId}
         onOpenReport={openReport}
@@ -1199,15 +1700,28 @@ export default function BuilderApp() {
         onOpenPublished={openPublishedReport}
         onPublish={publishDashboard}
         onUnpublish={unpublishDashboard}
+        onHome={openWorkspaceHome}
+        onSearch={() => setCommandOpen(true)}
+        onHelp={() => setHelpOpen(true)}
       />
 
       <section
+        data-left-open={leftOpen}
+        data-inspector-open={inspectorOpen}
         className={[
-          "builder-workspace",
+          "builder-workspace studio-workspace",
           activeOutcomeMode.mode ? "outcome-workspace" : "",
-          activeOutcomeMode.mode ? `${activeOutcomeMode.mode}-workspace` : ""
-        ].filter(Boolean).join(" ")}
+          activeOutcomeMode.mode ? `${activeOutcomeMode.mode}-workspace` : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
+        <StudioRail
+          active={leftOpen ? leftPanelView : null}
+          onChange={chooseTool}
+          onSearch={() => setCommandOpen(true)}
+          onAnalyze={() => openGuidedDataQuery({ outputMode: "table" })}
+        />
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
           saveState={saveState}
@@ -1218,167 +1732,191 @@ export default function BuilderApp() {
           onZoomChange={updateCanvasZoom}
           onToggleCanvasGrid={toggleCanvasGrid}
           selectionLabel={workspaceSelectionLabel}
+          inspectorOpen={inspectorOpen}
+          onToggleInspector={toggleInspector}
+          onFit={() => setFitRequest((value) => value + 1)}
         />
-        <AnalysisAuthoringPanel
-          leftPanelView={leftPanelView}
-          setLeftPanelView={setLeftPanelView}
-          layerItems={layerItems}
-          selectedTileId={selectedTileId}
-          selectedElementId={selectedElementId}
-          multiSelectedObjects={activeMultiSelectedObjects}
-          toggleMultiSelectedObject={toggleMultiSelectedObject}
-          clearMultiSelection={clearMultiSelection}
-          chooseLayer={chooseLayer}
-          selectTile={selectTile}
-          selectElement={selectElement}
-          recordReportTreeSelectionCue={recordReportTreeSelectionCue}
-          recordSavedLibraryInsertionCue={recordSavedLibraryInsertionCue}
-          updateTile={updateTile}
-          updateElement={updateElement}
-          sortedPages={sortedPages}
-          activePage={activePage}
-          setActivePageId={setActivePageId}
-          selectPage={selectPage}
-          renamePage={renamePage}
-          addPage={addPage}
-          duplicateActivePage={duplicateActivePage}
-          duplicatePageById={duplicatePageById}
-          deleteActivePage={deleteActivePage}
-          deletePageById={deletePageById}
-          movePage={movePage}
-          pageTemplates={pageTemplates}
-          pageThemes={pageThemes}
-          selectedTextElement={selectedTextElement}
-          selectedTile={selectedTile}
-          focusSelectedTileInspector={focusSelectedTileInspector}
-          recordSavedSettingOriginCue={recordSavedSettingOriginCue}
-          recordDerivedOutputLibraryActionCue={recordDerivedOutputLibraryActionCue}
-          designPalettes={designPalettes}
-          applyPaletteToTile={applyPaletteToTile}
-          textStylePresets={textStylePresets}
-          applyTextStylePresetToSelection={applyTextStylePresetToSelection}
-          textBlockPresets={textBlockPresets}
-          addTextBlockPreset={addTextBlockPreset}
-          compositionStarters={compositionStarters}
-          savedCompositionBlocks={savedCompositionBlocks}
-          designAssets={designAssets}
-          saveCompositionBlockFromSelection={saveCompositionBlockFromSelection}
-          updateCompositionBlockMetadata={updateCompositionBlockMetadata}
-          insertCompositionBlock={insertCompositionBlock}
-          insertCompositionStarter={insertCompositionStarter}
-          deleteCompositionBlock={deleteCompositionBlock}
-          insertDesignAsset={insertDesignAsset}
-          applyPageTheme={applyPageTheme}
-          exploreView={exploreView}
-          setExploreView={setExploreView}
-          sourceLibraryView={sourceLibraryView}
-          setSourceLibraryView={setSourceLibraryView}
-          analysisLibraryView={analysisLibraryView}
-          setAnalysisLibraryView={setAnalysisLibraryView}
-          savedLibraryHandoff={savedLibraryHandoff}
-          sourceSearch={sourceSearch}
-          setSourceSearch={setSourceSearch}
-          liveDatasetSources={workspaceLiveDatasetSources}
-          importedDatasets={workspaceImportedDatasets}
-          importDataset={importDataset}
-          updateImportedDatasetField={updateImportedDatasetField}
-          removeImportedDataset={removeImportedDataset}
-          openGuidedDataQuery={openGuidedDataQuery}
-          filteredVariableSets={filteredVariableSets}
-          filteredQuestions={filteredQuestions}
-          selectedDataSource={selectedDataSource}
-          applyVariableSetSelection={applyVariableSetSelection}
-          applyQuestionSelection={applyQuestionSelection}
-          startDataSourceDrag={startDataSourceDrag}
-          selectedVariableSet={selectedVariableSet}
-          question={question}
-          setQuestion={setQuestion}
-          variableSetDraftName={variableSetDraftName}
-          setVariableSetDraftName={setVariableSetDraftName}
-          variableSetDescription={variableSetDescription}
-          setVariableSetDescription={setVariableSetDescription}
-          variableSetQuestionIds={variableSetQuestionIds}
-          toggleVariableSetQuestion={toggleVariableSetQuestion}
-          selectedQuestion={selectedQuestion}
-          resetVariableSetRows={resetVariableSetRows}
-          revealAllVariableSetRows={revealAllVariableSetRows}
-          markVariableSetRowsAsDetails={markVariableSetRowsAsDetails}
-          variableSetRows={variableSetRows}
-          variableSetOptionSelection={variableSetOptionSelection}
-          toggleVariableSetOptionRow={toggleVariableSetOptionRow}
-          toggleVariableSetOptionSelection={toggleVariableSetOptionSelection}
-          addVariableSetNet={addVariableSetNet}
-          addRowsForUncoveredOptions={addRowsForUncoveredOptions}
-          updateVariableSetRow={updateVariableSetRow}
-          reorderVariableSetRow={reorderVariableSetRow}
-          removeVariableSetRow={removeVariableSetRow}
-          saveCurrentVariableSet={saveCurrentVariableSet}
-          deleteVariableSet={deleteVariableSet}
-          savedBanners={savedBanners}
-          savedFilters={savedFilters}
-          savedSegmentProfiles={savedSegmentProfiles}
-          savedWeights={savedWeights}
-          savedAnalyticalTemplates={savedAnalyticalTemplates}
-          savedDerivedDefinitions={savedDerivedDefinitions}
-          saveAnalyticalTemplate={saveAnalyticalTemplate}
-          deleteAnalyticalTemplate={deleteAnalyticalTemplate}
-          saveDerivedDefinition={saveDerivedDefinition}
-          deleteDerivedDefinition={deleteDerivedDefinition}
-          duplicateDerivedOutputFromLibrary={duplicateDerivedOutputFromLibrary}
-          createDerivedOutputFromDefinition={createDerivedOutputFromDefinition}
-          savedVariableSets={savedVariableSets}
-          breakBy={breakBy}
-          setBreakBy={setBreakBy}
-          metric={metric}
-          setMetric={setMetric}
-          chartType={chartType}
-          setChartType={setChartType}
-          weight={weight}
-          setWeight={setWeight}
-          filterField={filterField}
-          setFilterField={setFilterField}
-          filterValue={filterValue}
-          setFilterValue={setFilterValue}
-          comparisonMode={comparisonMode}
-          setComparisonMode={setComparisonMode}
-          comparisonDatasets={comparisonDatasets}
-          setComparisonDatasets={setComparisonDatasets}
-          toggleComparisonDataset={toggleComparisonDataset}
-          selectedFilterDimension={selectedFilterDimension}
-          selectedChartTypes={selectedChartTypes}
-          query={query}
-          setVariableSetRows={setVariableSetRows}
-          setVariableSetOptionSelection={setVariableSetOptionSelection}
-          addCanvasElement={addCanvasElement}
-          addTileFromQuery={addTileFromQuery}
-          addTileFromSourceWithVisualization={addTileFromSourceWithVisualization}
-          addTileFromVariableSet={addTileFromVariableSet}
-          addTileFromImportedDatasetField={addTileFromImportedDatasetField}
-          createSourceDrivenSmartStarter={createSourceDrivenSmartStarter}
-          addTileFromAnalyticalTemplate={addTileFromAnalyticalTemplate}
-          addTileFromSegmentProfile={addTileFromSegmentProfile}
-          isLoading={isLoading}
-          applySavedBanner={applySavedBanner}
-          bannerDraftName={bannerDraftName}
-          setBannerDraftName={setBannerDraftName}
-          saveCurrentBanner={saveCurrentBanner}
-          deleteSavedBanner={deleteSavedBanner}
-          applySavedFilter={applySavedFilter}
-          filterDraftName={filterDraftName}
-          setFilterDraftName={setFilterDraftName}
-          saveCurrentFilter={saveCurrentFilter}
-          deleteSavedFilter={deleteSavedFilter}
-          saveCurrentSegmentProfile={saveCurrentSegmentProfile}
-          applySegmentProfile={applySegmentProfile}
-          deleteSegmentProfile={deleteSegmentProfile}
-          applySavedWeight={applySavedWeight}
-          weightDraftName={weightDraftName}
-          setWeightDraftName={setWeightDraftName}
-          saveCurrentWeight={saveCurrentWeight}
-          error={error}
-        />
-
+        <div className="studio-library-slot" hidden={!leftOpen}>
+          <button
+            type="button"
+            className="studio-panel-close"
+            aria-label="Close tool panel"
+            onClick={() => setLeftOpen(false)}
+          >
+            <X size={17} />
+          </button>
+          <AnalysisAuthoringPanel
+            leftPanelView={leftPanelView}
+            setLeftPanelView={changePanel}
+            layerItems={layerItems}
+            selectedTileId={selectedTileId}
+            selectedElementId={selectedElementId}
+            multiSelectedObjects={activeMultiSelectedObjects}
+            toggleMultiSelectedObject={toggleMultiSelectedObject}
+            clearMultiSelection={clearMultiSelection}
+            chooseLayer={chooseLayer}
+            selectTile={selectTile}
+            selectElement={selectElement}
+            recordReportTreeSelectionCue={recordReportTreeSelectionCue}
+            recordSavedLibraryInsertionCue={recordSavedLibraryInsertionCue}
+            updateTile={updateTile}
+            updateElement={updateElement}
+            sortedPages={sortedPages}
+            activePage={activePage}
+            setActivePageId={setActivePageId}
+            selectPage={selectPage}
+            renamePage={renamePage}
+            addPage={addPage}
+            duplicateActivePage={duplicateActivePage}
+            duplicatePageById={duplicatePageById}
+            deleteActivePage={deleteActivePage}
+            deletePageById={deletePageById}
+            movePage={movePage}
+            pageTemplates={pageTemplates}
+            pageThemes={pageThemes}
+            selectedTextElement={selectedTextElement}
+            selectedTile={selectedTile}
+            focusSelectedTileInspector={focusSelectedTileInspector}
+            recordSavedSettingOriginCue={recordSavedSettingOriginCue}
+            recordDerivedOutputLibraryActionCue={
+              recordDerivedOutputLibraryActionCue
+            }
+            designPalettes={designPalettes}
+            applyPaletteToTile={applyPaletteToTile}
+            textStylePresets={textStylePresets}
+            applyTextStylePresetToSelection={applyTextStylePresetToSelection}
+            textBlockPresets={textBlockPresets}
+            addTextBlockPreset={addTextBlockPreset}
+            compositionStarters={compositionStarters}
+            savedCompositionBlocks={savedCompositionBlocks}
+            designAssets={designAssets}
+            saveCompositionBlockFromSelection={
+              saveCompositionBlockFromSelection
+            }
+            updateCompositionBlockMetadata={updateCompositionBlockMetadata}
+            insertCompositionBlock={insertCompositionBlock}
+            insertCompositionStarter={insertCompositionStarter}
+            deleteCompositionBlock={deleteCompositionBlock}
+            insertDesignAsset={insertDesignAsset}
+            applyPageTheme={applyPageTheme}
+            exploreView={exploreView}
+            setExploreView={setExploreView}
+            sourceLibraryView={sourceLibraryView}
+            setSourceLibraryView={setSourceLibraryView}
+            analysisLibraryView={analysisLibraryView}
+            setAnalysisLibraryView={setAnalysisLibraryView}
+            savedLibraryHandoff={savedLibraryHandoff}
+            sourceSearch={sourceSearch}
+            setSourceSearch={setSourceSearch}
+            liveDatasetSources={workspaceLiveDatasetSources}
+            importedDatasets={workspaceImportedDatasets}
+            importDataset={importDataset}
+            updateImportedDatasetField={updateImportedDatasetField}
+            removeImportedDataset={removeImportedDataset}
+            openGuidedDataQuery={openGuidedDataQuery}
+            filteredVariableSets={filteredVariableSets}
+            filteredQuestions={filteredQuestions}
+            selectedDataSource={selectedDataSource}
+            applyVariableSetSelection={applyVariableSetSelection}
+            applyQuestionSelection={applyQuestionSelection}
+            startDataSourceDrag={startDataSourceDrag}
+            selectedVariableSet={selectedVariableSet}
+            question={question}
+            setQuestion={setQuestion}
+            variableSetDraftName={variableSetDraftName}
+            setVariableSetDraftName={setVariableSetDraftName}
+            variableSetDescription={variableSetDescription}
+            setVariableSetDescription={setVariableSetDescription}
+            variableSetQuestionIds={variableSetQuestionIds}
+            toggleVariableSetQuestion={toggleVariableSetQuestion}
+            selectedQuestion={selectedQuestion}
+            resetVariableSetRows={resetVariableSetRows}
+            revealAllVariableSetRows={revealAllVariableSetRows}
+            markVariableSetRowsAsDetails={markVariableSetRowsAsDetails}
+            variableSetRows={variableSetRows}
+            variableSetOptionSelection={variableSetOptionSelection}
+            toggleVariableSetOptionRow={toggleVariableSetOptionRow}
+            toggleVariableSetOptionSelection={toggleVariableSetOptionSelection}
+            addVariableSetNet={addVariableSetNet}
+            addRowsForUncoveredOptions={addRowsForUncoveredOptions}
+            updateVariableSetRow={updateVariableSetRow}
+            reorderVariableSetRow={reorderVariableSetRow}
+            removeVariableSetRow={removeVariableSetRow}
+            saveCurrentVariableSet={saveCurrentVariableSet}
+            deleteVariableSet={deleteVariableSet}
+            savedBanners={savedBanners}
+            savedFilters={savedFilters}
+            savedSegmentProfiles={savedSegmentProfiles}
+            savedWeights={savedWeights}
+            savedAnalyticalTemplates={savedAnalyticalTemplates}
+            savedDerivedDefinitions={savedDerivedDefinitions}
+            saveAnalyticalTemplate={saveAnalyticalTemplate}
+            deleteAnalyticalTemplate={deleteAnalyticalTemplate}
+            saveDerivedDefinition={saveDerivedDefinition}
+            deleteDerivedDefinition={deleteDerivedDefinition}
+            duplicateDerivedOutputFromLibrary={
+              duplicateDerivedOutputFromLibrary
+            }
+            createDerivedOutputFromDefinition={
+              createDerivedOutputFromDefinition
+            }
+            savedVariableSets={savedVariableSets}
+            breakBy={breakBy}
+            setBreakBy={setBreakBy}
+            metric={metric}
+            setMetric={setMetric}
+            chartType={chartType}
+            setChartType={setChartType}
+            weight={weight}
+            setWeight={setWeight}
+            filterField={filterField}
+            setFilterField={setFilterField}
+            filterValue={filterValue}
+            setFilterValue={setFilterValue}
+            comparisonMode={comparisonMode}
+            setComparisonMode={setComparisonMode}
+            comparisonDatasets={comparisonDatasets}
+            setComparisonDatasets={setComparisonDatasets}
+            toggleComparisonDataset={toggleComparisonDataset}
+            selectedFilterDimension={selectedFilterDimension}
+            selectedChartTypes={selectedChartTypes}
+            query={query}
+            setVariableSetRows={setVariableSetRows}
+            setVariableSetOptionSelection={setVariableSetOptionSelection}
+            addCanvasElement={addCanvasElement}
+            addTileFromQuery={addTileFromQuery}
+            addTileFromSourceWithVisualization={
+              addTileFromSourceWithVisualization
+            }
+            addTileFromVariableSet={addTileFromVariableSet}
+            addTileFromImportedDatasetField={addTileFromImportedDatasetField}
+            createSourceDrivenSmartStarter={createSourceDrivenSmartStarter}
+            addTileFromAnalyticalTemplate={addTileFromAnalyticalTemplate}
+            addTileFromSegmentProfile={addTileFromSegmentProfile}
+            isLoading={isLoading}
+            applySavedBanner={applySavedBanner}
+            bannerDraftName={bannerDraftName}
+            setBannerDraftName={setBannerDraftName}
+            saveCurrentBanner={saveCurrentBanner}
+            deleteSavedBanner={deleteSavedBanner}
+            applySavedFilter={applySavedFilter}
+            filterDraftName={filterDraftName}
+            setFilterDraftName={setFilterDraftName}
+            saveCurrentFilter={saveCurrentFilter}
+            deleteSavedFilter={deleteSavedFilter}
+            saveCurrentSegmentProfile={saveCurrentSegmentProfile}
+            applySegmentProfile={applySegmentProfile}
+            deleteSegmentProfile={deleteSegmentProfile}
+            applySavedWeight={applySavedWeight}
+            weightDraftName={weightDraftName}
+            setWeightDraftName={setWeightDraftName}
+            saveCurrentWeight={saveCurrentWeight}
+            error={error}
+          />
+        </div>
         <CanvasWorkspace
+          fitRequest={fitRequest}
+          onAddElement={addCanvasElement}
           outcomeMode={activeOutcomeMode.mode}
           outcomeCanvasLabel={activeOutcomeMode.canvasLabel}
           activePage={activePage}
@@ -1416,92 +1954,118 @@ export default function BuilderApp() {
           renderElement={renderCanvasElement}
         />
 
-        <BuilderInspector
-          outcomeMode={activeOutcomeMode.mode}
-          outcomeLabel={activeOutcomeMode.label}
-          outcomeHelper={activeOutcomeMode.helper}
-          settingsView={settingsView}
-          setSettingsView={setSettingsView}
-          activePage={activePage}
-          dashboardPageCount={dashboard.pages.length}
-          updateActivePage={updateActivePage}
-          duplicateActivePage={duplicateActivePage}
-          deleteActivePage={deleteActivePage}
-          selectedTile={selectedTile}
-          selectedElement={selectedElement}
-          multiSelectedObjects={activeMultiSelectedObjects}
-          setMultiSelectedHidden={setMultiSelectedHidden}
-          setMultiSelectedLocked={setMultiSelectedLocked}
-          alignMultiSelected={alignMultiSelected}
-          clearMultiSelection={clearMultiSelection}
-          savedBanners={savedBanners}
-          savedFilters={savedFilters}
-          savedVariableSets={savedVariableSets}
-          savedWeights={savedWeights}
-          savedSegmentProfiles={savedSegmentProfiles}
-          savedDerivedDefinitions={savedDerivedDefinitions}
-          importedDatasets={workspaceImportedDatasets}
-          selectedTileQuestion={selectedTileQuestion}
-          selectedTileFilterDimension={selectedTileFilterDimension}
-          selectedChartPart={selectedChartPart}
-          selectedChartPartId={selectedChartPartId}
-          setSelectedChartPartId={setSelectedChartPartId}
-          chartStyleTargets={chartStyleTargets}
-          textStylePresets={textStylePresets}
-          designPalettes={designPalettes}
-          pageMasters={pageMasters}
-          pageThemes={pageThemes}
-          applyPageMasterLayout={applyPageMasterLayout}
-          setDesignModal={setDesignModal}
-          changeSelectedLayer={changeSelectedLayer}
-          alignSelected={alignSelected}
-          applyLayoutPreset={applyLayoutPreset}
-          updateSelectedLayout={updateSelectedLayout}
-          updateSelectedElement={updateSelectedElement}
-          updateSelectedTile={updateSelectedTile}
-          selectTile={selectTile}
-          updateSelectedAppearance={updateSelectedAppearance}
-          updateSelectedBarStyle={updateSelectedBarStyle}
-          updateSelectedAxisLabel={updateSelectedAxisLabel}
-          applyTextStylePresetToSelection={applyTextStylePresetToSelection}
-          applyPageTheme={applyPageTheme}
-          applyPalettePresetToBars={applyPalettePresetToBars}
-          applyPaletteColorToSelectedBar={applyPaletteColorToSelectedBar}
-          applySolidColorToBars={applySolidColorToBars}
-          clearBarColorOverrides={clearBarColorOverrides}
-          applySelectedElementEffectPreset={applySelectedElementEffectPreset}
-          applySelectedTileEffectPreset={applySelectedTileEffectPreset}
-          tileWithVisualization={tileWithVisualization}
-          duplicateTileAsVisualization={duplicateTileAsVisualization}
-          duplicateDerivedOutputTile={duplicateDerivedOutputTile}
-          createDerivedOutputTile={createDerivedOutputTile}
-          recreateDerivedOutputTile={recreateDerivedOutputTile}
-          saveDerivedDefinition={saveDerivedDefinition}
-          rerunTileAnalysis={rerunTileAnalysis}
-          saveSelectedTileVariableSet={saveSelectedTileVariableSet}
-          saveSelectedTileAnalyticalTemplate={saveSelectedTileAnalyticalTemplate}
-          saveSelectedTileBanner={saveSelectedTileBanner}
-          saveSelectedTileFilter={saveSelectedTileFilter}
-          saveSelectedTileWeight={saveSelectedTileWeight}
-          onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
-          savedSettingOriginCue={savedSettingOriginCue}
-          recordSavedSettingOriginCue={recordSavedSettingOriginCue}
-          completeSavedSettingOriginCue={completeSavedSettingOriginCue}
-          relatedObjectNavigationCue={relatedObjectNavigationCue}
-          recordRelatedObjectNavigationCue={recordRelatedObjectNavigationCue}
-          reportTreeSelectionCue={reportTreeSelectionCue}
-          savedLibraryInsertionCue={savedLibraryInsertionCue}
-          derivedOutputCreationCue={derivedOutputCreationCue}
-          derivedOutputRecreationCue={derivedOutputRecreationCue}
-          derivedDefinitionRecreationCue={derivedDefinitionRecreationCue}
-          derivedOutputLibraryActionCue={derivedOutputLibraryActionCue}
-          deleteSelectedItem={deleteSelectedItem}
-          isLoading={isLoading}
-          comparisonDatasets={comparisonDatasets}
-        />
+        <div className="studio-inspector-slot" hidden={!inspectorOpen}>
+          <button
+            type="button"
+            className="studio-panel-close"
+            aria-label="Close properties"
+            onClick={toggleInspector}
+          >
+            <X size={17} />
+          </button>
+          <BuilderInspector
+            key={`${selectionKey ?? "page"}:${settingsView === "page" ? "page" : "object"}`}
+            outcomeMode={activeOutcomeMode.mode}
+            outcomeLabel={activeOutcomeMode.label}
+            outcomeHelper={activeOutcomeMode.helper}
+            settingsView={settingsView}
+            setSettingsView={setSettingsView}
+            activePage={activePage}
+            dashboardPageCount={dashboard.pages.length}
+            updateActivePage={updateActivePage}
+            duplicateActivePage={duplicateActivePage}
+            deleteActivePage={deleteActivePage}
+            selectedTile={selectedTile}
+            selectedElement={selectedElement}
+            multiSelectedObjects={activeMultiSelectedObjects}
+            setMultiSelectedHidden={setMultiSelectedHidden}
+            setMultiSelectedLocked={setMultiSelectedLocked}
+            alignMultiSelected={alignMultiSelected}
+            clearMultiSelection={clearMultiSelection}
+            savedBanners={savedBanners}
+            savedFilters={savedFilters}
+            savedVariableSets={savedVariableSets}
+            savedWeights={savedWeights}
+            savedSegmentProfiles={savedSegmentProfiles}
+            savedDerivedDefinitions={savedDerivedDefinitions}
+            importedDatasets={workspaceImportedDatasets}
+            selectedTileQuestion={selectedTileQuestion}
+            selectedTileFilterDimension={selectedTileFilterDimension}
+            selectedChartPart={selectedChartPart}
+            selectedChartPartId={selectedChartPartId}
+            setSelectedChartPartId={setSelectedChartPartId}
+            chartStyleTargets={chartStyleTargets}
+            textStylePresets={textStylePresets}
+            designPalettes={designPalettes}
+            pageMasters={pageMasters}
+            pageThemes={pageThemes}
+            applyPageMasterLayout={applyPageMasterLayout}
+            setDesignModal={setDesignModal}
+            changeSelectedLayer={changeSelectedLayer}
+            alignSelected={alignSelected}
+            applyLayoutPreset={applyLayoutPreset}
+            updateSelectedLayout={updateSelectedLayout}
+            updateSelectedElement={updateSelectedElement}
+            updateSelectedTile={updateSelectedTile}
+            selectTile={selectTile}
+            updateSelectedAppearance={updateSelectedAppearance}
+            updateSelectedBarStyle={updateSelectedBarStyle}
+            updateSelectedAxisLabel={updateSelectedAxisLabel}
+            applyTextStylePresetToSelection={applyTextStylePresetToSelection}
+            applyPageTheme={applyPageTheme}
+            applyPalettePresetToBars={applyPalettePresetToBars}
+            applyPaletteColorToSelectedBar={applyPaletteColorToSelectedBar}
+            applySolidColorToBars={applySolidColorToBars}
+            clearBarColorOverrides={clearBarColorOverrides}
+            applySelectedElementEffectPreset={applySelectedElementEffectPreset}
+            applySelectedTileEffectPreset={applySelectedTileEffectPreset}
+            tileWithVisualization={tileWithVisualization}
+            duplicateTileAsVisualization={duplicateTileAsVisualization}
+            duplicateDerivedOutputTile={duplicateDerivedOutputTile}
+            createDerivedOutputTile={createDerivedOutputTile}
+            recreateDerivedOutputTile={recreateDerivedOutputTile}
+            saveDerivedDefinition={saveDerivedDefinition}
+            rerunTileAnalysis={rerunTileAnalysis}
+            saveSelectedTileVariableSet={saveSelectedTileVariableSet}
+            saveSelectedTileAnalyticalTemplate={
+              saveSelectedTileAnalyticalTemplate
+            }
+            saveSelectedTileBanner={saveSelectedTileBanner}
+            saveSelectedTileFilter={saveSelectedTileFilter}
+            saveSelectedTileWeight={saveSelectedTileWeight}
+            onViewSavedSettingInLibrary={viewSavedSettingInLibrary}
+            savedSettingOriginCue={savedSettingOriginCue}
+            recordSavedSettingOriginCue={recordSavedSettingOriginCue}
+            completeSavedSettingOriginCue={completeSavedSettingOriginCue}
+            relatedObjectNavigationCue={relatedObjectNavigationCue}
+            recordRelatedObjectNavigationCue={recordRelatedObjectNavigationCue}
+            reportTreeSelectionCue={reportTreeSelectionCue}
+            savedLibraryInsertionCue={savedLibraryInsertionCue}
+            derivedOutputCreationCue={derivedOutputCreationCue}
+            derivedOutputRecreationCue={derivedOutputRecreationCue}
+            derivedDefinitionRecreationCue={derivedDefinitionRecreationCue}
+            derivedOutputLibraryActionCue={derivedOutputLibraryActionCue}
+            deleteSelectedItem={deleteSelectedItem}
+            isLoading={isLoading}
+            comparisonDatasets={comparisonDatasets}
+          />
+        </div>
       </section>
+      {commandOpen && (
+        <StudioCommandMenu
+          commands={studioCommands}
+          onClose={() => setCommandOpen(false)}
+        />
+      )}
+      {helpOpen && <StudioHelp onClose={() => setHelpOpen(false)} />}
       {designModal && (
-        <Suspense fallback={<div className="builder-modal-loading">Loading design controls...</div>}>
+        <Suspense
+          fallback={
+            <div className="builder-modal-loading">
+              Loading design controls...
+            </div>
+          }
+        >
           <BuilderDesignModal
             designModal={designModal}
             designModalRef={designModalRef}
@@ -1527,165 +2091,171 @@ export default function BuilderApp() {
         </Suspense>
       )}
       {guidedDataQuery && (
-        <Suspense fallback={<div className="builder-modal-loading">Loading query builder...</div>}>
+        <Suspense
+          fallback={
+            <div className="builder-modal-loading">
+              Loading query builder...
+            </div>
+          }
+        >
           <GuidedDataQueryModal
             props={{
-            leftPanelView,
-            setLeftPanelView,
-            layerItems,
-            selectedTileId,
-            selectedElementId,
-            multiSelectedObjects: activeMultiSelectedObjects,
-            toggleMultiSelectedObject,
-            clearMultiSelection,
-            chooseLayer,
-            selectTile,
-            selectElement,
-            recordReportTreeSelectionCue,
-            recordSavedLibraryInsertionCue,
-            updateTile,
-            updateElement,
-            sortedPages,
-            activePage,
-            setActivePageId,
-            selectPage,
-            renamePage,
-            addPage,
-            duplicateActivePage,
-            duplicatePageById,
-            deleteActivePage,
-            deletePageById,
-            movePage,
-            pageTemplates,
-            pageThemes,
-            selectedTextElement,
-            selectedTile,
-            focusSelectedTileInspector,
-            recordSavedSettingOriginCue,
-            recordDerivedOutputLibraryActionCue,
-            designPalettes,
-            applyPaletteToTile,
-            textStylePresets,
-            applyTextStylePresetToSelection,
-            textBlockPresets,
-            addTextBlockPreset,
-            compositionStarters,
-            savedCompositionBlocks,
-            designAssets,
-            saveCompositionBlockFromSelection,
-            updateCompositionBlockMetadata,
-            insertCompositionBlock,
-            insertCompositionStarter,
-            deleteCompositionBlock,
-            insertDesignAsset,
-            applyPageTheme,
-            exploreView,
-            setExploreView,
-            sourceLibraryView,
-            setSourceLibraryView,
-            analysisLibraryView,
-            setAnalysisLibraryView,
-            savedLibraryHandoff,
-            sourceSearch,
-            setSourceSearch,
-            liveDatasetSources: workspaceLiveDatasetSources,
-            importedDatasets: workspaceImportedDatasets,
-            importDataset,
-            updateImportedDatasetField,
-            removeImportedDataset,
-            openGuidedDataQuery,
-            filteredVariableSets,
-            filteredQuestions,
-            selectedDataSource,
-            applyVariableSetSelection,
-            applyQuestionSelection,
-            startDataSourceDrag,
-            selectedVariableSet,
-            question,
-            setQuestion,
-            variableSetDraftName,
-            setVariableSetDraftName,
-            variableSetDescription,
-            setVariableSetDescription,
-            variableSetQuestionIds,
-            toggleVariableSetQuestion,
-            selectedQuestion,
-            resetVariableSetRows,
-            revealAllVariableSetRows,
-            markVariableSetRowsAsDetails,
-            variableSetRows,
-            variableSetOptionSelection,
-            toggleVariableSetOptionRow,
-            toggleVariableSetOptionSelection,
-            addVariableSetNet,
-            addRowsForUncoveredOptions,
-            updateVariableSetRow,
-            reorderVariableSetRow,
-            removeVariableSetRow,
-            saveCurrentVariableSet,
-            deleteVariableSet,
-            savedBanners,
-            savedFilters,
-            savedSegmentProfiles,
-            savedWeights,
-            savedAnalyticalTemplates,
-            savedDerivedDefinitions,
-            saveAnalyticalTemplate,
-            deleteAnalyticalTemplate,
-            saveDerivedDefinition,
-            deleteDerivedDefinition,
-            duplicateDerivedOutputFromLibrary,
-            createDerivedOutputFromDefinition,
-            savedVariableSets,
-            breakBy,
-            setBreakBy,
-            metric,
-            setMetric,
-            chartType,
-            setChartType,
-            weight,
-            setWeight,
-            filterField,
-            setFilterField,
-            filterValue,
-            setFilterValue,
-            comparisonMode,
-            setComparisonMode,
-            comparisonDatasets,
-            setComparisonDatasets,
-            toggleComparisonDataset,
-            selectedFilterDimension,
-            selectedChartTypes,
-            query,
-            setVariableSetRows,
-            setVariableSetOptionSelection,
-            addCanvasElement,
-            addTileFromQuery,
-            addTileFromSourceWithVisualization,
-            addTileFromVariableSet,
-            addTileFromImportedDatasetField,
-            createSourceDrivenSmartStarter,
-            addTileFromAnalyticalTemplate,
-            addTileFromSegmentProfile,
-            isLoading,
-            applySavedBanner,
-            bannerDraftName,
-            setBannerDraftName,
-            saveCurrentBanner,
-            deleteSavedBanner,
-            applySavedFilter,
-            filterDraftName,
-            setFilterDraftName,
-            saveCurrentFilter,
-            deleteSavedFilter,
-            saveCurrentSegmentProfile,
-            applySegmentProfile,
-            deleteSegmentProfile,
-            applySavedWeight,
-            weightDraftName,
-            setWeightDraftName,
-            saveCurrentWeight,
-            error
+              leftPanelView,
+              setLeftPanelView,
+              layerItems,
+              selectedTileId,
+              selectedElementId,
+              multiSelectedObjects: activeMultiSelectedObjects,
+              toggleMultiSelectedObject,
+              clearMultiSelection,
+              chooseLayer,
+              selectTile,
+              selectElement,
+              recordReportTreeSelectionCue,
+              recordSavedLibraryInsertionCue,
+              updateTile,
+              updateElement,
+              sortedPages,
+              activePage,
+              setActivePageId,
+              selectPage,
+              renamePage,
+              addPage,
+              duplicateActivePage,
+              duplicatePageById,
+              deleteActivePage,
+              deletePageById,
+              movePage,
+              pageTemplates,
+              pageThemes,
+              selectedTextElement,
+              selectedTile,
+              focusSelectedTileInspector,
+              recordSavedSettingOriginCue,
+              recordDerivedOutputLibraryActionCue,
+              designPalettes,
+              applyPaletteToTile,
+              textStylePresets,
+              applyTextStylePresetToSelection,
+              textBlockPresets,
+              addTextBlockPreset,
+              compositionStarters,
+              savedCompositionBlocks,
+              designAssets,
+              saveCompositionBlockFromSelection,
+              updateCompositionBlockMetadata,
+              insertCompositionBlock,
+              insertCompositionStarter,
+              deleteCompositionBlock,
+              insertDesignAsset,
+              applyPageTheme,
+              exploreView,
+              setExploreView,
+              sourceLibraryView,
+              setSourceLibraryView,
+              analysisLibraryView,
+              setAnalysisLibraryView,
+              savedLibraryHandoff,
+              sourceSearch,
+              setSourceSearch,
+              liveDatasetSources: workspaceLiveDatasetSources,
+              importedDatasets: workspaceImportedDatasets,
+              importDataset,
+              updateImportedDatasetField,
+              removeImportedDataset,
+              openGuidedDataQuery,
+              filteredVariableSets,
+              filteredQuestions,
+              selectedDataSource,
+              applyVariableSetSelection,
+              applyQuestionSelection,
+              startDataSourceDrag,
+              selectedVariableSet,
+              question,
+              setQuestion,
+              variableSetDraftName,
+              setVariableSetDraftName,
+              variableSetDescription,
+              setVariableSetDescription,
+              variableSetQuestionIds,
+              toggleVariableSetQuestion,
+              selectedQuestion,
+              resetVariableSetRows,
+              revealAllVariableSetRows,
+              markVariableSetRowsAsDetails,
+              variableSetRows,
+              variableSetOptionSelection,
+              toggleVariableSetOptionRow,
+              toggleVariableSetOptionSelection,
+              addVariableSetNet,
+              addRowsForUncoveredOptions,
+              updateVariableSetRow,
+              reorderVariableSetRow,
+              removeVariableSetRow,
+              saveCurrentVariableSet,
+              deleteVariableSet,
+              savedBanners,
+              savedFilters,
+              savedSegmentProfiles,
+              savedWeights,
+              savedAnalyticalTemplates,
+              savedDerivedDefinitions,
+              saveAnalyticalTemplate,
+              deleteAnalyticalTemplate,
+              saveDerivedDefinition,
+              deleteDerivedDefinition,
+              duplicateDerivedOutputFromLibrary,
+              createDerivedOutputFromDefinition,
+              savedVariableSets,
+              breakBy,
+              setBreakBy,
+              metric,
+              setMetric,
+              chartType,
+              setChartType,
+              weight,
+              setWeight,
+              filterField,
+              setFilterField,
+              filterValue,
+              setFilterValue,
+              comparisonMode,
+              setComparisonMode,
+              comparisonDatasets,
+              setComparisonDatasets,
+              toggleComparisonDataset,
+              selectedFilterDimension,
+              selectedChartTypes,
+              query,
+              setVariableSetRows,
+              setVariableSetOptionSelection,
+              addCanvasElement,
+              addTileFromQuery,
+              addTileFromSourceWithVisualization,
+              addTileFromVariableSet,
+              addTileFromImportedDatasetField,
+              createSourceDrivenSmartStarter,
+              addTileFromAnalyticalTemplate,
+              addTileFromSegmentProfile,
+              isLoading,
+              applySavedBanner,
+              bannerDraftName,
+              setBannerDraftName,
+              saveCurrentBanner,
+              deleteSavedBanner,
+              applySavedFilter,
+              filterDraftName,
+              setFilterDraftName,
+              saveCurrentFilter,
+              deleteSavedFilter,
+              saveCurrentSegmentProfile,
+              applySegmentProfile,
+              deleteSegmentProfile,
+              applySavedWeight,
+              weightDraftName,
+              setWeightDraftName,
+              saveCurrentWeight,
+              error,
             }}
             initialOutputMode={guidedDataQuery.outputMode}
             launchContext={guidedDataQuery}

@@ -185,7 +185,7 @@ const sharedQuestions: QuestionMetadata[] = [
     sourceColumn: "q_packaging_trust",
     universe: "Total respondents",
     defaultMetric: "column_percent",
-    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table"],
+    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table", "donut"],
     allowedMetrics: ["column_percent", "count"],
     allowedBreakBys: ["GENERATION", "REGION", "SUMMARY"],
     options: [
@@ -204,7 +204,7 @@ const sharedQuestions: QuestionMetadata[] = [
     sourceColumn: "q_sustainability_importance",
     universe: "Total respondents",
     defaultMetric: "column_percent",
-    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table"],
+    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table", "donut"],
     allowedMetrics: ["column_percent", "count"],
     allowedBreakBys: ["GENERATION", "REGION", "SUMMARY"],
     options: [

@@ -151,14 +151,14 @@ export function useAnalysisAuthoring({
     item.label.toLowerCase().includes(normalizedSourceSearch)
   );
   const selectedFilterDimension = filterField ? filterDimensions.find((item) => item.id === filterField) : undefined;
-  const selectedChartTypes =
+  const selectedChartTypes = useMemo(() =>
     comparisonMode === "wave"
       ? waveComparisonChartTypes.filter((type) => {
           if (type === "table") return true;
           const chartMetadata = defaultDataset.chartTypes.find((item) => item.id === type);
           return Boolean(chartMetadata && chartMetadata.supportedMetrics.includes(metric));
         })
-      : selectedQuestion.allowedChartTypes;
+      : selectedQuestion.allowedChartTypes.filter(type => type !== "donut" || breakBy === "SUMMARY"), [comparisonMode, metric, selectedQuestion.allowedChartTypes, breakBy]);
   const query: AnalyticsQueryRequest = {
     dataset: defaultDataset.id,
     question,

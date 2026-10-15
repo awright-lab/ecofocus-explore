@@ -503,7 +503,8 @@ export function createNewReportFromSeed(workspace: DashboardWorkspace): { worksp
   const draft = normalizeDashboard({
     ...cloneDashboard(initialDashboard),
     id,
-    title: `Untitled Insight Report ${workspace.reports.length + 1}`,
+    title: `Untitled report ${workspace.reports.length + 1}`,
+    pages: [{...cloneDashboard(initialDashboard).pages[0],id:"page_overview",title:"Untitled page",elements:[],tiles:[],background:"#ffffff"}],
     status: "draft",
     publishMetadata: {
       publishCount: 0,
@@ -520,6 +521,12 @@ export function createNewReportFromSeed(workspace: DashboardWorkspace): { worksp
       reports: [report, ...workspace.reports]
     }
   };
+}
+
+export function createExampleReport(workspace: DashboardWorkspace) {
+  const id = makeId("example");
+  const report = createReportRecord({...cloneDashboard(initialDashboard),id});
+  return {report,workspace:{...workspace,activeReportId:id,reports:[report,...workspace.reports]}};
 }
 
 export function duplicateReportRecord(workspace: DashboardWorkspace, sourceReport: DashboardReportRecord): { workspace: DashboardWorkspace; report: DashboardReportRecord } {

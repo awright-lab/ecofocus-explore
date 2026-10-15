@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import {
   Bar,
@@ -14,25 +14,66 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
-import { bannerDimensions, datasets, defaultDataset, palettes } from "../builderConstants";
-import { backgroundStyle, effectShadow, gradientCss, normalizeGradientStops, svgLinearGradientVector } from "../builderHelpers";
-import type { AnalyticsAnnotation, AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, DatasetId, QuestionId } from "../../../../shared/types/analytics";
-import type { DashboardCanvasElement, DashboardPage, DashboardTile, GradientStop, TileAppearance } from "../../../../shared/types/dashboard";
-import { buildExecutedColumnComparisonPresentation, getExecutedSignificanceCell } from "./analysisSignificancePresentationModel";
-import { buildImportedResultProvenance, formatImportedMeasureValue } from "../../data/importedDatasetAnalytics";
+import {
+  bannerDimensions,
+  datasets,
+  defaultDataset,
+  palettes,
+} from "../builderConstants";
+import {
+  backgroundStyle,
+  effectShadow,
+  gradientCss,
+  normalizeGradientStops,
+  svgLinearGradientVector,
+} from "../builderHelpers";
+import type {
+  AnalyticsAnnotation,
+  AnalyticsQueryRequest,
+  AnalyticsQueryResponse,
+  ChartType,
+  DatasetId,
+  QuestionId,
+} from "../../../../shared/types/analytics";
+import type {
+  DashboardCanvasElement,
+  DashboardPage,
+  DashboardTile,
+  GradientStop,
+  TileAppearance,
+} from "../../../../shared/types/dashboard";
+import {
+  buildExecutedColumnComparisonPresentation,
+  getExecutedSignificanceCell,
+} from "./analysisSignificancePresentationModel";
+import {
+  buildImportedResultProvenance,
+  formatImportedMeasureValue,
+} from "../../data/importedDatasetAnalytics";
 
-export function getBarStyle(appearance: TileAppearance, id: string, fallbackColor: string) {
-  const defaultGradientColor = appearance.barFillMode === "gradient" ? appearance.primaryColor : fallbackColor;
+export function getBarStyle(
+  appearance: TileAppearance,
+  id: string,
+  fallbackColor: string,
+) {
+  const defaultGradientColor =
+    appearance.barFillMode === "gradient"
+      ? appearance.primaryColor
+      : fallbackColor;
   return {
     color: appearance.barStyles[id]?.color ?? defaultGradientColor,
     fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
-    gradientTo: appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
-    gradientType: appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
-    gradientAngle: appearance.barStyles[id]?.gradientAngle ?? appearance.barGradientAngle,
-    gradientStops: appearance.barStyles[id]?.gradientStops ?? appearance.barGradientStops,
-    radius: appearance.barStyles[id]?.radius ?? appearance.barRadius
+    gradientTo:
+      appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
+    gradientType:
+      appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
+    gradientAngle:
+      appearance.barStyles[id]?.gradientAngle ?? appearance.barGradientAngle,
+    gradientStops:
+      appearance.barStyles[id]?.gradientStops ?? appearance.barGradientStops,
+    radius: appearance.barStyles[id]?.radius ?? appearance.barRadius,
   };
 }
 
@@ -40,11 +81,24 @@ export function gradientId(tileId: string, key: string) {
   return `gradient_${tileId.replace(/[^a-zA-Z0-9]/g, "_")}_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
 }
 
-export function SvgGradientStops({ from, to, stops }: { from: string; to: string; stops?: GradientStop[] }) {
+export function SvgGradientStops({
+  from,
+  to,
+  stops,
+}: {
+  from: string;
+  to: string;
+  stops?: GradientStop[];
+}) {
   return (
     <>
       {normalizeGradientStops(from, to, stops).map((stop) => (
-        <stop key={stop.id} offset={`${stop.position}%`} stopColor={stop.color} stopOpacity={stop.opacity / 100} />
+        <stop
+          key={stop.id}
+          offset={`${stop.position}%`}
+          stopColor={stop.color}
+          stopOpacity={stop.opacity / 100}
+        />
       ))}
     </>
   );
@@ -53,7 +107,7 @@ export function SvgGradientStops({ from, to, stops }: { from: string; to: string
 export function SvgBarGradientDef({
   id,
   orientation,
-  style
+  style,
 }: {
   id: string;
   orientation: "vertical" | "horizontal";
@@ -62,16 +116,32 @@ export function SvgBarGradientDef({
   if (style.gradientType === "radial") {
     return (
       <radialGradient id={id}>
-        <SvgGradientStops from={style.color} to={style.gradientTo} stops={style.gradientStops} />
+        <SvgGradientStops
+          from={style.color}
+          to={style.gradientTo}
+          stops={style.gradientStops}
+        />
       </radialGradient>
     );
   }
 
-  const vector = svgLinearGradientVector(style.gradientAngle ?? (orientation === "horizontal" ? 90 : 180));
+  const vector = svgLinearGradientVector(
+    style.gradientAngle ?? (orientation === "horizontal" ? 90 : 180),
+  );
 
   return (
-    <linearGradient id={id} x1={vector.x1} y1={vector.y1} x2={vector.x2} y2={vector.y2}>
-      <SvgGradientStops from={style.color} to={style.gradientTo} stops={style.gradientStops} />
+    <linearGradient
+      id={id}
+      x1={vector.x1}
+      y1={vector.y1}
+      x2={vector.x2}
+      y2={vector.y2}
+    >
+      <SvgGradientStops
+        from={style.color}
+        to={style.gradientTo}
+        stops={style.gradientStops}
+      />
     </linearGradient>
   );
 }
@@ -85,21 +155,26 @@ export function formatValue(
   value: number,
   format: AnalyticsQueryResponse["metric"]["valueFormat"],
   metricId?: AnalyticsQueryResponse["metric"]["id"],
-  options: ValueLabelFormatOptions = {}
+  options: ValueLabelFormatOptions = {},
 ) {
   if (format === "percent") {
     const decimals = options.percentDecimals ?? 0;
     const factor = 10 ** decimals;
-    const rounded = options.percentRounding === "ceil" ? Math.ceil(value * factor) / factor : Math.round(value * factor) / factor;
+    const rounded =
+      options.percentRounding === "ceil"
+        ? Math.ceil(value * factor) / factor
+        : Math.round(value * factor) / factor;
     return `${rounded.toFixed(decimals)}%`;
   }
   return formatImportedMeasureValue(value, metricId ?? "count");
 }
 
-function valueLabelFormatOptions(appearance: TileAppearance): ValueLabelFormatOptions {
+function valueLabelFormatOptions(
+  appearance: TileAppearance,
+): ValueLabelFormatOptions {
   return {
     percentDecimals: appearance.labelPercentDecimals ?? 0,
-    percentRounding: appearance.labelPercentRounding ?? "nearest"
+    percentRounding: appearance.labelPercentRounding ?? "nearest",
   };
 }
 
@@ -110,22 +185,29 @@ function roundedPercentAxisProps(values: number[]) {
   const ticks = Array.from(
     new Set([
       0,
-      ...Array.from({ length: Math.floor(ceiling / step) }, (_, index) => (index + 1) * step),
-      ceiling
-    ])
+      ...Array.from(
+        { length: Math.floor(ceiling / step) },
+        (_, index) => (index + 1) * step,
+      ),
+      ceiling,
+    ]),
   ).sort((a, b) => a - b);
   return {
     domain: [0, ceiling] as [number, number],
-    ticks
+    ticks,
   };
 }
 
 function chartYAxisProps(result: AnalyticsQueryResponse, values: number[]) {
-  return result.metric.valueFormat === "percent" ? roundedPercentAxisProps(values) : {};
+  return result.metric.valueFormat === "percent"
+    ? roundedPercentAxisProps(values)
+    : {};
 }
 
 function resultColumnValues(result: AnalyticsQueryResponse) {
-  return result.table.flatMap((row) => result.columns.map((column) => Number(row.values[column.id] ?? 0)));
+  return result.table.flatMap((row) =>
+    result.columns.map((column) => Number(row.values[column.id] ?? 0)),
+  );
 }
 
 export function wrapWords(value: string, maxChars: number, maxLines: number) {
@@ -151,21 +233,32 @@ export function wrapWords(value: string, maxChars: number, maxLines: number) {
 
   const limitedLines = wrappedLines.slice(0, maxLines);
   if (wrappedLines.length > maxLines && limitedLines.length > 0) {
-    limitedLines[limitedLines.length - 1] = `${limitedLines[limitedLines.length - 1].replace(/\.+$/, "")}...`;
+    limitedLines[limitedLines.length - 1] =
+      `${limitedLines[limitedLines.length - 1].replace(/\.+$/, "")}...`;
   }
   return limitedLines;
 }
 
-export function getAxisLabel(appearance: TileAppearance, id: string, fallback: string) {
+export function getAxisLabel(
+  appearance: TileAppearance,
+  id: string,
+  fallback: string,
+) {
   return appearance.axisLabelOverrides[id] ?? fallback;
 }
 
 export function getChartTypeLabel(chartType: ChartType) {
-  return defaultDataset.chartTypes.find((item) => item.id === chartType)?.label ?? chartType;
+  return (
+    defaultDataset.chartTypes.find((item) => item.id === chartType)?.label ??
+    chartType
+  );
 }
 
 export function getQuestionLabel(questionId: QuestionId) {
-  return defaultDataset.questions.find((question) => question.id === questionId)?.shortLabel ?? questionId;
+  return (
+    defaultDataset.questions.find((question) => question.id === questionId)
+      ?.shortLabel ?? questionId
+  );
 }
 
 export function resultSourceLabel(result: AnalyticsQueryResponse) {
@@ -177,26 +270,35 @@ export function resultSourceLabel(result: AnalyticsQueryResponse) {
 export function resultDatasetLabel(result: AnalyticsQueryResponse) {
   return result.metadataRefs.source?.kind === "imported"
     ? result.metadataRefs.source.datasetLabel
-    : datasets.find((dataset) => dataset.id === result.metadataRefs.dataset)?.wave ?? result.metadataRefs.dataset;
+    : (datasets.find((dataset) => dataset.id === result.metadataRefs.dataset)
+        ?.wave ?? result.metadataRefs.dataset);
 }
 
 export function resultBannerLabel(result: AnalyticsQueryResponse) {
   if (result.metadataRefs.source?.kind === "imported") {
     return result.metadataRefs.source.bannerFieldLabel ?? "No breakout";
   }
-  return bannerDimensions.find((item) => item.id === result.metadataRefs.breakBy)?.label ?? result.metadataRefs.breakBy;
+  return (
+    bannerDimensions.find((item) => item.id === result.metadataRefs.breakBy)
+      ?.label ?? result.metadataRefs.breakBy
+  );
 }
 
 export function resultFilterLabel(result: AnalyticsQueryResponse) {
   const source = result.metadataRefs.source;
   if (source?.kind === "imported") {
-    return source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel}: ${source.filterValue}` : "No filter";
+    return source.filterFieldLabel && source.filterValue
+      ? `${source.filterFieldLabel}: ${source.filterValue}`
+      : "No filter";
   }
   return "See query settings";
 }
 
 export function getPaletteId(colors: string[]) {
-  return palettes.find((palette) => palette.colors.join(",") === colors.join(","))?.id ?? "custom";
+  return (
+    palettes.find((palette) => palette.colors.join(",") === colors.join(","))
+      ?.id ?? "custom"
+  );
 }
 
 export function uniqueColors(colors: string[]) {
@@ -204,7 +306,15 @@ export function uniqueColors(colors: string[]) {
 }
 
 export function getDocumentColors(tile?: DashboardTile) {
-  if (!tile) return uniqueColors(["#0f1720", "#ffffff", "#16c9c3", "#00d17f", "#17a4ff", "#69776e"]);
+  if (!tile)
+    return uniqueColors([
+      "#0f1720",
+      "#ffffff",
+      "#16c9c3",
+      "#00d17f",
+      "#17a4ff",
+      "#69776e",
+    ]);
 
   return uniqueColors([
     ...tile.appearance.palette,
@@ -216,16 +326,46 @@ export function getDocumentColors(tile?: DashboardTile) {
     tile.appearance.chartBackground,
     tile.appearance.gridColor,
     tile.appearance.background,
-    tile.appearance.borderColor
+    tile.appearance.borderColor,
   ]);
 }
 
 export const gradientStylePresets = [
-  { id: "linear-left-right", label: "Left to right", type: "linear" as const, angle: 90, positions: [0, 100] },
-  { id: "linear-top-bottom", label: "Top to bottom", type: "linear" as const, angle: 180, positions: [0, 100] },
-  { id: "linear-diagonal", label: "Diagonal", type: "linear" as const, angle: 135, positions: [0, 35, 100] },
-  { id: "radial-soft", label: "Radial", type: "radial" as const, angle: 90, positions: [0, 45, 100] },
-  { id: "conic-sweep", label: "Conic", type: "conic" as const, angle: 90, positions: [0, 25, 60, 100] }
+  {
+    id: "linear-left-right",
+    label: "Left to right",
+    type: "linear" as const,
+    angle: 90,
+    positions: [0, 100],
+  },
+  {
+    id: "linear-top-bottom",
+    label: "Top to bottom",
+    type: "linear" as const,
+    angle: 180,
+    positions: [0, 100],
+  },
+  {
+    id: "linear-diagonal",
+    label: "Diagonal",
+    type: "linear" as const,
+    angle: 135,
+    positions: [0, 35, 100],
+  },
+  {
+    id: "radial-soft",
+    label: "Radial",
+    type: "radial" as const,
+    angle: 90,
+    positions: [0, 45, 100],
+  },
+  {
+    id: "conic-sweep",
+    label: "Conic",
+    type: "conic" as const,
+    angle: 90,
+    positions: [0, 25, 60, 100],
+  },
 ];
 
 export function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
@@ -233,41 +373,76 @@ export function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const chartTypes: ChartType[] = isSingleSeries
     ? ["table", "vertical_bar", "horizontal_bar", "donut"]
     : ["table", "grouped_bar", "stacked_bar", "line_chart"];
-  return chartTypes.filter((chartType) => defaultDataset.chartTypes.some((item) => item.id === chartType));
+  return chartTypes.filter((chartType) =>
+    defaultDataset.chartTypes.some((item) => item.id === chartType),
+  );
 }
 
-export function defaultVisualizationForQuestion(questionMetadata: typeof defaultDataset.questions[number]) {
+export function defaultVisualizationForQuestion(
+  questionMetadata: (typeof defaultDataset.questions)[number],
+) {
   return questionMetadata.allowedChartTypes.includes("table")
     ? "table"
-    : questionMetadata.allowedChartTypes.find((item) => item !== "table") ?? "table";
+    : (questionMetadata.allowedChartTypes.find((item) => item !== "table") ??
+        "table");
 }
 
-export function AxisTick(props: { x?: string | number; y?: string | number; payload?: { value: string }; appearance: TileAppearance; axisDirection?: "x" | "y" }) {
+export function AxisTick(props: {
+  x?: string | number;
+  y?: string | number;
+  payload?: { value: string };
+  appearance: TileAppearance;
+  axisDirection?: "x" | "y";
+}) {
   const { payload, appearance, axisDirection = "x" } = props;
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
   const label = payload?.value ?? "";
-  const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
+  const lines = appearance.axisLabelWrap
+    ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines)
+    : label.split("\n");
   const lineHeight = appearance.axisFontSize + 3;
   const yAxisLabelWidth = appearance.axisLabelWidth * 5;
   const yAxisGap = 18;
   const yAxisAnchorOffset =
-    appearance.axisLabelAlign === "start" ? -(yAxisLabelWidth + yAxisGap) : appearance.axisLabelAlign === "middle" ? -(yAxisLabelWidth / 2 + yAxisGap) : -yAxisGap;
-  const textAnchor = axisDirection === "y" ? appearance.axisLabelAlign : appearance.axisLabelRotation < 0 ? "end" : appearance.axisLabelRotation > 0 ? "start" : appearance.axisLabelAlign;
+    appearance.axisLabelAlign === "start"
+      ? -(yAxisLabelWidth + yAxisGap)
+      : appearance.axisLabelAlign === "middle"
+        ? -(yAxisLabelWidth / 2 + yAxisGap)
+        : -yAxisGap;
+  const textAnchor =
+    axisDirection === "y"
+      ? appearance.axisLabelAlign
+      : appearance.axisLabelRotation < 0
+        ? "end"
+        : appearance.axisLabelRotation > 0
+          ? "start"
+          : appearance.axisLabelAlign;
   const baseX = axisDirection === "y" ? x + yAxisAnchorOffset : x;
   const baseY = y;
-  const initialDy = axisDirection === "y" ? -((lines.length - 1) * lineHeight) / 2 : 0;
+  const initialDy =
+    axisDirection === "y" ? -((lines.length - 1) * lineHeight) / 2 : 0;
 
   return (
-    <g transform={`translate(${baseX + appearance.axisLabelDx},${baseY + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}>
+    <g
+      transform={`translate(${baseX + appearance.axisLabelDx},${baseY + appearance.axisLabelDy}) rotate(${appearance.axisLabelRotation})`}
+    >
       <text
-        fill={axisDirection === "y" ? appearance.yAxisTextColor : appearance.xAxisTextColor}
+        fill={
+          axisDirection === "y"
+            ? appearance.yAxisTextColor
+            : appearance.xAxisTextColor
+        }
         fontSize={appearance.axisFontSize}
         textAnchor={textAnchor}
         dominantBaseline={axisDirection === "y" ? "middle" : undefined}
       >
         {lines.map((line, index) => (
-          <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? initialDy : lineHeight}>
+          <tspan
+            key={`${line}-${index}`}
+            x={0}
+            dy={index === 0 ? initialDy : lineHeight}
+          >
             {line}
           </tspan>
         ))}
@@ -276,17 +451,27 @@ export function AxisTick(props: { x?: string | number; y?: string | number; payl
   );
 }
 
-export function getAnnotation(annotations: AnalyticsAnnotation[], rowId: string, columnId: string) {
-  return annotations.find((annotation) => annotation.rowId === rowId && annotation.columnId === columnId);
+export function getAnnotation(
+  annotations: AnalyticsAnnotation[],
+  rowId: string,
+  columnId: string,
+) {
+  return annotations.find(
+    (annotation) =>
+      annotation.rowId === rowId && annotation.columnId === columnId,
+  );
 }
 
 export function sampleSizeLabel(result: AnalyticsQueryResponse) {
   const imported = buildImportedResultProvenance(result);
   if (imported) return imported.baseLabel;
-  const bases = result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0);
+  const bases = result.table
+    .flatMap((row) => Object.values(row.bases))
+    .filter((base) => base > 0);
   const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
   if (uniqueBases.length === 0) return "Sample n/a";
-  if (uniqueBases.length === 1) return `Sample n=${uniqueBases[0].toLocaleString()}`;
+  if (uniqueBases.length === 1)
+    return `Sample n=${uniqueBases[0].toLocaleString()}`;
   return `Sample n=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
 }
 
@@ -295,24 +480,34 @@ export function confidenceLevelLabel(value: number) {
 }
 
 export function resultConfidenceLevel(result: AnalyticsQueryResponse) {
-  return result.statistics?.confidenceLevel ?? result.query.confidenceLevel ?? 0.95;
+  return (
+    result.statistics?.confidenceLevel ?? result.query.confidenceLevel ?? 0.95
+  );
 }
 
 export function comparisonDatasetsLabel(datasetIds: DatasetId[]) {
   if (datasetIds.length === 0) return "None";
   return datasetIds
-    .map((datasetId) => datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId)
+    .map(
+      (datasetId) =>
+        datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId,
+    )
     .join(" vs ");
 }
 
 export function comparisonSummaryLabel(query: AnalyticsQueryRequest) {
-  return query.comparisonMode === "wave" ? `Wave: ${comparisonDatasetsLabel(query.comparisonDatasets ?? [])}` : "None";
+  return query.comparisonMode === "wave"
+    ? `Wave: ${comparisonDatasetsLabel(query.comparisonDatasets ?? [])}`
+    : "None";
 }
 
 export function trendSpanLabel(query: AnalyticsQueryRequest) {
   if (query.comparisonMode !== "wave") return null;
   const waves = [query.dataset, ...(query.comparisonDatasets ?? [])]
-    .map((datasetId) => datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId)
+    .map(
+      (datasetId) =>
+        datasets.find((dataset) => dataset.id === datasetId)?.wave ?? datasetId,
+    )
     .sort();
   return `${waves[0]}-${waves[waves.length - 1]} trend`;
 }
@@ -325,7 +520,12 @@ export function tileSourceKindLabel(source: DashboardTile["source"]) {
 }
 
 export function slugifyFileName(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "ecofocus-dashboard";
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "ecofocus-dashboard"
+  );
 }
 
 export function pageSummary(page: DashboardPage) {
@@ -334,10 +534,16 @@ export function pageSummary(page: DashboardPage) {
   return {
     tileCount: visibleTiles.length,
     elementCount: visibleElements.length,
-    chartCount: visibleTiles.filter((tile) => tile.visualization !== "table").length,
-    tableCount: visibleTiles.filter((tile) => tile.visualization === "table").length,
-    trendTileCount: visibleTiles.filter((tile) => tile.query.comparisonMode === "wave").length,
-    primaryTopics: [...new Set(visibleTiles.map((tile) => resultSourceLabel(tile.result)))].slice(0, 4)
+    chartCount: visibleTiles.filter((tile) => tile.visualization !== "table")
+      .length,
+    tableCount: visibleTiles.filter((tile) => tile.visualization === "table")
+      .length,
+    trendTileCount: visibleTiles.filter(
+      (tile) => tile.query.comparisonMode === "wave",
+    ).length,
+    primaryTopics: [
+      ...new Set(visibleTiles.map((tile) => resultSourceLabel(tile.result))),
+    ].slice(0, 4),
   };
 }
 
@@ -349,7 +555,7 @@ export function tilePresentationNotes(tile: DashboardTile) {
       `Dataset: ${imported.datasetLabel}`,
       `Banner: ${imported.bannerLabel}; Filter: ${imported.filterLabel}`,
       `${imported.metricLabel}; ${imported.baseLabel}`,
-      ...tile.result.notes.slice(0, 2)
+      ...tile.result.notes.slice(0, 2),
     ];
   }
 
@@ -359,7 +565,7 @@ export function tilePresentationNotes(tile: DashboardTile) {
     `Comparison: ${comparisonSummaryLabel(tile.query)}`,
     `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
     confidenceLevelLabel(resultConfidenceLevel(tile.result)),
-    ...tile.result.notes.slice(0, 2)
+    ...tile.result.notes.slice(0, 2),
   ];
 }
 
@@ -381,7 +587,14 @@ export function ValueLabel(props: {
   const y = Number(props.y ?? 0);
   const width = Number(props.width ?? 0);
   const value = Number(props.value ?? 0);
-  const annotation = payload && appearance.showAnnotations ? getAnnotation(result.annotations, payload.optionId, props.columnId ?? result.columns[0]?.id) : undefined;
+  const annotation =
+    payload && appearance.showAnnotations
+      ? getAnnotation(
+          result.annotations,
+          payload.optionId,
+          props.columnId ?? result.columns[0]?.id,
+        )
+      : undefined;
   const yOffset =
     appearance.labelPosition === "insideBottom"
       ? 18
@@ -397,10 +610,20 @@ export function ValueLabel(props: {
       x={x + width / 2}
       y={labelY}
       textAnchor="middle"
-      className={annotation ? `chart-value ${annotation.direction}` : "chart-value"}
-      style={{ fill: annotation ? undefined : appearance.labelColor, fontSize: appearance.labelFontSize }}
+      className={
+        annotation ? `chart-value ${annotation.direction}` : "chart-value"
+      }
+      style={{
+        fill: annotation ? undefined : appearance.labelColor,
+        fontSize: appearance.labelFontSize,
+      }}
     >
-      {formatValue(value, result.metric.valueFormat, result.metric.id, valueLabelFormatOptions(appearance))}
+      {formatValue(
+        value,
+        result.metric.valueFormat,
+        result.metric.id,
+        valueLabelFormatOptions(appearance),
+      )}
       {annotation ? (annotation.direction === "up" ? "↑" : "↓") : ""}
     </text>
   );
@@ -450,9 +673,17 @@ export function HorizontalValueLabel(props: {
       textAnchor={textAnchor}
       dominantBaseline="middle"
       className="chart-value"
-      style={{ fill: appearance.labelColor, fontSize: appearance.labelFontSize }}
+      style={{
+        fill: appearance.labelColor,
+        fontSize: appearance.labelFontSize,
+      }}
     >
-      {formatValue(value, result.metric.valueFormat, result.metric.id, valueLabelFormatOptions(appearance))}
+      {formatValue(
+        value,
+        result.metric.valueFormat,
+        result.metric.id,
+        valueLabelFormatOptions(appearance),
+      )}
     </text>
   );
 }
@@ -474,11 +705,19 @@ export function HorizontalCategoryLabel(props: {
   const width = Number(props.width ?? 0);
   const height = Number(props.height ?? 0);
   const label = String(props.value ?? "");
-  const lines = appearance.axisLabelWrap ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines) : label.split("\n");
+  const lines = appearance.axisLabelWrap
+    ? wrapWords(label, appearance.axisLabelWidth, appearance.axisLabelMaxLines)
+    : label.split("\n");
   const lineHeight = appearance.axisFontSize + 3;
-  const baseY = y + height / 2 + appearance.axisLabelDy - ((lines.length - 1) * lineHeight) / 2;
+  const baseY =
+    y +
+    height / 2 +
+    appearance.axisLabelDy -
+    ((lines.length - 1) * lineHeight) / 2;
   const insideStart = appearance.axisLabelPlacement === "insideStart";
-  const baseX = insideStart ? x + 12 + appearance.axisLabelDx : x + width / 2 + appearance.axisLabelDx;
+  const baseX = insideStart
+    ? x + 12 + appearance.axisLabelDx
+    : x + width / 2 + appearance.axisLabelDx;
 
   return (
     <text
@@ -491,11 +730,56 @@ export function HorizontalCategoryLabel(props: {
       pointerEvents="none"
     >
       {lines.map((line, index) => (
-        <tspan key={`${line}-${index}`} x={baseX} dy={index === 0 ? 0 : lineHeight}>
+        <tspan
+          key={`${line}-${index}`}
+          x={baseX}
+          dy={index === 0 ? 0 : lineHeight}
+        >
           {line}
         </tspan>
       ))}
     </text>
+  );
+}
+
+const chartTooltipStyle: CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #dce4dc",
+  borderRadius: 8,
+  padding: "10px 13px",
+  boxShadow: "0 6px 20px #263b3014",
+  fontSize: 13,
+  color: "#31483c",
+};
+
+function SeriesLegend({ tile }: { tile: DashboardTile }) {
+  return (
+    <ul
+      className="chart-series-legend"
+      style={{
+        fontSize: tile.appearance.axisFontSize,
+        color: tile.appearance.labelColor,
+      }}
+      aria-label="Chart series"
+    >
+      {tile.result.columns.map((column, index) => (
+        <li key={column.id}>
+          <span
+            className="chart-legend-swatch"
+            style={{
+              background: getBarStyle(
+                tile.appearance,
+                column.id,
+                tile.appearance.palette[
+                  index % tile.appearance.palette.length
+                ] ?? tile.appearance.primaryColor,
+              ).color,
+            }}
+          />
+          <span>{column.label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -507,34 +791,138 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: row.values[column.id],
-    base: row.bases[column.id]
+    base: row.bases[column.id],
   }));
-  const yAxisProps = chartYAxisProps(result, chartData.map((item) => Number(item.value ?? 0)));
+  const yAxisProps = chartYAxisProps(
+    result,
+    chartData.map((item) => Number(item.value ?? 0)),
+  );
 
   return (
-    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven vertical bar chart">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+    <div
+      className="chart-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven vertical bar chart"
+    >
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        minHeight={0}
+      >
+        <BarChart
+          data={chartData}
+          margin={{ top: 32, right: 20, left: 8, bottom: 18 }}
+          barCategoryGap={appearance.barCategoryGap}
+          barGap={appearance.barGap}
+        >
           <defs>
             {chartData.map((item, index) => {
-              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const fallback =
+                appearance.palette[index % appearance.palette.length] ??
+                appearance.primaryColor;
               const style = getBarStyle(appearance, item.optionId, fallback);
-              return <SvgBarGradientDef id={gradientId(tile.id, item.optionId)} key={item.optionId} orientation="vertical" style={style} />;
+              return (
+                <SvgBarGradientDef
+                  id={gradientId(tile.id, item.optionId)}
+                  key={item.optionId}
+                  orientation="vertical"
+                  style={style}
+                />
+              );
             })}
           </defs>
-          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
-          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
-          <Bar dataKey="value" radius={[appearance.barRadius, appearance.barRadius, 0, 0]} barSize={appearance.barSize}>
+          {appearance.showGrid && (
+            <CartesianGrid stroke={appearance.gridColor} vertical={false} />
+          )}
+          <XAxis
+            dataKey="axisLabel"
+            interval={0}
+            tick={(props) => <AxisTick {...props} appearance={appearance} />}
+            tickLine={false}
+            height={appearance.axisHeight}
+          />
+          <YAxis
+            tick={{
+              fill: appearance.yAxisTextColor,
+              fontSize: appearance.axisFontSize,
+            }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) =>
+              formatValue(
+                Number(value),
+                result.metric.valueFormat,
+                result.metric.id,
+              )
+            }
+            {...yAxisProps}
+          />
+          <Tooltip
+            contentStyle={chartTooltipStyle}
+            labelStyle={{ fontWeight: 600, color: "#31483c", marginBottom: 5 }}
+            itemStyle={{ color: "#516855", fontSize: 12, padding: "2px 0" }}
+            cursor={false}
+            formatter={(value) => [
+              formatValue(
+                Number(value ?? 0),
+                result.metric.valueFormat,
+                result.metric.id,
+              ),
+              result.metric.label,
+            ]}
+          />
+          <Bar
+            isAnimationActive={false}
+            dataKey="value"
+            radius={[appearance.barRadius, appearance.barRadius, 0, 0]}
+            barSize={appearance.barSize}
+          >
             {chartData.map((item, index) => (
               <Cell
                 key={item.optionId}
-                fill={getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, item.optionId)})` : getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
-                {...({ radius: [getBarStyle(appearance, item.optionId, appearance.primaryColor).radius, getBarStyle(appearance, item.optionId, appearance.primaryColor).radius, 0, 0] } as Record<string, unknown>)}
+                fill={
+                  getBarStyle(
+                    appearance,
+                    item.optionId,
+                    appearance.palette[index % appearance.palette.length] ??
+                      appearance.primaryColor,
+                  ).fillMode === "gradient"
+                    ? `url(#${gradientId(tile.id, item.optionId)})`
+                    : getBarStyle(
+                        appearance,
+                        item.optionId,
+                        appearance.palette[index % appearance.palette.length] ??
+                          appearance.primaryColor,
+                      ).color
+                }
+                {...({
+                  radius: [
+                    getBarStyle(
+                      appearance,
+                      item.optionId,
+                      appearance.primaryColor,
+                    ).radius,
+                    getBarStyle(
+                      appearance,
+                      item.optionId,
+                      appearance.primaryColor,
+                    ).radius,
+                    0,
+                    0,
+                  ],
+                } as Record<string, unknown>)}
               />
             ))}
-            <LabelList content={(props) => <ValueLabel {...props} result={result} appearance={appearance} />} />
+            <LabelList
+              content={(props) => (
+                <ValueLabel
+                  {...props}
+                  result={result}
+                  appearance={appearance}
+                />
+              )}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -548,36 +936,130 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values
+    ...row.values,
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
   return (
-    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven grouped bar chart">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <BarChart data={chartData} margin={{ top: 32, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap} barGap={appearance.barGap}>
+    <div
+      className="chart-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven grouped bar chart"
+    >
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        minHeight={0}
+      >
+        <BarChart
+          data={chartData}
+          margin={{ top: 32, right: 20, left: 8, bottom: 18 }}
+          barCategoryGap={appearance.barCategoryGap}
+          barGap={appearance.barGap}
+        >
           <defs>
             {result.columns.map((column, index) => {
-              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const fallback =
+                appearance.palette[index % appearance.palette.length] ??
+                appearance.primaryColor;
               const style = getBarStyle(appearance, column.id, fallback);
-              return <SvgBarGradientDef id={gradientId(tile.id, column.id)} key={column.id} orientation="vertical" style={style} />;
+              return (
+                <SvgBarGradientDef
+                  id={gradientId(tile.id, column.id)}
+                  key={column.id}
+                  orientation="vertical"
+                  style={style}
+                />
+              );
             })}
           </defs>
-          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
-          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
-          <Legend verticalAlign="top" height={36} />
+          {appearance.showGrid && (
+            <CartesianGrid stroke={appearance.gridColor} vertical={false} />
+          )}
+          <XAxis
+            dataKey="axisLabel"
+            interval={0}
+            tick={(props) => <AxisTick {...props} appearance={appearance} />}
+            tickLine={false}
+            height={appearance.axisHeight}
+          />
+          <YAxis
+            tick={{
+              fill: appearance.yAxisTextColor,
+              fontSize: appearance.axisFontSize,
+            }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) =>
+              formatValue(
+                Number(value),
+                result.metric.valueFormat,
+                result.metric.id,
+              )
+            }
+            {...yAxisProps}
+          />
+          <Tooltip
+            contentStyle={chartTooltipStyle}
+            labelStyle={{ fontWeight: 600, color: "#31483c", marginBottom: 5 }}
+            itemStyle={{ color: "#516855", fontSize: 12, padding: "2px 0" }}
+            cursor={false}
+            formatter={(value) => [
+              formatValue(
+                Number(value ?? 0),
+                result.metric.valueFormat,
+                result.metric.id,
+              ),
+              result.metric.label,
+            ]}
+          />
+          <Legend
+            verticalAlign="top"
+            height={result.columns.length > 4 ? 64 : 36}
+            content={<SeriesLegend tile={tile} />}
+          />
           {result.columns.map((column, index) => (
             <Bar
+              isAnimationActive={false}
               key={column.id}
               dataKey={column.id}
               name={column.label}
-              fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, column.id)})` : getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
-              radius={[getBarStyle(appearance, column.id, appearance.primaryColor).radius, getBarStyle(appearance, column.id, appearance.primaryColor).radius, 0, 0]}
+              fill={
+                getBarStyle(
+                  appearance,
+                  column.id,
+                  appearance.palette[index % appearance.palette.length] ??
+                    appearance.primaryColor,
+                ).fillMode === "gradient"
+                  ? `url(#${gradientId(tile.id, column.id)})`
+                  : getBarStyle(
+                      appearance,
+                      column.id,
+                      appearance.palette[index % appearance.palette.length] ??
+                        appearance.primaryColor,
+                    ).color
+              }
+              radius={[
+                getBarStyle(appearance, column.id, appearance.primaryColor)
+                  .radius,
+                getBarStyle(appearance, column.id, appearance.primaryColor)
+                  .radius,
+                0,
+                0,
+              ]}
               barSize={appearance.barSize}
             >
-              <LabelList content={(props) => <ValueLabel {...props} columnId={column.id} result={result} appearance={appearance} />} />
+              <LabelList
+                content={(props) => (
+                  <ValueLabel
+                    {...props}
+                    columnId={column.id}
+                    result={result}
+                    appearance={appearance}
+                  />
+                )}
+              />
             </Bar>
           ))}
         </BarChart>
@@ -591,47 +1073,154 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
   const column = result.columns[0];
   const preferredYAxisWidth = appearance.axisLabelWidth * 5 + 28;
   const reservedOutsideWidth = 180;
-  const yAxisWidth = appearance.axisLabelPlacement === "outside" ? Math.max(150, preferredYAxisWidth > reservedOutsideWidth ? preferredYAxisWidth : reservedOutsideWidth) : 16;
+  const yAxisWidth =
+    appearance.axisLabelPlacement === "outside"
+      ? Math.max(
+          150,
+          preferredYAxisWidth > reservedOutsideWidth
+            ? preferredYAxisWidth
+            : reservedOutsideWidth,
+        )
+      : 16;
   const chartData = result.table.map((row) => ({
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: row.values[column.id],
-    base: row.bases[column.id]
+    base: row.bases[column.id],
   }));
-  const xAxisProps = chartYAxisProps(result, chartData.map((item) => Number(item.value ?? 0)));
+  const xAxisProps = chartYAxisProps(
+    result,
+    chartData.map((item) => Number(item.value ?? 0)),
+  );
 
   return (
-    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven horizontal bar chart">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <BarChart data={chartData} layout="vertical" margin={{ top: 18, right: 34, left: 18, bottom: 22 }} barCategoryGap={appearance.barCategoryGap}>
+    <div
+      className="chart-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven horizontal bar chart"
+    >
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        minHeight={0}
+      >
+        <BarChart
+          data={chartData}
+          layout="vertical"
+          margin={{ top: 18, right: 34, left: 18, bottom: 22 }}
+          barCategoryGap={appearance.barCategoryGap}
+        >
           <defs>
             {chartData.map((item, index) => {
-              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const fallback =
+                appearance.palette[index % appearance.palette.length] ??
+                appearance.primaryColor;
               const style = getBarStyle(appearance, item.optionId, fallback);
-              return <SvgBarGradientDef id={gradientId(tile.id, item.optionId)} key={item.optionId} orientation="horizontal" style={style} />;
+              return (
+                <SvgBarGradientDef
+                  id={gradientId(tile.id, item.optionId)}
+                  key={item.optionId}
+                  orientation="horizontal"
+                  style={style}
+                />
+              );
             })}
           </defs>
-          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} horizontal={false} />}
-          <XAxis type="number" tick={{ fill: appearance.xAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...xAxisProps} />
+          {appearance.showGrid && (
+            <CartesianGrid stroke={appearance.gridColor} horizontal={false} />
+          )}
+          <XAxis
+            type="number"
+            tick={{
+              fill: appearance.xAxisTextColor,
+              fontSize: appearance.axisFontSize,
+            }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) =>
+              formatValue(
+                Number(value),
+                result.metric.valueFormat,
+                result.metric.id,
+              )
+            }
+            {...xAxisProps}
+          />
           <YAxis
             type="category"
             dataKey="axisLabel"
             width={yAxisWidth}
-            tick={appearance.axisLabelPlacement === "outside" ? (props) => <AxisTick {...props} appearance={appearance} axisDirection="y" /> : false}
+            tick={
+              appearance.axisLabelPlacement === "outside"
+                ? (props) => (
+                    <AxisTick
+                      {...props}
+                      appearance={appearance}
+                      axisDirection="y"
+                    />
+                  )
+                : false
+            }
             tickLine={false}
             axisLine={false}
           />
-          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
-          <Bar dataKey="value" radius={[0, appearance.barRadius, appearance.barRadius, 0]} barSize={appearance.barSize}>
-            <LabelList dataKey="axisLabel" content={(props) => <HorizontalCategoryLabel {...props} appearance={appearance} />} />
+          <Tooltip
+            contentStyle={chartTooltipStyle}
+            labelStyle={{ fontWeight: 600, color: "#31483c", marginBottom: 5 }}
+            itemStyle={{ color: "#516855", fontSize: 12, padding: "2px 0" }}
+            cursor={false}
+            formatter={(value) => [
+              formatValue(
+                Number(value ?? 0),
+                result.metric.valueFormat,
+                result.metric.id,
+              ),
+              result.metric.label,
+            ]}
+          />
+          <Bar
+            isAnimationActive={false}
+            dataKey="value"
+            radius={[0, appearance.barRadius, appearance.barRadius, 0]}
+            barSize={appearance.barSize}
+          >
+            <LabelList
+              dataKey="axisLabel"
+              content={(props) => (
+                <HorizontalCategoryLabel {...props} appearance={appearance} />
+              )}
+            />
             {chartData.map((item, index) => (
               <Cell
                 key={item.optionId}
-                fill={getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, item.optionId)})` : getBarStyle(appearance, item.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+                fill={
+                  getBarStyle(
+                    appearance,
+                    item.optionId,
+                    appearance.palette[index % appearance.palette.length] ??
+                      appearance.primaryColor,
+                  ).fillMode === "gradient"
+                    ? `url(#${gradientId(tile.id, item.optionId)})`
+                    : getBarStyle(
+                        appearance,
+                        item.optionId,
+                        appearance.palette[index % appearance.palette.length] ??
+                          appearance.primaryColor,
+                      ).color
+                }
               />
             ))}
-            <LabelList content={(props) => <HorizontalValueLabel {...props} result={result} appearance={appearance} />} />
+            <LabelList
+              content={(props) => (
+                <HorizontalValueLabel
+                  {...props}
+                  result={result}
+                  appearance={appearance}
+                />
+              )}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -645,34 +1234,115 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values
+    ...row.values,
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
   return (
-    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven stacked bar chart">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 8, bottom: 18 }} barCategoryGap={appearance.barCategoryGap}>
+    <div
+      className="chart-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven stacked bar chart"
+    >
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        minHeight={0}
+      >
+        <BarChart
+          data={chartData}
+          margin={{ top: 20, right: 20, left: 8, bottom: 18 }}
+          barCategoryGap={appearance.barCategoryGap}
+        >
           <defs>
             {result.columns.map((column, index) => {
-              const fallback = appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor;
+              const fallback =
+                appearance.palette[index % appearance.palette.length] ??
+                appearance.primaryColor;
               const style = getBarStyle(appearance, column.id, fallback);
-              return <SvgBarGradientDef id={gradientId(tile.id, column.id)} key={column.id} orientation="vertical" style={style} />;
+              return (
+                <SvgBarGradientDef
+                  id={gradientId(tile.id, column.id)}
+                  key={column.id}
+                  orientation="vertical"
+                  style={style}
+                />
+              );
             })}
           </defs>
-          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
-          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
-          <Legend verticalAlign="top" height={36} />
+          {appearance.showGrid && (
+            <CartesianGrid stroke={appearance.gridColor} vertical={false} />
+          )}
+          <XAxis
+            dataKey="axisLabel"
+            interval={0}
+            tick={(props) => <AxisTick {...props} appearance={appearance} />}
+            tickLine={false}
+            height={appearance.axisHeight}
+          />
+          <YAxis
+            tick={{
+              fill: appearance.yAxisTextColor,
+              fontSize: appearance.axisFontSize,
+            }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) =>
+              formatValue(
+                Number(value),
+                result.metric.valueFormat,
+                result.metric.id,
+              )
+            }
+            {...yAxisProps}
+          />
+          <Tooltip
+            contentStyle={chartTooltipStyle}
+            labelStyle={{ fontWeight: 600, color: "#31483c", marginBottom: 5 }}
+            itemStyle={{ color: "#516855", fontSize: 12, padding: "2px 0" }}
+            cursor={false}
+            formatter={(value) => [
+              formatValue(
+                Number(value ?? 0),
+                result.metric.valueFormat,
+                result.metric.id,
+              ),
+              result.metric.label,
+            ]}
+          />
+          <Legend
+            verticalAlign="top"
+            height={result.columns.length > 4 ? 64 : 36}
+            content={<SeriesLegend tile={tile} />}
+          />
           {result.columns.map((column, index) => (
             <Bar
+              isAnimationActive={false}
               key={column.id}
               dataKey={column.id}
               name={column.label}
               stackId="stack"
-              fill={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).fillMode === "gradient" ? `url(#${gradientId(tile.id, column.id)})` : getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
-              radius={index === result.columns.length - 1 ? [appearance.barRadius, appearance.barRadius, 0, 0] : [0, 0, 0, 0]}
+              fill={
+                getBarStyle(
+                  appearance,
+                  column.id,
+                  appearance.palette[index % appearance.palette.length] ??
+                    appearance.primaryColor,
+                ).fillMode === "gradient"
+                  ? `url(#${gradientId(tile.id, column.id)})`
+                  : getBarStyle(
+                      appearance,
+                      column.id,
+                      appearance.palette[index % appearance.palette.length] ??
+                        appearance.primaryColor,
+                    ).color
+              }
+              radius={
+                index === result.columns.length - 1
+                  ? [appearance.barRadius, appearance.barRadius, 0, 0]
+                  : [0, 0, 0, 0]
+              }
               barSize={appearance.barSize}
             />
           ))}
@@ -688,26 +1358,86 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values
+    ...row.values,
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
   return (
-    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven line chart">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <LineChart data={chartData} margin={{ top: 20, right: 24, left: 8, bottom: 18 }}>
-          {appearance.showGrid && <CartesianGrid stroke={appearance.gridColor} vertical={false} />}
-          <XAxis dataKey="axisLabel" interval={0} tick={(props) => <AxisTick {...props} appearance={appearance} />} tickLine={false} height={appearance.axisHeight} />
-          <YAxis tick={{ fill: appearance.yAxisTextColor, fontSize: appearance.axisFontSize }} tickLine={false} axisLine={false} {...yAxisProps} />
-          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
-          <Legend verticalAlign="top" height={36} />
+    <div
+      className="chart-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven line chart"
+    >
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        minHeight={0}
+      >
+        <LineChart
+          data={chartData}
+          margin={{ top: 20, right: 24, left: 8, bottom: 18 }}
+        >
+          {appearance.showGrid && (
+            <CartesianGrid stroke={appearance.gridColor} vertical={false} />
+          )}
+          <XAxis
+            dataKey="axisLabel"
+            interval={0}
+            tick={(props) => <AxisTick {...props} appearance={appearance} />}
+            tickLine={false}
+            height={appearance.axisHeight}
+          />
+          <YAxis
+            tick={{
+              fill: appearance.yAxisTextColor,
+              fontSize: appearance.axisFontSize,
+            }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) =>
+              formatValue(
+                Number(value),
+                result.metric.valueFormat,
+                result.metric.id,
+              )
+            }
+            {...yAxisProps}
+          />
+          <Tooltip
+            contentStyle={chartTooltipStyle}
+            labelStyle={{ fontWeight: 600, color: "#31483c", marginBottom: 5 }}
+            itemStyle={{ color: "#516855", fontSize: 12, padding: "2px 0" }}
+            cursor={false}
+            formatter={(value) => [
+              formatValue(
+                Number(value ?? 0),
+                result.metric.valueFormat,
+                result.metric.id,
+              ),
+              result.metric.label,
+            ]}
+          />
+          <Legend
+            verticalAlign="top"
+            height={result.columns.length > 4 ? 64 : 36}
+            content={<SeriesLegend tile={tile} />}
+          />
           {result.columns.map((column, index) => (
             <Line
+              isAnimationActive={false}
               key={column.id}
               type="monotone"
               dataKey={column.id}
               name={column.label}
-              stroke={getBarStyle(appearance, column.id, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color}
+              stroke={
+                getBarStyle(
+                  appearance,
+                  column.id,
+                  appearance.palette[index % appearance.palette.length] ??
+                    appearance.primaryColor,
+                ).color
+              }
               strokeWidth={3}
               dot={{ r: 4 }}
               activeDot={{ r: 6 }}
@@ -726,34 +1456,90 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     name: getAxisLabel(appearance, row.optionId, row.label),
     value: row.values[column.id],
-    fill: getBarStyle(appearance, row.optionId, appearance.palette[index % appearance.palette.length] ?? appearance.primaryColor).color
+    fill: getBarStyle(
+      appearance,
+      row.optionId,
+      appearance.palette[index % appearance.palette.length] ??
+        appearance.primaryColor,
+    ).color,
   }));
-
   return (
-    <div className="chart-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven donut chart">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-        <PieChart>
-          <Tooltip cursor={false} formatter={(value) => [formatValue(Number(value ?? 0), result.metric.valueFormat, result.metric.id), result.metric.label]} />
-          <Legend verticalAlign="bottom" height={84} />
-          <Pie
-            data={chartData}
-            dataKey="value"
-            nameKey="name"
-            innerRadius="48%"
-            outerRadius="78%"
-            paddingAngle={2}
-            label={
-              appearance.showValueLabels
-                ? (entry) => formatValue(Number(entry.value ?? 0), result.metric.valueFormat, result.metric.id, valueLabelFormatOptions(appearance))
-                : false
-            }
+    <div
+      className="chart-card donut-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven donut chart"
+    >
+      <div className="donut-chart-layout">
+        <div className="donut-chart-plot">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minWidth={0}
+            minHeight={0}
           >
-            {chartData.map((item) => (
-              <Cell key={item.optionId} fill={item.fill} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
+            <PieChart>
+              <Tooltip
+                contentStyle={chartTooltipStyle}
+                labelStyle={{ fontWeight: 600, color: "#31483c" }}
+                itemStyle={{ color: "#516855", fontSize: 12 }}
+                cursor={false}
+                formatter={(value) => [
+                  formatValue(
+                    Number(value ?? 0),
+                    result.metric.valueFormat,
+                    result.metric.id,
+                    valueLabelFormatOptions(appearance),
+                  ),
+                  result.metric.label,
+                ]}
+              />
+              <Pie
+                isAnimationActive={false}
+                data={chartData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius="64%"
+                outerRadius="90%"
+                paddingAngle={2}
+                stroke="none"
+                aria-label="Response distribution"
+              >
+                {chartData.map((item) => (
+                  <Cell key={item.optionId} fill={item.fill} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <ul
+          className="donut-chart-legend"
+          aria-label="Response distribution values"
+          style={{
+            fontSize: appearance.axisFontSize,
+            color: appearance.labelColor,
+          }}
+        >
+          {chartData.map((item) => (
+            <li key={item.optionId}>
+              <span
+                className="chart-legend-swatch"
+                style={{ background: item.fill }}
+              />
+              <span className="donut-chart-label">{item.name}</span>
+              {appearance.showValueLabels && (
+                <strong style={{ fontSize: appearance.labelFontSize }}>
+                  {formatValue(
+                    item.value,
+                    result.metric.valueFormat,
+                    result.metric.id,
+                    valueLabelFormatOptions(appearance),
+                  )}
+                </strong>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -761,7 +1547,8 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
 export function TableView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
   const visibleColumns = result.columns;
-  const executedSignificance = buildExecutedColumnComparisonPresentation(result);
+  const executedSignificance =
+    buildExecutedColumnComparisonPresentation(result);
 
   function tableCellAnnotation(rowId: string, columnId: string) {
     if (!appearance.showAnnotations) return null;
@@ -774,7 +1561,11 @@ export function TableView({ tile }: { tile: DashboardTile }) {
   }
 
   return (
-    <div className="chart-card table-card" style={{ background: appearance.chartBackground }} aria-label="Query-driven table">
+    <div
+      className="chart-card table-card"
+      style={{ background: appearance.chartBackground }}
+      aria-label="Query-driven table"
+    >
       <div className="table-shell">
         <table className="analytics-table">
           <thead>
@@ -793,51 +1584,92 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                   row.presentation?.emphasis === "summary"
                     ? "table-row summary"
                     : row.presentation?.rowKind === "option"
-                    ? "table-row detail"
-                    : "table-row"
+                      ? "table-row detail"
+                      : "table-row"
                 }
               >
                 <th>
                   <div className="table-row-label">
-                    <span>{getAxisLabel(appearance, row.optionId, row.label)}</span>
+                    <span>
+                      {getAxisLabel(appearance, row.optionId, row.label)}
+                    </span>
                     {row.presentation?.emphasis === "summary" && (
-                      <small>{row.presentation.rowKind === "topbox" ? "Top box" : row.presentation.rowKind === "bottombox" ? "Bottom box" : "Summary row"}</small>
+                      <small>
+                        {row.presentation.rowKind === "topbox"
+                          ? "Top box"
+                          : row.presentation.rowKind === "bottombox"
+                            ? "Bottom box"
+                            : "Summary row"}
+                      </small>
                     )}
                   </div>
                 </th>
                 {visibleColumns.map((column) => {
-                  const annotation = tableCellAnnotation(row.optionId, column.id);
-                  const significanceCell = tableCellSignificance(row.optionId, column.id);
+                  const annotation = tableCellAnnotation(
+                    row.optionId,
+                    column.id,
+                  );
+                  const significanceCell = tableCellSignificance(
+                    row.optionId,
+                    column.id,
+                  );
                   return (
                     <td key={column.id}>
                       <div className="table-cell-stack">
                         {appearance.showValueLabels && (
-                          <span className={annotation ? `table-value ${annotation.direction}` : significanceCell ? `table-value significance-${significanceCell.direction}` : "table-value"}>
-                            {formatValue(row.values[column.id], result.metric.valueFormat, result.metric.id)}
-                            {annotation && <span className={`direction direction-${annotation.direction}`}>{annotation.direction === "up" ? "↑" : "↓"}</span>}
+                          <span
+                            className={
+                              annotation
+                                ? `table-value ${annotation.direction}`
+                                : significanceCell
+                                  ? `table-value significance-${significanceCell.direction}`
+                                  : "table-value"
+                            }
+                          >
+                            {formatValue(
+                              row.values[column.id],
+                              result.metric.valueFormat,
+                              result.metric.id,
+                            )}
+                            {annotation && (
+                              <span
+                                className={`direction direction-${annotation.direction}`}
+                              >
+                                {annotation.direction === "up" ? "↑" : "↓"}
+                              </span>
+                            )}
                           </span>
                         )}
                         {significanceCell && (
-                          <span className={`table-significance-marker ${significanceCell.direction}`} title={significanceCell.title}>
+                          <span
+                            className={`table-significance-marker ${significanceCell.direction}`}
+                            title={significanceCell.title}
+                          >
                             {significanceCell.label}
                           </span>
                         )}
-                        {appearance.showBases && <small>Base {row.bases[column.id].toLocaleString()}</small>}
+                        {appearance.showBases && (
+                          <small>
+                            Base {row.bases[column.id].toLocaleString()}
+                          </small>
+                        )}
                       </div>
                     </td>
                   );
                 })}
               </tr>
             ))}
-            {appearance.showAnnotations && executedSignificance.available && executedSignificance.significantComparisons > 0 && (
-              <tr className="table-significance-row">
-                <td colSpan={visibleColumns.length + 1}>
-                  <div className="table-note-list significance">
-                    <span>{executedSignificance.summaryLabel}</span>
-                  </div>
-                </td>
-              </tr>
-            )}
+            {appearance.showAnnotations &&
+              executedSignificance.available &&
+              executedSignificance.significantComparisons > 0 && (
+                <tr className="table-significance-row">
+                  <td colSpan={visibleColumns.length + 1}>
+                    <div className="table-note-list significance">
+                      <span>{executedSignificance.summaryLabel}</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
             {appearance.showNotes && result.notes.length > 0 && (
               <tr className="table-notes-row">
                 <td colSpan={visibleColumns.length + 1}>
@@ -869,230 +1701,338 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 
 export function ChartView({ tile }: { tile: DashboardTile }) {
   if (tile.visualization === "table") return <TableView tile={tile} />;
-  if (tile.visualization === "vertical_bar") return <VerticalBarChartView tile={tile} />;
-  if (tile.visualization === "horizontal_bar") return <HorizontalBarChartView tile={tile} />;
-  if (tile.visualization === "grouped_bar") return <GroupedBarChartView tile={tile} />;
-  if (tile.visualization === "stacked_bar") return <StackedBarChartView tile={tile} />;
+  if (tile.visualization === "vertical_bar")
+    return <VerticalBarChartView tile={tile} />;
+  if (tile.visualization === "horizontal_bar")
+    return <HorizontalBarChartView tile={tile} />;
+  if (tile.visualization === "grouped_bar")
+    return <GroupedBarChartView tile={tile} />;
+  if (tile.visualization === "stacked_bar")
+    return <StackedBarChartView tile={tile} />;
   if (tile.visualization === "line_chart") return <LineChartView tile={tile} />;
   if (tile.visualization === "donut") return <DonutChartView tile={tile} />;
   return null;
 }
 
-export const TileRenderer = memo(function TileRenderer({
-  tile,
-  selected,
-  onSelect,
-  onTitleChange,
-  onTitleAppearanceChange,
-  titleEditable = true
-}: {
-  tile: DashboardTile;
-  selected: boolean;
-  onSelect: () => void;
-  onTitleChange: (title: string) => void;
-  onTitleAppearanceChange: (updates: Partial<TileAppearance>) => void;
-  titleEditable?: boolean;
-}) {
-  const result = tile.result;
-  const imported = buildImportedResultProvenance(result);
-  const importedQuestionPrompt = result.metadataRefs.source?.kind === "imported"
-    ? result.metadataRefs.source.primaryFieldPrompt
-    : null;
-  const titleHeight = Math.max(30, Math.round(tile.appearance.titleFontSize * 2.1));
-  const titleReserve = Math.max(importedQuestionPrompt ? 70 : 44, tile.appearance.titleY + titleHeight + (importedQuestionPrompt ? 30 : 6));
-  const titleWidth = Math.max(160, Math.min(tile.appearance.titleWidth, tile.layout.width - tile.appearance.titleX - 18));
-  const commitTitle = (value: string) => {
-    const nextTitle = value.trim();
-    if (nextTitle && nextTitle !== tile.title) onTitleChange(nextTitle);
-  };
+export const TileRenderer = memo(
+  function TileRenderer({
+    tile,
+    selected,
+    onSelect,
+    onTitleChange,
+    onTitleAppearanceChange,
+    titleEditable = true,
+  }: {
+    tile: DashboardTile;
+    selected: boolean;
+    onSelect: () => void;
+    onTitleChange: (title: string) => void;
+    onTitleAppearanceChange: (updates: Partial<TileAppearance>) => void;
+    titleEditable?: boolean;
+  }) {
+    const result = tile.result;
+    const imported = buildImportedResultProvenance(result);
+    const importedQuestionPrompt =
+      result.metadataRefs.source?.kind === "imported"
+        ? result.metadataRefs.source.primaryFieldPrompt
+        : null;
+    const titleHeight = Math.max(
+      30,
+      Math.round(tile.appearance.titleFontSize * 2.1),
+    );
+    const titleReserve = Math.max(
+      importedQuestionPrompt ? 70 : 44,
+      tile.appearance.titleY + titleHeight + (importedQuestionPrompt ? 30 : 6),
+    );
+    const titleWidth = Math.max(
+      160,
+      Math.min(
+        tile.appearance.titleWidth,
+        tile.layout.width - tile.appearance.titleX - 18,
+      ),
+    );
+    const commitTitle = (value: string) => {
+      const nextTitle = value.trim();
+      if (nextTitle && nextTitle !== tile.title) onTitleChange(nextTitle);
+    };
 
-  return (
-    <article
-      className={[
-        "dashboard-tile",
-        `dashboard-tile--${tile.visualization.replace("_", "-")}`,
-        selected ? "selected" : ""
-      ].filter(Boolean).join(" ")}
-      style={{
-        background: backgroundStyle(tile.appearance.backgroundMode, tile.appearance.background, tile.appearance.gradientFrom, tile.appearance.gradientTo, tile.appearance.gradientStops, tile.appearance.gradientType),
-        borderColor: tile.appearance.borderColor,
-        borderRadius: tile.appearance.borderRadius,
-        opacity: tile.appearance.opacity / 100,
-        boxShadow: effectShadow(tile.appearance)
-      }}
-      onClick={onSelect}
-    >
-      <Rnd
-        className="tile-title-layer"
-        bounds="parent"
-        disableDragging={!titleEditable}
-        enableResizing={titleEditable ? { right: true, bottom: true, bottomRight: true } : false}
-        minWidth={160}
-        minHeight={26}
-        maxWidth={Math.max(180, tile.layout.width - 20)}
-        size={{ width: titleWidth, height: titleHeight }}
-        position={{ x: tile.appearance.titleX, y: tile.appearance.titleY }}
-        onDragStart={(event) => {
-          event.stopPropagation();
-          onSelect();
+    return (
+      <article
+        className={[
+          "dashboard-tile",
+          `dashboard-tile--${tile.visualization.replace("_", "-")}`,
+          selected ? "selected" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{
+          background: backgroundStyle(
+            tile.appearance.backgroundMode,
+            tile.appearance.background,
+            tile.appearance.gradientFrom,
+            tile.appearance.gradientTo,
+            tile.appearance.gradientStops,
+            tile.appearance.gradientType,
+          ),
+          borderColor: tile.appearance.borderColor,
+          borderRadius: tile.appearance.borderRadius,
+          opacity: tile.appearance.opacity / 100,
+          boxShadow: effectShadow(tile.appearance),
         }}
-        onDragStop={(_, data) => onTitleAppearanceChange({ titleX: Math.round(data.x), titleY: Math.round(data.y) })}
-        onResizeStop={(_, __, ref, ___, position) => {
-          const nextHeight = Math.max(26, ref.offsetHeight);
-          onTitleAppearanceChange({
-            titleX: Math.round(position.x),
-            titleY: Math.round(position.y),
-            titleWidth: Math.round(ref.offsetWidth),
-            titleFontSize: Math.max(10, Math.min(34, Math.round(nextHeight / 2.1)))
-          });
-        }}
+        onClick={onSelect}
       >
-        <input
-          className="tile-title-input"
-          aria-label="Tile title"
-          defaultValue={tile.title}
-          readOnly={!titleEditable}
-          style={{
-            fontSize: tile.appearance.titleFontSize,
-            textAlign: tile.appearance.titleTextAlign
-          }}
-          onBlur={(event) => commitTitle(event.currentTarget.value)}
-          onClick={(event) => {
+        <Rnd
+          className="tile-title-layer"
+          bounds="parent"
+          disableDragging={!titleEditable}
+          enableResizing={
+            titleEditable
+              ? { right: true, bottom: true, bottomRight: true }
+              : false
+          }
+          minWidth={160}
+          minHeight={26}
+          maxWidth={Math.max(180, tile.layout.width - 20)}
+          size={{ width: titleWidth, height: titleHeight }}
+          position={{ x: tile.appearance.titleX, y: tile.appearance.titleY }}
+          onDragStart={(event) => {
             event.stopPropagation();
             onSelect();
           }}
-          onPointerDown={(event) => event.stopPropagation()}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
-            }
-            if (event.key === "Escape") {
-              event.currentTarget.value = tile.title;
-              event.currentTarget.blur();
-            }
+          onDragStop={(_, data) =>
+            onTitleAppearanceChange({
+              titleX: Math.round(data.x),
+              titleY: Math.round(data.y),
+            })
+          }
+          onResizeStop={(_, __, ref, ___, position) => {
+            const nextHeight = Math.max(26, ref.offsetHeight);
+            onTitleAppearanceChange({
+              titleX: Math.round(position.x),
+              titleY: Math.round(position.y),
+              titleWidth: Math.round(ref.offsetWidth),
+              titleFontSize: Math.max(
+                10,
+                Math.min(34, Math.round(nextHeight / 2.1)),
+              ),
+            });
           }}
-        />
-      </Rnd>
-      <div className="tile-header tile-drag-handle" style={{ minHeight: titleReserve }}>
-        <div>
-          {tile.source && !imported && <span className="tile-source-badge">{tileSourceKindLabel(tile.source)}: {tile.source.label}</span>}
-          <span className="tile-title-spacer" aria-hidden="true" />
-          {importedQuestionPrompt && (
-            <p className="tile-question-prompt" style={{ marginTop: Math.max(5, tile.appearance.titleY + titleHeight + 4) }}>
-              {importedQuestionPrompt}
-            </p>
+        >
+          <input
+            className="tile-title-input"
+            aria-label="Tile title"
+            defaultValue={tile.title}
+            readOnly={!titleEditable}
+            style={{
+              fontSize: tile.appearance.titleFontSize,
+              textAlign: tile.appearance.titleTextAlign,
+            }}
+            onBlur={(event) => commitTitle(event.currentTarget.value)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+              if (event.key === "Escape") {
+                event.currentTarget.value = tile.title;
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </Rnd>
+        <div
+          className="tile-header tile-drag-handle"
+          style={{ minHeight: titleReserve }}
+        >
+          <div>
+            {tile.source && !imported && (
+              <span className="tile-source-badge">
+                {tileSourceKindLabel(tile.source)}: {tile.source.label}
+              </span>
+            )}
+            <span className="tile-title-spacer" aria-hidden="true" />
+            {importedQuestionPrompt && (
+              <p
+                className="tile-question-prompt"
+                style={{
+                  marginTop: Math.max(
+                    5,
+                    tile.appearance.titleY + titleHeight + 4,
+                  ),
+                }}
+              >
+                {importedQuestionPrompt}
+              </p>
+            )}
+          </div>
+          {!imported && (
+            <div className="tile-header-meta" aria-label="Analysis summary">
+              {tile.appearance.showBases && (
+                <span>{sampleSizeLabel(result)}</span>
+              )}
+              <small>
+                {confidenceLevelLabel(resultConfidenceLevel(result))}
+              </small>
+            </div>
           )}
         </div>
-        {!imported && (
-          <div className="tile-header-meta" aria-label="Analysis summary">
-            {tile.appearance.showBases && <span>{sampleSizeLabel(result)}</span>}
-            <small>{confidenceLevelLabel(resultConfidenceLevel(result))}</small>
+        <div className="tile-scroll-area">
+          <ChartView tile={tile} />
+          <div className="tile-meta">
+            {imported ? (
+              <>
+                <span>{imported.queryKindLabel}</span>
+                <span>{imported.metricLabel}</span>
+                <span>Group: {imported.groupingLabel}</span>
+                {imported.measureLabel && (
+                  <span>Measure: {imported.measureLabel}</span>
+                )}
+                {tile.appearance.showBases && <span>{imported.baseLabel}</span>}
+              </>
+            ) : (
+              <>
+                <span>{resultSourceLabel(result)}</span>
+                {tile.appearance.showBases && (
+                  <span>{sampleSizeLabel(result)}</span>
+                )}
+                <span>
+                  {result.weighting.applied
+                    ? result.weighting.label
+                    : "Unweighted"}
+                </span>
+                <span>{result.metric.label}</span>
+                <span>
+                  {confidenceLevelLabel(resultConfidenceLevel(result))}
+                </span>
+              </>
+            )}
           </div>
-        )}
-      </div>
-      <div className="tile-scroll-area">
-        <ChartView tile={tile} />
-        <div className="tile-meta">
-          {imported ? (
-            <>
-              <span>{imported.queryKindLabel}</span>
-              <span>{imported.metricLabel}</span>
-              <span>Group: {imported.groupingLabel}</span>
-              {imported.measureLabel && <span>Measure: {imported.measureLabel}</span>}
-              {tile.appearance.showBases && <span>{imported.baseLabel}</span>}
-            </>
+          {tile.appearance.showNotes && result.warnings.length > 0 && (
+            <div className="notes">
+              {result.warnings.slice(0, 1).map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      </article>
+    );
+  },
+  (previous, next) =>
+    previous.tile === next.tile &&
+    previous.selected === next.selected &&
+    previous.titleEditable === next.titleEditable,
+);
+
+export const CanvasElementRenderer = memo(
+  function CanvasElementRenderer({
+    element,
+    selected,
+    onSelect,
+  }: {
+    element: DashboardCanvasElement;
+    selected: boolean;
+    onSelect: () => void;
+  }) {
+    if (element.type === "image") {
+      return (
+        <div
+          className={selected ? "canvas-element selected" : "canvas-element"}
+          style={{
+            borderColor: element.style.borderColor,
+            borderWidth: element.style.borderWidth,
+            borderStyle: element.style.borderStyle,
+            borderRadius: element.style.borderRadius,
+            opacity: element.style.opacity / 100,
+            boxShadow: effectShadow(element.style),
+          }}
+          onClick={onSelect}
+        >
+          {element.content ? (
+            <img
+              src={element.content}
+              alt=""
+              style={{ objectFit: element.style.objectFit }}
+            />
           ) : (
-            <>
-              <span>{resultSourceLabel(result)}</span>
-              {tile.appearance.showBases && <span>{sampleSizeLabel(result)}</span>}
-              <span>{result.weighting.applied ? result.weighting.label : "Unweighted"}</span>
-              <span>{result.metric.label}</span>
-              <span>{confidenceLevelLabel(resultConfidenceLevel(result))}</span>
-            </>
+            <div className="image-placeholder">Image URL</div>
           )}
         </div>
-        {tile.appearance.showNotes && result.warnings.length > 0 && (
-          <div className="notes">
-            {result.warnings.slice(0, 1).map((warning) => (
-              <p key={warning}>{warning}</p>
-            ))}
-          </div>
-        )}
-      </div>
-    </article>
-  );
-}, (previous, next) => previous.tile === next.tile && previous.selected === next.selected && previous.titleEditable === next.titleEditable);
+      );
+    }
 
-export const CanvasElementRenderer = memo(function CanvasElementRenderer({
-  element,
-  selected,
-  onSelect
-}: {
-  element: DashboardCanvasElement;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  if (element.type === "image") {
+    if (element.type === "text") {
+      return (
+        <div
+          className={
+            selected
+              ? "canvas-element text-element selected"
+              : "canvas-element text-element"
+          }
+          style={{
+            color: element.style.textColor,
+            fontFamily: element.style.fontFamily,
+            fontSize: element.style.fontSize,
+            fontWeight: element.style.fontWeight,
+            fontStyle: element.style.fontStyle,
+            textDecoration: element.style.textDecoration,
+            textAlign: element.style.textAlign,
+            lineHeight: element.style.lineHeight,
+            padding: element.style.padding,
+            background: backgroundStyle(
+              element.style.fillMode,
+              element.style.fill,
+              element.style.gradientFrom,
+              element.style.gradientTo,
+              element.style.gradientStops,
+              element.style.gradientType,
+            ),
+            borderColor: element.style.borderColor,
+            borderWidth: element.style.borderWidth,
+            borderStyle: element.style.borderStyle,
+            borderRadius: element.style.borderRadius,
+            opacity: element.style.opacity / 100,
+            boxShadow: effectShadow(element.style),
+          }}
+          onClick={onSelect}
+        >
+          {element.content}
+        </div>
+      );
+    }
+
     return (
       <div
-        className={selected ? "canvas-element selected" : "canvas-element"}
+        className={
+          selected
+            ? `canvas-element shape-element ${element.type} selected`
+            : `canvas-element shape-element ${element.type}`
+        }
         style={{
+          background: backgroundStyle(
+            element.style.fillMode,
+            element.style.fill,
+            element.style.gradientFrom,
+            element.style.gradientTo,
+            element.style.gradientStops,
+            element.style.gradientType,
+          ),
           borderColor: element.style.borderColor,
           borderWidth: element.style.borderWidth,
           borderStyle: element.style.borderStyle,
-          borderRadius: element.style.borderRadius,
+          borderRadius:
+            element.type === "circle" ? 999 : element.style.borderRadius,
           opacity: element.style.opacity / 100,
-          boxShadow: effectShadow(element.style)
+          boxShadow: effectShadow(element.style),
         }}
         onClick={onSelect}
-      >
-        {element.content ? <img src={element.content} alt="" style={{ objectFit: element.style.objectFit }} /> : <div className="image-placeholder">Image URL</div>}
-      </div>
+      />
     );
-  }
-
-  if (element.type === "text") {
-    return (
-      <div
-        className={selected ? "canvas-element text-element selected" : "canvas-element text-element"}
-        style={{
-          color: element.style.textColor,
-          fontFamily: element.style.fontFamily,
-          fontSize: element.style.fontSize,
-          fontWeight: element.style.fontWeight,
-          fontStyle: element.style.fontStyle,
-          textDecoration: element.style.textDecoration,
-          textAlign: element.style.textAlign,
-          lineHeight: element.style.lineHeight,
-          padding: element.style.padding,
-          background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo, element.style.gradientStops, element.style.gradientType),
-          borderColor: element.style.borderColor,
-          borderWidth: element.style.borderWidth,
-          borderStyle: element.style.borderStyle,
-          borderRadius: element.style.borderRadius,
-          opacity: element.style.opacity / 100,
-          boxShadow: effectShadow(element.style)
-        }}
-        onClick={onSelect}
-      >
-        {element.content}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={selected ? `canvas-element shape-element ${element.type} selected` : `canvas-element shape-element ${element.type}`}
-      style={{
-        background: backgroundStyle(element.style.fillMode, element.style.fill, element.style.gradientFrom, element.style.gradientTo, element.style.gradientStops, element.style.gradientType),
-        borderColor: element.style.borderColor,
-        borderWidth: element.style.borderWidth,
-        borderStyle: element.style.borderStyle,
-        borderRadius: element.type === "circle" ? 999 : element.style.borderRadius,
-        opacity: element.style.opacity / 100,
-        boxShadow: effectShadow(element.style)
-      }}
-      onClick={onSelect}
-    />
-  );
-}, (previous, next) => previous.element === next.element && previous.selected === next.selected);
+  },
+  (previous, next) =>
+    previous.element === next.element && previous.selected === next.selected,
+);

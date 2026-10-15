@@ -113,7 +113,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [expandedLibrarySections, setExpandedLibrarySections] = useState<Record<LibrarySectionId, boolean>>({
     connected: true,
     datasets: true,
-    suggested: true,
+    suggested: false,
     fields: false,
     filters: false,
     segments: false,
@@ -130,8 +130,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         imported: true
       }))
     : [
-        { id: "ecofocus_2026", title: "2026 EcoFocus Study", meta: "12,540 responses", sourceLabel: "demo source", imported: false },
-        { id: "ecofocus_2024", title: "2024 EcoFocus Study", meta: "8,750 responses", sourceLabel: "demo source", imported: false }
+        { id: "ecofocus_2025", title: "EcoFocus 2025", meta: "Sample survey", sourceLabel: "demo source", imported: false },
+        { id: "ecofocus_2024", title: "EcoFocus 2024", meta: "Comparison wave", sourceLabel: "demo source", imported: false }
       ];
   const modeledVariables = activeImportedDataset?.fields ?? [];
   const usesRemoteFieldPaging = activeImportedDataset?.remote?.provider === "netlify";
@@ -477,7 +477,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
             <span aria-hidden="true"><Search className="data-library-search-icon" strokeWidth={1.9} /></span>
             <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} placeholder="Search data library" />
           </label>
-          <button type="button" className="data-library-filter-button" aria-label="Filter data library">
+          <button type="button" className="data-library-filter-button" aria-label="Browse all data tools" onClick={() => setLibraryMode(current=>current === "browse" ? "guided" : "browse")}>
             <DataLibraryIcon icon="filter" />
           </button>
         </div>
@@ -495,7 +495,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           <button
             type="button"
             className="secondary"
-            onClick={() => setImportFeedback("Database connections are planned from Workspace Home. Use Import dataset here for local files.")}
+            onClick={openWorkspaceHome}
           >
             Connect database
           </button>

@@ -1,16 +1,20 @@
+import { runMockAnalyticsQuery } from "../../../shared/mock/analytics";
+import type { AnalyticsQueryRequest } from "../../../shared/types/analytics";
 import {
   defaultDataset,
   defaultFilterDimension,
   defaultGridSize,
+  defaultAppearance,
   defaultQuestion,
   fontFamilies,
-  palettes
+  palettes,
 } from "../builder/builderConstants";
 import type { QuestionId } from "../../../shared/types/analytics";
 import type {
   DashboardCanvasElement,
   DashboardCanvasElementType,
   DashboardDraft,
+  DashboardTile,
   DesignColorPalette,
   PageMasterPreset,
   PageTemplatePreset,
@@ -23,12 +27,17 @@ import type {
   SavedVariableSet,
   SavedWeightProfile,
   TextBlockPreset,
-  TextStylePreset
+  TextStylePreset,
 } from "../../../shared/types/dashboard";
 
-function encodedSvgAsset(label: string, from: string, to: string, accent: string) {
+function encodedSvgAsset(
+  label: string,
+  from: string,
+  to: string,
+  accent: string,
+) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="1200" height="800" fill="url(#g)"/><circle cx="920" cy="180" r="180" fill="${accent}" opacity=".22"/><circle cx="240" cy="620" r="240" fill="#ffffff" opacity=".2"/><path d="M150 510c160-150 298-169 413-58s245 98 487-38v238H150z" fill="#ffffff" opacity=".24"/><text x="92" y="120" fill="#102332" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="700">${label}</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="1200" height="800" fill="url(#g)"/><circle cx="920" cy="180" r="180" fill="${accent}" opacity=".22"/><circle cx="240" cy="620" r="240" fill="#ffffff" opacity=".2"/><path d="M150 510c160-150 298-169 413-58s245 98 487-38v238H150z" fill="#ffffff" opacity=".24"/><text x="92" y="120" fill="#102332" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="700">${label}</text></svg>`,
   )}`;
 }
 
@@ -38,14 +47,15 @@ export function seedDesignPalettes(): DesignColorPalette[] {
       id: palette.id,
       label: palette.label,
       description: `${palette.label} reporting palette`,
-      colors: palette.colors
+      colors: palette.colors,
     })),
     {
       id: "aurora",
       label: "Aurora",
-      description: "Bright presentation palette for highlight pages and lighter storytelling tiles.",
-      colors: ["#16c9c3", "#00d17f", "#4f8ef7", "#ffd166", "#102332"]
-    }
+      description:
+        "Bright presentation palette for highlight pages and lighter storytelling tiles.",
+      colors: ["#16c9c3", "#00d17f", "#4f8ef7", "#ffd166", "#102332"],
+    },
   ];
 }
 
@@ -54,80 +64,87 @@ export function seedTextStyles(): TextStylePreset[] {
     {
       id: "display_title",
       label: "Display title",
-      description: "Hero-sized page heading for lead slides and landing sections.",
+      description:
+        "Hero-sized page heading for lead slides and landing sections.",
       fontFamily: fontFamilies[0].value,
       fontSize: 36,
       fontWeight: "800",
       lineHeight: 1.05,
       textAlign: "left",
-      textColor: "#102332"
+      textColor: "#102332",
     },
     {
       id: "section_heading",
       label: "Section heading",
-      description: "Strong panel or section header for titles inside the report canvas.",
+      description:
+        "Strong panel or section header for titles inside the report canvas.",
       fontFamily: fontFamilies[0].value,
       fontSize: 22,
       fontWeight: "700",
       lineHeight: 1.15,
       textAlign: "left",
-      textColor: "#183528"
+      textColor: "#183528",
     },
     {
       id: "editorial_subhead",
       label: "Editorial subhead",
-      description: "Supporting headline for explaining why a page or block matters.",
+      description:
+        "Supporting headline for explaining why a page or block matters.",
       fontFamily: fontFamilies[0].value,
       fontSize: 18,
       fontWeight: "650",
       lineHeight: 1.32,
       textAlign: "left",
-      textColor: "#365247"
+      textColor: "#365247",
     },
     {
       id: "body_copy",
       label: "Body copy",
-      description: "Default readable paragraph style for editorial and annotation blocks.",
+      description:
+        "Default readable paragraph style for editorial and annotation blocks.",
       fontFamily: fontFamilies[0].value,
       fontSize: 16,
       fontWeight: "500",
       lineHeight: 1.45,
       textAlign: "left",
-      textColor: "#33473d"
+      textColor: "#33473d",
     },
     {
       id: "stat_callout",
       label: "Stat callout",
-      description: "Compact numeric highlight style for short metrics and callout boxes.",
+      description:
+        "Compact numeric highlight style for short metrics and callout boxes.",
       fontFamily: fontFamilies[0].value,
       fontSize: 28,
       fontWeight: "800",
       lineHeight: 1.1,
       textAlign: "center",
-      textColor: "#0e6958"
+      textColor: "#0e6958",
     },
     {
       id: "caption",
       label: "Caption",
-      description: "Small supporting style for footnotes, sources, and chart callouts.",
+      description:
+        "Small supporting style for footnotes, sources, and chart callouts.",
       fontFamily: fontFamilies[0].value,
       fontSize: 12,
       fontWeight: "600",
       lineHeight: 1.3,
       textAlign: "left",
-      textColor: "#607267"
+      textColor: "#607267",
     },
     {
       id: "methodology_note",
       label: "Methodology note",
-      description: "Compact source, weighting, and sample-language style for analytical pages.",
+      description:
+        "Compact source, weighting, and sample-language style for analytical pages.",
       fontFamily: fontFamilies[0].value,
       fontSize: 11,
       fontWeight: "650",
       lineHeight: 1.28,
       textAlign: "left",
-      textColor: "#6f7f77"
-    }
+      textColor: "#6f7f77",
+    },
   ];
 }
 
@@ -149,14 +166,16 @@ export function seedTextBlocks(): TextBlockPreset[] {
         fontWeight: "800",
         textAlign: "left",
         lineHeight: 1.05,
-        padding: 0
-      }
+        padding: 0,
+      },
     },
     {
       id: "section_intro",
       label: "Section intro",
-      description: "Mid-sized title and support copy for chapter openers and page framing.",
-      content: "Consumers continue to reward brands that feel visibly responsible, especially when packaging and sourcing cues are easy to understand.",
+      description:
+        "Mid-sized title and support copy for chapter openers and page framing.",
+      content:
+        "Consumers continue to reward brands that feel visibly responsible, especially when packaging and sourcing cues are easy to understand.",
       width: 420,
       height: 128,
       style: {
@@ -171,8 +190,8 @@ export function seedTextBlocks(): TextBlockPreset[] {
         padding: 18,
         borderColor: "#d8e7dd",
         borderWidth: 1,
-        borderRadius: 18
-      }
+        borderRadius: 18,
+      },
     },
     {
       id: "stat_callout_block",
@@ -193,14 +212,16 @@ export function seedTextBlocks(): TextBlockPreset[] {
         padding: 22,
         borderColor: "#102332",
         borderWidth: 0,
-        borderRadius: 24
-      }
+        borderRadius: 24,
+      },
     },
     {
       id: "quote_pull_block",
       label: "Pull quote",
-      description: "Editorial quote or respondent-language block for story pages.",
-      content: "“Sustainable choices feel easier when the package explains the impact clearly.”",
+      description:
+        "Editorial quote or respondent-language block for story pages.",
+      content:
+        "“Sustainable choices feel easier when the package explains the impact clearly.”",
       width: 420,
       height: 150,
       style: {
@@ -216,14 +237,16 @@ export function seedTextBlocks(): TextBlockPreset[] {
         padding: 22,
         borderColor: "#cfe5d9",
         borderWidth: 1,
-        borderRadius: 22
-      }
+        borderRadius: 22,
+      },
     },
     {
       id: "image_caption_block",
       label: "Image caption",
-      description: "Small caption block designed to pair with image or asset content.",
-      content: "Caption: Use this space to connect the visual cue to the analytical takeaway.",
+      description:
+        "Small caption block designed to pair with image or asset content.",
+      content:
+        "Caption: Use this space to connect the visual cue to the analytical takeaway.",
       width: 320,
       height: 76,
       style: {
@@ -238,14 +261,16 @@ export function seedTextBlocks(): TextBlockPreset[] {
         padding: 12,
         borderColor: "#dfe8ed",
         borderWidth: 1,
-        borderRadius: 14
-      }
+        borderRadius: 14,
+      },
     },
     {
       id: "source_note",
       label: "Source note",
-      description: "Small footer-style source block for notes, sample language, and methodology.",
-      content: "Source: EcoFocus 2025 weighted respondent sample. Internal working draft.",
+      description:
+        "Small footer-style source block for notes, sample language, and methodology.",
+      content:
+        "Source: EcoFocus 2025 weighted respondent sample. Internal working draft.",
       width: 380,
       height: 64,
       style: {
@@ -260,9 +285,9 @@ export function seedTextBlocks(): TextBlockPreset[] {
         padding: 12,
         borderColor: "#dfe6dc",
         borderWidth: 1,
-        borderRadius: 14
-      }
-    }
+        borderRadius: 14,
+      },
+    },
   ];
 }
 
@@ -271,27 +296,30 @@ export function seedDesignAssets(): SavedDesignAsset[] {
     {
       id: "asset_market_moment",
       label: "Market moment",
-      description: "Soft editorial image placeholder for section openers and quote pages.",
+      description:
+        "Soft editorial image placeholder for section openers and quote pages.",
       kind: "image",
       category: "Editorial",
-      url: encodedSvgAsset("Market moment", "#e9f8f4", "#bcefd6", "#0fa87a")
+      url: encodedSvgAsset("Market moment", "#e9f8f4", "#bcefd6", "#0fa87a"),
     },
     {
       id: "asset_packaging_detail",
       label: "Packaging detail",
-      description: "Warm product-story visual for packaging, claims, and in-store context.",
+      description:
+        "Warm product-story visual for packaging, claims, and in-store context.",
       kind: "image",
       category: "Product story",
-      url: encodedSvgAsset("Packaging detail", "#fff7e8", "#d8efe5", "#ffd166")
+      url: encodedSvgAsset("Packaging detail", "#fff7e8", "#d8efe5", "#ffd166"),
     },
     {
       id: "asset_consumer_scene",
       label: "Consumer scene",
-      description: "Clean lifestyle visual placeholder for audience and behavior narratives.",
+      description:
+        "Clean lifestyle visual placeholder for audience and behavior narratives.",
       kind: "image",
       category: "Lifestyle",
-      url: encodedSvgAsset("Consumer scene", "#eef4ff", "#dff7ed", "#4f8ef7")
-    }
+      url: encodedSvgAsset("Consumer scene", "#eef4ff", "#dff7ed", "#4f8ef7"),
+    },
   ];
 }
 
@@ -316,16 +344,18 @@ function starterElement(args: {
       ...defaultElementStyle(type),
       ...args.style,
       gradientType: args.style?.gradientType ?? "linear",
-      gradientStops: args.style?.gradientStops ?? []
-    }
+      gradientStops: args.style?.gradientStops ?? [],
+    },
   };
 }
 
-function starterItem(element: DashboardCanvasElement): SavedCompositionBlock["items"][number] {
+function starterItem(
+  element: DashboardCanvasElement,
+): SavedCompositionBlock["items"][number] {
   return {
     kind: "element",
     element,
-    relativeLayout: element.layout
+    relativeLayout: element.layout,
   };
 }
 
@@ -349,24 +379,31 @@ function seedCompositionStarter(args: {
       tileCount: 0,
       elementCount: args.items.length,
       width: args.width,
-      height: args.height
+      height: args.height,
     },
-    items: args.items.map(starterItem)
+    items: args.items.map(starterItem),
   };
 }
 
 export function seedCompositionStarters(): SavedCompositionBlock[] {
   const assets = seedDesignAssets();
-  const displayStyle = seedTextStyles().find((style) => style.id === "display_title");
-  const subheadStyle = seedTextStyles().find((style) => style.id === "editorial_subhead");
+  const displayStyle = seedTextStyles().find(
+    (style) => style.id === "display_title",
+  );
+  const subheadStyle = seedTextStyles().find(
+    (style) => style.id === "editorial_subhead",
+  );
   const captionStyle = seedTextStyles().find((style) => style.id === "caption");
-  const noteStyle = seedTextStyles().find((style) => style.id === "methodology_note");
+  const noteStyle = seedTextStyles().find(
+    (style) => style.id === "methodology_note",
+  );
 
   return [
     seedCompositionStarter({
       id: "starter_title_intro_section",
       label: "Title and intro section",
-      description: "A clean opener for framing the page story before charts or details enter.",
+      description:
+        "A clean opener for framing the page story before charts or details enter.",
       category: "title_section",
       width: 760,
       height: 230,
@@ -377,7 +414,7 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
           type: "rectangle",
           content: "",
           layout: { x: 0, y: 8, width: 8, height: 172, zIndex: 1 },
-          style: { fill: "#0fa87a", borderWidth: 0, borderRadius: 10 }
+          style: { fill: "#0fa87a", borderWidth: 0, borderRadius: 10 },
         }),
         starterElement({
           id: "starter_title_intro_title",
@@ -392,13 +429,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: displayStyle?.lineHeight ?? 1.05,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_title_intro_support",
           name: "Section support copy",
-          content: "Use this section to establish the narrative frame, audience, and decision context before moving into analysis.",
+          content:
+            "Use this section to establish the narrative frame, audience, and decision context before moving into analysis.",
           layout: { x: 34, y: 122, width: 520, height: 92, zIndex: 3 },
           style: {
             fill: "transparent",
@@ -408,15 +446,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: subheadStyle?.lineHeight ?? 1.32,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
-        })
-      ]
+            borderWidth: 0,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_chart_commentary_section",
       label: "Chart and commentary",
-      description: "A two-part analytical story section with a chart placeholder and explanatory narrative.",
+      description:
+        "A two-part analytical story section with a chart placeholder and explanatory narrative.",
       category: "chart_commentary",
       width: 780,
       height: 360,
@@ -434,8 +473,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             borderRadius: 22,
             shadow: true,
             shadowOpacity: 10,
-            shadowBlur: 20
-          }
+            shadowBlur: 20,
+          },
         }),
         starterElement({
           id: "starter_chart_commentary_title",
@@ -450,13 +489,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.15,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_chart_commentary_body",
           name: "Commentary copy",
-          content: "Describe the shift, segment, or contrast that matters. Keep the supporting text focused enough that the chart remains the evidence.",
+          content:
+            "Describe the shift, segment, or contrast that matters. Keep the supporting text focused enough that the chart remains the evidence.",
           layout: { x: 512, y: 112, width: 250, height: 148, zIndex: 3 },
           style: {
             fill: "transparent",
@@ -466,13 +506,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.42,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_chart_commentary_note",
           name: "Source note",
-          content: "Source: EcoFocus 2025. Update base, filter, and weighting note.",
+          content:
+            "Source: EcoFocus 2025. Update base, filter, and weighting note.",
           layout: { x: 512, y: 285, width: 240, height: 48, zIndex: 4 },
           style: {
             fill: "#f5faf7",
@@ -483,15 +524,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             padding: 10,
             borderColor: "#e0ece6",
             borderWidth: 1,
-            borderRadius: 12
-          }
-        })
-      ]
+            borderRadius: 12,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_kpi_highlight_section",
       label: "Insight highlight KPI",
-      description: "A focused proof-point block for a headline number and concise interpretation.",
+      description:
+        "A focused proof-point block for a headline number and concise interpretation.",
       category: "quote_stat",
       width: 540,
       height: 220,
@@ -502,7 +544,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
           type: "rectangle",
           content: "",
           layout: { x: 0, y: 0, width: 540, height: 210, zIndex: 1 },
-          style: { fill: "#102332", borderWidth: 0, borderRadius: 28, shadow: true, shadowOpacity: 18, shadowBlur: 26 }
+          style: {
+            fill: "#102332",
+            borderWidth: 0,
+            borderRadius: 28,
+            shadow: true,
+            shadowOpacity: 18,
+            shadowBlur: 26,
+          },
         }),
         starterElement({
           id: "starter_kpi_highlight_value",
@@ -518,13 +567,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             textAlign: "left",
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_kpi_highlight_copy",
           name: "KPI interpretation",
-          content: "prioritize responsible sourcing when choosing brands and retailers.",
+          content:
+            "prioritize responsible sourcing when choosing brands and retailers.",
           layout: { x: 230, y: 38, width: 250, height: 96, zIndex: 3 },
           style: {
             fill: "transparent",
@@ -534,13 +584,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.28,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_kpi_highlight_note",
           name: "KPI note",
-          content: "Replace with a measured value or derived metric from the current analysis.",
+          content:
+            "Replace with a measured value or derived metric from the current analysis.",
           layout: { x: 36, y: 150, width: 440, height: 42, zIndex: 4 },
           style: {
             fill: "rgba(255,255,255,0.08)",
@@ -551,15 +602,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             padding: 10,
             borderColor: "rgba(255,255,255,0.16)",
             borderWidth: 1,
-            borderRadius: 13
-          }
-        })
-      ]
+            borderRadius: 13,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_kpi_strip_section",
       label: "KPI strip",
-      description: "Three presentation-ready metric cards for opening a story section with evidence.",
+      description:
+        "Three presentation-ready metric cards for opening a story section with evidence.",
       category: "quote_stat",
       width: 760,
       height: 210,
@@ -572,7 +624,7 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             helper: "vs. 78% in 2024",
             fill: "#f8fffd",
             accent: "#0f9b90",
-            x: 0
+            x: 0,
           },
           {
             id: "support",
@@ -581,7 +633,7 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             helper: "vs. 35% in 2024",
             fill: "#fbfbff",
             accent: "#5955b8",
-            x: 260
+            x: 260,
           },
           {
             id: "growth",
@@ -590,15 +642,21 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             helper: "vs. 2024",
             fill: "#fff8f4",
             accent: "#ff6b57",
-            x: 520
-          }
+            x: 520,
+          },
         ].flatMap((card, index) => [
           starterElement({
             id: `starter_kpi_strip_${card.id}_card`,
             name: `${card.label} card`,
             type: "rectangle",
             content: "",
-            layout: { x: card.x, y: 0, width: 220, height: 190, zIndex: 1 + index * 5 },
+            layout: {
+              x: card.x,
+              y: 0,
+              width: 220,
+              height: 190,
+              zIndex: 1 + index * 5,
+            },
             style: {
               fill: card.fill,
               borderColor: "#dfe9e5",
@@ -606,27 +664,39 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
               borderRadius: 18,
               shadow: true,
               shadowOpacity: 10,
-              shadowBlur: 22
-            }
+              shadowBlur: 22,
+            },
           }),
           starterElement({
             id: `starter_kpi_strip_${card.id}_icon`,
             name: `${card.label} icon`,
             type: "circle",
             content: "",
-            layout: { x: card.x + 24, y: 22, width: 42, height: 42, zIndex: 2 + index * 5 },
+            layout: {
+              x: card.x + 24,
+              y: 22,
+              width: 42,
+              height: 42,
+              zIndex: 2 + index * 5,
+            },
             style: {
               fill: card.accent,
               opacity: 13,
               borderColor: "transparent",
-              borderWidth: 0
-            }
+              borderWidth: 0,
+            },
           }),
           starterElement({
             id: `starter_kpi_strip_${card.id}_value`,
             name: `${card.label} value`,
             content: card.value,
-            layout: { x: card.x + 24, y: 72, width: 160, height: 54, zIndex: 3 + index * 5 },
+            layout: {
+              x: card.x + 24,
+              y: 72,
+              width: 160,
+              height: 54,
+              zIndex: 3 + index * 5,
+            },
             style: {
               fill: "transparent",
               textColor: "#0d1630",
@@ -635,14 +705,20 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
               lineHeight: 1,
               padding: 0,
               borderStyle: "none",
-              borderWidth: 0
-            }
+              borderWidth: 0,
+            },
           }),
           starterElement({
             id: `starter_kpi_strip_${card.id}_label`,
             name: `${card.label} label`,
             content: card.label,
-            layout: { x: card.x + 24, y: 122, width: 158, height: 42, zIndex: 4 + index * 5 },
+            layout: {
+              x: card.x + 24,
+              y: 122,
+              width: 158,
+              height: 42,
+              zIndex: 4 + index * 5,
+            },
             style: {
               fill: "transparent",
               textColor: "#172033",
@@ -651,14 +727,20 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
               lineHeight: 1.18,
               padding: 0,
               borderStyle: "none",
-              borderWidth: 0
-            }
+              borderWidth: 0,
+            },
           }),
           starterElement({
             id: `starter_kpi_strip_${card.id}_helper`,
             name: `${card.label} helper`,
             content: `${card.helper} ↑`,
-            layout: { x: card.x + 24, y: 164, width: 148, height: 22, zIndex: 5 + index * 5 },
+            layout: {
+              x: card.x + 24,
+              y: 164,
+              width: 148,
+              height: 22,
+              zIndex: 5 + index * 5,
+            },
             style: {
               fill: "transparent",
               textColor: "#65736d",
@@ -667,16 +749,17 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
               lineHeight: 1.1,
               padding: 0,
               borderStyle: "none",
-              borderWidth: 0
-            }
-          })
-        ])
-      ]
+              borderWidth: 0,
+            },
+          }),
+        ]),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_insight_callout_section",
       label: "Insight callout",
-      description: "A soft insight card for pairing a key takeaway with analytical evidence.",
+      description:
+        "A soft insight card for pairing a key takeaway with analytical evidence.",
       category: "callout",
       width: 640,
       height: 150,
@@ -697,8 +780,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             borderRadius: 24,
             shadow: true,
             shadowOpacity: 8,
-            shadowBlur: 18
-          }
+            shadowBlur: 18,
+          },
         }),
         starterElement({
           id: "starter_insight_callout_icon",
@@ -706,7 +789,7 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
           type: "circle",
           content: "",
           layout: { x: 28, y: 36, width: 66, height: 66, zIndex: 2 },
-          style: { fill: "#008b86", borderWidth: 0 }
+          style: { fill: "#008b86", borderWidth: 0 },
         }),
         starterElement({
           id: "starter_insight_callout_label",
@@ -721,13 +804,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_insight_callout_copy",
           name: "Insight copy",
-          content: "Culture leads the decision hierarchy, outranking compensation and growth. Use this space to turn one chart into one action-ready takeaway.",
+          content:
+            "Culture leads the decision hierarchy, outranking compensation and growth. Use this space to turn one chart into one action-ready takeaway.",
           layout: { x: 122, y: 55, width: 450, height: 70, zIndex: 4 },
           style: {
             fill: "transparent",
@@ -737,15 +821,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.28,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
-        })
-      ]
+            borderWidth: 0,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_opportunity_card_section",
       label: "Opportunity card",
-      description: "A chapter-style story card for moving from evidence into implication.",
+      description:
+        "A chapter-style story card for moving from evidence into implication.",
       category: "title_section",
       width: 640,
       height: 150,
@@ -766,8 +851,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             borderRadius: 24,
             shadow: true,
             shadowOpacity: 8,
-            shadowBlur: 18
-          }
+            shadowBlur: 18,
+          },
         }),
         starterElement({
           id: "starter_opportunity_section_label",
@@ -783,8 +868,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             textAlign: "center",
             padding: 8,
             borderRadius: 16,
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_opportunity_title",
@@ -799,8 +884,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_opportunity_copy",
@@ -815,15 +900,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.2,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
-        })
-      ]
+            borderWidth: 0,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_image_caption_section",
       label: "Image and caption",
-      description: "An editorial image block with caption and narrative context for visual storytelling.",
+      description:
+        "An editorial image block with caption and narrative context for visual storytelling.",
       category: "image_caption",
       width: 620,
       height: 390,
@@ -834,7 +920,15 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
           type: "image",
           content: assets[1]?.url ?? "",
           layout: { x: 0, y: 0, width: 360, height: 270, zIndex: 1 },
-          style: { fill: "transparent", borderStyle: "none", borderWidth: 0, borderRadius: 26, objectFit: "cover", shadow: true, shadowOpacity: 12 }
+          style: {
+            fill: "transparent",
+            borderStyle: "none",
+            borderWidth: 0,
+            borderRadius: 26,
+            objectFit: "cover",
+            shadow: true,
+            shadowOpacity: 12,
+          },
         }),
         starterElement({
           id: "starter_image_caption_title",
@@ -849,13 +943,14 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.18,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_image_caption_copy",
           name: "Image caption",
-          content: "Use the caption to connect the visual moment to the analytical claim on the page.",
+          content:
+            "Use the caption to connect the visual moment to the analytical claim on the page.",
           layout: { x: 392, y: 148, width: 210, height: 92, zIndex: 3 },
           style: {
             fill: "#ffffff",
@@ -866,15 +961,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             padding: 14,
             borderColor: "#dfe8ed",
             borderWidth: 1,
-            borderRadius: 16
-          }
-        })
-      ]
+            borderRadius: 16,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_methodology_note_section",
       label: "Methodology note",
-      description: "A compact source and caveat strip for analytical pages that need interpretation guardrails.",
+      description:
+        "A compact source and caveat strip for analytical pages that need interpretation guardrails.",
       category: "methodology",
       width: 720,
       height: 92,
@@ -885,12 +981,18 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
           type: "rectangle",
           content: "",
           layout: { x: 0, y: 0, width: 720, height: 86, zIndex: 1 },
-          style: { fill: "#f8fbfa", borderColor: "#dfe9e4", borderWidth: 1, borderRadius: 18 }
+          style: {
+            fill: "#f8fbfa",
+            borderColor: "#dfe9e4",
+            borderWidth: 1,
+            borderRadius: 18,
+          },
         }),
         starterElement({
           id: "starter_methodology_note_copy",
           name: "Methodology copy",
-          content: "Method note: Weighted respondent base. Interpret low-base segments directionally and update this note for each page.",
+          content:
+            "Method note: Weighted respondent base. Interpret low-base segments directionally and update this note for each page.",
           layout: { x: 22, y: 18, width: 650, height: 48, zIndex: 2 },
           style: {
             fill: "transparent",
@@ -900,15 +1002,16 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: noteStyle?.lineHeight ?? 1.28,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
-        })
-      ]
+            borderWidth: 0,
+          },
+        }),
+      ],
     }),
     seedCompositionStarter({
       id: "starter_section_divider",
       label: "Section divider",
-      description: "A chapter-style divider for resetting the narrative between analytical sections.",
+      description:
+        "A chapter-style divider for resetting the narrative between analytical sections.",
       category: "title_section",
       width: 760,
       height: 260,
@@ -926,8 +1029,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_section_divider_title",
@@ -942,8 +1045,8 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
             lineHeight: 1.08,
             padding: 0,
             borderStyle: "none",
-            borderWidth: 0
-          }
+            borderWidth: 0,
+          },
         }),
         starterElement({
           id: "starter_section_divider_line",
@@ -951,10 +1054,10 @@ export function seedCompositionStarters(): SavedCompositionBlock[] {
           type: "rectangle",
           content: "",
           layout: { x: 0, y: 224, width: 760, height: 4, zIndex: 3 },
-          style: { fill: "#0fa87a", borderWidth: 0, borderRadius: 4 }
-        })
-      ]
-    })
+          style: { fill: "#0fa87a", borderWidth: 0, borderRadius: 4 },
+        }),
+      ],
+    }),
   ];
 }
 
@@ -974,12 +1077,13 @@ export function seedPageThemes(): PageThemePreset[] {
       gradientType: "linear",
       gradientAngle: 135,
       gradientStops: [],
-      showCanvasGrid: true
+      showCanvasGrid: true,
     },
     {
       id: "mist",
       label: "Mist",
-      description: "Soft branded gradient that keeps the canvas airy but recognizable.",
+      description:
+        "Soft branded gradient that keeps the canvas airy but recognizable.",
       backgroundMode: "gradient",
       backgroundPattern: "none",
       background: "#eff8f4",
@@ -990,12 +1094,13 @@ export function seedPageThemes(): PageThemePreset[] {
       gradientType: "linear",
       gradientAngle: 135,
       gradientStops: [],
-      showCanvasGrid: false
+      showCanvasGrid: false,
     },
     {
       id: "night",
       label: "Night",
-      description: "Dark presentation stage for statement pages and executive storytelling.",
+      description:
+        "Dark presentation stage for statement pages and executive storytelling.",
       backgroundMode: "gradient",
       backgroundPattern: "none",
       background: "#102332",
@@ -1006,12 +1111,13 @@ export function seedPageThemes(): PageThemePreset[] {
       gradientType: "linear",
       gradientAngle: 135,
       gradientStops: [],
-      showCanvasGrid: false
+      showCanvasGrid: false,
     },
     {
       id: "teal_grid",
       label: "Teal grid",
-      description: "Dark teal stage background with the checker treatment applied.",
+      description:
+        "Dark teal stage background with the checker treatment applied.",
       backgroundMode: "gradient",
       backgroundPattern: "teal_grid",
       background: "#102332",
@@ -1022,15 +1128,21 @@ export function seedPageThemes(): PageThemePreset[] {
       gradientType: "linear",
       gradientAngle: 135,
       gradientStops: [],
-      showCanvasGrid: false
-    }
+      showCanvasGrid: false,
+    },
   ];
 }
 
 export function seedPageTemplates(): PageTemplatePreset[] {
-  const displayStyle = seedTextBlocks().find((block) => block.id === "hero_headline")?.style ?? defaultElementStyle("text");
-  const introStyle = seedTextBlocks().find((block) => block.id === "section_intro")?.style ?? defaultElementStyle("text");
-  const noteStyle = seedTextBlocks().find((block) => block.id === "source_note")?.style ?? defaultElementStyle("text");
+  const displayStyle =
+    seedTextBlocks().find((block) => block.id === "hero_headline")?.style ??
+    defaultElementStyle("text");
+  const introStyle =
+    seedTextBlocks().find((block) => block.id === "section_intro")?.style ??
+    defaultElementStyle("text");
+  const noteStyle =
+    seedTextBlocks().find((block) => block.id === "source_note")?.style ??
+    defaultElementStyle("text");
 
   return [
     {
@@ -1038,7 +1150,7 @@ export function seedPageTemplates(): PageTemplatePreset[] {
       label: "Blank page",
       description: "Clean page with the default canvas and no starter blocks.",
       pageThemeId: "paper",
-      elements: []
+      elements: [],
     },
     {
       id: "story_intro",
@@ -1051,20 +1163,22 @@ export function seedPageTemplates(): PageTemplatePreset[] {
           name: "Headline",
           content: "What’s shifting in eco-aware shopping decisions?",
           layout: { x: 92, y: 84, width: 720, height: 132 },
-          style: displayStyle
+          style: displayStyle,
         },
         {
           name: "Intro",
-          content: "Use this page to frame the story before charts come in. It works well for a wave summary, a client brief setup, or a transition between sections.",
+          content:
+            "Use this page to frame the story before charts come in. It works well for a wave summary, a client brief setup, or a transition between sections.",
           layout: { x: 96, y: 248, width: 460, height: 132 },
-          style: introStyle
-        }
-      ]
+          style: introStyle,
+        },
+      ],
     },
     {
       id: "insight_with_note",
       label: "Insight page",
-      description: "Starter structure for a chart plus narrative and methodology note.",
+      description:
+        "Starter structure for a chart plus narrative and methodology note.",
       pageThemeId: "paper",
       pageMasterId: "standard_report_master",
       elements: [
@@ -1074,57 +1188,62 @@ export function seedPageTemplates(): PageTemplatePreset[] {
           layout: { x: 84, y: 70, width: 540, height: 84 },
           style: {
             ...displayStyle,
-            fontSize: 30
-          }
+            fontSize: 30,
+          },
         },
         {
           name: "Insight note",
-          content: "Lead with the one takeaway you want the page to carry. The chart can then support it rather than doing all the explaining by itself.",
+          content:
+            "Lead with the one takeaway you want the page to carry. The chart can then support it rather than doing all the explaining by itself.",
           layout: { x: 86, y: 178, width: 360, height: 160 },
-          style: introStyle
+          style: introStyle,
         },
         {
           name: "Source",
-          content: "Source: EcoFocus weighted sample. Add chart notes or methodology here.",
+          content:
+            "Source: EcoFocus weighted sample. Add chart notes or methodology here.",
           layout: { x: 84, y: 642, width: 420, height: 70 },
-          style: noteStyle
-        }
-      ]
-    }
+          style: noteStyle,
+        },
+      ],
+    },
   ];
 }
 
 export function seedPageMasters(): PageMasterPreset[] {
-  const sourceStyle = seedTextBlocks().find((block) => block.id === "source_note")?.style ?? defaultElementStyle("text");
+  const sourceStyle =
+    seedTextBlocks().find((block) => block.id === "source_note")?.style ??
+    defaultElementStyle("text");
   const headerStyle = {
     ...sourceStyle,
     fontSize: 12,
     fontWeight: "800",
-    textColor: "#315345"
+    textColor: "#315345",
   };
   const footerStyle = {
     ...sourceStyle,
     fontSize: 10,
-    textColor: "#6f8078"
+    textColor: "#6f8078",
   };
 
   return [
     {
       id: "standard_report_master",
       label: "Standard report master",
-      description: "Reusable header, source-note, and footer framing for report pages.",
+      description:
+        "Reusable header, source-note, and footer framing for report pages.",
       elements: [
         {
           name: "Master header",
           content: "EcoFocus Explore",
           layout: { x: 72, y: 34, width: 280, height: 34 },
-          style: headerStyle
+          style: headerStyle,
         },
         {
           name: "Master source note",
           content: "Source: EcoFocus survey data. Update notes for this page.",
           layout: { x: 72, y: 650, width: 520, height: 44 },
-          style: footerStyle
+          style: footerStyle,
         },
         {
           name: "Master footer",
@@ -1132,16 +1251,18 @@ export function seedPageMasters(): PageMasterPreset[] {
           layout: { x: 690, y: 650, width: 250, height: 44 },
           style: {
             ...footerStyle,
-            textAlign: "right"
-          }
-        }
-      ]
-    }
+            textAlign: "right",
+          },
+        },
+      ],
+    },
   ];
 }
 
 export function defaultVariableSetRows(questionId: QuestionId) {
-  const question = defaultDataset.questions.find((item) => item.id === questionId) ?? defaultQuestion;
+  const question =
+    defaultDataset.questions.find((item) => item.id === questionId) ??
+    defaultQuestion;
   return question.options
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -1152,7 +1273,7 @@ export function defaultVariableSetRows(questionId: QuestionId) {
       sourceOptionIds: [option.id],
       rowOrder: index + 1,
       visible: true,
-      emphasis: "detail" as const
+      emphasis: "detail" as const,
     }));
 }
 
@@ -1163,7 +1284,10 @@ export function rowKindLabel(kind: SavedVariableSet["rows"][number]["kind"]) {
   return "Option";
 }
 
-export function normalizeVariableSetRows(rows: SavedVariableSet["rows"], questionId: QuestionId) {
+export function normalizeVariableSetRows(
+  rows: SavedVariableSet["rows"],
+  questionId: QuestionId,
+) {
   const fallbackRows = defaultVariableSetRows(questionId);
   const fallbackById = new Map(fallbackRows.map((row) => [row.id, row]));
   return (rows.length ? rows : fallbackRows)
@@ -1174,8 +1298,9 @@ export function normalizeVariableSetRows(rows: SavedVariableSet["rows"], questio
         ...row,
         kind: row.kind ?? fallback?.kind ?? "option",
         visible: row.visible ?? true,
-        emphasis: row.emphasis ?? (row.kind === "option" ? "detail" : "summary"),
-        rowOrder: row.rowOrder ?? index + 1
+        emphasis:
+          row.emphasis ?? (row.kind === "option" ? "detail" : "summary"),
+        rowOrder: row.rowOrder ?? index + 1,
       };
     })
     .sort((a, b) => a.rowOrder - b.rowOrder)
@@ -1196,7 +1321,7 @@ export function defaultPageDesign() {
     gradientTo: "#eef7ef",
     gradientType: "linear" as const,
     gradientAngle: 135,
-    gradientStops: []
+    gradientStops: [],
   };
 }
 
@@ -1206,7 +1331,8 @@ export function seedVariableSets(): SavedVariableSet[] {
       id: "vs_brand_priorities_top2",
       datasetId: defaultDataset.id,
       label: "Brand priorities Top 2",
-      description: "Saved variable set for the Top 2 brand and retailer priorities question.",
+      description:
+        "Saved variable set for the Top 2 brand and retailer priorities question.",
       topic: "Brand Sustainability Perceptions",
       questionIds: ["Q15_TOP2_BRAND_PRIORITIES"],
       primaryQuestionId: "Q15_TOP2_BRAND_PRIORITIES",
@@ -1219,13 +1345,14 @@ export function seedVariableSets(): SavedVariableSet[] {
       comparisonDatasets: [],
       weight: defaultDataset.defaultWeight,
       filterField: defaultFilterDimension?.id ?? null,
-      filterValue: "all"
+      filterValue: "all",
     },
     {
       id: "vs_packaging_trust_trend",
       datasetId: defaultDataset.id,
       label: "Packaging trust trend",
-      description: "Saved trend view for packaging claim trust across prior waves.",
+      description:
+        "Saved trend view for packaging claim trust across prior waves.",
       topic: "Packaging",
       questionIds: ["Q_PACKAGING_TRUST"],
       primaryQuestionId: "Q_PACKAGING_TRUST",
@@ -1238,8 +1365,8 @@ export function seedVariableSets(): SavedVariableSet[] {
       comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"],
       weight: defaultDataset.defaultWeight,
       filterField: null,
-      filterValue: "all"
-    }
+      filterValue: "all",
+    },
   ];
 }
 
@@ -1254,15 +1381,15 @@ export function seedSavedBanners(): SavedBanner[] {
       datasetId: defaultDataset.id,
       label: "Summary",
       description: "Default overall summary banner.",
-      breakBy: "SUMMARY"
+      breakBy: "SUMMARY",
     },
     {
       id: "banner_generation",
       datasetId: defaultDataset.id,
       label: "Generation",
       description: "Saved demographic banner for generation cuts.",
-      breakBy: "GENERATION"
-    }
+      breakBy: "GENERATION",
+    },
   ];
 }
 
@@ -1274,7 +1401,7 @@ export function seedSavedFilters(): SavedFilterSet[] {
       label: "All shopper segments",
       description: "No segment filter applied.",
       filterField: defaultFilterDimension?.id ?? null,
-      filterValue: "all"
+      filterValue: "all",
     },
     {
       id: "filter_eco_engaged",
@@ -1282,8 +1409,8 @@ export function seedSavedFilters(): SavedFilterSet[] {
       label: "Eco engaged",
       description: "Filter to eco engaged shoppers.",
       filterField: "SHOPPER_SEGMENT",
-      filterValue: "eco_engaged"
-    }
+      filterValue: "eco_engaged",
+    },
   ];
 }
 
@@ -1294,15 +1421,15 @@ export function seedSavedWeights(): SavedWeightProfile[] {
       datasetId: defaultDataset.id,
       label: "EcoFocus respondent weight",
       description: "Default weighted view for EcoFocus reporting.",
-      weight: defaultDataset.defaultWeight
+      weight: defaultDataset.defaultWeight,
     },
     {
       id: "weight_unweighted",
       datasetId: defaultDataset.id,
       label: "Unweighted sample",
       description: "Raw sample without respondent weighting.",
-      weight: null
-    }
+      weight: null,
+    },
   ];
 }
 
@@ -1316,18 +1443,115 @@ export function seedDesignLibrary() {
     assets: seedDesignAssets(),
     pageThemes: seedPageThemes(),
     pageTemplates: seedPageTemplates(),
-    pageMasters: seedPageMasters()
+    pageMasters: seedPageMasters(),
   };
 }
 
+function sampleAnalysis(
+  id: string,
+  title: string,
+  query: AnalyticsQueryRequest,
+  layout: DashboardTile["layout"],
+  overrides: Partial<DashboardTile["appearance"]> = {},
+): DashboardTile {
+  return {
+    id,
+    name: title,
+    title,
+    locked: false,
+    hidden: false,
+    query,
+    visualization: query.chartType,
+    layout,
+    analysisLifecycle: {
+      role: "canonical",
+      canonicalTileId: id,
+      canonicalLabel: title,
+    },
+    appearance: {
+      ...defaultAppearance,
+      palette: ["#23634e", "#3c8064", "#65987b", "#8ab295", "#adc8ad"],
+      primaryColor: "#23634e",
+      background: "#ffffff",
+      chartBackground: "#ffffff",
+      borderColor: "#e3e8df",
+      borderRadius: 12,
+      shadow: false,
+      showNotes: false,
+      showBases: false,
+      showAnnotations: false,
+      titleFontSize: 18,
+      titleX: 24,
+      titleY: 20,
+      titleWidth: 600,
+      barSize: 24,
+      barCategoryGap: 18,
+      axisLabelWidth: 25,
+      axisLabelMaxLines: 2,
+      axisFontSize: 12,
+      labelFontSize: 13,
+      gridColor: "#edf0e9",
+      ...overrides,
+    },
+    result: runMockAnalyticsQuery(query),
+  };
+}
+const brandQuery: AnalyticsQueryRequest = {
+  dataset: "ecofocus_2025",
+  question: "Q15_TOP2_BRAND_PRIORITIES",
+  breakBy: "SUMMARY",
+  filters: [],
+  weight: "weightvar",
+  metric: "percent_selected",
+  chartType: "horizontal_bar",
+  confidenceLevel: 0.95,
+};
+const trustQuery: AnalyticsQueryRequest = {
+  ...brandQuery,
+  question: "Q_PACKAGING_TRUST",
+  metric: "column_percent",
+  chartType: "donut",
+};
+const brandResult = runMockAnalyticsQuery(brandQuery);
+const trustResult = runMockAnalyticsQuery(trustQuery);
+const responsibleValue =
+  brandResult.table.find((row) => row.optionId === "Q15r9")?.values.summary ??
+  0;
+const trustValue = trustResult.table
+  .filter((row) => ["trust_a_lot", "trust_somewhat"].includes(row.optionId))
+  .reduce((sum, row) => sum + row.values.summary, 0);
+const sampleText = (
+  id: string,
+  content: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  style: Partial<DashboardCanvasElement["style"]> = {},
+) =>
+  starterElement({
+    id: `sample_${id}`,
+    name: id.replaceAll("_", " "),
+    content,
+    layout: { x, y, width, height, zIndex: 2 },
+    style: {
+      fill: "transparent",
+      padding: 0,
+      borderWidth: 0,
+      fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+      fontSize: 16,
+      fontWeight: "400",
+      textColor: "#283e32",
+      lineHeight: 1.4,
+      ...style,
+    },
+  });
+
 export const initialDashboard: DashboardDraft = {
   id: "internal_mvp",
-  title: "2025 EcoFocus Builder Draft",
+  title: "The sustainable consumer",
   status: "draft",
-  publishMetadata: {
-    publishCount: 0,
-    versionLabel: "Draft"
-  },
+  publishMetadata: { publishCount: 0, versionLabel: "Draft" },
   analysisLibrary: {
     variableSets: seedVariableSets(),
     banners: seedSavedBanners(),
@@ -1335,214 +1559,150 @@ export const initialDashboard: DashboardDraft = {
     segments: [],
     weights: seedSavedWeights(),
     templates: seedAnalyticalTemplates(),
-    derivedDefinitions: []
+    derivedDefinitions: [],
   },
   importedDatasets: [],
   designLibrary: seedDesignLibrary(),
   pages: [
     {
       id: "page_overview",
-      title: "Overview",
+      title: "The big picture",
       order: 1,
-      provenance: {
-        masterStatus: "none",
-        status: "custom"
-      },
+      provenance: { masterStatus: "none", status: "custom" },
       ...defaultPageDesign(),
+      showCanvasGrid: false,
+      background: "#f6f7f2",
       elements: [
-        {
-          id: "mockup_accent_rule",
-          name: "Accent rule",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 52, y: 34, width: 48, height: 5, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#0e8f78", borderWidth: 0, borderRadius: 5 }
-        },
-        {
-          id: "mockup_story_title",
-          name: "Story title",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 64, y: 72, width: 440, height: 62, zIndex: 2 },
-          content: "Workplace Trends 2026",
-          style: {
-            ...defaultElementStyle("text"),
-            fill: "transparent",
-            textColor: "#101833",
+        sampleText(
+          "eyebrow",
+          "ECOFOCUS  /  CONSUMER INSIGHTS",
+          56,
+          32,
+          700,
+          20,
+          { fontSize: 11, fontWeight: "700", textColor: "#47705a" },
+        ),
+        sampleText(
+          "headline",
+          "Sustainability is personal.\nTrust makes it tangible.",
+          56,
+          75,
+          760,
+          110,
+          {
             fontFamily: "Georgia, serif",
-            fontSize: 36,
-            fontWeight: "800",
-            padding: 0
-          }
-        },
-        {
-          id: "mockup_story_subtitle",
-          name: "Story subtitle",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 66, y: 138, width: 420, height: 50, zIndex: 2 },
-          content: "What matters most to today’s workforce—and what it means for business",
+            fontSize: 43,
+            lineHeight: 1.08,
+            textColor: "#20392c",
+          },
+        ),
+        sampleText(
+          "intro",
+          "The choices consumers make — and the evidence brands need to earn their trust.",
+          58,
+          192,
+          780,
+          30,
+          { fontSize: 16, textColor: "#6b786c" },
+        ),
+        sampleText("metric", `${responsibleValue}%`, 975, 70, 240, 75, {
+          fontFamily: "Georgia, serif",
+          fontSize: 68,
+          lineHeight: 1.05,
+          textColor: "#23634e",
+        }),
+        sampleText(
+          "metric_label",
+          "want retailers to offer\nresponsibly sourced products",
+          978,
+          150,
+          250,
+          55,
+          { fontSize: 14, textColor: "#657668" },
+        ),
+        starterElement({
+          id: "sample_divider",
+          name: "Section rule",
+          type: "rectangle",
+          content: "",
+          layout: { x: 56, y: 246, width: 1168, height: 1, zIndex: 1 },
+          style: { fill: "#dce3d6", borderWidth: 0, shadow: false },
+        }),
+        starterElement({
+          id: "sample_takeaway_background",
+          name: "Takeaway background",
+          type: "rectangle",
+          content: "",
+          layout: { x: 56, y: 636, width: 1168, height: 72, zIndex: 1 },
           style: {
-            ...defaultElementStyle("text"),
-            fill: "transparent",
-            textColor: "#536078",
-            fontSize: 16,
-            fontWeight: "500",
-            lineHeight: 1.32,
-            padding: 0
-          }
-        },
-        {
-          id: "mockup_kpi_card_1",
-          name: "KPI card",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 558, y: 56, width: 126, height: 146, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e8ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 12, shadowBlur: 22 }
-        },
-        {
-          id: "mockup_kpi_1",
-          name: "KPI text",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 574, y: 82, width: 96, height: 100, zIndex: 2 },
-          content: "84%\nCare About\nWorkplace Culture\nvs. 78% in 2024 ↑",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#11182f", fontSize: 15, fontWeight: "800", lineHeight: 1.18, padding: 0 }
-        },
-        {
-          id: "mockup_kpi_card_2",
-          name: "KPI card",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 696, y: 56, width: 126, height: 146, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e8ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 12, shadowBlur: 22 }
-        },
-        {
-          id: "mockup_kpi_2",
-          name: "KPI text",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 712, y: 82, width: 96, height: 100, zIndex: 2 },
-          content: "41%\nFeel Supported\nat Work\nvs. 35% in 2024 ↑",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#11182f", fontSize: 15, fontWeight: "800", lineHeight: 1.18, padding: 0 }
-        },
-        {
-          id: "mockup_kpi_card_3",
-          name: "KPI card",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 834, y: 56, width: 126, height: 146, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#e2e8ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 12, shadowBlur: 22 }
-        },
-        {
-          id: "mockup_kpi_3",
-          name: "KPI text",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 850, y: 82, width: 96, height: 100, zIndex: 2 },
-          content: "2x\nGrowth in\nJob-Seeker Influence\nvs. 2024 ↑",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#11182f", fontSize: 15, fontWeight: "800", lineHeight: 1.18, padding: 0 }
-        },
-        {
-          id: "mockup_chart_placeholder",
-          name: "Chart placeholder",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 64, y: 244, width: 516, height: 292, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 11, shadowBlur: 24 }
-        },
-        {
-          id: "mockup_chart_title",
-          name: "Chart title",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 86, y: 264, width: 280, height: 38, zIndex: 2 },
-          content: "Top Drivers of Workplace Choice\n% selecting as a top 3 driver",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#172033", fontSize: 14, fontWeight: "800", lineHeight: 1.25, padding: 0 }
-        },
-        {
-          id: "mockup_donut_placeholder",
-          name: "Donut placeholder",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 608, y: 244, width: 352, height: 292, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#ffffff", borderColor: "#dfe6ec", borderWidth: 1, borderRadius: 18, shadow: true, shadowOpacity: 11, shadowBlur: 24 }
-        },
-        {
-          id: "mockup_donut_title",
-          name: "Donut title",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 628, y: 264, width: 250, height: 36, zIndex: 2 },
-          content: "Preferred Work Arrangement\n% of respondents",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#172033", fontSize: 14, fontWeight: "800", lineHeight: 1.25, padding: 0 }
-        },
-        {
-          id: "mockup_insight_band",
-          name: "Insight band",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 64, y: 572, width: 392, height: 86, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#edf9f6", borderColor: "#d5ede6", borderWidth: 1, borderRadius: 22, shadow: true, shadowOpacity: 7, shadowBlur: 16 }
-        },
-        {
-          id: "mockup_insight_text",
-          name: "Insight text",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 114, y: 590, width: 314, height: 52, zIndex: 2 },
-          content: "INSIGHT\nCulture leads the decision hierarchy, outranking compensation and growth.",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#101833", fontSize: 14, fontWeight: "800", lineHeight: 1.28, padding: 0 }
-        },
-        {
-          id: "mockup_next_section",
-          name: "Next section card",
-          type: "rectangle",
-          locked: false,
-          hidden: false,
-          layout: { x: 484, y: 572, width: 476, height: 86, zIndex: 1 },
-          content: "",
-          style: { ...defaultElementStyle("rectangle"), fill: "#f7f5fc", borderColor: "#e9e5f6", borderWidth: 1, borderRadius: 22, shadow: true, shadowOpacity: 7, shadowBlur: 16 }
-        },
-        {
-          id: "mockup_next_section_text",
-          name: "Next section text",
-          type: "text",
-          locked: false,
-          hidden: false,
-          layout: { x: 558, y: 590, width: 260, height: 52, zIndex: 2 },
-          content: "SECTION 2\nOpportunity\nWhere organizations can take action",
-          style: { ...defaultElementStyle("text"), fill: "transparent", textColor: "#101833", fontFamily: "Georgia, serif", fontSize: 22, fontWeight: "800", lineHeight: 1.12, padding: 0 }
-        }
+            fill: "#234f3d",
+            borderWidth: 0,
+            borderRadius: 10,
+            shadow: false,
+          },
+        }),
+        sampleText("takeaway_label", "THE TAKEAWAY", 80, 654, 150, 20, {
+          fontSize: 10,
+          fontWeight: "700",
+          textColor: "#c6d9b6",
+        }),
+        sampleText(
+          "takeaway",
+          `${trustValue}% trust packaging claims. Make responsible choices easy to see, and easier to believe.`,
+          254,
+          657,
+          920,
+          28,
+          { fontSize: 16, fontWeight: "500", textColor: "#ffffff" },
+        ),
+        sampleText(
+          "source",
+          "ILLUSTRATIVE STUDY  ·  EcoFocus 2025 mock analytics  ·  Weighted respondent sample",
+          58,
+          727,
+          1000,
+          18,
+          { fontSize: 10, textColor: "#7e897c" },
+        ),
+        sampleText("page_number", "01", 1185, 725, 40, 20, {
+          fontSize: 11,
+          textColor: "#7e897c",
+        }),
       ],
-      tiles: []
-    }
-  ]
+      tiles: [
+        sampleAnalysis(
+          "sample_priorities",
+          "What consumers expect from brands",
+          brandQuery,
+          { x: 56, y: 271, width: 708, height: 342, zIndex: 3 },
+          {
+            axisLabelOverrides: {
+              Q15r1: "Support schools & education",
+              Q15r2: "Give back to charity",
+              Q15r7: "Make eco-friendly choices",
+              Q15r8: "Eco-conscious retailers",
+              Q15r9: "Responsible sourcing",
+            },
+          },
+        ),
+        sampleAnalysis(
+          "sample_trust",
+          "Trust in packaging claims",
+          trustQuery,
+          { x: 788, y: 271, width: 436, height: 342, zIndex: 3 },
+          {
+            palette: ["#23634e", "#7d9d6d", "#c5d2b0", "#e2e6db"],
+            showValueLabels: true,
+          },
+        ),
+      ],
+    },
+  ],
 };
 
-export function defaultElementStyle(type: DashboardCanvasElementType): DashboardCanvasElement["style"] {
+export function defaultElementStyle(
+  type: DashboardCanvasElementType,
+): DashboardCanvasElement["style"] {
   return {
     fill: type === "circle" || type === "rectangle" ? "#dfeee2" : "transparent",
     fillMode: "solid",
@@ -1552,7 +1712,7 @@ export function defaultElementStyle(type: DashboardCanvasElementType): Dashboard
     gradientStops: [],
     textColor: "#17211b",
     borderColor: "#438757",
-    borderWidth: type === "rectangle" || type === "circle" ? 2 : 1,
+    borderWidth: type === "rectangle" || type === "circle" ? 1 : 0,
     borderStyle: "solid",
     borderRadius: type === "rectangle" ? 8 : 0,
     opacity: 100,
@@ -1574,6 +1734,6 @@ export function defaultElementStyle(type: DashboardCanvasElementType): Dashboard
     textDecoration: "none",
     textAlign: "left",
     lineHeight: 1.2,
-    padding: 10
+    padding: 10,
   };
 }

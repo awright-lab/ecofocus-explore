@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "netlify dev",
+    "demo": "netlify dev --offline --no-open",
     "dev:vite": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

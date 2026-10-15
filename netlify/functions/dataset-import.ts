@@ -26,7 +26,8 @@ interface SavReaderInstance {
   readAllRows: (includeNulls?: boolean) => Promise<Array<Record<string, unknown>>>;
 }
 
-const require = createRequire(import.meta.url);
+// Netlify Dev bundles functions as CommonJS; production may load them as ESM.
+const require = createRequire(typeof __filename !== "undefined" ? __filename : import.meta.url);
 const { SavBufferReader } = require("sav-reader") as {
   SavBufferReader: new (buffer: Buffer) => SavReaderInstance;
 };

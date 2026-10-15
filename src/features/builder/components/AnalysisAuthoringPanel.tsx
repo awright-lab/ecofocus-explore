@@ -28,6 +28,7 @@ import type { DashboardCanvasElement, DashboardPage, DashboardTile, DesignColorP
 import type { LiveDatasetSourceDescriptor } from "../../../../shared/types/dataSource";
 import type { AnalysisLibraryView, DerivedOutputLibraryActionCue, ExploreView, LayerItem, LeftPanelView, MultiSelectedObject, ReportTreeSelectionCue, SavedLibraryHandoff, SavedLibraryInsertionCue, SourceLibraryView } from "../builderTypes";
 
+const DataWorkbench = lazy(() => import("./DataWorkbench").then(module => ({default:module.DataWorkbench})));
 const DataExplorerPanel = lazy(() =>
   import("./DataExplorerPanel").then((module) => ({ default: module.DataExplorerPanel }))
 );
@@ -474,6 +475,9 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
     deleteCompositionBlock(block.id);
     setCompositionBlockCue({ label: block.label, action: "deleted" });
   }
+
+  const [dataWorkbenchOpen, setDataWorkbenchOpen] = useState(false);
+  const showWorkbench = dataWorkbenchOpen || exploreView !== "source";
 
   return (
 <BuilderPanel className="panel controls" label="Data controls">
@@ -922,9 +926,12 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
               </>
               )}
 
-              <Suspense fallback={<div className="panel-section-loading">Loading data library...</div>}>
-                <DataExplorerPanel {...props} />
-              </Suspense>
+              {leftPanelView === "data" && <>
+                <div className="studio-data-mode" aria-label="Data workspace depth"><button type="button" className={!showWorkbench?"active":""} onClick={()=>{setDataWorkbenchOpen(false);setExploreView("source");}}>Study library</button><button type="button" className={showWorkbench?"active":""} onClick={()=>setDataWorkbenchOpen(true)}>Advanced analysis</button></div>
+                <Suspense fallback={<div className="panel-section-loading">Loading analysis tools...</div>}>
+                  {showWorkbench ? <DataWorkbench {...props}/> : <DataExplorerPanel {...props}/>}
+                </Suspense>
+              </>}
               {error && <div className="error">{error}</div>}
               </>
               )}

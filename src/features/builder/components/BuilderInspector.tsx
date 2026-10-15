@@ -1,4 +1,12 @@
-import { lazy, memo, Suspense, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  lazy,
+  memo,
+  Suspense,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   ChartNoAxesColumn,
   Database,
@@ -8,13 +16,18 @@ import {
   Palette,
   SlidersHorizontal,
   Sparkles,
-  type LucideIcon
+  type LucideIcon,
 } from "lucide-react";
 import { BuilderPanel, type OutcomeWorkspaceMode } from "./BuilderChrome";
 import { buildMultiSelectionSummary } from "./multiSelectionModel";
 import type { MultiSelectionLayoutAction } from "./multiSelectionModel";
 import { buildStoryGuidanceView } from "./storyGuidanceModel";
-import { BarColorField, ColorField, PageBackgroundField, rangeFill } from "../../design-system/DesignControls";
+import {
+  BarColorField,
+  ColorField,
+  PageBackgroundField,
+  rangeFill,
+} from "../../design-system/DesignControls";
 import {
   axisRotationPresets,
   bannerDimensions,
@@ -25,13 +38,31 @@ import {
   filterDimensions,
   fontFamilies,
   waveComparisonChartTypes,
-  type EffectPreset
+  type EffectPreset,
 } from "../builderConstants";
 import { effectShadow, gradientCss } from "../builderHelpers";
-import { comparisonSummaryLabel, getAxisLabel, getBarStyle, getPaletteId, resultSourceLabel, tileSourceKindLabel } from "./CanvasRenderers";
-import { getChartTypeLabel, getQuestionLabel } from "../../analytics/analyticsDisplay";
+import {
+  comparisonSummaryLabel,
+  getAxisLabel,
+  getBarStyle,
+  getPaletteId,
+  resultSourceLabel,
+  tileSourceKindLabel,
+} from "./CanvasRenderers";
+import {
+  getChartTypeLabel,
+  getQuestionLabel,
+} from "../../analytics/analyticsDisplay";
 import { buildExecutedColumnComparisonPresentation } from "./analysisSignificancePresentationModel";
-import type { BreakById, ChartType, ComparisonMode, DatasetId, FilterFieldId, Metric, WeightId } from "../../../../shared/types/analytics";
+import type {
+  BreakById,
+  ChartType,
+  ComparisonMode,
+  DatasetId,
+  FilterFieldId,
+  Metric,
+  WeightId,
+} from "../../../../shared/types/analytics";
 import type {
   CanvasLayout,
   DashboardCanvasElement,
@@ -48,28 +79,55 @@ import type {
   SavedVariableSet,
   SavedWeightProfile,
   TextStylePreset,
-  TileAppearance
+  TileAppearance,
 } from "../../../../shared/types/dashboard";
-import type { AnalysisLibraryView, DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue, DesignModal, MultiSelectedObject, RelatedObjectNavigationCue, ReportTreeSelectionCue, SavedLibraryInsertionCue, SavedSettingOriginCue, SettingsView } from "../builderTypes";
-import type { DerivedOutputConfig, DerivedOutputKind } from "./derivedOutputModel";
+import type {
+  AnalysisLibraryView,
+  DerivedDefinitionRecreationCue,
+  DerivedOutputCreationCue,
+  DerivedOutputLibraryActionCue,
+  DerivedOutputRecreationCue,
+  DesignModal,
+  MultiSelectedObject,
+  RelatedObjectNavigationCue,
+  ReportTreeSelectionCue,
+  SavedLibraryInsertionCue,
+  SavedSettingOriginCue,
+  SettingsView,
+} from "../builderTypes";
+import type {
+  DerivedOutputConfig,
+  DerivedOutputKind,
+} from "./derivedOutputModel";
 
 const TileAnalysisQuerySection = lazy(() =>
-  import("./InspectorTileAnalysisSections").then((module) => ({ default: module.TileAnalysisQuerySection }))
+  import("./InspectorTileAnalysisSections").then((module) => ({
+    default: module.TileAnalysisQuerySection,
+  })),
 );
 const TileAnalysisResultSection = lazy(() =>
-  import("./InspectorTileAnalysisSections").then((module) => ({ default: module.TileAnalysisResultSection }))
+  import("./InspectorTileAnalysisSections").then((module) => ({
+    default: module.TileAnalysisResultSection,
+  })),
 );
 const LayoutInspector = lazy(() =>
-  import("./InspectorSections").then((module) => ({ default: module.LayoutInspector }))
+  import("./InspectorSections").then((module) => ({
+    default: module.LayoutInspector,
+  })),
 );
 const ObjectInspector = lazy(() =>
-  import("./InspectorSections").then((module) => ({ default: module.ObjectInspector }))
+  import("./InspectorSections").then((module) => ({
+    default: module.ObjectInspector,
+  })),
 );
 const PageInspector = lazy(() =>
-  import("./InspectorSections").then((module) => ({ default: module.PageInspector }))
+  import("./InspectorSections").then((module) => ({
+    default: module.PageInspector,
+  })),
 );
 
-type AssistantRailIcon = "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
+type AssistantRailIcon =
+  "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
 
 function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
   const icons: Record<AssistantRailIcon, LucideIcon> = {
@@ -79,18 +137,24 @@ function AssistantIcon({ icon }: { icon: AssistantRailIcon }) {
     effects: Sparkles,
     options: SlidersHorizontal,
     data: Database,
-    insight: Lightbulb
+    insight: Lightbulb,
   };
   const Icon = icons[icon];
 
-  return <Icon className="assistant-rail-icon" aria-hidden="true" strokeWidth={1.9} />;
+  return (
+    <Icon
+      className="assistant-rail-icon"
+      aria-hidden="true"
+      strokeWidth={1.9}
+    />
+  );
 }
 
 function AssistantFolder({
   title,
   helper,
   defaultOpen = false,
-  children
+  children,
 }: {
   title: string;
   helper: string;
@@ -105,9 +169,7 @@ function AssistantFolder({
           <small>{helper}</small>
         </span>
       </summary>
-      <div className="assistant-folder-body">
-        {children}
-      </div>
+      <div className="assistant-folder-body">{children}</div>
     </details>
   );
 }
@@ -137,8 +199,8 @@ export type BuilderInspectorProps = {
   savedSegmentProfiles: SavedSegmentProfile[];
   savedDerivedDefinitions: SavedDerivedDefinition[];
   importedDatasets: ImportedDatasetRecord[];
-  selectedTileQuestion: typeof defaultDataset.questions[number] | null;
-  selectedTileFilterDimension?: typeof filterDimensions[number];
+  selectedTileQuestion: (typeof defaultDataset.questions)[number] | null;
+  selectedTileFilterDimension?: (typeof filterDimensions)[number];
   selectedChartPart: { id: string; label: string } | null;
   selectedChartPartId: string;
   setSelectedChartPartId: (id: string) => void;
@@ -149,15 +211,23 @@ export type BuilderInspectorProps = {
   pageThemes: PageThemePreset[];
   applyPageMasterLayout: (pageMaster: PageMasterPreset) => void;
   setDesignModal: (modal: DesignModal) => void;
-  changeSelectedLayer: (direction: "front" | "back" | "forward" | "backward") => void;
-  alignSelected: (direction: "left" | "center" | "right" | "top" | "middle" | "bottom") => void;
-  applyLayoutPreset: (preset: "hero" | "leftColumn" | "rightColumn" | "footer") => void;
+  changeSelectedLayer: (
+    direction: "front" | "back" | "forward" | "backward",
+  ) => void;
+  alignSelected: (
+    direction: "left" | "center" | "right" | "top" | "middle" | "bottom",
+  ) => void;
+  applyLayoutPreset: (
+    preset: "hero" | "leftColumn" | "rightColumn" | "footer",
+  ) => void;
   updateSelectedLayout: (layout: Partial<CanvasLayout>) => void;
   updateSelectedElement: (updates: Partial<DashboardCanvasElement>) => void;
   updateSelectedTile: (updates: Partial<DashboardTile>) => void;
   selectTile: (tileId: string) => void;
   updateSelectedAppearance: (updates: Partial<TileAppearance>) => void;
-  updateSelectedBarStyle: (updates: Partial<TileAppearance["barStyles"][string]>) => void;
+  updateSelectedBarStyle: (
+    updates: Partial<TileAppearance["barStyles"][string]>,
+  ) => void;
   updateSelectedAxisLabel: (value: string) => void;
   applyTextStylePresetToSelection: (preset: TextStylePreset) => void;
   applyPageTheme: (theme: PageThemePreset) => void;
@@ -167,24 +237,46 @@ export type BuilderInspectorProps = {
   clearBarColorOverrides: (nextShared?: Partial<TileAppearance>) => void;
   applySelectedElementEffectPreset: (preset: EffectPreset) => void;
   applySelectedTileEffectPreset: (preset: EffectPreset) => void;
-  tileWithVisualization: (tile: DashboardTile, nextVisualization: ChartType) => Partial<DashboardTile>;
-  duplicateTileAsVisualization: (tile: DashboardTile, nextVisualization: ChartType) => void;
+  tileWithVisualization: (
+    tile: DashboardTile,
+    nextVisualization: ChartType,
+  ) => Partial<DashboardTile>;
+  duplicateTileAsVisualization: (
+    tile: DashboardTile,
+    nextVisualization: ChartType,
+  ) => void;
   duplicateDerivedOutputTile: (tile: DashboardTile) => string | null;
-  createDerivedOutputTile: (tile: DashboardTile, kind: DerivedOutputKind, options?: { config?: DerivedOutputConfig }) => string | null;
+  createDerivedOutputTile: (
+    tile: DashboardTile,
+    kind: DerivedOutputKind,
+    options?: { config?: DerivedOutputConfig },
+  ) => string | null;
   recreateDerivedOutputTile: (tile: DashboardTile) => boolean;
   saveDerivedDefinition: (definition: SavedDerivedDefinition) => void;
-  rerunTileAnalysis: (tile: DashboardTile, nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest) => Promise<boolean>;
+  rerunTileAnalysis: (
+    tile: DashboardTile,
+    nextQuery: import("../../../../shared/types/analytics").AnalyticsQueryRequest,
+  ) => Promise<boolean>;
   saveSelectedTileVariableSet: () => void;
   saveSelectedTileAnalyticalTemplate: () => void;
   saveSelectedTileBanner: () => void;
   saveSelectedTileFilter: () => void;
   saveSelectedTileWeight: () => void;
-  onViewSavedSettingInLibrary: (view: AnalysisLibraryView, handoff?: { action?: "derivedDefinitionSaved"; itemId?: string }) => void;
+  onViewSavedSettingInLibrary: (
+    view: AnalysisLibraryView,
+    handoff?: { action?: "derivedDefinitionSaved"; itemId?: string },
+  ) => void;
   savedSettingOriginCue: SavedSettingOriginCue;
-  recordSavedSettingOriginCue: (kind: "banner" | "filter" | "weight", label: string, tileId: string) => void;
+  recordSavedSettingOriginCue: (
+    kind: "banner" | "filter" | "weight",
+    label: string,
+    tileId: string,
+  ) => void;
   completeSavedSettingOriginCue: (tileId: string) => void;
   relatedObjectNavigationCue: RelatedObjectNavigationCue;
-  recordRelatedObjectNavigationCue: (cue: Omit<NonNullable<RelatedObjectNavigationCue>, "createdAt">) => void;
+  recordRelatedObjectNavigationCue: (
+    cue: Omit<NonNullable<RelatedObjectNavigationCue>, "createdAt">,
+  ) => void;
   reportTreeSelectionCue: ReportTreeSelectionCue;
   savedLibraryInsertionCue: SavedLibraryInsertionCue;
   derivedOutputCreationCue: DerivedOutputCreationCue;
@@ -196,68 +288,72 @@ export type BuilderInspectorProps = {
   comparisonDatasets: DatasetId[];
 };
 
-export const BuilderInspector = memo(function BuilderInspector(props: BuilderInspectorProps) {
+export const BuilderInspector = memo(function BuilderInspector(
+  props: BuilderInspectorProps,
+) {
   const {
-  outcomeMode,
-  outcomeLabel,
-  outcomeHelper,
-  settingsView,
-  setSettingsView,
-  activePage,
-  dashboardPageCount,
-  updateActivePage,
-  duplicateActivePage,
-  deleteActivePage,
-  selectedTile,
-  selectedElement,
-  multiSelectedObjects,
-  setMultiSelectedHidden,
-  setMultiSelectedLocked,
-  alignMultiSelected,
-  clearMultiSelection,
-  selectedTileQuestion,
-  selectedTileFilterDimension,
-  selectedChartPart,
-  selectedChartPartId,
-  setSelectedChartPartId,
-  chartStyleTargets,
-  textStylePresets,
-  designPalettes,
-  pageThemes,
-  setDesignModal,
-  changeSelectedLayer,
-  alignSelected,
-  applyLayoutPreset,
-  updateSelectedLayout,
-  updateSelectedElement,
-  updateSelectedTile,
-  updateSelectedAppearance,
-  updateSelectedBarStyle,
-  updateSelectedAxisLabel,
-  applyTextStylePresetToSelection,
-  applyPageTheme,
-  applyPalettePresetToBars,
-  applyPaletteColorToSelectedBar,
-  applySolidColorToBars,
-  clearBarColorOverrides,
-  applySelectedElementEffectPreset,
-  applySelectedTileEffectPreset,
-  tileWithVisualization,
-  duplicateTileAsVisualization,
-  rerunTileAnalysis,
-  saveSelectedTileVariableSet,
-  saveSelectedTileBanner,
-  saveSelectedTileFilter,
-  saveSelectedTileWeight,
-  onViewSavedSettingInLibrary,
-  deleteSelectedItem,
-  isLoading,
-  comparisonDatasets
+    outcomeMode,
+    outcomeLabel,
+    outcomeHelper,
+    settingsView,
+    setSettingsView,
+    activePage,
+    dashboardPageCount,
+    updateActivePage,
+    duplicateActivePage,
+    deleteActivePage,
+    selectedTile,
+    selectedElement,
+    multiSelectedObjects,
+    setMultiSelectedHidden,
+    setMultiSelectedLocked,
+    alignMultiSelected,
+    clearMultiSelection,
+    selectedTileQuestion,
+    selectedTileFilterDimension,
+    selectedChartPart,
+    selectedChartPartId,
+    setSelectedChartPartId,
+    chartStyleTargets,
+    textStylePresets,
+    designPalettes,
+    pageThemes,
+    setDesignModal,
+    changeSelectedLayer,
+    alignSelected,
+    applyLayoutPreset,
+    updateSelectedLayout,
+    updateSelectedElement,
+    updateSelectedTile,
+    updateSelectedAppearance,
+    updateSelectedBarStyle,
+    updateSelectedAxisLabel,
+    applyTextStylePresetToSelection,
+    applyPageTheme,
+    applyPalettePresetToBars,
+    applyPaletteColorToSelectedBar,
+    applySolidColorToBars,
+    clearBarColorOverrides,
+    applySelectedElementEffectPreset,
+    applySelectedTileEffectPreset,
+    tileWithVisualization,
+    duplicateTileAsVisualization,
+    rerunTileAnalysis,
+    saveSelectedTileVariableSet,
+    saveSelectedTileBanner,
+    saveSelectedTileFilter,
+    saveSelectedTileWeight,
+    onViewSavedSettingInLibrary,
+    deleteSelectedItem,
+    isLoading,
+    comparisonDatasets,
   } = props;
-  const [inspectorSurface, setInspectorSurface] = useState<"style" | "data" | "insight">("style");
+  const [inspectorSurface, setInspectorSurface] = useState<
+    "style" | "data" | "insight"
+  >("style");
   const multiSelectionSummary = useMemo(
     () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
-    [activePage, multiSelectedObjects]
+    [activePage, multiSelectedObjects],
   );
   const inspectorFocus = useMemo(
     () =>
@@ -265,55 +361,69 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
         ? {
             label: "Multi-selection",
             title: `${multiSelectionSummary.count} objects selected`,
-            helper: `${multiSelectionSummary.tiles.length} tiles and ${multiSelectionSummary.elements.length} elements on ${activePage.title}.`
+            helper: `${multiSelectionSummary.tiles.length} tiles and ${multiSelectionSummary.elements.length} elements on ${activePage.title}.`,
           }
         : selectedTile
           ? {
               label: "Selected tile",
               title: selectedTile.title || selectedTile.name,
-              helper: "Analysis, chart style, layout, and reusable analytical workflows."
+              helper:
+                "Analysis, chart style, layout, and reusable analytical workflows.",
             }
           : selectedElement
             ? {
                 label: "Selected element",
                 title: selectedElement.name,
-                helper: "Element styling, layout, layering, and canvas placement."
+                helper:
+                  "Element styling, layout, layering, and canvas placement.",
               }
             : {
                 label: "Page focus",
                 title: activePage.title,
-                helper: "Page design, grid, templates, master provenance, and canvas defaults."
+                helper:
+                  "Page design, grid, templates, master provenance, and canvas defaults.",
               },
-    [activePage.title, multiSelectionSummary, selectedElement, selectedTile]
+    [activePage.title, multiSelectionSummary, selectedElement, selectedTile],
   );
   const insightNotes = selectedTile?.result.notes ?? [];
   const insightWarnings = selectedTile?.result.warnings ?? [];
   const storyGuidance = useMemo(
-    () => buildStoryGuidanceView(activePage, selectedTile, selectedElement, dashboardPageCount),
-    [activePage, dashboardPageCount, selectedElement, selectedTile]
+    () =>
+      buildStoryGuidanceView(
+        activePage,
+        selectedTile,
+        selectedElement,
+        dashboardPageCount,
+      ),
+    [activePage, dashboardPageCount, selectedElement, selectedTile],
   );
   const dataContext = useMemo(
-    () => selectedTile
-      ? {
-          source: resultSourceLabel(selectedTile.result),
-          banner: comparisonSummaryLabel(selectedTile.query),
-          chart: getChartTypeLabel(selectedTile.visualization),
-          rows: selectedTile.result.table.length,
-          columns: selectedTile.result.columns.length
-        }
-      : null,
-    [selectedTile]
+    () =>
+      selectedTile
+        ? {
+            source: resultSourceLabel(selectedTile.result),
+            banner: comparisonSummaryLabel(selectedTile.query),
+            chart: getChartTypeLabel(selectedTile.visualization),
+            rows: selectedTile.result.table.length,
+            columns: selectedTile.result.columns.length,
+          }
+        : null,
+    [selectedTile],
   );
   const leadColumn = selectedTile?.result.columns[0] ?? null;
   const leadRow = selectedTile?.result.table[0] ?? null;
-  const leadValue = leadColumn && leadRow ? leadRow.values[leadColumn.id] : undefined;
+  const leadValue =
+    leadColumn && leadRow ? leadRow.values[leadColumn.id] : undefined;
   const leadValueLabel =
     typeof leadValue === "number"
       ? selectedTile?.result.metric.valueFormat === "percent"
         ? `${Math.round(leadValue)}%`
-        : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(leadValue)
+        : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(
+            leadValue,
+          )
       : null;
-  const executionReport = selectedTile?.result.statistics.significanceExecutionReport ?? null;
+  const executionReport =
+    selectedTile?.result.statistics.significanceExecutionReport ?? null;
   const executionSummary =
     executionReport?.status === "executed"
       ? `${executionReport.method.replace("_", " ")} ran`
@@ -325,7 +435,8 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
             ? "Placeholder context"
             : "No test run";
   const storyRoleLabel = selectedTile
-    ? selectedTile.result.columns.length > 1 || (selectedTile.query.comparisonMode ?? "none") !== "none"
+    ? selectedTile.result.columns.length > 1 ||
+      (selectedTile.query.comparisonMode ?? "none") !== "none"
       ? "Comparison story"
       : selectedTile.visualization === "table"
         ? "Evidence table"
@@ -343,28 +454,37 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
       ? "Use this object to support the page narrative. Pair decorative or text elements with nearby analytical evidence when possible."
       : "Start with a section pattern, then add one analytical object and one interpretation block to keep the page story focused.";
   const assistantNextStep = selectedTile
-    ? selectedTile.result.columns.length > 1 || (selectedTile.query.comparisonMode ?? "none") !== "none"
+    ? selectedTile.result.columns.length > 1 ||
+      (selectedTile.query.comparisonMode ?? "none") !== "none"
       ? {
           label: "Explain the comparison",
-          helper: "Use the Insight tab to frame which segment, banner, or wave difference matters most."
+          helper:
+            "Use the Insight tab to frame which segment, banner, or wave difference matters most.",
         }
       : {
-          label: selectedTile.visualization === "table" ? "Design from the numbers" : "Pair chart with a takeaway",
-          helper: selectedTile.visualization === "table"
-            ? "Start with the table for plain reading, then duplicate as a chart when the story is clear."
-            : "Add an insight callout or KPI strip near this chart to make the section easier to scan."
+          label:
+            selectedTile.visualization === "table"
+              ? "Design from the numbers"
+              : "Pair chart with a takeaway",
+          helper:
+            selectedTile.visualization === "table"
+              ? "Start with the table for plain reading, then duplicate as a chart when the story is clear."
+              : "Add an insight callout or KPI strip near this chart to make the section easier to scan.",
         }
     : selectedElement
       ? {
           label: "Connect this object to evidence",
-          helper: "Select or add a chart nearby so the visual block supports a measured insight."
+          helper:
+            "Select or add a chart nearby so the visual block supports a measured insight.",
         }
       : {
           label: "Start with a story section",
-          helper: "Use the Brand panel starters for KPI strips, insight callouts, chart commentary, or opportunity cards."
+          helper:
+            "Use the Brand panel starters for KPI strips, insight callouts, chart commentary, or opportunity cards.",
         };
   const assistantRailItems: Array<{
-    id: "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
+    id:
+      "style" | "page" | "layout" | "effects" | "options" | "data" | "insight";
     label: string;
     icon: AssistantRailIcon;
     disabled?: boolean;
@@ -375,15 +495,23 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
       id: "style",
       label: "Style",
       icon: "style",
-      active: inspectorSurface === "style" && (settingsView === "home" || settingsView === "chart" || settingsView === "element" || settingsView === "container"),
-      helper: selectedTile || selectedElement ? "Edit fill, color, type, and visible marks." : "Show the main style assistant."
+      active:
+        inspectorSurface === "style" &&
+        (settingsView === "home" ||
+          settingsView === "chart" ||
+          settingsView === "element" ||
+          settingsView === "container"),
+      helper:
+        selectedTile || selectedElement
+          ? "Edit fill, color, type, and visible marks."
+          : "Show the main style assistant.",
     },
     {
       id: "page",
       label: "Page",
       icon: "page",
       active: inspectorSurface === "style" && settingsView === "page",
-      helper: "Edit page theme, background, grid, and slide setup."
+      helper: "Edit page theme, background, grid, and slide setup.",
     },
     {
       id: "effects",
@@ -391,87 +519,139 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
       icon: "effects",
       disabled: !selectedTile && !selectedElement,
       active: inspectorSurface === "style" && settingsView === "effects",
-      helper: "Edit shadow, glow, transparency, and soft edges."
+      helper: "Edit shadow, glow, transparency, and soft edges.",
     },
     {
       id: "options",
-      label: selectedElement?.type === "text" ? "Text" : selectedTile ? "Series" : "Format",
+      label:
+        selectedElement?.type === "text"
+          ? "Text"
+          : selectedTile
+            ? "Series"
+            : "Format",
       icon: "options",
       disabled: !selectedTile && !selectedElement,
-      active: inspectorSurface === "style" && (settingsView === "options" || settingsView === "layout"),
-      helper: selectedTile ? "Edit series, gap width, size, and position." : "Edit size, position, and text box options."
+      active:
+        inspectorSurface === "style" &&
+        (settingsView === "options" || settingsView === "layout"),
+      helper: selectedTile
+        ? "Edit series, gap width, size, and position."
+        : "Edit size, position, and text box options.",
     },
     {
       id: "data",
       label: "Data",
       icon: "data",
       active: inspectorSurface === "data",
-      helper: "Review the selected analysis source, query, and result."
+      helper: "Review the selected analysis source, query, and result.",
     },
     {
       id: "insight",
       label: "Insight",
       icon: "insight",
       active: inspectorSurface === "insight",
-      helper: "Review story guidance and evidence framing."
-    }
+      helper: "Review story guidance and evidence framing.",
+    },
   ];
-  function activateAssistantRailItem(itemId: typeof assistantRailItems[number]["id"]) {
+  function activateAssistantRailItem(
+    itemId: (typeof assistantRailItems)[number]["id"],
+  ) {
     if (itemId === "data" || itemId === "insight") {
       setInspectorSurface(itemId);
       return;
     }
     setInspectorSurface("style");
-    if (itemId === "style") setSettingsView(selectedElement ? "element" : selectedTile ? "chart" : "home");
+    if (itemId === "style")
+      setSettingsView(
+        selectedElement ? "element" : selectedTile ? "chart" : "home",
+      );
     if (itemId === "page") setSettingsView("page");
     if (itemId === "layout") setSettingsView("layout");
     if (itemId === "effects") setSettingsView("effects");
     if (itemId === "options") setSettingsView("options");
   }
   const chartTypeOptions = useMemo(
-    () => selectedTile
-      ? defaultDataset.chartTypes
-        .filter((chartTypeOption) => chartTypeOption.supportedMetrics.includes(selectedTile.query.metric))
-        .filter((chartTypeOption) => !chartTypeOption.minSeries || selectedTile.result.columns.length >= chartTypeOption.minSeries)
-        .map((chartTypeOption) => chartTypeOption.id)
-      : [],
-    [selectedTile]
+    () =>
+      selectedTile
+        ? defaultDataset.chartTypes
+            .filter((chartTypeOption) =>
+              chartTypeOption.supportedMetrics.includes(
+                selectedTile.query.metric,
+              ),
+            )
+            .filter(chartTypeOption => chartTypeOption.id !== "donut" || selectedTile.result.columns.length === 1)
+            .filter(
+              (chartTypeOption) =>
+                !chartTypeOption.minSeries ||
+                selectedTile.result.columns.length >= chartTypeOption.minSeries,
+            )
+            .map((chartTypeOption) => chartTypeOption.id)
+        : [],
+    [selectedTile],
   );
   const activeDesignPaletteId = selectedTile
-    ? (designPalettes.find((palette) => palette.colors.join(",") === selectedTile.appearance.palette.join(","))?.id ?? getPaletteId(selectedTile.appearance.palette))
+    ? (designPalettes.find(
+        (palette) =>
+          palette.colors.join(",") ===
+          selectedTile.appearance.palette.join(","),
+      )?.id ?? getPaletteId(selectedTile.appearance.palette))
     : "custom";
-  const executedSignificanceView = selectedTile ? buildExecutedColumnComparisonPresentation(selectedTile.result) : null;
+  const executedSignificanceView = selectedTile
+    ? buildExecutedColumnComparisonPresentation(selectedTile.result)
+    : null;
   const hasRenderableSignificanceMarkers = Boolean(
-    selectedTile
-    && (
-      selectedTile.result.annotations.length > 0
-      || (selectedTile.visualization === "table" && executedSignificanceView?.available && executedSignificanceView.significantComparisons > 0)
-    )
+    selectedTile &&
+    (selectedTile.result.annotations.length > 0 ||
+      (selectedTile.visualization === "table" &&
+        executedSignificanceView?.available &&
+        executedSignificanceView.significantComparisons > 0)),
   );
   const chartBasicsCard = selectedTile ? (
     <div className="assistant-style-card assistant-style-card--flush">
-      <AssistantFolder title="Chart basics" helper={`${getChartTypeLabel(selectedTile.visualization)} · ${selectedTile.result.metric.label}`} defaultOpen>
+      <AssistantFolder
+        title="Chart basics"
+        helper={`${getChartTypeLabel(selectedTile.visualization)} · ${selectedTile.result.metric.label}`}
+        defaultOpen
+      >
         <label>
           Chart type
           <select
             value={selectedTile.visualization}
-            onChange={(event) => updateSelectedTile(tileWithVisualization(selectedTile, event.target.value as ChartType))}
+            onChange={(event) =>
+              updateSelectedTile(
+                tileWithVisualization(
+                  selectedTile,
+                  event.target.value as ChartType,
+                ),
+              )
+            }
           >
             {chartTypeOptions.map((type) => (
-              <option key={type} value={type}>{getChartTypeLabel(type)}</option>
+              <option key={type} value={type}>
+                {getChartTypeLabel(type)}
+              </option>
             ))}
           </select>
         </label>
         <label className="toggle-row">
           <span>
             Show significance markers
-            {!hasRenderableSignificanceMarkers && <small>No markers available for this tile yet.</small>}
+            {!hasRenderableSignificanceMarkers && (
+              <small>No markers available for this tile yet.</small>
+            )}
           </span>
           <input
             type="checkbox"
-            checked={selectedTile.appearance.showAnnotations && hasRenderableSignificanceMarkers}
+            checked={
+              selectedTile.appearance.showAnnotations &&
+              hasRenderableSignificanceMarkers
+            }
             disabled={!hasRenderableSignificanceMarkers}
-            onChange={(event) => updateSelectedAppearance({ showAnnotations: event.target.checked })}
+            onChange={(event) =>
+              updateSelectedAppearance({
+                showAnnotations: event.target.checked,
+              })
+            }
           />
         </label>
         <label className="toggle-row">
@@ -479,24 +659,30 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
           <input
             type="checkbox"
             checked={selectedTile.appearance.showBases}
-            onChange={(event) => updateSelectedAppearance({ showBases: event.target.checked })}
+            onChange={(event) =>
+              updateSelectedAppearance({ showBases: event.target.checked })
+            }
           />
         </label>
       </AssistantFolder>
     </div>
   ) : null;
 
-  const selectedObjectHeader = selectedTile || selectedElement || multiSelectionSummary.count ? (
-    <div className="assistant-object-header">
-      <span>{inspectorFocus.label}</span>
-      <strong>{inspectorFocus.title}</strong>
-      <small>{inspectorFocus.helper}</small>
-    </div>
-  ) : null;
+  const selectedObjectHeader =
+    selectedTile || selectedElement || multiSelectionSummary.count ? (
+      <div className="assistant-object-header">
+        <span>{inspectorFocus.label}</span>
+        <strong>{inspectorFocus.title}</strong>
+        <small>{inspectorFocus.helper}</small>
+      </div>
+    ) : null;
 
   const styleQuickCard = selectedTile ? (
     <div className="assistant-style-card assistant-style-card--flush">
-      <AssistantFolder title="Theme and type" helper={`${designPalettes.find((palette) => palette.id === activeDesignPaletteId)?.label ?? "Custom"} palette`}>
+      <AssistantFolder
+        title="Theme and type"
+        helper={`${designPalettes.find((palette) => palette.id === activeDesignPaletteId)?.label ?? "Custom"} palette`}
+      >
         <span className="assistant-field-label">Color theme</span>
         <div className="assistant-palette-row" aria-label="Color theme">
           {designPalettes.slice(0, 5).map((palette) => (
@@ -510,29 +696,56 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
             />
           ))}
         </div>
+        {selectedTile.result.metric.valueFormat === "percent" && (
+          <label>
+            Decimal places
+            <select
+              aria-label="Decimal places"
+              value={selectedTile.appearance.labelPercentDecimals}
+              onChange={(event) =>
+                updateSelectedAppearance({
+                  labelPercentDecimals: Number(event.target.value) as 0 | 1 | 2,
+                })
+              }
+            >
+              <option value={0}>0 — 53%</option>
+              <option value={1}>1 — 53.0%</option>
+              <option value={2}>2 — 53.00%</option>
+            </select>
+          </label>
+        )}
         <label>
-          Number format
-          <select value="percentage" onChange={() => undefined}>
-            <option value="percentage">Percentage (0%)</option>
-            <option value="whole">Whole number</option>
-            <option value="decimal">Decimal</option>
-          </select>
+          Label size
+          <input
+            type="number"
+            min={8}
+            max={32}
+            aria-label="Label size"
+            value={selectedTile.appearance.labelFontSize}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (value >= 8 && value <= 32)
+                updateSelectedAppearance({
+                  labelFontSize: value,
+                  axisFontSize: value,
+                });
+            }}
+          />
         </label>
         <label>
-          Font
-          <select value={selectedTile.appearance.axisFontSize > 12 ? "Inter" : "Inter"} onChange={() => undefined}>
-            <option value="Inter">Inter</option>
-            <option value="Georgia">Georgia</option>
-            <option value="IBM Plex Sans">IBM Plex Sans</option>
-          </select>
-        </label>
-        <label>
-          Title style
-          <select value="title-case" onChange={() => undefined}>
-            <option value="title-case">Title Case</option>
-            <option value="sentence">Sentence case</option>
-            <option value="compact">Compact label</option>
-          </select>
+          Title size
+          <input
+            type="number"
+            min={10}
+            max={34}
+            aria-label="Title size"
+            value={selectedTile.appearance.titleFontSize}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (value >= 10 && value <= 34)
+                updateSelectedAppearance({ titleFontSize: value });
+            }}
+          />
         </label>
       </AssistantFolder>
     </div>
@@ -540,166 +753,336 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
     <div className="inspector-story-card quiet">
       <span>Style</span>
       <strong>No stylable tile selected</strong>
-      <small>Select a chart or table to adjust palette, number format, and type styling.</small>
+      <small>
+        Select a chart or table to adjust palette, number format, and type
+        styling.
+      </small>
     </div>
   );
 
-  const positionShortcutsCard = selectedTile || selectedElement ? (
-    <div className="assistant-style-card assistant-style-card--flush">
-      <AssistantFolder title="Position shortcuts" helper="Moves the selected object only">
-        <div className="layout-suggestion-list">
-          <button type="button" className="layout-suggestion active" onClick={() => applyLayoutPreset("leftColumn")}>
-            <span className="layout-suggestion-icon"><ChartNoAxesColumn className="assistant-rail-icon" aria-hidden="true" strokeWidth={1.9} /></span>
-            <span><strong>Left chart column</strong><small>Place this object in the left half</small></span>
-            <em>selected only</em>
-          </button>
-          <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("hero")}>
-            <span className="layout-suggestion-icon"><AssistantIcon icon="options" /></span>
-            <span><strong>Lead chart frame</strong><small>Make this object wide and readable</small></span>
-            <em>top section</em>
-          </button>
-          <button type="button" className="layout-suggestion" onClick={() => applyLayoutPreset("rightColumn")}>
-            <span className="layout-suggestion-icon"><AssistantIcon icon="layout" /></span>
-            <span><strong>Right support column</strong><small>Move this object beside another block</small></span>
-            <em>comparison</em>
-          </button>
-        </div>
-      </AssistantFolder>
-    </div>
-  ) : (
-    <div className="inspector-story-card quiet">
-      <span>Arrange</span>
-      <strong>No object selected</strong>
-      <small>Select an object on the canvas to move, align, resize, or layer it.</small>
-    </div>
-  );
+  const positionShortcutsCard =
+    selectedTile || selectedElement ? (
+      <div className="assistant-style-card assistant-style-card--flush">
+        <AssistantFolder
+          title="Position shortcuts"
+          helper="Moves the selected object only"
+        >
+          <div className="layout-suggestion-list">
+            <button
+              type="button"
+              className="layout-suggestion active"
+              onClick={() => applyLayoutPreset("leftColumn")}
+            >
+              <span className="layout-suggestion-icon">
+                <ChartNoAxesColumn
+                  className="assistant-rail-icon"
+                  aria-hidden="true"
+                  strokeWidth={1.9}
+                />
+              </span>
+              <span>
+                <strong>Left chart column</strong>
+                <small>Place this object in the left half</small>
+              </span>
+              <em>selected only</em>
+            </button>
+            <button
+              type="button"
+              className="layout-suggestion"
+              onClick={() => applyLayoutPreset("hero")}
+            >
+              <span className="layout-suggestion-icon">
+                <AssistantIcon icon="options" />
+              </span>
+              <span>
+                <strong>Lead chart frame</strong>
+                <small>Make this object wide and readable</small>
+              </span>
+              <em>top section</em>
+            </button>
+            <button
+              type="button"
+              className="layout-suggestion"
+              onClick={() => applyLayoutPreset("rightColumn")}
+            >
+              <span className="layout-suggestion-icon">
+                <AssistantIcon icon="layout" />
+              </span>
+              <span>
+                <strong>Right support column</strong>
+                <small>Move this object beside another block</small>
+              </span>
+              <em>comparison</em>
+            </button>
+          </div>
+        </AssistantFolder>
+      </div>
+    ) : (
+      <div className="inspector-story-card quiet">
+        <span>Arrange</span>
+        <strong>No object selected</strong>
+        <small>
+          Select an object on the canvas to move, align, resize, or layer it.
+        </small>
+      </div>
+    );
 
   const multiSelectionCard = multiSelectionSummary.count > 0 && (
-            <div className="multi-selection-card inspector-primary-card">
-              <div className="explorer-section-header">
-                <strong>{multiSelectionSummary.count} selected</strong>
-                <small>{multiSelectionSummary.tiles.length} tiles · {multiSelectionSummary.elements.length} elements</small>
-              </div>
-              {multiSelectionSummary.bounds && (
-                <div className="multi-selection-bounds" aria-label="Selection bounds">
-                  <div>
-                    <span>Origin</span>
-                    <strong>{multiSelectionSummary.bounds.x}, {multiSelectionSummary.bounds.y}</strong>
-                  </div>
-                  <div>
-                    <span>Footprint</span>
-                    <strong>{multiSelectionSummary.bounds.width} x {multiSelectionSummary.bounds.height}</strong>
-                  </div>
-                  <small>{multiSelectionSummary.footprintLabel}</small>
-                  <small>{multiSelectionSummary.horizontalGapLabel}</small>
-                  <small>{multiSelectionSummary.verticalGapLabel}</small>
-                </div>
-              )}
-              <div className="multi-selection-list">
-                {[...multiSelectionSummary.tiles.map((tile) => ({ id: tile.id, label: tile.title || tile.name, kind: "Tile", hidden: tile.hidden, locked: tile.locked })), ...multiSelectionSummary.elements.map((element) => ({ id: element.id, label: element.name, kind: "Element", hidden: element.hidden, locked: element.locked }))].map((item) => (
-                  <div className="multi-selection-row" key={`${item.kind}-${item.id}`}>
-                    <span>{item.label}</span>
-                    <small>{item.kind} · {item.hidden ? "Hidden" : "Visible"} · {item.locked ? "Locked" : "Unlocked"}</small>
-                  </div>
-                ))}
-              </div>
-              <div className="multi-selection-action-group">
-                <strong>Visibility</strong>
-                <div className="brand-card-actions">
-                <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(true)}>Hide</button>
-                <button type="button" className="secondary" onClick={() => setMultiSelectedHidden(false)}>Show</button>
-                <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(true)}>Lock</button>
-                <button type="button" className="secondary" onClick={() => setMultiSelectedLocked(false)}>Unlock</button>
-                </div>
-              </div>
-              <div className="multi-selection-action-group">
-                <strong>Align</strong>
-                <div className="layout-action-grid">
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("left")} disabled={multiSelectionSummary.count < 2}>Left</button>
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("center")} disabled={multiSelectionSummary.count < 2}>Center</button>
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("right")} disabled={multiSelectionSummary.count < 2}>Right</button>
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("top")} disabled={multiSelectionSummary.count < 2}>Top</button>
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("middle")} disabled={multiSelectionSummary.count < 2}>Middle</button>
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("bottom")} disabled={multiSelectionSummary.count < 2}>Bottom</button>
-                </div>
-              </div>
-              <div className="multi-selection-action-group">
-                <strong>Distribute</strong>
-                <div className="brand-card-actions">
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("distributeHorizontal")} disabled={multiSelectionSummary.count < 3}>Horizontal</button>
-                  <button type="button" className="secondary" onClick={() => alignMultiSelected("distributeVertical")} disabled={multiSelectionSummary.count < 3}>Vertical</button>
-                </div>
-              </div>
-              <button type="button" className="secondary" onClick={clearMultiSelection}>Clear selection</button>
-            </div>
-          );
+    <div className="multi-selection-card inspector-primary-card">
+      <div className="explorer-section-header">
+        <strong>{multiSelectionSummary.count} selected</strong>
+        <small>
+          {multiSelectionSummary.tiles.length} tiles ·{" "}
+          {multiSelectionSummary.elements.length} elements
+        </small>
+      </div>
+      {multiSelectionSummary.bounds && (
+        <div className="multi-selection-bounds" aria-label="Selection bounds">
+          <div>
+            <span>Origin</span>
+            <strong>
+              {multiSelectionSummary.bounds.x}, {multiSelectionSummary.bounds.y}
+            </strong>
+          </div>
+          <div>
+            <span>Footprint</span>
+            <strong>
+              {multiSelectionSummary.bounds.width} x{" "}
+              {multiSelectionSummary.bounds.height}
+            </strong>
+          </div>
+          <small>{multiSelectionSummary.footprintLabel}</small>
+          <small>{multiSelectionSummary.horizontalGapLabel}</small>
+          <small>{multiSelectionSummary.verticalGapLabel}</small>
+        </div>
+      )}
+      <div className="multi-selection-list">
+        {[
+          ...multiSelectionSummary.tiles.map((tile) => ({
+            id: tile.id,
+            label: tile.title || tile.name,
+            kind: "Tile",
+            hidden: tile.hidden,
+            locked: tile.locked,
+          })),
+          ...multiSelectionSummary.elements.map((element) => ({
+            id: element.id,
+            label: element.name,
+            kind: "Element",
+            hidden: element.hidden,
+            locked: element.locked,
+          })),
+        ].map((item) => (
+          <div className="multi-selection-row" key={`${item.kind}-${item.id}`}>
+            <span>{item.label}</span>
+            <small>
+              {item.kind} · {item.hidden ? "Hidden" : "Visible"} ·{" "}
+              {item.locked ? "Locked" : "Unlocked"}
+            </small>
+          </div>
+        ))}
+      </div>
+      <div className="multi-selection-action-group">
+        <strong>Visibility</strong>
+        <div className="brand-card-actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setMultiSelectedHidden(true)}
+          >
+            Hide
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setMultiSelectedHidden(false)}
+          >
+            Show
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setMultiSelectedLocked(true)}
+          >
+            Lock
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setMultiSelectedLocked(false)}
+          >
+            Unlock
+          </button>
+        </div>
+      </div>
+      <div className="multi-selection-action-group">
+        <strong>Align</strong>
+        <div className="layout-action-grid">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("left")}
+            disabled={multiSelectionSummary.count < 2}
+          >
+            Left
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("center")}
+            disabled={multiSelectionSummary.count < 2}
+          >
+            Center
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("right")}
+            disabled={multiSelectionSummary.count < 2}
+          >
+            Right
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("top")}
+            disabled={multiSelectionSummary.count < 2}
+          >
+            Top
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("middle")}
+            disabled={multiSelectionSummary.count < 2}
+          >
+            Middle
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("bottom")}
+            disabled={multiSelectionSummary.count < 2}
+          >
+            Bottom
+          </button>
+        </div>
+      </div>
+      <div className="multi-selection-action-group">
+        <strong>Distribute</strong>
+        <div className="brand-card-actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("distributeHorizontal")}
+            disabled={multiSelectionSummary.count < 3}
+          >
+            Horizontal
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => alignMultiSelected("distributeVertical")}
+            disabled={multiSelectionSummary.count < 3}
+          >
+            Vertical
+          </button>
+        </div>
+      </div>
+      <button type="button" className="secondary" onClick={clearMultiSelection}>
+        Clear selection
+      </button>
+    </div>
+  );
 
-  const detailedControlTitle = settingsView === "page"
-    ? "Page"
-    : settingsView === "layout"
-      ? "Arrange"
-      : settingsView === "effects"
-        ? "Effects"
-        : settingsView === "options"
-          ? selectedElement
-            ? "Object options"
-            : "Series options"
-          : settingsView === "container"
-            ? "Container"
-            : selectedElement
-              ? "Element"
-              : "More tile styling";
-  const detailedControlHelper = settingsView === "page"
-    ? "Page setup and background"
-    : settingsView === "layout"
-      ? "Position, alignment, and layering"
-      : settingsView === "effects"
-        ? "Shadow, glow, transparency, and surface treatment"
-        : settingsView === "options"
-          ? selectedElement
-            ? "Size, position, and text box behavior"
-            : "Series spacing, label offsets, size, and position"
-          : settingsView === "container"
-            ? "Tile surface, border, and effects"
-            : selectedElement
-              ? "Element appearance and content"
-              : "Display and advanced chart styling";
-  const detailedControls = settingsView === "page"
-    ? <PageInspector {...props} />
-    : settingsView === "layout"
-      ? <LayoutInspector {...props} />
-      : settingsView === "chart" || settingsView === "element" || settingsView === "container" || settingsView === "effects" || settingsView === "options"
-        ? <ObjectInspector {...props} />
-        : null;
+  const detailedControlTitle =
+    settingsView === "page"
+      ? "Page"
+      : settingsView === "layout"
+        ? "Arrange"
+        : settingsView === "effects"
+          ? "Effects"
+          : settingsView === "options"
+            ? selectedElement
+              ? "Object options"
+              : "Series options"
+            : settingsView === "container"
+              ? "Container"
+              : selectedElement
+                ? "Element"
+                : "More tile styling";
+  const detailedControlHelper =
+    settingsView === "page"
+      ? "Page setup and background"
+      : settingsView === "layout"
+        ? "Position, alignment, and layering"
+        : settingsView === "effects"
+          ? "Shadow, glow, transparency, and surface treatment"
+          : settingsView === "options"
+            ? selectedElement
+              ? "Size, position, and text box behavior"
+              : "Series spacing, label offsets, size, and position"
+            : settingsView === "container"
+              ? "Tile surface, border, and effects"
+              : selectedElement
+                ? "Element appearance and content"
+                : "Display and advanced chart styling";
+  const detailedControls =
+    settingsView === "page" ? (
+      <PageInspector {...props} />
+    ) : settingsView === "layout" ? (
+      <LayoutInspector {...props} />
+    ) : settingsView === "chart" ||
+      settingsView === "element" ||
+      settingsView === "container" ||
+      settingsView === "effects" ||
+      settingsView === "options" ? (
+      <ObjectInspector {...props} />
+    ) : null;
 
   const styleSurface = (
     <>
-          {selectedObjectHeader}
-          {settingsView === "home" && styleQuickCard}
-          {selectedTile && (settingsView === "chart" || settingsView === "container") && (
-            <>
-              {chartBasicsCard}
-              {styleQuickCard}
-            </>
+      {selectedObjectHeader}
+      {settingsView === "home" && styleQuickCard}
+      {selectedTile &&
+        (settingsView === "chart" || settingsView === "container") && (
+          <>
+            {chartBasicsCard}
+            {styleQuickCard}
+          </>
+        )}
+      {settingsView === "layout" && positionShortcutsCard}
+      {settingsView === "layout" && multiSelectionCard}
+      {settingsView !== "home" && (
+        <details
+          className="advanced-inspector-details"
+          open={
+            settingsView === "page" ||
+            settingsView === "effects" ||
+            settingsView === "options" ||
+            settingsView === "container"
+          }
+        >
+          <summary>
+            <strong>{detailedControlTitle}</strong>
+            <span>{detailedControlHelper}</span>
+          </summary>
+          {settingsView === "page" && (
+            <div className="panel-title with-action">
+              <h2>{detailedControlTitle}</h2>
+            </div>
           )}
-          {settingsView === "layout" && positionShortcutsCard}
-          {settingsView === "layout" && multiSelectionCard}
-          {settingsView !== "home" && (
-            <details className="advanced-inspector-details" open={settingsView === "page" || settingsView === "effects" || settingsView === "options" || settingsView === "container"}>
-              <summary>
-                <strong>{detailedControlTitle}</strong>
-                <span>{detailedControlHelper}</span>
-              </summary>
-              {settingsView === "page" && (
-                <div className="panel-title with-action">
-                  <h2>{detailedControlTitle}</h2>
-                </div>
-              )}
-              <Suspense fallback={<div className="panel-section-loading">Loading detailed controls...</div>}>
-                {detailedControls}
-              </Suspense>
-            </details>
-          )}
+          <Suspense
+            fallback={
+              <div className="panel-section-loading">
+                Loading detailed controls...
+              </div>
+            }
+          >
+            {detailedControls}
+          </Suspense>
+        </details>
+      )}
     </>
   );
   const dataSurface = selectedTile ? (
@@ -708,20 +1091,39 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
       <div className="inspector-story-card">
         <span>Selected analysis</span>
         <strong>{dataContext?.source}</strong>
-        <small>{dataContext?.chart} · {dataContext?.banner}</small>
+        <small>
+          {dataContext?.chart} · {dataContext?.banner}
+        </small>
         <div className="inspector-context-chips">
           <span>{dataContext?.rows} rows</span>
           <span>{dataContext?.columns} columns</span>
           <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
         </div>
       </div>
-      <AssistantFolder title="Edit analysis" helper={`${dataContext?.chart} · ${dataContext?.banner}`} defaultOpen>
-        <Suspense fallback={<div className="panel-section-loading">Loading analysis controls...</div>}>
+      <AssistantFolder
+        title="Edit analysis"
+        helper={`${dataContext?.chart} · ${dataContext?.banner}`}
+        defaultOpen
+      >
+        <Suspense
+          fallback={
+            <div className="panel-section-loading">
+              Loading analysis controls...
+            </div>
+          }
+        >
           <TileAnalysisQuerySection {...props} />
         </Suspense>
       </AssistantFolder>
-      <AssistantFolder title="Details and provenance" helper={`${dataContext?.rows} rows · ${dataContext?.columns} columns`}>
-        <Suspense fallback={<div className="panel-section-loading">Loading provenance...</div>}>
+      <AssistantFolder
+        title="Details and provenance"
+        helper={`${dataContext?.rows} rows · ${dataContext?.columns} columns`}
+      >
+        <Suspense
+          fallback={
+            <div className="panel-section-loading">Loading provenance...</div>
+          }
+        >
           <TileAnalysisResultSection {...props} />
         </Suspense>
       </AssistantFolder>
@@ -730,7 +1132,10 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
     <div className="inspector-story-card quiet">
       <span>Data context</span>
       <strong>No analytical tile selected</strong>
-      <small>Select a chart or table to review query, source, result, and live-provider context.</small>
+      <small>
+        Select a chart or table to review query, source, result, and
+        live-provider context.
+      </small>
     </div>
   );
   const insightSurface = (
@@ -754,7 +1159,11 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
         <strong>{inspectorFocus.title}</strong>
         <small>{storyGuidance.selectedRoleHelper}</small>
       </div>
-      <AssistantFolder title="Story structure" helper={`${storyGuidance.pageRoleLabel} · ${storyGuidance.arcLabel}`} defaultOpen>
+      <AssistantFolder
+        title="Story structure"
+        helper={`${storyGuidance.pageRoleLabel} · ${storyGuidance.arcLabel}`}
+        defaultOpen
+      >
         <div className="inspector-story-arc-card">
           <div>
             <span>Page role</span>
@@ -764,7 +1173,9 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
           <div>
             <span>Suggested arc</span>
             <strong>{storyGuidance.arcLabel}</strong>
-            <small>{storyGuidance.nextStepLabel}: {storyGuidance.nextStepHelper}</small>
+            <small>
+              {storyGuidance.nextStepLabel}: {storyGuidance.nextStepHelper}
+            </small>
           </div>
           <div>
             <span>Page flow</span>
@@ -775,31 +1186,64 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
       </AssistantFolder>
       {selectedTile ? (
         <>
-          <AssistantFolder title="Evidence snapshot" helper={leadValueLabel ? `${leadValueLabel} lead visible result` : `${selectedTile.result.table.length} result rows`} defaultOpen>
+          <AssistantFolder
+            title="Evidence snapshot"
+            helper={
+              leadValueLabel
+                ? `${leadValueLabel} lead visible result`
+                : `${selectedTile.result.table.length} result rows`
+            }
+            defaultOpen
+          >
             <div className="inspector-story-grid">
               <div className="inspector-story-metric">
                 <span>Evidence</span>
-                <strong>{leadValueLabel ?? `${selectedTile.result.table.length} rows`}</strong>
-                <small>{leadRow?.label ?? `${selectedTile.result.columns.length} result columns`}</small>
+                <strong>
+                  {leadValueLabel ?? `${selectedTile.result.table.length} rows`}
+                </strong>
+                <small>
+                  {leadRow?.label ??
+                    `${selectedTile.result.columns.length} result columns`}
+                </small>
               </div>
               <div className="inspector-story-metric">
                 <span>Confidence</span>
-                <strong>{Math.round(selectedTile.result.statistics.confidenceLevel * 100)}%</strong>
+                <strong>
+                  {Math.round(
+                    selectedTile.result.statistics.confidenceLevel * 100,
+                  )}
+                  %
+                </strong>
                 <small>{selectedTile.result.weighting.label}</small>
               </div>
             </div>
             <div className="inspector-story-card quiet">
               <span>Analytical context</span>
               <strong>{executionSummary}</strong>
-              <small>{selectedTile.result.statistics.significance.comparisonBasis} basis · {dataContext?.banner}</small>
+              <small>
+                {selectedTile.result.statistics.significance.comparisonBasis}{" "}
+                basis · {dataContext?.banner}
+              </small>
               <div className="inspector-context-chips">
-                <span>{selectedTile.result.weighting.applied ? "Weighted" : "Unweighted"}</span>
-                <span>{selectedTile.result.statistics.significance.method.replace("_", " ")}</span>
+                <span>
+                  {selectedTile.result.weighting.applied
+                    ? "Weighted"
+                    : "Unweighted"}
+                </span>
+                <span>
+                  {selectedTile.result.statistics.significance.method.replace(
+                    "_",
+                    " ",
+                  )}
+                </span>
                 <span>{selectedTile.result.metric.label}</span>
               </div>
             </div>
           </AssistantFolder>
-          <AssistantFolder title="Takeaway" helper="Grounded draft interpretation">
+          <AssistantFolder
+            title="Takeaway"
+            helper="Grounded draft interpretation"
+          >
             <div className="inspector-ai-takeaway">
               <div>
                 <span>Story takeaway</span>
@@ -809,62 +1253,102 @@ export const BuilderInspector = memo(function BuilderInspector(props: BuilderIns
             </div>
           </AssistantFolder>
           {(insightWarnings.length > 0 || insightNotes.length > 0) && (
-            <AssistantFolder title="Warnings and notes" helper={`${insightWarnings.length} warnings · ${insightNotes.length} notes`}>
+            <AssistantFolder
+              title="Warnings and notes"
+              helper={`${insightWarnings.length} warnings · ${insightNotes.length} notes`}
+            >
               <div className="inspector-story-card quiet">
                 <span>Result notes</span>
-                <strong>{insightWarnings.length > 0 ? `${insightWarnings.length} warning${insightWarnings.length === 1 ? "" : "s"}` : "No provider warnings"}</strong>
-                {[...insightWarnings, ...insightNotes].slice(0, 4).map((note) => (
-                  <small key={note}>{note}</small>
-                ))}
+                <strong>
+                  {insightWarnings.length > 0
+                    ? `${insightWarnings.length} warning${insightWarnings.length === 1 ? "" : "s"}`
+                    : "No provider warnings"}
+                </strong>
+                {[...insightWarnings, ...insightNotes]
+                  .slice(0, 4)
+                  .map((note) => (
+                    <small key={note}>{note}</small>
+                  ))}
               </div>
             </AssistantFolder>
           )}
-          <button type="button" className="menu-card" onClick={() => {
-            setInspectorSurface("style");
-            setSettingsView("container");
-          }}>
+          <button
+            type="button"
+            className="menu-card"
+            onClick={() => {
+              setInspectorSurface("style");
+              setSettingsView("container");
+            }}
+          >
             <strong>Open provenance and lifecycle</strong>
-            <span>Review saved settings, derived-output, template, segment, and starter context.</span>
+            <span>
+              Review saved settings, derived-output, template, segment, and
+              starter context.
+            </span>
           </button>
         </>
       ) : (
         <div className="inspector-story-card quiet">
           <span>Insight surface</span>
-          <strong>{selectedElement ? "Pair with analytical evidence" : "Build a story section"}</strong>
-          <small>{selectedElement ? "Select a chart or table to see evidence, significance, weighting, and story framing." : "Use KPI, insight, chart commentary, and opportunity starters from the Brand panel."}</small>
+          <strong>
+            {selectedElement
+              ? "Pair with analytical evidence"
+              : "Build a story section"}
+          </strong>
+          <small>
+            {selectedElement
+              ? "Select a chart or table to see evidence, significance, weighting, and story framing."
+              : "Use KPI, insight, chart commentary, and opportunity starters from the Brand panel."}
+          </small>
         </div>
       )}
     </>
   );
 
   return (
-<BuilderPanel className="panel settings story-inspector" label="Design and insight inspector">
-          <div className="assistant-side-rail" aria-label="Assistant tools">
-            {assistantRailItems.map((item) => (
-              <button
-                type="button"
-                className={[
-                  item.active ? "active" : "",
-                  item.id === "data" || item.id === "insight" ? "assistant-side-rail__outcome" : ""
-                ].filter(Boolean).join(" ")}
-                key={item.id}
-                disabled={item.disabled}
-                title={item.helper}
-                aria-pressed={item.active}
-                onClick={() => activateAssistantRailItem(item.id)}
-              >
-                <AssistantIcon icon={item.icon} />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="inspector-shell-title">
-            <h2><span aria-hidden="true"><Sparkles className="inspector-title-icon" strokeWidth={1.9} /></span> Design + Insight Assistant</h2>
-            <small>{assistantRailItems.find((item) => item.active)?.helper ?? "Choose a tool for the current canvas context."}</small>
-          </div>
-          {inspectorSurface === "style" && styleSurface}
-          {inspectorSurface === "data" && dataSurface}
-          {inspectorSurface === "insight" && insightSurface}
-        </BuilderPanel>
+    <BuilderPanel
+      className="panel settings story-inspector"
+      label="Design and insight inspector"
+    >
+      <div className="assistant-side-rail" aria-label="Assistant tools">
+        {assistantRailItems.map((item) => (
+          <button
+            type="button"
+            className={[
+              item.active ? "active" : "",
+              item.id === "data" || item.id === "insight"
+                ? "assistant-side-rail__outcome"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            key={item.id}
+            data-tool={item.id}
+            disabled={item.disabled}
+            title={item.helper}
+            aria-pressed={item.active}
+            onClick={() => activateAssistantRailItem(item.id)}
+          >
+            <AssistantIcon icon={item.icon} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="inspector-shell-title">
+        <h2>
+          <span aria-hidden="true">
+            <Sparkles className="inspector-title-icon" strokeWidth={1.9} />
+          </span>{" "}
+          Properties
+        </h2>
+        <small>
+          {assistantRailItems.find((item) => item.active)?.helper ??
+            "Choose a tool for the current canvas context."}
+        </small>
+      </div>
+      {inspectorSurface === "style" && styleSurface}
+      {inspectorSurface === "data" && dataSurface}
+      {inspectorSurface === "insight" && insightSurface}
+    </BuilderPanel>
   );
 });

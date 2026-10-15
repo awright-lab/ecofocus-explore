@@ -238,7 +238,9 @@ export function GuidedDataQueryModal({
 
   async function createOutput(mode: GuidedOutputMode) {
     if (!canCreate) return;
-    const nextChartType = mode === "table" ? "table" : selectedChart;
+    const nextChartType = mode === "table"
+      ? "table"
+      : selectedChart === "table" ? supportedChartType(selectedChartTypes) : selectedChart;
     if (datasetMode === "imported") {
       if (!importedDataset || !importedField) return;
       const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, effectiveImportedMetric, {

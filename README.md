@@ -101,6 +101,35 @@ That means charts and tables are not static report artifacts. They are query-dri
 
 ## Running Locally
 
+For a proof of concept without cloud credentials, create a `.env` file with:
+
+```dotenv
+ANALYTICS_DATA_PROVIDER=mock
+VITE_DATASET_IMPORT_PROVIDER=local
+```
+
+After installing dependencies, run `npm run demo` and open
+`http://localhost:8888`. In Codespaces, open port **8888** from the Ports tab.
+This starts both the frontend and local analytics functions without signing in
+to Netlify. Port 5173 serves only the frontend.
+
+Start with **Explore an example** on the home screen for a complete, editable
+EcoFocus report with query-backed charts. **New report** creates an empty page.
+
+- Use **Create** to build a table or chart.
+- Select any object to open its properties; close either side panel for more canvas space.
+- Use **Data → Advanced analysis** for source authoring, query setup, variable sets,
+  recodes/nets, templates, derived outputs, segments, banners, filters, and weights.
+- Use **Design** for themes, reusable story sections, assets, and typography.
+- Press **Ctrl/⌘ K** to find a tool, create an object, switch delivery modes, or export.
+- Use **Preview**, **Share**, and **Export** for delivery.
+
+Built-in EcoFocus studies use mock data. The included example’s charts and summary
+values are generated from those analytical responses. Existing saved reports are
+preserved. CSV/XLSX/SAV imports and report drafts stay in this browser when using
+the local configuration; published viewer links also depend on that browser’s
+saved workspace.
+
 Install dependencies:
 
 ```bash

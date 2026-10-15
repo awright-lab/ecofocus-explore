@@ -26,6 +26,12 @@ describe("validateAnalyticsQuery", () => {
     expect(validateAnalyticsQuery({ ...q15Query, chartType: "grouped_bar" })).toContain("Unsupported chartType.");
   });
 
+  it("accepts a packaging trust summary donut and rejects multi-column donuts", () => {
+    const query: AnalyticsQueryRequest = {...q15Query,question:"Q_PACKAGING_TRUST",metric:"column_percent",chartType:"donut"};
+    expect(validateAnalyticsQuery(query)).toEqual([]);
+    expect(validateAnalyticsQuery({...query,breakBy:"GENERATION"})).toContain("Donut charts require a single summary column.");
+  });
+
   it("rejects unsupported weights", () => {
     expect(validateAnalyticsQuery({ ...q15Query, weight: "bad_weight" as AnalyticsQueryRequest["weight"] })).toContain("Unsupported weight.");
   });

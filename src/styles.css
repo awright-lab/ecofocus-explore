@@ -1,3 +1,4 @@
+@layer legacy {
 :root {
   --accent-eco: #0fa87a;
   --accent-eco-soft: rgba(15, 168, 122, 0.18);
@@ -13746,4 +13747,6 @@ button:active:not(:disabled) {
   border: 1px solid rgba(203, 218, 221, 0.7);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.72);
+}
+
 }
