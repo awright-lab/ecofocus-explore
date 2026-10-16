@@ -1,9 +1,9 @@
 name: Supabase database keepalive
 
 on:
-  schedule:
-    # UTC, away from the busy start of the hour.
-    - cron: '23 */6 * * *'
+  # Scheduled runs are deferred until repository secrets are configured.
+  # schedule:
+  #   - cron: '23 */6 * * *'
   workflow_dispatch:
 
 permissions:
