@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "supabase:keepalive": "node --env-file-if-exists=.env scripts/supabase-keepalive.mjs",
     "dev": "netlify dev",
     "demo": "netlify dev --offline --no-open",
     "dev:vite": "vite",
