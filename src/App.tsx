@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { loadDashboardWorkspace, parseWorkspaceRoute } from "./features/document/workspacePersistence";
+import { parseWorkspaceRoute } from "./features/document/workspacePersistence";
+import { workspaceSaveSession } from "./features/document/workspaceSaveSession";
+import { WorkspaceSaveRecovery } from "./features/document/WorkspaceSaveRecovery";
 
 const BuilderApp = lazy(() => import("./features/builder/BuilderApp"));
 const WorkspaceHome = lazy(() =>
@@ -8,12 +10,15 @@ const WorkspaceHome = lazy(() =>
 
 export default function App() {
   const [route, setRoute] = useState(() => parseWorkspaceRoute());
-  const [workspace, setWorkspace] = useState(() => loadDashboardWorkspace());
+  const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
 
   useEffect(() => {
     function handleRouteChange() {
-      setRoute(parseWorkspaceRoute());
-      setWorkspace(loadDashboardWorkspace());
+      // Let the editor flush its debounce before reading the next route's data.
+      queueMicrotask(() => {
+        setRoute(parseWorkspaceRoute());
+        setWorkspace(workspaceSaveSession.load());
+      });
     }
 
     window.addEventListener("hashchange", handleRouteChange);
@@ -24,17 +29,18 @@ export default function App() {
     };
   }, []);
 
-  if (route.mode === "home") {
-    return (
-      <Suspense fallback={<div className="app-route-loading">Loading workspace...</div>}>
-        <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />
-      </Suspense>
-    );
-  }
-
   return (
-    <Suspense fallback={<div className="app-route-loading">Loading report...</div>}>
-      <BuilderApp key={`${route.mode}:${route.reportId ?? "active"}`} />
-    </Suspense>
+    <>
+      <WorkspaceSaveRecovery />
+      {route.mode === "home" ? (
+        <Suspense fallback={<div className="app-route-loading">Loading workspace...</div>}>
+          <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />
+        </Suspense>
+      ) : (
+        <Suspense fallback={<div className="app-route-loading">Loading report...</div>}>
+          <BuilderApp key={`${route.mode}:${route.reportId ?? "active"}`} />
+        </Suspense>
+      )}
+    </>
   );
 }

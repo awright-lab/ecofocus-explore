@@ -23,6 +23,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   axisFontSizePresets,
@@ -106,17 +107,16 @@ import {
   duplicateReportRecord,
   findPublishedSnapshot,
   findReport,
-  loadDashboardWorkspace,
   makeBuilderReportPath,
   makeWorkspaceHomePath,
   markReportOpened,
   parseWorkspaceRoute,
   removeWorkspaceImportedDataset,
-  saveDashboardWorkspace,
   updateWorkspaceImportedDatasetField,
   upsertWorkspaceImportedDataset,
   upsertDraftReport,
 } from "../document/workspacePersistence";
+import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
 import type {
   AnalysisLibraryView,
   DesignModal,
@@ -166,7 +166,11 @@ const GuidedDataQueryModal = lazy(() =>
 
 export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
-  const [workspace, setWorkspace] = useState(() => loadDashboardWorkspace());
+  const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
+  const workspaceRef = useRef(workspace);
+  const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
+  const saveDashboardWorkspace = workspaceSaveSession.save;
+  useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
   const initialRoute = parseWorkspaceRoute();
   const initialReport =
     findReport(workspace, initialRoute.reportId) ??
@@ -682,6 +686,9 @@ export default function BuilderApp() {
   }
 
   function openWorkspaceHome() {
+    const nextWorkspace = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
+    setWorkspace(nextWorkspace);
+    if (!saveDashboardWorkspace(nextWorkspace)) return;
     window.location.hash = makeWorkspaceHomePath().replace(/^#/, "");
   }
 
@@ -703,7 +710,7 @@ export default function BuilderApp() {
       report.id,
     );
     setWorkspace(nextWorkspace);
-    saveDashboardWorkspace(nextWorkspace);
+    if (!saveDashboardWorkspace(nextWorkspace)) return;
     setActiveReportId(report.id);
     setPublishedSnapshot(null);
     setDashboardState(normalizeDashboard(report.draft));
@@ -717,7 +724,7 @@ export default function BuilderApp() {
       upsertDraftReport(workspace, dashboard, activeReportId),
     );
     setWorkspace(next.workspace);
-    saveDashboardWorkspace(next.workspace);
+    if (!saveDashboardWorkspace(next.workspace)) return;
     setActiveReportId(next.report.id);
     setPublishedSnapshot(null);
     setDashboardState(normalizeDashboard(next.report.draft));
@@ -741,7 +748,7 @@ export default function BuilderApp() {
       title: dashboard.title,
     });
     setWorkspace(next.workspace);
-    saveDashboardWorkspace(next.workspace);
+    if (!saveDashboardWorkspace(next.workspace)) return;
     setActiveReportId(next.report.id);
     setPublishedSnapshot(null);
     setDashboardState(normalizeDashboard(next.report.draft));
@@ -751,12 +758,17 @@ export default function BuilderApp() {
   }
 
   function createPublishedDashboardSnapshot(current: DashboardDraft) {
+    const draftWorkspace = upsertDraftReport(workspaceRef.current, current, activeReportId);
     const next = createPublishedSnapshot(
-      upsertDraftReport(workspace, current, activeReportId),
+      draftWorkspace,
       { ...current, id: activeReportId },
     );
+    if (!saveDashboardWorkspace(next.workspace, draftWorkspace)) {
+      setWorkspace(draftWorkspace);
+      setSaveState("Not saved");
+      return null;
+    }
     setWorkspace(next.workspace);
-    saveDashboardWorkspace(next.workspace);
     setPublishedSnapshot(next.snapshot);
     replaceHash(next.snapshot.viewerPath);
     return next.dashboard;
@@ -789,24 +801,30 @@ export default function BuilderApp() {
   useEffect(() => {
     if (publishedSnapshot) return undefined;
 
+    if (workspaceSaveSession.hasPending()) {
+      workspaceSaveSession.remember(upsertDraftReport(workspaceRef.current, dashboard, activeReportId));
+    }
     setSaveState("Saving...");
     let settleTimer: number | undefined;
     const saveTimer = window.setTimeout(() => {
       try {
         const nextWorkspace = upsertDraftReport(
-          workspace,
+          workspaceRef.current,
           dashboard,
           activeReportId,
         );
         setWorkspace(nextWorkspace);
-        saveDashboardWorkspace(nextWorkspace);
+        if (!saveDashboardWorkspace(nextWorkspace)) {
+          setSaveState("Not saved");
+          return;
+        }
         setSaveState("Saved just now");
         settleTimer = window.setTimeout(
           () => setSaveState("Saved locally"),
           2200,
         );
       } catch {
-        setSaveState("Save error");
+        setSaveState("Not saved");
       }
     }, 900);
 
@@ -817,6 +835,32 @@ export default function BuilderApp() {
       }
     };
   }, [dashboard, activeReportId, publishedSnapshot, setSaveState]);
+
+  useEffect(() => {
+    if (!hasUnsavedWorkspace && saveState === "Not saved") setSaveState("Saved locally");
+  }, [hasUnsavedWorkspace, saveState, setSaveState]);
+
+  // Flush the debounce before route unmounts or the tab closes. The session
+  // buffer also lets hash/back navigation retain failed writes in this tab.
+  useEffect(() => {
+    if (publishedSnapshot) return;
+    function flush(event?: BeforeUnloadEvent) {
+      const next = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
+      if (!saveDashboardWorkspace(next) && event) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    }
+    function flushRoute() { flush(); }
+    window.addEventListener("beforeunload", flush);
+    window.addEventListener("hashchange", flushRoute);
+    window.addEventListener("popstate", flushRoute);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("hashchange", flushRoute);
+      window.removeEventListener("popstate", flushRoute);
+    };
+  }, [dashboard, activeReportId, publishedSnapshot]);
 
   useEffect(() => {
     if (dashboard.status !== "published") {
@@ -1146,8 +1190,8 @@ export default function BuilderApp() {
       result.dataset,
     );
     setWorkspace(nextWorkspace);
-    saveDashboardWorkspace(nextWorkspace);
-    setError(null);
+    const saved = saveDashboardWorkspace(nextWorkspace);
+    setError(saved ? null : workspaceSaveFailureMessage);
     return result.dataset;
   }
 
@@ -1163,8 +1207,8 @@ export default function BuilderApp() {
       updates,
     );
     setWorkspace(nextWorkspace);
-    saveDashboardWorkspace(nextWorkspace);
-    setError(null);
+    const saved = saveDashboardWorkspace(nextWorkspace);
+    setError(saved ? null : workspaceSaveFailureMessage);
   }
 
   function removeImportedDataset(datasetId: string) {
@@ -1177,8 +1221,8 @@ export default function BuilderApp() {
     }));
     const nextWorkspace = removeWorkspaceImportedDataset(workspace, datasetId);
     setWorkspace(nextWorkspace);
-    saveDashboardWorkspace(nextWorkspace);
-    setError(null);
+    const saved = saveDashboardWorkspace(nextWorkspace);
+    setError(saved ? null : workspaceSaveFailureMessage);
   }
 
   function openGuidedDataQuery(options?: GuidedDataQueryLaunchOptions) {
@@ -1724,7 +1768,7 @@ export default function BuilderApp() {
         />
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
-          saveState={saveState}
+          saveState={hasUnsavedWorkspace ? "Not saved" : saveState}
           canvasZoom={canvasZoom}
           showCanvasGrid={activePage.showCanvasGrid}
           onBackToWorkspace={openWorkspaceHome}

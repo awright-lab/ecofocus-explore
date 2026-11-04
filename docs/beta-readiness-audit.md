@@ -89,3 +89,41 @@ Verification:
 Keep each batch small enough to review, check current remote and active work
 before editing, and record evidence and remaining limits. This audit does not
 itself configure a recurring execution schedule.
+
+## Follow-up: save failure reporting and recovery
+
+The review confirmed that editor autosave, publishing and study import ignored
+the persistence function's `false` result. Autosave could say "Saved just now"
+after a quota error, and publishing could open a snapshot that had not been saved.
+
+The browser session now retains failed writes in memory across workspace/editor
+navigation and shows a persistent "Changes not saved" notice. Users can retry
+the complete save or download a full workspace JSON backup, including respondent
+rows. Failed publication retains the draft without adding a version or opening
+the viewer; retry saves the draft, and the analyst explicitly publishes again.
+Imports remain available in the tab and show a failure rather than a success
+indicator. The editor flushes its debounce before home/hash/back navigation or
+tab unload, and requests the browser's unload warning if the write fails.
+
+Verification for this batch:
+
+- `npm test -- --reporter=dot`: 210 passed, one live integration test skipped.
+  Four new jsdom tests render the real editor/header/import handlers (canvas
+  geometry is stubbed) and cover failed autosave, canceled unload, complete
+  30-row backup data beyond the 25-row preview, successful retry, failed and
+  successful publication, import failure/remount recovery, and hash navigation
+  during the debounce. Previous saved storage is asserted unchanged on failure.
+- `npm run build`: TypeScript and Vite passed; existing large-builder-chunk
+  warning remains (approximately 701 kB minified).
+- Browser smoke on isolated localhost with synthetic data and a test-only quota
+  simulation showed the persistent notice and error save state; Share stayed in
+  the editor. Restoring test storage and selecting Retry saving cleared the
+  notice and showed "Saved locally". The temporary harness is excluded from the
+  change.
+
+Remaining limits: the memory buffer cannot survive a browser/process crash or
+a forced reload; download a backup before leaving when storage remains blocked.
+Browser unload prompts depend on browser policy. The downloaded JSON is a full
+recovery artifact; a guided backup-restore UI is future work. These checks do not
+validate live databases, multi-tab conflict handling, native unload dialogs, or
+Office/PDF export acceptance.

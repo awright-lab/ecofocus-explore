@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { DocumentPreview } from "../document/DocumentPreview";
 import { StudioHelp } from "../builder/components/StudioTools";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
 import type {
   DashboardReportRecord,
   DashboardWorkspace,
@@ -68,7 +69,6 @@ import {
   markReportOpened,
   removeWorkspaceDatasetConnection,
   removeWorkspaceLiveDatasetSource,
-  saveDashboardWorkspace,
   updateWorkspaceDatasetConnectionVerification,
   updateWorkspaceLiveDatasetSourceInspection,
   updateWorkspaceLiveDatasetSourceFields,
@@ -308,6 +308,8 @@ export function WorkspaceHome({
   workspace: DashboardWorkspace;
   onWorkspaceChange: (workspace: DashboardWorkspace) => void;
 }) {
+  const saveDashboardWorkspace = workspaceSaveSession.save;
+  const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const [introductionExpanded, setIntroductionExpanded] = useState(false);
   const [homeSection, setHomeSection] = useState<"reports" | "data">("reports");
   const [search, setSearch] = useState("");
@@ -318,6 +320,7 @@ export function WorkspaceHome({
   const [importFeedback, setImportFeedback] = useState<{
     tone: "success" | "error";
     label: string;
+    requiresSave?: boolean;
   } | null>(null);
   const [showConnectionOptions, setShowConnectionOptions] = useState(false);
   const [selectedConnectionProvider, setSelectedConnectionProvider] =
@@ -408,7 +411,7 @@ export function WorkspaceHome({
     }
     const next = createExampleReport(workspace);
     onWorkspaceChange(next.workspace);
-    saveDashboardWorkspace(next.workspace);
+    if (!saveDashboardWorkspace(next.workspace)) return;
     navigate(makeBuilderReportPath(next.report.id));
   }
 
@@ -419,21 +422,21 @@ export function WorkspaceHome({
   function openReport(reportId: string) {
     const nextWorkspace = markReportOpened(workspace, reportId);
     onWorkspaceChange(nextWorkspace);
-    saveDashboardWorkspace(nextWorkspace);
+    if (!saveDashboardWorkspace(nextWorkspace)) return;
     navigate(makeBuilderReportPath(reportId));
   }
 
   function createReport() {
     const next = createNewReportFromSeed(workspace);
     onWorkspaceChange(next.workspace);
-    saveDashboardWorkspace(next.workspace);
+    if (!saveDashboardWorkspace(next.workspace)) return;
     navigate(makeBuilderReportPath(next.report.id));
   }
 
   function duplicateReport(report: DashboardReportRecord) {
     const next = duplicateReportRecord(workspace, report);
     onWorkspaceChange(next.workspace);
-    saveDashboardWorkspace(next.workspace);
+    if (!saveDashboardWorkspace(next.workspace)) return;
     navigate(makeBuilderReportPath(next.report.id));
   }
 
@@ -461,9 +464,10 @@ export function WorkspaceHome({
         result.dataset,
       );
       onWorkspaceChange(nextWorkspace);
-      saveDashboardWorkspace(nextWorkspace);
+      const saved = saveDashboardWorkspace(nextWorkspace);
       setImportFeedback({
-        tone: "success",
+        tone: saved ? "success" : "error",
+        requiresSave: !saved,
         label: importedDatasetImportFeedback(
           result.dataset,
           result.storage.warning,
@@ -1018,11 +1022,11 @@ export function WorkspaceHome({
         />
         {importFeedback && (
           <div
-            className={`studio-import-toast ${importFeedback.tone}`}
-            role="status"
+            className={`studio-import-toast ${hasUnsavedWorkspace ? "error" : importFeedback.requiresSave ? "success" : importFeedback.tone}`}
+            role={hasUnsavedWorkspace || (!importFeedback.requiresSave && importFeedback.tone === "error") ? "alert" : "status"}
           >
-            <CheckCircle2 size={18} />
-            <span>{importFeedback.label}</span>
+            {hasUnsavedWorkspace || (!importFeedback.requiresSave && importFeedback.tone === "error") ? <X size={18} /> : <CheckCircle2 size={18} />}
+            <span>{hasUnsavedWorkspace ? workspaceSaveFailureMessage : importFeedback.label}</span>
             <button
               type="button"
               onClick={() => setImportFeedback(null)}

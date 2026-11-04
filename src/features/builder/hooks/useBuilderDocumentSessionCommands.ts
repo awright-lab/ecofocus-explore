@@ -67,7 +67,7 @@ type UseBuilderDocumentSessionCommandsArgs = {
   setLeftPanelView: (view: LeftPanelView) => void;
   setCanvasZoom: (value: number) => void;
   setViewerMode: (value: boolean) => void;
-  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft;
+  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft | null;
   openPublishedSnapshot?: (dashboard: DashboardDraft) => void;
 };
 
@@ -736,19 +736,22 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function publishDashboard() {
-    setDashboard((current) => {
-      if (createPublishedSnapshot) return createPublishedSnapshot(current);
-      const nextPublishCount = current.publishMetadata.publishCount + 1;
-      return {
-        ...current,
+    if (createPublishedSnapshot) {
+      const published = createPublishedSnapshot(dashboard);
+      if (!published) return;
+      setDashboard(published);
+    } else {
+      const nextPublishCount = dashboard.publishMetadata.publishCount + 1;
+      setDashboard({
+        ...dashboard,
         status: "published",
         publishMetadata: {
           publishedAt: new Date().toISOString(),
           publishCount: nextPublishCount,
           versionLabel: `v${nextPublishCount}`
         }
-      };
-    });
+      });
+    }
     setViewerMode(true);
   }
 

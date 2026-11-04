@@ -3912,3 +3912,34 @@ dialog::backdrop {
   min-height: 0;
   font-weight: 400;
 }
+
+.workspace-save-recovery {
+  position: fixed;
+  z-index: 10000;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(900px, calc(100% - 32px));
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  color: #70251d;
+  background: #fff5ef;
+  border: 1px solid #c77055;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px #0002;
+}
+.workspace-save-recovery > div { flex: 1 1 320px; }
+.workspace-save-recovery p { margin: 4px 0 0; }
+.workspace-save-recovery button {
+  padding: 9px 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  color: inherit;
+  background: white;
+  cursor: pointer;
+}
+.workspace-save-recovery button:focus-visible { outline: 3px solid #70251d; outline-offset: 3px; }

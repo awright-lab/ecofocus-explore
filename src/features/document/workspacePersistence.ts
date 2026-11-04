@@ -230,18 +230,11 @@ export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
     window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspace));
     return true;
   } catch (error) {
-    if (!isStorageQuotaError(error)) {
-      console.warn("Unable to save InsightCanvas workspace.", error);
-      return false;
-    }
-  }
-
-  try {
-    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspace));
-    console.warn("Saved compact InsightCanvas workspace after local storage quota was exceeded.");
-    return true;
-  } catch (error) {
-    console.warn("Unable to save InsightCanvas workspace because local browser storage is full.", error);
+    // The payload is already compact. Retrying the identical write cannot make
+    // quota available and must never silently discard respondent data.
+    console.warn(isStorageQuotaError(error)
+      ? "Unable to save InsightCanvas workspace because local browser storage is full."
+      : "Unable to save InsightCanvas workspace.", error);
     return false;
   }
 }
