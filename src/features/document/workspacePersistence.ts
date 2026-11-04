@@ -174,7 +174,7 @@ export function loadDashboardWorkspace(): DashboardWorkspace {
   return migrateLegacyDashboard() ?? defaultWorkspace();
 }
 
-function compactImportedDatasetForDraft(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
+function compactImportedDatasetForWorkspace(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
   const isRemoteNetlifyDataset = dataset.remote?.provider === "netlify";
   const fieldPreview = isRemoteNetlifyDataset ? dataset.fields.slice(0, 80) : dataset.fields;
   const remoteFieldNote = isRemoteNetlifyDataset && dataset.fields.length > fieldPreview.length
@@ -183,7 +183,10 @@ function compactImportedDatasetForDraft(dataset: ImportedDatasetRecord): Importe
   return {
     ...dataset,
     fields: fieldPreview,
-    rows: [],
+    // Only Netlify imports have a server query path that can recover these rows.
+    // Local and Supabase imports are queried in the browser, so their complete
+    // respondent data must survive a workspace save and reload.
+    rows: isRemoteNetlifyDataset ? [] : dataset.rows,
     previewRows: dataset.previewRows.slice(0, 25),
     notes: [
       ...dataset.notes,
@@ -205,7 +208,7 @@ function compactDashboardForWorkspaceStorage(dashboard: DashboardDraft): Dashboa
 function compactWorkspaceForStorage(workspace: DashboardWorkspace): DashboardWorkspace {
   return {
     ...workspace,
-    importedDatasets: workspace.importedDatasets.map(compactImportedDatasetForDraft),
+    importedDatasets: workspace.importedDatasets.map(compactImportedDatasetForWorkspace),
     reports: workspace.reports.map((report) => ({
       ...report,
       draft: compactDashboardForWorkspaceStorage(report.draft)
