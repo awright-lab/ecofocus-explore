@@ -1,11 +1,22 @@
+import { normalizeSnowflakeRows } from "../../../../../shared/analytics/providers/snowflakeProvider";
 import { describe, expect, it } from "vitest";
-import { runMockAnalyticsQuery } from "../../../../../shared/mock/analytics";
+import { runMockAnalyticsQuery as runMockMeasurements } from "../../../../../shared/mock/analytics";
 import type { AnalyticsQueryRequest } from "../../../../../shared/types/analytics";
 import {
   buildExecutedColumnComparisonPresentation,
   buildExecutedSignificanceExplanationView,
   getExecutedSignificanceCell
 } from "../analysisSignificancePresentationModel";
+
+
+// Provider-shaped fixture for presentation tests. These invented aggregate
+// values exercise rendering; independent statistical tests live separately.
+function runMockAnalyticsQuery(query: AnalyticsQueryRequest) {
+  const measurements = runMockMeasurements({ ...query, weight: null });
+  return normalizeSnowflakeRows({ ...query, weight: null }, measurements.table.flatMap(row =>
+    measurements.columns.map(column => ({ OPTION_ID: row.optionId, COLUMN_ID: column.id,
+      VALUE: row.values[column.id], BASE: row.bases[column.id] }))));
+}
 
 const breakoutQuery: AnalyticsQueryRequest = {
   dataset: "ecofocus_2025",

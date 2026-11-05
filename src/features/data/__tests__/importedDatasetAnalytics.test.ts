@@ -109,7 +109,7 @@ describe("imported dataset measure analytics", () => {
       measureLabel: "Annual spend",
       metricLabel: "Average",
       bannerLabel: "Region",
-      baseLabel: "Valid measure n = 3"
+      baseLabel: "Valid measure per cell n = 0-2"
     });
     expect(provenance?.chips).toContain("Number: Annual spend");
   });
@@ -131,7 +131,7 @@ describe("imported dataset measure analytics", () => {
     expect(buildImportedResultProvenance(result)).toMatchObject({
       summaryLabel: "Sum Annual spend by Segment",
       filterLabel: "Region is West",
-      baseLabel: "Valid measure n = 3"
+      baseLabel: "Valid measure per cell n = 1-2"
     });
     expect(formatImportedMeasureValue(15, "average")).toBe("15");
     expect(formatImportedMeasureValue(15.4, "average")).toBe("15.4");

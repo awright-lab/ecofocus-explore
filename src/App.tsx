@@ -1,7 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { parseWorkspaceRoute } from "./features/document/workspacePersistence";
 import { workspaceSaveSession } from "./features/document/workspaceSaveSession";
-import { WorkspaceSaveRecovery } from "./features/document/WorkspaceSaveRecovery";
+import { WorkspaceLoadRecovery, WorkspaceSaveRecovery } from "./features/document/WorkspaceSaveRecovery";
+import type { DashboardWorkspace } from "../shared/types/dashboard";
+import { DeferredWorkspaceImportRecovery } from "./features/document/DeferredWorkspaceImportRecovery";
+
+function loadWorkspaceSafely(): DashboardWorkspace | null {
+  try { return workspaceSaveSession.load(); } catch { return null; }
+}
 
 const BuilderApp = lazy(() => import("./features/builder/BuilderApp"));
 const WorkspaceHome = lazy(() =>
@@ -10,14 +16,14 @@ const WorkspaceHome = lazy(() =>
 
 export default function App() {
   const [route, setRoute] = useState(() => parseWorkspaceRoute());
-  const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
+  const [workspace, setWorkspace] = useState(loadWorkspaceSafely);
 
   useEffect(() => {
     function handleRouteChange() {
       // Let the editor flush its debounce before reading the next route's data.
       queueMicrotask(() => {
         setRoute(parseWorkspaceRoute());
-        setWorkspace(workspaceSaveSession.load());
+        setWorkspace(loadWorkspaceSafely());
       });
     }
 
@@ -29,9 +35,11 @@ export default function App() {
     };
   }, []);
 
+  if (!workspace) return <WorkspaceLoadRecovery />;
   return (
     <>
       <WorkspaceSaveRecovery />
+      <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={setWorkspace} />
       {route.mode === "home" ? (
         <Suspense fallback={<div className="app-route-loading">Loading workspace...</div>}>
           <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />

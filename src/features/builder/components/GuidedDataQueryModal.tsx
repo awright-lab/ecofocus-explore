@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useModalAccessibility } from "../hooks/useModalAccessibility";
+import { runMockAnalyticsQuery } from "../../../../shared/mock/analytics";
 import { X } from "lucide-react";
 import { bannerDimensions, comparisonDatasetOptions, defaultDataset, filterDimensions } from "../builderConstants";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
@@ -20,9 +22,11 @@ import {
   firstImportedMeasureField,
   getImportedDatasetQuerySupport as getImportedExecutionSupport,
   importedDatasetHasQueryableRows,
+  getImportedFilterChoiceSupport,
   isImportedFieldAnalysisCandidate,
   importedFieldValues
 } from "../../data/importedDatasetAnalytics";
+import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 import type { AnalysisAuthoringPanelProps, GuidedDataQueryLaunchOptions } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
@@ -45,6 +49,13 @@ export function GuidedDataQueryModal({
   launchContext?: GuidedDataQueryLaunchOptions;
   onClose: () => void;
 }) {
+  const modalRef = useRef<HTMLElement | null>(null);
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const [fieldSearch, setFieldSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [creationError, setCreationError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  useModalAccessibility(modalRef, onClose);
   const {
     importedDatasets,
     selectedQuestion,
@@ -76,7 +87,9 @@ export function GuidedDataQueryModal({
     addTileFromImportedDatasetField,
     isLoading
   } = props;
-  const launchDatasetBase = importedDatasets.find((dataset) => dataset.id === launchContext?.importedDatasetId) ?? importedDatasets[0] ?? null;
+  const launchDatasetBase = launchContext?.importedDatasetId
+    ? importedDatasets.find((dataset) => dataset.id === launchContext.importedDatasetId) ?? null
+    : importedDatasets[0] ?? null;
   const launchDataset = launchDatasetBase && launchContext?.importedFieldSnapshot && !launchDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
     ? { ...launchDatasetBase, fields: [launchContext.importedFieldSnapshot, ...launchDatasetBase.fields] }
     : launchDatasetBase;
@@ -91,16 +104,17 @@ export function GuidedDataQueryModal({
     : firstImportedMeasureField(launchDataset);
   const launchQueryMode: ImportedQueryMode = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
-  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? "");
+  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? launchContext?.importedDatasetId ?? "");
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchPrimaryField?.id ?? "");
   const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
   const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
-  const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState("all");
+  const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState<string | null>(null);
   const [importedMetric, setImportedMetric] = useState<Metric>(launchQueryMode === "measure" ? "average" : "percent_selected");
   const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>(launchQueryMode);
   const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(launchMeasureField?.id ?? "none");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
-  const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
+  const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? null;
+  const missingRequestedStudy = datasetMode === "imported" && Boolean(selectedImportedDatasetId) && !importedDatasetBase;
   const importedDataset = importedDatasetBase && launchContext?.importedFieldSnapshot && importedDatasetBase.id === launchContext.importedDatasetId && !importedDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
     ? { ...importedDatasetBase, fields: [launchContext.importedFieldSnapshot, ...importedDatasetBase.fields] }
     : importedDatasetBase;
@@ -127,7 +141,7 @@ export function GuidedDataQueryModal({
   const importedFilterField = importedFilterFields.find((field) => field.id === selectedImportedFilterFieldId) ?? null;
   const importedFilterValues = importedFieldValues(importedDataset, importedFilterField);
   const importedFilter =
-    importedFilterField && selectedImportedFilterValue !== "all"
+    importedFilterField && selectedImportedFilterValue !== null
       ? { field: importedFilterField, value: selectedImportedFilterValue }
       : null;
   const importedMeasureField = importedMeasureFields.find((field) => field.id === selectedImportedMeasureFieldId) ?? null;
@@ -141,7 +155,7 @@ export function GuidedDataQueryModal({
     importedQueryMode === "measure"
       ? importedMetric === "sum" ? "sum" : "average"
       : importedMetric === "count" ? "count" : "percent_selected";
-  const questionOptions = useMemo(() => filteredQuestions.slice(0, 60), [filteredQuestions]);
+  const questionOptions = useMemo(() => filteredQuestions.filter((item) => `${item.shortLabel} ${item.id}`.toLowerCase().includes(fieldSearch.toLowerCase()) || item.id === question), [filteredQuestions, fieldSearch, question]);
   const selectedChart = outputMode === "table"
     ? "table"
     : (importedBannerField || importedQueryMode === "measure") && chartType === "donut"
@@ -149,7 +163,12 @@ export function GuidedDataQueryModal({
       : chartType === "table"
         ? supportedChartType(selectedChartTypes)
         : chartType;
-  const importedSupport = getImportedExecutionSupport(importedDataset, importedField, {
+  const filterChoiceSupport = getImportedFilterChoiceSupport(importedDataset);
+  const importedSupport = importedFilterField && !filterChoiceSupport.executable
+    ? filterChoiceSupport
+    : importedFilterField && selectedImportedFilterValue === null
+    ? { executable: false, reason: "Choose a filter value or select No filter." }
+    : getImportedExecutionSupport(importedDataset, importedField, {
     bannerField: importedBannerField,
     filter: importedFilter,
     measureField: importedQueryMode === "measure" ? importedMeasureField : null,
@@ -158,6 +177,14 @@ export function GuidedDataQueryModal({
   });
   const canCreate = datasetMode === "seeded" || importedSupport.executable;
   const importedDatasetHasRows = importedDatasetHasQueryableRows(importedDataset);
+  const resultPreview = useMemo(() => {
+    try {
+      if (datasetMode === "seeded") return runMockAnalyticsQuery({ ...props.query, chartType: selectedChart });
+      if (!importedSupport.executable || !importedDataset || !importedField || importedDataset.remote?.provider === "netlify") return null;
+      return runImportedDatasetQuery({ dataset: importedDataset, field: importedField, measureField: importedQueryMode === "measure" ? importedMeasureField : null,
+        bannerField: importedBannerField, filter: importedFilter, chartType: selectedChart, metric: effectiveImportedMetric });
+    } catch { return null; }
+  }, [datasetMode, props.query, selectedChart, importedDataset, importedField, importedSupport.executable, importedQueryMode, importedMeasureField, importedBannerField, importedFilter, effectiveImportedMetric]);
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
   const importedRowCount = importedDataset?.rowCount ?? importedDataset?.rows?.length ?? 0;
@@ -206,21 +233,23 @@ export function GuidedDataQueryModal({
     datasetMode === "seeded"
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
       : importedSupport.executable
-        ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedQueryLabel} from ${importedDataset?.title ?? "imported data"}`
+        ? importedQueryLabel
       : !importedDatasetHasRows
-        ? "This SAV import contains labels and field metadata, but no respondent rows to analyze yet."
+        ? "The complete respondent data is unavailable. Re-import the study before analyzing."
         : `${importedFieldDisplayLabel(importedField)} needs a supported grouping, measure, filter, or chart setup before it can be created.`;
   const modalTitle =
+    missingRequestedStudy ? "Study unavailable" :
     datasetMode === "imported" && importedDataset
       ? importedSupport.executable
-        ? `Create a ${importedOutputLabel} from ${importedDataset.title}`
+        ? `Explore ${importedDataset.title}`
         : importedField
           ? `Build analysis from ${importedFieldDisplayLabel(importedField)}`
           : "Build analysis from imported data"
       : launchContext?.launchSource === "field" && launchField
         ? `Building analysis from: ${importedFieldDisplayLabel(launchField)}`
-        : "Start with a table, then design the view.";
+        : "What would you like to learn?";
   const modalHelper =
+    missingRequestedStudy ? "The requested study is not available in this workspace. Choose another study explicitly or import its source file." :
     datasetMode === "imported"
       ? importedField
         ? importedSupport.executable
@@ -237,7 +266,10 @@ export function GuidedDataQueryModal({
   const weightSummary = weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted";
 
   async function createOutput(mode: GuidedOutputMode) {
-    if (!canCreate) return;
+    if (!canCreate || creating || isLoading) return;
+    setCreating(true);
+    setCreationError(null);
+    try {
     const nextChartType = mode === "table"
       ? "table"
       : selectedChart === "table" ? supportedChartType(selectedChartTypes) : selectedChart;
@@ -249,10 +281,32 @@ export function GuidedDataQueryModal({
         filter: importedFilter
       });
       if (created) onClose();
+      else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
       return;
     }
     const created = await addTileFromSourceWithVisualization(nextChartType);
     if (created) onClose();
+    else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
+    } catch (error) { setCreationError(error instanceof Error ? error.message : "Analysis failed. Please try again."); }
+    finally { setCreating(false); }
+  }
+
+  async function importStudy(file: File | undefined) {
+    if (!file) return;
+    setImporting(true); setCreationError(null);
+    try {
+      const dataset = await props.importDataset(file);
+      if (!dataset) { setCreationError("We couldn't import this file. Check the format and try again."); return; }
+      setDatasetMode("imported");
+      setSelectedImportedDatasetId(dataset.id);
+      setSelectedImportedBannerFieldId("none");
+      setSelectedImportedFilterFieldId("none");
+      setSelectedImportedFilterValue(null);
+      setSelectedImportedFieldId(firstImportedDimensionField(dataset)?.id ?? "");
+      setSelectedImportedMeasureFieldId(firstImportedMeasureField(dataset)?.id ?? "none");
+      setFieldSearch("");
+    } catch (error) { setCreationError(error instanceof Error ? error.message : "Import failed."); }
+    finally { setImporting(false); if (importRef.current) importRef.current.value = ""; }
   }
 
   function selectSeededQuestion(questionId: QuestionId) {
@@ -298,12 +352,12 @@ export function GuidedDataQueryModal({
 
   return (
     <div className="guided-query-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="guided-query-modal" role="dialog" aria-modal="true" aria-label="Create data object" onMouseDown={(event) => event.stopPropagation()}>
+      <section ref={modalRef} tabIndex={-1} className="guided-query-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-dialog-title" aria-describedby="analysis-dialog-helper" onMouseDown={(event) => event.stopPropagation()}>
         <header className="guided-query-header">
           <div>
-            <p className="workspace-home-kicker">Guided Data Query</p>
-            <h2>{modalTitle}</h2>
-            <small>{modalHelper}</small>
+            <p className="workspace-home-kicker">CREATE AN ANALYSIS</p>
+            <h2 id="analysis-dialog-title">{modalTitle}</h2>
+            <small id="analysis-dialog-helper">{modalHelper}</small>
           </div>
           <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
         </header>
@@ -316,14 +370,17 @@ export function GuidedDataQueryModal({
             </div>
             <div className="guided-query-choice-grid">
               <button type="button" className={datasetMode === "seeded" ? "active" : ""} onClick={() => setDatasetMode("seeded")}>
-                <strong>EcoFocus study library</strong>
-                <small>Fully queryable demo metadata with charts, tables, banners, filters, and weights.</small>
+                <strong>Explore the sample study</strong>
+                <small>Illustrative EcoFocus data for learning the tools. Not your imported research.</small>
               </button>
-              <button type="button" className={datasetMode === "imported" ? "active" : ""} onClick={() => setDatasetMode("imported")} disabled={!importedDatasets.length}>
-                <strong>Imported workspace datasets</strong>
+              <button type="button" className={datasetMode === "imported" ? "active" : ""} onClick={() => importedDatasets.length ? setDatasetMode("imported") : importRef.current?.click()}>
+                <strong>{importedDatasets.length ? "Your imported studies" : "Import your study"}</strong>
                 <small>{importedDatasets.length ? `${importedDatasets.length} imported dataset${importedDatasets.length === 1 ? "" : "s"} available. SAV labels appear when the source file provides them.` : "Import CSV, XLSX, or SAV data to start modeling fields."}</small>
               </button>
             </div>
+            <input ref={importRef} type="file" accept=".csv,.xlsx,.sav" hidden aria-label="Import study file" onChange={(event) => void importStudy(event.target.files?.[0])} />
+            <button type="button" className="guided-import-action" disabled={importing} onClick={() => importRef.current?.click()}>{importing ? "Importing study…" : "Import CSV, Excel or SPSS"}</button>
+            {missingRequestedStudy && <p role="alert">The requested study is unavailable. No replacement study has been selected.</p>}
             {datasetMode === "imported" && importedDatasets.length > 0 && (
               <label>
                 Imported dataset
@@ -337,10 +394,11 @@ export function GuidedDataQueryModal({
                     setSelectedImportedFieldId(primaryField?.id ?? "");
                     setSelectedImportedBannerFieldId("none");
                     setSelectedImportedFilterFieldId("none");
-                    setSelectedImportedFilterValue("all");
+                    setSelectedImportedFilterValue(null);
                     setSelectedImportedMeasureFieldId(measureField?.id ?? "none");
                   }}
                 >
+                  {!importedDataset && <option value="" disabled>Choose an available study...</option>}
                   {importedDatasets.map((dataset) => (
                     <option value={dataset.id} key={dataset.id}>{dataset.title}</option>
                   ))}
@@ -354,6 +412,8 @@ export function GuidedDataQueryModal({
               <span>2</span>
               <strong>Choose variable</strong>
             </div>
+            <label className="guided-field-search">Find a question or field<input type="search" placeholder="Search by question, label or field name" value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)} /></label>
+            {fieldSearch && <p className="field-search-help" role="status">Your selected question stays available while you search. <button type="button" onClick={() => setFieldSearch("")}>Clear field search</button></p>}
             {datasetMode === "seeded" ? (
               <label>
                 Question / variable
@@ -374,7 +434,7 @@ export function GuidedDataQueryModal({
                       if (event.target.value === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId("none");
                     }}
                   >
-                    {importedPrimaryFields.map((field) => (
+                    {importedPrimaryFields.filter((field) => field.id === importedField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
                       <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                     ))}
                   </select>
@@ -444,8 +504,8 @@ export function GuidedDataQueryModal({
               <strong>Shape analysis</strong>
             </div>
             <div className="guided-query-output-toggle" aria-label="Output type">
-              <button type="button" className={outputMode === "table" ? "active" : ""} onClick={() => setOutputMode("table")}>Table first</button>
-              <button type="button" className={outputMode === "chart" ? "active" : ""} onClick={() => setOutputMode("chart")}>Chart view</button>
+              <button type="button" aria-pressed={outputMode === "table"} className={outputMode === "table" ? "active" : ""} onClick={() => setOutputMode("table")}>Table</button>
+              <button type="button" aria-pressed={outputMode === "chart"} className={outputMode === "chart" ? "active" : ""} onClick={() => setOutputMode("chart")}>Chart</button>
             </div>
             {datasetMode === "seeded" ? (
               <>
@@ -541,8 +601,8 @@ export function GuidedDataQueryModal({
                         <strong>Labels imported, but no response rows are available</strong>
                         <small>
                           {[
-                            importedDataset.importStatus?.detail,
-                            importedDataset.importMetadata?.parserNotes.at(-1),
+                            importedDataset?.importStatus?.detail,
+                            importedDataset?.importMetadata?.parserNotes.at(-1),
                             "You can review/model the fields, but charts and tables need respondent rows. Try exporting the file as CSV/XLSX, or re-save the SAV with standard SPSS compression if this file uses an unsupported SAV variant."
                           ].filter(Boolean).join(" ")}
                         </small>
@@ -568,7 +628,7 @@ export function GuidedDataQueryModal({
                           Number to summarize
                           <select value={selectedImportedMeasureFieldId} onChange={(event) => setSelectedImportedMeasureFieldId(event.target.value)}>
                             <option value="none">Choose a numeric field...</option>
-                            {importedMeasureFields.map((field) => (
+                    {importedMeasureFields.filter((field) => field.id === importedMeasureField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
                           </select>
@@ -634,7 +694,7 @@ export function GuidedDataQueryModal({
                             value={selectedImportedFilterFieldId}
                             onChange={(event) => {
                               setSelectedImportedFilterFieldId(event.target.value);
-                              setSelectedImportedFilterValue("all");
+                              setSelectedImportedFilterValue(null);
                             }}
                           >
                             <option value="none">No filter</option>
@@ -646,8 +706,8 @@ export function GuidedDataQueryModal({
                         {importedFilterField && (
                           <label>
                             Keep responses where
-                            <select value={selectedImportedFilterValue} onChange={(event) => setSelectedImportedFilterValue(event.target.value)}>
-                              <option value="all">Choose value...</option>
+                            <select disabled={!filterChoiceSupport.executable} value={selectedImportedFilterValue ?? ""} onChange={(event) => setSelectedImportedFilterValue(event.target.value || null)}>
+                              <option value="">Choose value...</option>
                               {importedFilterValues.map((value) => (
                                 <option value={value} key={value}>{value}</option>
                               ))}
@@ -679,7 +739,7 @@ export function GuidedDataQueryModal({
                     )}
                     <div className={importedSupport.executable ? "guided-query-supported" : "guided-query-unsupported"}>
                       <strong>{importedSupport.executable ? "Ready to create" : importedSupport.reason}</strong>
-                      <small>{importedSupport.executable ? "This will create a normal editable table or chart on the current slide." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
+                      <small>{importedSupport.executable ? "This will create a normal editable table or chart on the current page." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
                     </div>
                   </>
                 ) : (
@@ -693,7 +753,7 @@ export function GuidedDataQueryModal({
           </section>
 
           <aside className="guided-query-summary">
-            <span>Summary</span>
+            <span>YOUR ANALYSIS</span>
             <strong>{querySummary}</strong>
             <ul>
               {datasetMode === "imported" && importedDataset && <li>Dataset: {importedDataset.title}</li>}
@@ -708,18 +768,26 @@ export function GuidedDataQueryModal({
               {datasetMode === "seeded" && <li>Values: {metricSummary}</li>}
               {datasetMode === "seeded" && <li>Weight: {weightSummary}</li>}
             </ul>
+            <section className="analysis-result-preview" aria-label="Analysis result preview">
+              <h3>Result preview</h3>
+              {resultPreview ? <>
+                <p>{datasetMode === "seeded" ? "Illustrative sample results" : "Calculated from your complete imported study"} · {resultPreview.metric.label}</p>
+                <div className="analysis-preview-scroll"><table><thead><tr><th scope="col">Answer</th>{resultPreview.columns.slice(0, 3).map((column) => <th scope="col" key={column.id}>{column.label}</th>)}</tr></thead>
+                  <tbody>{resultPreview.table.slice(0, 6).map((row) => <tr key={row.optionId}><th scope="row">{row.label}</th>{resultPreview.columns.slice(0, 3).map((column) => <td key={column.id}>{row.values[column.id] === undefined ? "—" : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(row.values[column.id])}{resultPreview.metric.valueFormat === "percent" ? "%" : ""}</td>)}</tr>)}</tbody></table></div>
+                <small>Showing up to 6 answers and 3 groups. The complete result is placed on the page.</small>
+                {resultPreview.warnings.length > 0 && <ul aria-label="Analysis data quality notices">{resultPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
+              </> : <p>{importedDataset?.remote?.provider === "netlify" ? "This study is queried securely on the server when you create the analysis." : "Choose a supported question and calculation to preview the results."}</p>}
+            </section>
           </aside>
         </div>
 
         <footer className="guided-query-footer">
-          <small>{canCreate ? "The table/chart will be placed on the current slide and selected for editing." : importedSupport.reason}</small>
+          {(creationError || props.error) && <p role="alert" className="analysis-create-error">{creationError || props.error}</p>}
+          <small>{canCreate ? "The table/chart will be placed on the current page and selected for editing." : importedSupport.reason}</small>
           <div>
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="secondary" onClick={() => void createOutput("table")} disabled={!canCreate || isLoading}>
-              {isLoading && outputMode === "table" ? "Creating..." : "Create table"}
-            </button>
-            <button type="button" onClick={() => void createOutput("chart")} disabled={!canCreate || isLoading}>
-              {isLoading && outputMode === "chart" ? "Creating..." : "Create chart"}
+            <button type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || isLoading || creating || importing}>
+              {isLoading || creating ? "Creating analysis…" : outputMode === "table" ? "Create table" : "Create chart"}
             </button>
           </div>
         </footer>

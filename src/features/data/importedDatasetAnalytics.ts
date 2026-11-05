@@ -1,3 +1,4 @@
+import { parseImportedNumber } from "./importedNumericValue";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
@@ -131,7 +132,10 @@ export function isImportedFieldAnalysisCandidate(field: ImportedDatasetField | n
 }
 
 export function importedDatasetHasQueryableRows(dataset: ImportedDatasetRecord | null | undefined) {
-  return Boolean(dataset && ((dataset.rows?.length ?? 0) > 0 || (dataset.previewRows?.length ?? 0) > 0 || (dataset.remote?.provider === "netlify" && dataset.rowCount > 0)));
+  if (!dataset) return false;
+  if (dataset.remote?.provider === "netlify" && dataset.rowCount > 0) return true;
+  const available = dataset.rows?.length || dataset.previewRows?.length || 0;
+  return available > 0 && available >= dataset.rowCount;
 }
 
 function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefined) {
@@ -147,8 +151,8 @@ function importedRawFieldValue(row: Record<string, string>, field: ImportedDatas
   return matchingKey ? row[matchingKey] ?? "" : "";
 }
 
-function uniquePositiveBases(result: AnalyticsQueryResponse) {
-  return [...new Set(result.table.flatMap((row) => Object.values(row.bases)).filter((base) => base > 0))].sort((a, b) => a - b);
+function uniqueSampleBases(result: AnalyticsQueryResponse, includeZero = false) {
+  return [...new Set(result.table.flatMap((row) => Object.values(row.bases)).filter((base) => includeZero ? base >= 0 : base > 0))].sort((a, b) => a - b);
 }
 
 function baseRangeLabel(prefix: string, bases: number[]) {
@@ -171,6 +175,11 @@ export function formatImportedMeasureValue(value: number, metric: Metric) {
   }).format(value);
 }
 
+export function importedMeasureBasesNeedRefresh(result: AnalyticsQueryResponse) {
+  const source = result.metadataRefs.source;
+  return source?.kind === "imported" && (source.queryKind === "measure" || isMeasureMetric(result.metric.id)) && source.measureBaseScope !== "cell";
+}
+
 export function buildImportedResultProvenance(result: AnalyticsQueryResponse): ImportedResultProvenanceView | null {
   const source = result.metadataRefs.source;
   if (source?.kind !== "imported") return null;
@@ -181,7 +190,9 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
   const measureLabel = source.measureFieldLabel ?? null;
   const bannerLabel = source.bannerFieldLabel ?? "No breakout";
   const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel} is ${source.filterValue}` : "No filter";
-  const baseLabel = baseRangeLabel(isMeasure ? "Valid measure" : "Sample", uniquePositiveBases(result));
+  const baseLabel = importedMeasureBasesNeedRefresh(result)
+    ? "Sample bases need refresh; rerun analysis."
+    : baseRangeLabel(isMeasure ? "Valid measure per cell" : "Sample", uniqueSampleBases(result, isMeasure));
   const summaryLabel = isMeasure && measureLabel
     ? `${metricLabel} ${measureLabel} by ${groupingLabel}`
     : source.bannerFieldLabel
@@ -598,6 +609,9 @@ export function getImportedDatasetQuerySupport(
 ): ImportedDatasetQuerySupport {
   if (!dataset) return { executable: false, reason: "Choose an imported dataset." };
   if (!field) return { executable: false, reason: "Choose an imported field." };
+  if (dataset.remote?.provider !== "netlify" && !importedDatasetHasQueryableRows(dataset) && dataset.rowCount > 0) {
+    return { executable: false, reason: "The complete respondent data is unavailable in this browser. Re-import the source file before analyzing; preview rows cannot represent the full study." };
+  }
   if (!isExecutableDimension(field)) {
     return { executable: false, reason: "Imported queries require a categorical grouping field." };
   }
@@ -641,6 +655,8 @@ export function getImportedDatasetQuerySupport(
     }
   }
   if (options?.filter?.field) {
+    const filterChoices = getImportedFilterChoiceSupport(dataset);
+    if (!filterChoices.executable) return filterChoices;
     if (!options.filter.field.eligibleForFilter || !isExecutableDimension(options.filter.field)) {
       return { executable: false, reason: "Imported filters are limited to filter-eligible categorical fields." };
     }
@@ -648,7 +664,10 @@ export function getImportedDatasetQuerySupport(
     if (options.filter.field.nonEmptyCount <= 0 && !hasLocalFilterValues && !hasRemoteRows) {
       return { executable: false, reason: `${importedFieldDisplayLabel(options.filter.field) ?? "The selected filter"} has no imported values to filter on.` };
     }
-    if (!options.filter.value || options.filter.value === "all") {
+    if (importedFilterValueIsAmbiguous(dataset, options.filter.field, options.filter.value)) {
+      return { executable: false, reason: "This saved filter label matches multiple source codes. Choose a specific coded value before rerunning the analysis." };
+    }
+    if (!options.filter.value) {
       return { executable: false, reason: "Choose a filter value or remove the imported filter." };
     }
   }
@@ -678,6 +697,7 @@ function slug(value: string, fallback: string) {
 function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAnalyticsSourceIdentity {
   return {
     kind: "imported",
+    ...(isMeasureMetric(config.metric) ? { measureBaseScope: "cell" as const } : {}),
     queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",
     sourceRef: normalizeDatasetSourceRefForImportedDataset(config.dataset),
     datasetId: config.dataset.id,
@@ -712,30 +732,81 @@ function importedQuery(chartType: ChartType, metric: Metric, sourceIdentity: Imp
   };
 }
 
-export function importedFieldValues(dataset: ImportedDatasetRecord | null | undefined, field: ImportedDatasetField | null | undefined) {
-  if (!dataset || !field) return [];
-  const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
-  return Array.from(
-    new Set(rows.map((row) => importedFieldDisplayValue(field, importedRawFieldValue(row, field))))
-  ).sort((a, b) => a.localeCompare(b));
-}
+type ImportedCategoryKey = string | null;
 
-function importedFieldDisplayValue(field: ImportedDatasetField, rawValue: string | undefined) {
+function importedCategoryKey(field: ImportedDatasetField, rawValue: string | undefined): ImportedCategoryKey {
   const value = (rawValue ?? "").trim();
-  if (!value) return "(blank)";
-  return field.valueLabels?.[value] ?? field.valueLabels?.[Number(value).toString()] ?? value;
+  if (!value) return null;
+  if (Object.hasOwn(field.valueLabels ?? {}, value)) return value;
+  const numeric = Number(value);
+  const numericKey = String(numeric);
+  return Number.isFinite(numeric) && Object.hasOwn(field.valueLabels ?? {}, numericKey) ? numericKey : value;
 }
 
-function importedFieldAnswerChoiceLabels(field: ImportedDatasetField) {
-  return Object.entries(field.valueLabels ?? {})
-    .sort(([valueA], [valueB]) => {
-      const numericA = Number(valueA);
-      const numericB = Number(valueB);
-      if (Number.isFinite(numericA) && Number.isFinite(numericB)) return numericA - numericB;
-      return valueA.localeCompare(valueB);
-    })
-    .map(([, label]) => label.trim())
-    .filter(Boolean);
+function declaredCategoryKeys(field: ImportedDatasetField) {
+  return Object.keys(field.valueLabels ?? {}).sort((a, b) => {
+    const numericA = Number(a), numericB = Number(b);
+    return Number.isFinite(numericA) && Number.isFinite(numericB) ? numericA - numericB : a.localeCompare(b);
+  });
+}
+
+function importedCategoryLabel(field: ImportedDatasetField, key: ImportedCategoryKey) {
+  if (key === null) return "(blank)";
+  const labels = field.valueLabels ?? {};
+  const label = Object.hasOwn(labels, key) ? labels[key] : undefined;
+  return label?.trim() || key;
+}
+
+function importedCategoryLabels(field: ImportedDatasetField, observedKeys: Iterable<ImportedCategoryKey>) {
+  const keys = [...new Set<ImportedCategoryKey>([...declaredCategoryKeys(field), ...observedKeys])];
+  const baseLabel = (key: ImportedCategoryKey) => importedCategoryLabel(field, key);
+  const frequencies = new Map<string, number>();
+  keys.forEach((key) => frequencies.set(baseLabel(key), (frequencies.get(baseLabel(key)) ?? 0) + 1));
+  const usedLabels = new Set<string>();
+  return new Map(keys.map((key) => {
+    const base = baseLabel(key);
+    const suffix = key === null ? "missing" : key;
+    let label = frequencies.get(base)! > 1 ? `${base} [${suffix}]` : base;
+    while (usedLabels.has(label)) label += ` [${suffix}]`;
+    usedLabels.add(label);
+    return [key, label] as const;
+  }));
+}
+
+function importedFilterValueIsAmbiguous(dataset: ImportedDatasetRecord, field: ImportedDatasetField, value: string) {
+  const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
+  const observedKeys = rows.map((row) => importedCategoryKey(field, importedRawFieldValue(row, field)));
+  const labels = importedCategoryLabels(field, observedKeys);
+  if ([...labels.values()].includes(value)) return false;
+  return [...labels.keys()].filter((key) => importedCategoryLabel(field, key) === value).length > 1;
+}
+
+function importedFieldCategories(dataset: ImportedDatasetRecord, field: ImportedDatasetField) {
+  const rows = dataset.rows?.length ? dataset.rows : dataset.previewRows;
+  const keys = [...new Set(rows.map((row) => importedCategoryKey(field, importedRawFieldValue(row, field))))];
+  const labels = importedCategoryLabels(field, keys);
+  return keys.map((key) => ({ key, label: labels.get(key)! })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function getImportedFilterChoiceSupport(dataset: ImportedDatasetRecord | null | undefined): ImportedDatasetQuerySupport {
+  if (!dataset) return { executable: false, reason: "Choose an imported dataset." };
+  const available = dataset.rows?.length || dataset.previewRows?.length || 0;
+  if (available < dataset.rowCount) {
+    return { executable: false, reason: dataset.remote?.provider === "netlify"
+      ? "Complete filter choices are unavailable: this browser only has a preview of this study. Select No filter to continue."
+      : "Complete respondent data is unavailable. Re-import the source file before choosing a filter." };
+  }
+  return { executable: true, reason: "Complete respondent rows are available for filter choices." };
+}
+
+export function importedFieldValues(dataset: ImportedDatasetRecord | null | undefined, field: ImportedDatasetField | null | undefined) {
+  if (!dataset || !field || !getImportedFilterChoiceSupport(dataset).executable) return [];
+  return importedFieldCategories(dataset, field).map((category) => category.label);
+}
+
+function roundMeasure(value: number) {
+  const scaled = value * 10;
+  return Number.isFinite(scaled) ? Math.round(scaled) / 10 : value;
 }
 
 export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): AnalyticsQueryResponse {
@@ -749,43 +820,51 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   if (!support.executable) throw new Error(support.reason);
 
   const sourceRows = config.dataset.rows?.length ? config.dataset.rows : config.dataset.previewRows;
+  if (sourceRows.length < config.dataset.rowCount) {
+    throw new Error("The complete respondent data is required for analysis. Load the server dataset or re-import the source file; preview-only results are not supported.");
+  }
+  const filterLabels = config.filter ? importedCategoryLabels(config.filter.field,
+    sourceRows.map((row) => importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field)))) : null;
   const rows = config.filter?.field
-    ? sourceRows.filter((row) => importedFieldDisplayValue(config.filter!.field, importedRawFieldValue(row, config.filter!.field)) === config.filter!.value)
+    ? sourceRows.filter((row) => filterLabels!.get(importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field))) === config.filter!.value)
     : sourceRows;
-  const bannerValues = config.bannerField ? importedFieldValues(config.dataset, config.bannerField) : ["Total"];
-  const columnBases = new Map<string, number>(bannerValues.map((value) => [value, 0]));
-  const counts = new Map<string, Map<string, { count: number; sum: number }>>();
+  const bannerCategories = config.bannerField ? importedFieldCategories(config.dataset, config.bannerField) : [{ key: null, label: "Total" }];
+  const columnBases = new Map<ImportedCategoryKey, number>(bannerCategories.map(({ key }) => [key, 0]));
+  const counts = new Map<ImportedCategoryKey, Map<ImportedCategoryKey, { count: number; sum: number }>>();
   let skippedBlankPrimaryResponses = 0;
+  let skippedInvalidMeasures = 0;
   rows.forEach((row) => {
     const rawValue = importedRawFieldValue(row, config.field);
     if (!rawValue.trim()) {
       skippedBlankPrimaryResponses += 1;
       return;
     }
-    const value = importedFieldDisplayValue(config.field, rawValue);
-    const bannerValue = config.bannerField ? importedFieldDisplayValue(config.bannerField, importedRawFieldValue(row, config.bannerField)) : "Total";
-    const numericValue = config.measureField ? Number.parseFloat(importedRawFieldValue(row, config.measureField).replace(/,/g, "")) : null;
+    const value = importedCategoryKey(config.field, rawValue);
+    const bannerValue = config.bannerField ? importedCategoryKey(config.bannerField, importedRawFieldValue(row, config.bannerField)) : null;
+    const numericValue = config.measureField ? parseImportedNumber(importedRawFieldValue(row, config.measureField)) : null;
     const usableMeasureValue = numericValue !== null && Number.isFinite(numericValue);
-    if (isMeasureMetric(config.metric) && !usableMeasureValue) return;
+    if (isMeasureMetric(config.metric) && !usableMeasureValue) { skippedInvalidMeasures += 1; return; }
     columnBases.set(bannerValue, (columnBases.get(bannerValue) ?? 0) + 1);
-    const rowCounts = counts.get(value) ?? new Map<string, { count: number; sum: number }>();
+    const rowCounts = counts.get(value) ?? new Map<ImportedCategoryKey, { count: number; sum: number }>();
     const current = rowCounts.get(bannerValue) ?? { count: 0, sum: 0 };
+    const nextSum = current.sum + (usableMeasureValue ? numericValue! : 0);
+    if (!Number.isFinite(nextSum)) throw new Error("This numeric summary exceeds the supported number range. Rescale the source values before summarizing; no result was created.");
     rowCounts.set(bannerValue, {
       count: current.count + 1,
-      sum: current.sum + (usableMeasureValue ? numericValue! : 0)
+      sum: nextSum
     });
     counts.set(value, rowCounts);
   });
-  const answerChoiceLabels = importedFieldAnswerChoiceLabels(config.field);
-  const entries = (answerChoiceLabels.length
-    ? answerChoiceLabels.map((label) => [label, counts.get(label) ?? new Map<string, { count: number; sum: number }>()] as const)
-    : Array.from(counts.entries())
-  ).sort((a, b) => {
-    if (answerChoiceLabels.length) return answerChoiceLabels.indexOf(a[0]) - answerChoiceLabels.indexOf(b[0]);
-    const aTotal = Array.from(a[1].values()).reduce((sum, cell) => sum + cell.count, 0);
-    const bTotal = Array.from(b[1].values()).reduce((sum, cell) => sum + cell.count, 0);
-    return bTotal - aTotal || a[0].localeCompare(b[0]);
+  // Aggregate by source code, then decorate labels for display. Partial label
+  // dictionaries must not drop observed codes, and equal labels are not equal codes.
+  const declaredKeys = declaredCategoryKeys(config.field);
+  const categoryLabels = importedCategoryLabels(config.field,
+    sourceRows.map((row) => importedCategoryKey(config.field, importedRawFieldValue(row, config.field))));
+  const unlistedKeys = [...counts.keys()].filter((key) => !declaredKeys.includes(key!)).sort((a, b) => {
+    const total = (key: ImportedCategoryKey) => [...(counts.get(key)?.values() ?? [])].reduce((sum, cell) => sum + cell.count, 0);
+    return total(b) - total(a) || categoryLabels.get(a)!.localeCompare(categoryLabels.get(b)!);
   });
+  const entries = [...declaredKeys, ...unlistedKeys].map((key) => [key, counts.get(key) ?? new Map<ImportedCategoryKey, { count: number; sum: number }>()] as const);
   const metric = config.metric === "average"
     ? { id: "average" as const, label: `Average ${importedFieldDisplayLabel(config.measureField) ?? "number"}`, valueFormat: "number" as const }
     : config.metric === "sum"
@@ -795,22 +874,25 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
         : { id: "percent_selected" as const, label: "% of responses", valueFormat: "percent" as const };
   const sourceIdentity = importedSourceIdentity(config);
   const query = importedQuery(config.chartType, metric.id, sourceIdentity);
-  const columns = bannerValues.map((label, index) => ({
+  const columns = bannerCategories.map(({ label }, index) => ({
     id: config.bannerField ? `${slug(label, "banner")}_${index + 1}` : "summary",
     label
   }));
-  const series = entries.map(([label, rowCounts], index) => ({
-    id: `${slug(label, "value")}_${index + 1}`,
-    label,
-    values: columns.map((column) => {
-      const cell = rowCounts.get(column.label) ?? { count: 0, sum: 0 };
-      const base = columnBases.get(column.label) ?? 0;
-      if (metric.id === "average") return cell.count > 0 ? Math.round((cell.sum / cell.count) * 10) / 10 : 0;
-      if (metric.id === "sum") return Math.round(cell.sum * 10) / 10;
-      return metric.id === "count" ? cell.count : base > 0 ? Math.round((cell.count / base) * 1000) / 10 : 0;
-    }),
-    bases: columns.map((column) => columnBases.get(column.label) ?? 0)
-  }));
+  const series = entries.map(([key, rowCounts], index) => {
+    const label = categoryLabels.get(key)!;
+    return {
+      id: `${slug(label, "value")}_${index + 1}`,
+      label,
+      values: bannerCategories.map(({ key }) => {
+        const cell = rowCounts.get(key) ?? { count: 0, sum: 0 };
+        const base = columnBases.get(key) ?? 0;
+        if (metric.id === "average") return cell.count > 0 ? roundMeasure(cell.sum / cell.count) : 0;
+        if (metric.id === "sum") return roundMeasure(cell.sum);
+        return metric.id === "count" ? cell.count : base > 0 ? Math.round((cell.count / base) * 1000) / 10 : 0;
+      }),
+      bases: bannerCategories.map(({ key }) => isMeasureMetric(config.metric) ? rowCounts.get(key)?.count ?? 0 : columnBases.get(key) ?? 0)
+    };
+  });
   const table = series.map((item) => ({
     optionId: item.id,
     label: item.label,
@@ -860,6 +942,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     warnings: [
       ...(!config.dataset.rows?.length && sourceRows === config.dataset.previewRows ? ["Imported result is based on stored preview rows only."] : []),
       ...(config.filter?.field && rows.length === 0 ? ["Imported filter returned no matching rows."] : []),
+      ...(skippedInvalidMeasures > 0 ? [`Skipped ${skippedInvalidMeasures.toLocaleString()} row${skippedInvalidMeasures === 1 ? "" : "s"} without a valid numeric value for ${importedFieldDisplayLabel(config.measureField)}.`] : []),
       ...(skippedBlankPrimaryResponses > 0 ? [`Skipped ${skippedBlankPrimaryResponses.toLocaleString()} row${skippedBlankPrimaryResponses === 1 ? "" : "s"} without an answer for ${importedFieldDisplayLabel(config.field)}.`] : []),
       ...(skippedBlankPrimaryResponses === rows.length && rows.length > 0 ? [`No respondent answers were available for ${importedFieldDisplayLabel(config.field)} in the stored rows used for this result.`] : [])
     ],

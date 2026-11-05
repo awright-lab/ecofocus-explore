@@ -1,9 +1,8 @@
+import { resultInferenceLabel, withSafeInference } from "../../../shared/analytics/inferenceSafety";
 import { canvasHeight, canvasWidth } from "./builderConstants";
 import {
   comparisonSummaryLabel,
-  confidenceLevelLabel,
   pageSummary,
-  resultConfidenceLevel,
   resultSourceLabel,
   sampleSizeLabel,
   slugifyFileName,
@@ -12,8 +11,10 @@ import {
 } from "./components/CanvasRenderers";
 import { buildImportedResultProvenance } from "../data/importedDatasetAnalytics";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
+import { assertExportResultsCurrent } from "../export/exportIntegrity";
 
 export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages: DashboardPage[]) {
+  assertExportResultsCurrent(sortedPages);
   return {
     exportType: "ecofocus-presentation-package",
     generatedAt: new Date().toISOString(),
@@ -70,6 +71,7 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
         .filter((tile) => !tile.hidden)
         .sort((a, b) => a.layout.zIndex - b.layout.zIndex)
         .map((tile) => {
+          tile = { ...tile, result: withSafeInference(tile.result) };
           const imported = buildImportedResultProvenance(tile.result);
           return {
             id: tile.id,
@@ -83,7 +85,7 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
               height: tile.layout.height,
               zIndex: tile.layout.zIndex
             },
-            query: tile.query,
+            query: tile.result.query,
             appearance: tile.appearance,
             exportHints: {
               slideTitle: tile.title,
@@ -93,10 +95,11 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
               trendSpan: trendSpanLabel(tile.query),
               sampleSize: sampleSizeLabel(tile.result),
               weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
-              confidence: imported ? "No significance testing for imported data" : confidenceLevelLabel(resultConfidenceLevel(tile.result)),
+              confidence: imported ? "No significance testing for imported data" : resultInferenceLabel(tile.result),
               narrativeNotes: tilePresentationNotes(tile)
             },
             result: {
+              query: tile.result.query,
               columns: tile.result.columns,
               table: tile.result.table,
               notes: tile.result.notes,

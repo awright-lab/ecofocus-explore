@@ -29,43 +29,12 @@ describe("mockAnalyticsProvider", () => {
       id: "weightvar",
       label: "EcoFocus respondent weight"
     });
-    expect(result.annotations).toEqual(
-      expect.arrayContaining([
-        { rowId: "Q15r8", columnId: "summary", direction: "down", confidence: 0.95 },
-        { rowId: "Q15r9", columnId: "summary", direction: "up", confidence: 0.95 }
-      ])
-    );
+    expect(result.annotations).toEqual([]);
     expect(result.statistics).toMatchObject({
-      confidenceLevel: 0.95,
-      significanceMethod: "mock_placeholder",
-      significanceExecutionPlan: {
-        status: "not_applicable",
-        candidateMethod: "none",
-        queryShapeSupported: false,
-        providerCanExecute: false,
-        executionInputContract: null,
-        reasonCodes: ["summary_only", "no_comparison_basis"],
-        unmetPrerequisites: ["comparison_basis"]
-      },
-      significanceExecutionInput: null,
-      significanceExecutionReport: null,
-      significance: {
-        status: "placeholder",
-        method: "mock_placeholder",
-        readiness: {
-          status: "not_applicable",
-          method: "none",
-          reasonCodes: ["summary_only", "no_comparison_basis"],
-          comparisonBasis: "summary"
-        },
-        reasonCodes: ["mock_provider_placeholder"],
-        comparisonBasis: "summary",
-        hasPlaceholders: true,
-        details: [
-          { rowId: "Q15r8", columnId: "summary", direction: "down", confidence: 0.95, status: "placeholder", reasonCodes: ["mock_provider_placeholder"] },
-          { rowId: "Q15r9", columnId: "summary", direction: "up", confidence: 0.95, status: "placeholder", reasonCodes: ["mock_provider_placeholder"] }
-        ]
-      }
+      significanceMethod: "none",
+      significanceExecutionPlan: { status: "blocked", providerCanExecute: false, reasonCodes: ["weighted_inference_unsupported"] },
+      significanceExecutionInput: null, significanceExecutionReport: null,
+      significance: { status: "unsupported", hasPlaceholders: false, details: [] }
     });
   });
 
@@ -160,94 +129,15 @@ describe("mockAnalyticsProvider", () => {
       comparisonDatasets: ["ecofocus_2024"]
     });
     expect(result.statistics).toMatchObject({
-      confidenceLevel: 0.95,
-      significanceMethod: "wave_comparison",
-      significanceExecutionPlan: {
-        status: "deferred",
-        candidateMethod: "wave_comparison",
-        queryShapeSupported: true,
-        providerCanExecute: false,
-        executionInputContract: "wave_comparison",
-        reasonCodes: ["wave_comparison_unsupported", "future_method"],
-        unmetPrerequisites: ["wave_support", "provider_method"]
-      },
-      significanceExecutionInput: {
-        method: "wave_comparison",
-        confidenceLevel: 0.95,
-        metric: {
-          id: "column_percent",
-          valueFormat: "percent"
-        },
-        comparisonScope: {
-          basis: "wave",
-          rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
-          waveIds: ["ecofocus_2025", "ecofocus_2024"],
-          primaryDatasetId: "ecofocus_2025",
-          comparisonDatasetIds: ["ecofocus_2024"]
-        },
-        waves: [
-          { id: "ecofocus_2025", label: "2025" },
-          { id: "ecofocus_2024", label: "2024" }
-        ],
-        rows: expect.arrayContaining([
-          {
-            id: "trust_a_lot",
-            label: "Trust a lot",
-            cells: [
-              { waveId: "ecofocus_2025", value: 20, base: 1495 },
-              { waveId: "ecofocus_2024", value: 17, base: 1410 }
-            ]
-          }
-        ])
-      },
-      significanceExecutionReport: {
-        method: "wave_comparison",
-        status: "deferred",
-        inputAccepted: true,
-        reasonCodes: ["wave_comparison_unsupported", "future_method"],
-        unmetPrerequisites: ["wave_support", "provider_method"],
-        result: {
-          method: "wave_comparison",
-          comparisonScope: {
-            basis: "wave",
-            rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
-            waveIds: ["ecofocus_2025", "ecofocus_2024"],
-            primaryDatasetId: "ecofocus_2025",
-            comparisonDatasetIds: ["ecofocus_2024"]
-          },
-          summary: {
-            testedComparisons: 0,
-            deferredComparisons: 4,
-            significantComparisons: 0
-          }
-        }
-      },
-      significance: {
-        status: "eligible",
-        method: "wave_comparison",
-        readiness: {
-          status: "candidate",
-          method: "wave_comparison",
-          reasonCodes: ["future_method"],
-          comparisonBasis: "wave"
-        },
-        reasonCodes: ["future_method"],
-        comparisonBasis: "wave",
-        hasPlaceholders: false,
-        details: []
-      }
+      significanceMethod: "none",
+      significanceExecutionPlan: { status: "blocked", providerCanExecute: false, reasonCodes: ["weighted_inference_unsupported"] },
+      significanceExecutionInput: null, significanceExecutionReport: null,
+      significance: { status: "unsupported", hasPlaceholders: false, details: [] }
     });
-    expect(result.statistics.significanceExecutionReport?.result?.outcomes).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        rowId: "trust_a_lot",
-        waveId: "ecofocus_2025",
-        comparedWaveId: "ecofocus_2024",
-        status: "deferred"
-      })
-    ]));
+    expect(result.statistics.significanceExecutionReport).toBeNull();
   });
 
-  it("executes the narrow column-comparison path for valid breakout results", async () => {
+  it("suppresses statistical claims for weighted mock breakout results", async () => {
     const query: AnalyticsQueryRequest = {
       dataset: "ecofocus_2025",
       question: "Q_PACKAGING_TRUST",
@@ -264,95 +154,13 @@ describe("mockAnalyticsProvider", () => {
     expect(result.columns.map((column) => column.id)).toEqual(["gen_z", "millennial", "gen_x", "boomer_plus"]);
     expect(result.annotations).toEqual([]);
     expect(result.statistics).toMatchObject({
-      confidenceLevel: 0.95,
-      significanceMethod: "column_comparison",
-      significanceExecutionPlan: {
-        status: "ready",
-        candidateMethod: "column_comparison",
-        queryShapeSupported: true,
-        providerCanExecute: true,
-        executionInputContract: "column_comparison",
-        reasonCodes: [],
-        unmetPrerequisites: []
-      },
-      significanceExecutionInput: {
-        method: "column_comparison",
-        confidenceLevel: 0.95,
-        metric: {
-          id: "column_percent",
-          valueFormat: "percent"
-        },
-        comparisonScope: {
-          basis: "breakout",
-          rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
-          columnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
-        },
-        columns: [
-          { id: "gen_z", label: "Gen Z" },
-          { id: "millennial", label: "Millennial" },
-          { id: "gen_x", label: "Gen X" },
-          { id: "boomer_plus", label: "Boomer+" }
-        ],
-        rows: expect.arrayContaining([
-          {
-            id: "trust_a_lot",
-            label: "Trust a lot",
-            cells: [
-              { columnId: "gen_z", value: 18, base: 312 },
-              { columnId: "millennial", value: 24, base: 428 },
-              { columnId: "gen_x", value: 19, base: 390 },
-              { columnId: "boomer_plus", value: 14, base: 365 }
-            ]
-          }
-        ])
-      },
-      significanceExecutionReport: {
-        method: "column_comparison",
-        status: "executed",
-        inputAccepted: true,
-        reasonCodes: [],
-        unmetPrerequisites: [],
-        result: {
-          method: "column_comparison",
-          comparisonScope: {
-            basis: "breakout",
-            rowIds: ["trust_a_lot", "trust_somewhat", "neutral", "distrust"],
-            columnIds: ["gen_z", "millennial", "gen_x", "boomer_plus"]
-          },
-          summary: {
-            testedComparisons: 24,
-            deferredComparisons: 0
-          }
-        }
-      },
-      significance: {
-        status: "tested",
-        method: "column_comparison",
-        readiness: {
-          status: "candidate",
-          method: "column_comparison",
-          reasonCodes: ["future_method"],
-          comparisonBasis: "breakout"
-        },
-        reasonCodes: [],
-        comparisonBasis: "breakout",
-        hasPlaceholders: false
-      }
+      significanceMethod: "none",
+      significanceExecutionPlan: { status: "blocked", providerCanExecute: false, reasonCodes: ["weighted_inference_unsupported"] },
+      significanceExecutionInput: null, significanceExecutionReport: null,
+      significance: { status: "unsupported", hasPlaceholders: false, details: [] }
     });
-    expect(result.statistics.significanceExecutionReport?.result?.summary.significantComparisons).toBeGreaterThanOrEqual(0);
-    expect(result.statistics.significanceExecutionReport?.result?.outcomes).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        rowId: "trust_a_lot",
-        columnId: "gen_z",
-        comparedColumnId: "millennial",
-        status: "tested",
-        reasonCodes: [],
-        statistics: expect.objectContaining({
-          direction: "down"
-        })
-      })
-    ]));
-    expect(result.statistics.significanceExecutionReport?.result?.outcomes[0].statistics.pValue).toEqual(expect.any(Number));
+    expect(result.statistics.significanceExecutionReport).toBeNull();
+    expect(result.warnings.some(warning => warning.includes("survey design"))).toBe(true);
   });
 
   it("returns multi-wave trend output when multiple comparison datasets are selected", async () => {

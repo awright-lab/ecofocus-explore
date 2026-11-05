@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
+import { DocumentPreview } from "../../document/DocumentPreview";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
 import type { MultiSelectedObject, ReportTreeSelectionCue } from "../builderTypes";
 
@@ -261,6 +262,7 @@ export function ReportPageTree({
                       <small className="report-page-provenance">{pageProvenanceLabel(page)}</small>
                       <small className="report-page-master">{pageMasterLabel(page)}</small>
                     </div>
+                    <div className="report-page-thumbnail" aria-hidden="true"><DocumentPreview page={page} /></div>
                   </button>
                 )}
                 <div className="report-page-node-actions" aria-label={`Page actions for ${page.title}`}>

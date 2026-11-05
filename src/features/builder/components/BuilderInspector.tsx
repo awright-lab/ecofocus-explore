@@ -1,3 +1,4 @@
+import { withSafeInference } from "../../../../shared/analytics/inferenceSafety";
 import {
   lazy,
   memo,
@@ -423,7 +424,7 @@ export const BuilderInspector = memo(function BuilderInspector(
           )
       : null;
   const executionReport =
-    selectedTile?.result.statistics.significanceExecutionReport ?? null;
+    selectedTile ? withSafeInference(selectedTile.result).statistics.significanceExecutionReport : null;
   const executionSummary =
     executionReport?.status === "executed"
       ? `${executionReport.method.replace("_", " ")} ran`

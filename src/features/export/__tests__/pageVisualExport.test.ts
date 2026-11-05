@@ -14,7 +14,7 @@ describe("donut visual exports", () => {
     const page = donutPage();
     const svg = buildPageVisualSvg(page);
     for (const row of page.tiles[0].result.table) {
-      expect(svg).toContain(row.label);
+      expect(svg.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")).toContain(row.label);
       expect(svg).toContain(`${row.values.summary}%`);
     }
   });

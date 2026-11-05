@@ -1,3 +1,5 @@
+import { resultInferenceLabel, withSafeInference } from "../../../../shared/analytics/inferenceSafety";
+import { getQuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import { memo, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import {
@@ -49,7 +51,7 @@ import {
   getExecutedSignificanceCell,
 } from "./analysisSignificancePresentationModel";
 import {
-  buildImportedResultProvenance,
+  importedMeasureBasesNeedRefresh, buildImportedResultProvenance,
   formatImportedMeasureValue,
 } from "../../data/importedDatasetAnalytics";
 
@@ -368,13 +370,27 @@ export const gradientStylePresets = [
   },
 ];
 
+export function supportsDonutResult(result: AnalyticsQueryResponse) {
+  if (result.columns.length !== 1) return false;
+  const exclusive = result.query.sourceIdentity?.kind === "imported" ||
+    getQuestionMetadata(result.query.dataset, result.query.question)?.type === "single_select";
+  if (!exclusive || (result.metric.valueFormat === "number" && result.metric.id !== "count")) return false;
+  const values = result.table.map(row => row.values[result.columns[0].id]);
+  if (!values.every(value => Number.isFinite(value) && value >= 0)) return false;
+  const total = values.reduce((sum, value) => sum + value, 0);
+  // Imported percentages may already be rounded to one decimal place. Permit
+  // only their maximum aggregate rounding error, not an incomplete partition.
+  return result.metric.valueFormat === "percent" ? Math.abs(total - 100) <= 0.05 * values.length + 1e-8 : total > 0;
+}
+
 export function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const isSingleSeries = result.columns.length === 1;
   const chartTypes: ChartType[] = isSingleSeries
     ? ["table", "vertical_bar", "horizontal_bar", "donut"]
     : ["table", "grouped_bar", "stacked_bar", "line_chart"];
   return chartTypes.filter((chartType) =>
-    defaultDataset.chartTypes.some((item) => item.id === chartType),
+    defaultDataset.chartTypes.some((item) => item.id === chartType) &&
+    (chartType !== "donut" || supportsDonutResult(result)),
   );
 }
 
@@ -469,10 +485,11 @@ export function sampleSizeLabel(result: AnalyticsQueryResponse) {
     .flatMap((row) => Object.values(row.bases))
     .filter((base) => base > 0);
   const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
-  if (uniqueBases.length === 0) return "Sample n/a";
+  const prefix = result.weighting.applied || result.query.weight ? "Weighted total" : "Sample n";
+  if (uniqueBases.length === 0) return `${prefix} unavailable`;
   if (uniqueBases.length === 1)
-    return `Sample n=${uniqueBases[0].toLocaleString()}`;
-  return `Sample n=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
+    return `${prefix}=${uniqueBases[0].toLocaleString()}`;
+  return `${prefix}=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
 }
 
 export function confidenceLevelLabel(value: number) {
@@ -564,7 +581,7 @@ export function tilePresentationNotes(tile: DashboardTile) {
     ...(trendSpanLabel(tile.query) ? [trendSpanLabel(tile.query)!] : []),
     `Comparison: ${comparisonSummaryLabel(tile.query)}`,
     `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
-    confidenceLevelLabel(resultConfidenceLevel(tile.result)),
+    resultInferenceLabel(tile.result),
     ...tile.result.notes.slice(0, 2),
   ];
 }
@@ -791,7 +808,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: row.values[column.id],
-    base: row.bases[column.id],
+    base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
   }));
   const yAxisProps = chartYAxisProps(
     result,
@@ -1087,7 +1104,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: row.values[column.id],
-    base: row.bases[column.id],
+    base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
   }));
   const xAxisProps = chartYAxisProps(
     result,
@@ -1451,6 +1468,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
 
 export function DonutChartView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
+  if (!supportsDonutResult(result)) return <div role="status">Donut unavailable: responses must form a complete, mutually exclusive whole. Choose a bar chart or table.</div>;
   const column = result.columns[0];
   const chartData = result.table.map((row, index) => ({
     optionId: row.optionId,
@@ -1545,6 +1563,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
 }
 
 export function TableView({ tile }: { tile: DashboardTile }) {
+  tile = { ...tile, result: withSafeInference(tile.result) };
   const { result, appearance } = tile;
   const visibleColumns = result.columns;
   const executedSignificance =
@@ -1650,7 +1669,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                         )}
                         {appearance.showBases && (
                           <small>
-                            Base {row.bases[column.id].toLocaleString()}
+                            {importedMeasureBasesNeedRefresh(result) ? "Base unavailable; rerun" : `Base ${row.bases[column.id].toLocaleString()}`}
                           </small>
                         )}
                       </div>
@@ -1700,6 +1719,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 }
 
 export function ChartView({ tile }: { tile: DashboardTile }) {
+  tile = { ...tile, result: withSafeInference(tile.result) };
   if (tile.visualization === "table") return <TableView tile={tile} />;
   if (tile.visualization === "vertical_bar")
     return <VerticalBarChartView tile={tile} />;
@@ -1875,7 +1895,7 @@ export const TileRenderer = memo(
                 <span>{sampleSizeLabel(result)}</span>
               )}
               <small>
-                {confidenceLevelLabel(resultConfidenceLevel(result))}
+                {resultInferenceLabel(result)}
               </small>
             </div>
           )}
@@ -1906,7 +1926,7 @@ export const TileRenderer = memo(
                 </span>
                 <span>{result.metric.label}</span>
                 <span>
-                  {confidenceLevelLabel(resultConfidenceLevel(result))}
+                  {resultInferenceLabel(result)}
                 </span>
               </>
             )}

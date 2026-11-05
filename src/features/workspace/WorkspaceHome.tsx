@@ -15,11 +15,15 @@ import {
 } from "lucide-react";
 import { DocumentPreview } from "../document/DocumentPreview";
 import { StudioHelp } from "../builder/components/StudioTools";
-import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
+import { useSessionPreference } from "./useSessionPreference";
+import { deferredWorkspaceImports } from "../document/deferredWorkspaceImports";
+import { importedDatasetHasQueryableRows } from "../data/importedDatasetAnalytics";
 import type {
   DashboardReportRecord,
   DashboardWorkspace,
+  ImportedDatasetRecord,
   PublishedDashboardSnapshot,
 } from "../../../shared/types/dashboard";
 import type {
@@ -260,14 +264,14 @@ function buildReportLibraryItem(
       state === "draft"
         ? "Draft only"
         : state === "published"
-          ? "Published"
+          ? "Snapshot saved"
           : "Draft changes",
     stateHelper:
       state === "draft"
-        ? "No published snapshot yet."
+        ? "No saved browser snapshot yet."
         : state === "published"
-          ? "Latest draft matches the current published build."
-          : "Published snapshot exists, with newer local draft edits.",
+          ? "Latest draft matches the saved browser snapshot."
+          : "A browser snapshot exists, with newer local draft edits.",
     updatedLabel: formatDateTime(report.updatedAt),
     openedLabel: formatDateTime(report.lastOpenedAt),
     pageCount,
@@ -311,11 +315,19 @@ export function WorkspaceHome({
   const saveDashboardWorkspace = workspaceSaveSession.save;
   const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const [introductionExpanded, setIntroductionExpanded] = useState(false);
-  const [homeSection, setHomeSection] = useState<"reports" | "data">("reports");
+  const [homeSection, setHomeSection] = useSessionPreference("workspace-section", "reports", ["reports", "data"] as const);
+  const [reportSort, setReportSort] = useSessionPreference("report-sort", "updated", ["updated", "opened", "title"] as const);
+  const [studySort, setStudySort] = useSessionPreference("study-sort", "imported", ["imported", "title", "rows"] as const);
+  const [studySearch, setStudySearch] = useState("");
+  const [studyFilter, setStudyFilter] = useState<"all" | "ready" | "incomplete">("all");
   const [search, setSearch] = useState("");
-  const [reportFilter, setReportFilter] = useState<"all" | "published">("all");
+  const [reportFilter, setReportFilter] = useState<"all" | "published" | "draft" | "changed">("all");
   const [showHelp, setShowHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const workspaceRef = useRef(workspace);
+  useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
+  const importOwnerMounted = useRef(true);
+  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; }; }, []);
   const [isImporting, setIsImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{
     tone: "success" | "error";
@@ -352,8 +364,9 @@ export function WorkspaceHome({
     .map((report) => buildReportLibraryItem(workspace, report))
     .sort(
       (a, b) =>
-        new Date(b.report.updatedAt).getTime() -
-        new Date(a.report.updatedAt).getTime(),
+        reportSort === "title" ? a.report.title.localeCompare(b.report.title) :
+        new Date(reportSort === "opened" ? b.report.lastOpenedAt : b.report.updatedAt).getTime() -
+        new Date(reportSort === "opened" ? a.report.lastOpenedAt : a.report.updatedAt).getTime(),
     );
   const publishedCount = reports.filter(
     (item) => item.state === "published" || item.state === "changed",
@@ -366,7 +379,14 @@ export function WorkspaceHome({
     (a, b) =>
       new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime(),
   );
-  const latestReport = reports[0] ?? null;
+  const visibleStudies = importedDatasets.filter((dataset) => {
+    const matches = `${dataset.title} ${dataset.fileName} ${dataset.fields.map((field) => field.label).join(" ")}`.toLowerCase().includes(studySearch.toLowerCase());
+    const ready = importedDatasetHasQueryableRows(dataset);
+    return matches && (studyFilter === "all" || (studyFilter === "ready" ? ready : !ready));
+  }).sort((a, b) => studySort === "title" ? a.title.localeCompare(b.title) : studySort === "rows" ? b.rowCount - a.rowCount : new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime());
+  const latestReport = [...reports].sort((a, b) =>
+    new Date(b.report.lastOpenedAt).getTime() - new Date(a.report.lastOpenedAt).getTime(),
+  )[0] ?? null;
   const hasWorkspaceActivity =
     importedDatasets.length > 0 ||
     reports.some(
@@ -375,10 +395,9 @@ export function WorkspaceHome({
         item.report.lastOpenedAt !== item.report.createdAt ||
         item.report.draft.publishMetadata.publishCount > 0,
     );
-  const compactHome =
-    homeSection === "data" || (hasWorkspaceActivity && !introductionExpanded);
+  const compactHome = homeSection === "data" || !introductionExpanded;
   const usableDatasets = importedDatasets.filter(
-    (dataset) => dataset.rowCount > 0,
+    importedDatasetHasQueryableRows,
   );
   const metadataRichDatasets = importedDatasets.filter(
     (dataset) => dataset.importMetadata?.metadataQuality === "metadata_rich",
@@ -397,7 +416,7 @@ export function WorkspaceHome({
   const visibleReports = reports.filter(
     (item) =>
       item.report.title.toLowerCase().includes(search.toLowerCase()) &&
-      (reportFilter === "all" || item.latestSnapshot),
+      (reportFilter === "all" || reportFilter === "published" && Boolean(item.latestSnapshot) || reportFilter === "draft" && item.state === "draft" || reportFilter === "changed" && item.state === "changed"),
   );
   function openExample() {
     const example = reports.find((item) =>
@@ -433,6 +452,15 @@ export function WorkspaceHome({
     navigate(makeBuilderReportPath(next.report.id));
   }
 
+  function analyzeStudy(dataset: ImportedDatasetRecord) {
+    const next = createNewReportFromSeed(workspace);
+    next.report.title = `${dataset.title} analysis`;
+    next.report.draft.title = next.report.title;
+    onWorkspaceChange(next.workspace);
+    if (!saveDashboardWorkspace(next.workspace)) return;
+    navigate(`${makeBuilderReportPath(next.report.id)}?study=${encodeURIComponent(dataset.id)}`);
+  }
+
   function duplicateReport(report: DashboardReportRecord) {
     const next = duplicateReportRecord(workspace, report);
     onWorkspaceChange(next.workspace);
@@ -452,6 +480,10 @@ export function WorkspaceHome({
     setImportFeedback(null);
     try {
       const result = await importDatasetForWorkspace(file);
+      if (!importOwnerMounted.current) {
+        if (result.dataset) deferredWorkspaceImports.remember(result.dataset);
+        return;
+      }
       if (result.error || !result.dataset) {
         setImportFeedback({
           tone: "error",
@@ -460,7 +492,7 @@ export function WorkspaceHome({
         return;
       }
       const nextWorkspace = upsertWorkspaceImportedDataset(
-        workspace,
+        workspaceRef.current,
         result.dataset,
       );
       onWorkspaceChange(nextWorkspace);
@@ -1054,7 +1086,7 @@ export function WorkspaceHome({
             <h1>
               {compactHome ? (
                 homeSection === "reports" ? (
-                  "Back to your research."
+                  hasWorkspaceActivity ? "Your research, in focus." : "Your next insight starts here."
                 ) : (
                   "Your study library."
                 )
@@ -1134,7 +1166,7 @@ export function WorkspaceHome({
               <div>
                 <CheckCircle2 size={17} />
                 <strong>{publishedCount}</strong>
-                <span>published</span>
+                <span>snapshots</span>
               </div>
               <div>
                 <Database size={17} />
@@ -1177,6 +1209,11 @@ export function WorkspaceHome({
               </div>
             </button>
           )}
+        </section>
+        <section className="workspace-task-launchpad" aria-label="Start a research task">
+          <button type="button" onClick={() => fileInputRef.current?.click()}><Upload size={22} /><span><strong>Bring in a study</strong><small>CSV, Excel or SPSS · keep your labels</small></span><ArrowRight size={17} /></button>
+          <button type="button" onClick={() => usableDatasets[0] ? analyzeStudy(usableDatasets[0]) : openExample()}><Atom size={22} /><span><strong>Find an insight</strong><small>{usableDatasets.length ? "Start an analysis from your latest study" : "Try a guided analysis with sample data"}</small></span><ArrowRight size={17} /></button>
+          <button type="button" onClick={createReport}><FileText size={22} /><span><strong>Build a report</strong><small>A clean canvas for a clear story</small></span><ArrowRight size={17} /></button>
         </section>
         <section className="workspace-home-body">
           {homeSection === "reports" && (
@@ -1229,8 +1266,11 @@ export function WorkspaceHome({
                   aria-pressed={reportFilter === "published"}
                   onClick={() => setReportFilter("published")}
                 >
-                  Published<span>{publishedCount}</span>
+                  Snapshots<span>{publishedCount}</span>
                 </button>
+                <button type="button" aria-pressed={reportFilter === "draft"} className={reportFilter === "draft" ? "active" : ""} onClick={() => setReportFilter("draft")}>Drafts<span>{draftOnlyCount}</span></button>
+                <button type="button" aria-pressed={reportFilter === "changed"} className={reportFilter === "changed" ? "active" : ""} onClick={() => setReportFilter("changed")}>Changed since snapshot</button>
+                <label className="report-sort-control">Sort by<select aria-label="Sort reports" value={reportSort} onChange={(event) => setReportSort(event.target.value as typeof reportSort)}><option value="updated">Recently edited</option><option value="opened">Recently opened</option><option value="title">Report name</option></select></label>
               </div>
               <div className="workspace-report-grid">
                 {visibleReports.map((item) => (
@@ -1300,7 +1340,7 @@ export function WorkspaceHome({
                           onClick={() => openPublished(item)}
                         >
                           <HomeIcon icon="published" />
-                          Published view
+                          Snapshot preview
                         </button>
                       </div>
                     </div>
@@ -1312,20 +1352,21 @@ export function WorkspaceHome({
                 <div className="workspace-home-empty">
                   <HomeIcon icon="deck" />
                   <h2>
-                    {search || reportFilter === "published"
+                    {search || reportFilter !== "all"
                       ? "No matching reports"
                       : "A fresh canvas awaits"}
                   </h2>
                   <p>
-                    Create a report, or explore the sample to see what’s
-                    possible.
+                    {search || reportFilter !== "all"
+                      ? "Try another report name or show all reports."
+                      : "Create a report, or explore the sample to see what's possible."}
                   </p>
                   <button
                     type="button"
                     className="workspace-home-primary"
-                    onClick={createReport}
+                    onClick={search || reportFilter !== "all" ? () => { setSearch(""); setReportFilter("all"); } : createReport}
                   >
-                    Create report
+                    {search || reportFilter !== "all" ? "Show all reports" : "Create report"}
                   </button>
                 </div>
               )}
@@ -2053,8 +2094,14 @@ export function WorkspaceHome({
                   </div>
                 </section>
               )}
+              <div className="workspace-library-tools">
+                <label>Find a study<input type="search" aria-label="Search studies" placeholder="Study, file or question name" value={studySearch} onChange={(event) => setStudySearch(event.target.value)} /></label>
+                <label>Show<select aria-label="Study readiness" value={studyFilter} onChange={(event) => setStudyFilter(event.target.value as typeof studyFilter)}><option value="all">All studies</option><option value="ready">Ready to analyze</option><option value="incomplete">Needs respondent data</option></select></label>
+                <label>Sort by<select aria-label="Sort studies" value={studySort} onChange={(event) => setStudySort(event.target.value as typeof studySort)}><option value="imported">Recently imported</option><option value="title">Study name</option><option value="rows">Most respondents</option></select></label>
+              </div>
+              <p className="workspace-results-count" role="status">{visibleStudies.length} of {importedDatasets.length} studies</p>
               <div className="workspace-dataset-grid">
-                {importedDatasets.map((dataset) => {
+                {visibleStudies.map((dataset) => {
                   const summary = buildImportedDatasetStructureSummary(dataset);
                   return (
                     <article
@@ -2077,9 +2124,9 @@ export function WorkspaceHome({
                       </div>
                       <div className="workspace-dataset-structures">
                         <span>
-                          {dataset.rowCount > 0
+                          {importedDatasetHasQueryableRows(dataset)
                             ? "Ready for analysis"
-                            : "Labels imported"}
+                            : dataset.rowCount > 0 ? "Re-import to analyze" : "Labels imported"}
                         </span>
                         <span>
                           {dataset.remote?.provider
@@ -2099,12 +2146,11 @@ export function WorkspaceHome({
                         <div>
                           <dt>Modeled</dt>
                           <dd>
-                            {summary.filters.length +
-                              summary.segments.length +
-                              summary.banners.length}
+                            {new Set([...summary.filters, ...summary.segments, ...summary.banners].map((field) => field.id)).size}
                           </dd>
                         </div>
                       </dl>
+                      <button type="button" className="workspace-study-analyze" onClick={() => analyzeStudy(dataset)} disabled={!importedDatasetHasQueryableRows(dataset)}>Analyze this study <ArrowRight size={16} /></button>
                       <div className="workspace-dataset-structures">
                         <span>
                           {dataset.importMetadata?.metadataQuality ===
@@ -2147,6 +2193,7 @@ export function WorkspaceHome({
                   );
                 })}
               </div>
+              {importedDatasets.length > 0 && visibleStudies.length === 0 && <div className="workspace-home-empty compact"><h2>No matching studies</h2><p>Try another study or question name, or clear the readiness filter.</p><button type="button" onClick={() => { setStudySearch(""); setStudyFilter("all"); }}>Show all studies</button></div>}
               {!importedDatasets.length && (
                 <div className="workspace-home-empty compact">
                   <HomeIcon icon="dataset" />
@@ -2168,7 +2215,11 @@ export function WorkspaceHome({
           </span>
         </footer>
       </div>
-      {showHelp && <StudioHelp onClose={() => setShowHelp(false)} />}
+      {showHelp && <StudioHelp onClose={() => setShowHelp(false)} actions={[
+        { id: "import", label: "Import your study", group: "Start with data", run: () => fileInputRef.current?.click() },
+        { id: "example", label: "Explore a sample report", group: "Learn by doing", run: openExample },
+        { id: "report", label: "Create a blank report", group: "Start composing", run: createReport }
+      ]} />}
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import snowflake from "snowflake-sdk";
+import { withSafeInference } from "../inferenceSafety";
 import type { AnalyticsProvider } from "./types";
 import { getSnowflakeReadiness, requireSnowflakeConfig, type SnowflakeConfig } from "./snowflakeConfig";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness, createAnalyticsQueryPlan } from "../queryPlan";
@@ -293,6 +294,7 @@ export function getSnowflakeQuerySupport(query: AnalyticsQueryRequest): Snowflak
   const allWaveDatasets = waveDatasetIds(query);
   const questionFilters = query.filters.filter((filter) => getQuestionMetadata(query.dataset, filter.field as AnalyticsQueryRequest["question"]));
   const reasons: string[] = [];
+  if (query.chartType === "donut" && question?.type === "multi_binary_set") reasons.push("overlapping_responses_donut_unsupported");
 
   if (!dataset || !question || !metric || !dimension || dimension.role !== "banner") {
     reasons.push("metadata_not_supported");
@@ -580,7 +582,8 @@ function weightExpression(query: AnalyticsQueryRequest) {
 
 function numeratorExpression(query: AnalyticsQueryRequest, sourceOptionIds: string[]) {
   const weight = weightExpression(query);
-  return sourceOptionIds.map((optionId) => `SUM(CASE WHEN ${optionMatchExpression(query, optionId)} THEN ${weight} ELSE 0 END)`).join(" + ");
+  const selected = sourceOptionIds.map((optionId) => `(${optionMatchExpression(query, optionId)})`).join(" OR ");
+  return `SUM(CASE WHEN ${selected} THEN ${weight} ELSE 0 END)`;
 }
 
 function valueExpression(query: AnalyticsQueryRequest, sourceOptionIds: string[]) {
@@ -592,7 +595,8 @@ function valueExpression(query: AnalyticsQueryRequest, sourceOptionIds: string[]
     return `ROUND(${numerator}, 0)`;
   }
 
-  return `LEAST(100, ROUND(100 * (${numerator}) / ${denominator}, 1))`;
+  // Keep full precision through significance. Formatting belongs in the view.
+  return `100 * (${numerator}) / ${denominator}`;
 }
 
 function baseExpression(query: AnalyticsQueryRequest) {
@@ -798,6 +802,7 @@ function columnComparisonExecutionInput(
 
   return {
     method: "column_comparison",
+    inferenceBasis: query.weight ? undefined : "unweighted_full_precision_v1",
     confidenceLevel: query.confidenceLevel,
     metric: {
       id: metric.id,
@@ -856,6 +861,7 @@ function waveComparisonExecutionInput(
 
     return {
       method: "wave_comparison",
+      inferenceBasis: query.weight ? undefined : "unweighted_full_precision_v1",
       confidenceLevel: query.confidenceLevel,
       metric: {
         id: metric.id,
@@ -897,6 +903,7 @@ function waveComparisonExecutionInput(
 
   return {
     method: "wave_comparison",
+    inferenceBasis: query.weight ? undefined : "unweighted_full_precision_v1",
     confidenceLevel: query.confidenceLevel,
     metric: {
       id: metric.id,
@@ -1112,7 +1119,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
         : null;
   const significance = significanceFromExecutionReport(significanceReadiness, [], significanceExecutionReport);
 
-  return {
+  return withSafeInference({
     query,
     labels,
     series,
@@ -1126,6 +1133,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     },
     annotations: [],
     statistics: {
+      inferenceBasis: query.weight ? undefined : "unweighted_full_precision_v1",
       confidenceLevel: query.confidenceLevel,
       significanceMethod: significance.method,
       significanceExecutionPlan,
@@ -1135,17 +1143,18 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
     },
     warnings: [
       ...normalizationWarnings,
-      ...collectBaseWarnings(series, dataset.minBaseWarning),
+      ...(!query.weight ? collectBaseWarnings(series, dataset.minBaseWarning) : []),
       ...collectWeightingWarnings(query, series)
     ],
     notes: [
       "Live Snowflake analytics output.",
+      !query.weight ? "Unweighted significance uses a large-sample pooled proportion approximation, assumes independent samples, and is not adjusted for multiple comparisons. Sparse cells are not tested." : "",
       query.authoredVariableSet ? `Authored variable set rows executed by Snowflake from ${query.authoredVariableSet.label}.` : "",
       waveComparisonNote(query, columns),
       query.weight ? `Weighted data using ${weight?.label ?? query.weight}.` : "Unweighted Snowflake output.",
       weightingNote(query, weight?.label ?? query.weight ?? "Unweighted"),
       query.filters.length > 0 ? "Filters were applied by the Snowflake provider." : "No filters applied.",
-      `${Math.round(query.confidenceLevel * 100)}% confidence level for significance context.`
+      query.weight ? "No weighted significance testing." : `${Math.round(query.confidenceLevel * 100)}% pairwise threshold for the unadjusted independent-sample approximation.`
     ].filter(Boolean),
     metadataRefs: {
       dataset: query.dataset,
@@ -1161,7 +1170,7 @@ export function normalizeSnowflakeRows(queryInput: AnalyticsQueryRequest, rows: 
           }
         : undefined
     }
-  };
+  });
 }
 
 async function withSnowflakeTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {

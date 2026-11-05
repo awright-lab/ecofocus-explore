@@ -117,6 +117,7 @@ import {
   upsertDraftReport,
 } from "../document/workspacePersistence";
 import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
+import { deferredWorkspaceImports } from "../document/deferredWorkspaceImports";
 import type {
   AnalysisLibraryView,
   DesignModal,
@@ -168,6 +169,8 @@ export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
   const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
   const workspaceRef = useRef(workspace);
+  const importOwnerMounted = useRef(true);
+  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; }; }, []);
   const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const saveDashboardWorkspace = workspaceSaveSession.save;
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
@@ -260,7 +263,7 @@ export default function BuilderApp() {
     | (Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> &
         Omit<GuidedDataQueryLaunchOptions, "outputMode">)
     | null
-  >(null);
+  >(() => initialRoute.mode === "builder" && initialRoute.datasetId ? { outputMode: "table", importedDatasetId: initialRoute.datasetId } : null);
   const [leftOpen, setLeftOpen] = useState(false);
   const [inspectorPinned, setInspectorPinned] = useState(false);
   const [hiddenInspectorSelection, setHiddenInspectorSelection] = useState<
@@ -287,6 +290,7 @@ export default function BuilderApp() {
     [setLeftPanelView],
   );
   function chooseTool(view: LeftPanelView) {
+    setActiveProductMode(view === "data" ? "data" : view === "brand" ? "design" : "story");
     setLeftOpen((current) => (leftPanelView === view ? !current : true));
     setLeftPanelView(view);
   }
@@ -310,6 +314,7 @@ export default function BuilderApp() {
   }
   useEffect(() => {
     function handleCommand(event: KeyboardEvent) {
+      if (guidedDataQuery || event.defaultPrevented) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen((current) => !current);
@@ -317,7 +322,7 @@ export default function BuilderApp() {
     }
     window.addEventListener("keydown", handleCommand);
     return () => window.removeEventListener("keydown", handleCommand);
-  }, []);
+  }, [guidedDataQuery]);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
   const workspaceLiveDatasetSources = useMemo<LiveDatasetSourceDescriptor[]>(
     () => [...(workspace.liveDatasetSources ?? [])],
@@ -894,6 +899,9 @@ export default function BuilderApp() {
       }
 
       if (!route.reportId) return;
+      // Repeated hash/popstate notifications for the current editor must not
+      // replace in-progress edits with its last workspace snapshot.
+      if (route.mode === "builder" && route.reportId === activeReportId && !publishedSnapshot) return;
       const report = findReport(workspace, route.reportId);
       if (!report) return;
       setPublishedSnapshot(null);
@@ -909,7 +917,7 @@ export default function BuilderApp() {
       window.removeEventListener("hashchange", handleRouteChange);
       window.removeEventListener("popstate", handleRouteChange);
     };
-  }, [workspace, activeReportId, setViewerMode]);
+  }, [workspace, activeReportId, publishedSnapshot, setViewerMode]);
 
   useEffect(() => {
     if (!designModal) return;
@@ -1180,13 +1188,17 @@ export default function BuilderApp() {
     const { importDatasetForWorkspace } =
       await import("../data/importDatasetWorkspaceService");
     const result = await importDatasetForWorkspace(file);
+    if (!importOwnerMounted.current) {
+      if (result.dataset) deferredWorkspaceImports.remember(result.dataset);
+      return null;
+    }
     if (result.error || !result.dataset) {
       setError(result.error ?? "Dataset import failed.");
       return null;
     }
 
     const nextWorkspace = upsertWorkspaceImportedDataset(
-      workspace,
+      workspaceRef.current,
       result.dataset,
     );
     setWorkspace(nextWorkspace);
@@ -1325,7 +1337,11 @@ export default function BuilderApp() {
     setSettingsView("chart");
     setInspectorPinned(true);
   }, [setSettingsView]);
-  const closeGuidedDataQuery = useCallback(() => setGuidedDataQuery(null), []);
+  const closeGuidedDataQuery = useCallback(() => {
+    setGuidedDataQuery(null);
+    const route = parseWorkspaceRoute();
+    if (route.mode === "builder" && route.reportId && route.datasetId) window.history.replaceState(null, "", makeBuilderReportPath(route.reportId));
+  }, []);
   const openPageDesignPanel = useCallback(() => {
     setSettingsView("page");
     setInspectorPinned(true);
@@ -1405,6 +1421,9 @@ export default function BuilderApp() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // Inert backgrounds still receive window-level keyboard events. Suspend
+      // canvas actions while Analyze owns focus; keep native dialog controls usable.
+      if (guidedDataQuery || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       const isEditingText =
         target?.tagName === "INPUT" ||
@@ -1479,7 +1498,7 @@ export default function BuilderApp() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dashboard, history, future, selectedTile, selectedElement, activePage]);
+  }, [dashboard, history, future, selectedTile, selectedElement, activePage, guidedDataQuery]);
 
   if (viewerMode) {
     const viewerPath =
@@ -1492,7 +1511,7 @@ export default function BuilderApp() {
           <div className="published-header__copy">
             <span className="published-kicker">
               {publishedSnapshot
-                ? "Published snapshot"
+                ? "Saved browser snapshot"
                 : dashboard.status === "published"
                   ? "Published report"
                   : "Report preview"}
@@ -1504,11 +1523,11 @@ export default function BuilderApp() {
                 : publishMetadataLabel(dashboard)}
             </small>
             {viewerPath && (
-              <small className="published-url-cue">{`${window.location.origin}${window.location.pathname}${viewerPath}`}</small>
+              <small className="published-url-cue">Saved in this browser only. Export a file to share it with someone else.</small>
             )}
           </div>
           <div className="published-header__actions">
-            <span className="status published">{dashboard.status}</span>
+            <span className="status published">Local snapshot</span>
             <button
               type="button"
               className="secondary"
@@ -1750,6 +1769,7 @@ export default function BuilderApp() {
       />
 
       <section
+        data-analysis-workspace={leftOpen && leftPanelView === "data"}
         data-left-open={leftOpen}
         data-inspector-open={inspectorOpen}
         className={[
@@ -1785,7 +1805,7 @@ export default function BuilderApp() {
             type="button"
             className="studio-panel-close"
             aria-label="Close tool panel"
-            onClick={() => setLeftOpen(false)}
+            onClick={() => { setLeftOpen(false); setActiveProductMode("story"); }}
           >
             <X size={17} />
           </button>
@@ -2101,7 +2121,11 @@ export default function BuilderApp() {
           onClose={() => setCommandOpen(false)}
         />
       )}
-      {helpOpen && <StudioHelp onClose={() => setHelpOpen(false)} />}
+      {helpOpen && <StudioHelp onClose={() => setHelpOpen(false)} actions={[
+        { id: "analysis", label: "Create your first analysis", group: "1 · Explore", run: () => openGuidedDataQuery({ outputMode: "table" }) },
+        { id: "studies", label: "Open the study workspace", group: "2 · Understand your data", run: () => changeProductMode("data") },
+        { id: "pages", label: "Organize report pages", group: "3 · Build the story", run: () => chooseTool("pages") }
+      ]} />}
       {designModal && (
         <Suspense
           fallback={

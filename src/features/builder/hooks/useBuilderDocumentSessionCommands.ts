@@ -732,7 +732,7 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function updateCanvasZoom(value: number) {
-    setCanvasZoom(Math.min(160, Math.max(35, value)));
+    setCanvasZoom(Math.min(160, Math.max(10, value)));
   }
 
   function publishDashboard() {

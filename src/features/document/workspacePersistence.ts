@@ -1,6 +1,8 @@
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
+import { encodeImportedRows } from "./workspaceRowStorage";
+import { assertConsistentSavedStudies, isSavedObject, readSavedStudies, type SavedWorkspaceFormat } from "./workspaceStorageValidation";
 import type {
   DatasetConnectionProfile,
   DatasetConnectionVerificationReport,
@@ -11,11 +13,12 @@ import type {
 } from "../../../shared/types/dataSource";
 import type { DashboardDraft, DashboardReportRecord, DashboardWorkspace, ImportedDatasetField, ImportedDatasetRecord, PublishedDashboardSnapshot } from "../../../shared/types/dashboard";
 
-export const workspaceStorageKey = "insightcanvas_report_workspace_v1";
+export const legacyWorkspaceStorageKey = "insightcanvas_report_workspace_v1";
+export const workspaceStorageKey = "insightcanvas_report_workspace_v2";
 
 export type WorkspaceRoute =
   | { mode: "home"; reportId: null }
-  | { mode: "builder"; reportId: string | null }
+  | { mode: "builder"; reportId: string | null; datasetId?: string }
   | { mode: "published"; reportId: string | null; snapshotId: string | null };
 
 function nowIso() {
@@ -39,7 +42,8 @@ export function makeBuilderReportPath(reportId: string) {
 }
 
 export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute {
-  const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+  const [path, query] = hash.replace(/^#\/?/, "").split("?");
+  const parts = path.split("/").filter(Boolean).map((part) => decodeURIComponent(part));
 
   if (parts[0] === "published") {
     return {
@@ -50,9 +54,11 @@ export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute
   }
 
   if (parts[0] === "reports") {
+    const datasetId = new URLSearchParams(query).get("study");
     return {
       mode: "builder",
-      reportId: parts[1] ?? null
+      reportId: parts[1] ?? null,
+      ...(datasetId ? { datasetId } : {})
     };
   }
 
@@ -99,24 +105,73 @@ function defaultWorkspace(): DashboardWorkspace {
 }
 
 function migrateLegacyDashboard(): DashboardWorkspace | null {
-  try {
-    const savedDashboard = window.localStorage.getItem(storageKey);
-    if (!savedDashboard) return null;
-    const dashboard = normalizeDashboard(JSON.parse(savedDashboard) as DashboardDraft);
-    const report = createReportRecord(dashboard);
-    return {
-      id: "local_workspace",
-      label: "InsightCanvas Workspace",
-      activeReportId: report.id,
-      datasetConnections: [],
-      liveDatasetSources: [],
-      importedDatasets: dashboard.importedDatasets,
-      reports: [report],
-      publishedSnapshots: []
-    };
-  } catch {
-    return null;
+  const savedDashboard = window.localStorage.getItem(storageKey);
+  if (savedDashboard === null) return null;
+  const parsed: unknown = JSON.parse(savedDashboard);
+  const dashboard = normalizeDashboard(readSavedDashboard(parsed, "v1"));
+  const report = createReportRecord(dashboard);
+  return {
+    id: "local_workspace",
+    label: "InsightCanvas Workspace",
+    activeReportId: report.id,
+    datasetConnections: [],
+    liveDatasetSources: [],
+    importedDatasets: dashboard.importedDatasets,
+    reports: [report],
+    publishedSnapshots: []
+  };
+}
+
+function readSavedDashboard(value: unknown, format: SavedWorkspaceFormat): DashboardDraft {
+  if (!isSavedObject(value) || !Array.isArray(value.pages) || !value.pages.length ||
+      !value.pages.every((page) => isSavedObject(page) && Array.isArray(page.elements) && Array.isArray(page.tiles))) {
+    throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
   }
+  if (format === "v2" && (typeof value.id !== "string" || typeof value.title !== "string" ||
+      !["draft", "published"].includes(value.status as string))) {
+    throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
+  }
+  return { ...value, importedDatasets: readSavedStudies(value.importedDatasets, format) } as unknown as DashboardDraft;
+}
+
+function parseSavedWorkspace(raw: string, format: SavedWorkspaceFormat): DashboardWorkspace {
+  const parsed: unknown = JSON.parse(raw);
+  if (!isSavedObject(parsed) || !Array.isArray(parsed.reports) || !parsed.reports.length) {
+    throw new Error("The saved workspace is incomplete or damaged. Your saved data has not been changed.");
+  }
+  for (const key of ["datasetConnections", "liveDatasetSources", "publishedSnapshots"]) {
+    if ((format === "v2" || parsed[key] !== undefined) && (!Array.isArray(parsed[key]) || !(parsed[key] as unknown[]).every(isSavedObject))) {
+      throw new Error("The saved workspace is incomplete or damaged. Your saved data has not been changed.");
+    }
+  }
+  if (format === "v2" && !["id", "label", "activeReportId"].every((key) => typeof parsed[key] === "string")) {
+    throw new Error("The saved workspace is incomplete or damaged. Your saved data has not been changed.");
+  }
+  const reports = parsed.reports.map((report) => {
+    if (!isSavedObject(report)) throw new Error("The saved report is damaged.");
+    if (format === "v2" && !["id", "title", "createdAt", "updatedAt", "lastOpenedAt"].every((key) => typeof report[key] === "string")) {
+      throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
+    }
+    return { ...report, draft: readSavedDashboard(report.draft, format) };
+  });
+  const publishedSnapshots = ((parsed.publishedSnapshots ?? []) as Array<Record<string, unknown>>).map((snapshot) => ({
+    ...snapshot, dashboard: readSavedDashboard(snapshot.dashboard, format)
+  }));
+  const importedDatasets = readSavedStudies(parsed.importedDatasets, format);
+  assertConsistentSavedStudies([importedDatasets, ...reports.map((report) => report.draft.importedDatasets)]);
+  return normalizeDashboardWorkspace({
+    ...parsed, reports, publishedSnapshots,
+    importedDatasets
+  } as DashboardWorkspace);
+}
+
+export function readStoredWorkspaceCopy(): string | null {
+  // Use the same source precedence as loading, including empty/damaged copies.
+  for (const key of [workspaceStorageKey, legacyWorkspaceStorageKey, storageKey]) {
+    const raw = window.localStorage.getItem(key);
+    if (raw !== null) return raw;
+  }
+  return null;
 }
 
 export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspace> | null | undefined): DashboardWorkspace {
@@ -162,14 +217,12 @@ export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspac
 }
 
 export function loadDashboardWorkspace(): DashboardWorkspace {
-  try {
-    const savedWorkspace = window.localStorage.getItem(workspaceStorageKey);
-    if (savedWorkspace) {
-      return normalizeDashboardWorkspace(JSON.parse(savedWorkspace) as DashboardWorkspace);
-    }
-  } catch {
-    // Fall through to legacy migration/default workspace.
-  }
+  // A new key keeps older app versions from treating encoded data as a preview.
+  // A malformed v2 workspace fails closed instead of autosaving a default over it.
+  const current = window.localStorage.getItem(workspaceStorageKey);
+  if (current !== null) return parseSavedWorkspace(current, "v2");
+  const savedWorkspace = window.localStorage.getItem(legacyWorkspaceStorageKey);
+  if (savedWorkspace !== null) return parseSavedWorkspace(savedWorkspace, "v1");
 
   return migrateLegacyDashboard() ?? defaultWorkspace();
 }
@@ -208,7 +261,7 @@ function compactDashboardForWorkspaceStorage(dashboard: DashboardDraft): Dashboa
 function compactWorkspaceForStorage(workspace: DashboardWorkspace): DashboardWorkspace {
   return {
     ...workspace,
-    importedDatasets: workspace.importedDatasets.map(compactImportedDatasetForWorkspace),
+    importedDatasets: workspace.importedDatasets.map((dataset) => encodeImportedRows(compactImportedDatasetForWorkspace(dataset))),
     reports: workspace.reports.map((report) => ({
       ...report,
       draft: compactDashboardForWorkspaceStorage(report.draft)
@@ -242,7 +295,7 @@ export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
 export function upsertWorkspaceImportedDataset(workspace: DashboardWorkspace, dataset: ImportedDatasetRecord): DashboardWorkspace {
   return {
     ...workspace,
-    importedDatasets: mergeImportedDatasets([dataset], workspace.importedDatasets)
+    importedDatasets: mergeImportedDatasets(workspace.importedDatasets, [dataset])
   };
 }
 

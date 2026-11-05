@@ -1,3 +1,4 @@
+import { withSafeInference } from "../../../shared/analytics/inferenceSafety";
 import {
   bannerDimensions,
   defaultAppearance,
@@ -545,6 +546,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
           }
       })),
       tiles: page.tiles.map((tile) => {
+        tile = { ...tile, result: withSafeInference(tile.result) };
         const compatibleChartTypes = getCompatibleChartTypes(tile.result);
         const visualization = tile.visualization === "table" ? compatibleChartTypes[0] ?? "vertical_bar" : tile.visualization;
         const legacyAxisColor = (tile.appearance as (Partial<TileAppearance> & { axisColor?: string }) | undefined)?.axisColor;

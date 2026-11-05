@@ -2,7 +2,7 @@ import { useState } from "react";
 import type React from "react";
 import { rangeFill } from "../../design-system/DesignControls";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import { buildImportedResultProvenance, getImportedDatasetQuerySupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
+import { buildImportedResultProvenance, getImportedDatasetQuerySupport, getImportedFilterChoiceSupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
@@ -618,13 +618,13 @@ function ImportedTileQueryEditor({
   isLoading: boolean;
 }) {
   const source = tile.result.metadataRefs.source?.kind === "imported" ? tile.result.metadataRefs.source : null;
-  const initialDataset = importedDatasets.find((dataset) => dataset.id === source?.datasetId) ?? importedDatasets[0] ?? null;
+  const initialDataset = source ? importedDatasets.find((dataset) => dataset.id === source.datasetId) ?? null : null;
   const [datasetId, setDatasetId] = useState(source?.datasetId ?? initialDataset?.id ?? "");
-  const dataset = importedDatasets.find((item) => item.id === datasetId) ?? initialDataset;
+  const dataset = importedDatasets.find((item) => item.id === datasetId) ?? null;
   const [primaryFieldId, setPrimaryFieldId] = useState(source?.primaryFieldId ?? dataset?.fields[0]?.id ?? "");
   const [bannerFieldId, setBannerFieldId] = useState(source?.bannerFieldId ?? "none");
   const [filterFieldId, setFilterFieldId] = useState(source?.filterFieldId ?? "none");
-  const [filterValue, setFilterValue] = useState(source?.filterValue ?? "all");
+  const [filterValue, setFilterValue] = useState<string | null>(source?.filterValue ?? null);
   const [metric, setMetric] = useState<Metric>(tile.result.metric.id);
   const [queryMode, setQueryMode] = useState<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical");
   const [measureFieldId, setMeasureFieldId] = useState(source?.measureFieldId ?? "none");
@@ -640,13 +640,18 @@ function ImportedTileQueryEditor({
   const filterOptions = importedFilterFields(dataset);
   const filterField = filterOptions.find((field) => field.id === filterFieldId) ?? null;
   const values = importedFieldValues(dataset, filterField);
-  const filter = filterField && filterValue !== "all" ? { field: filterField, value: filterValue } : null;
+  const filter = filterField && filterValue !== null ? { field: filterField, value: filterValue } : null;
   const effectiveMetric: Metric =
     queryMode === "measure"
       ? metric === "sum" ? "sum" : "average"
       : metric === "count" ? "count" : "percent_selected";
   const selectedChartType = (bannerField || queryMode === "measure") && chartType === "donut" ? "vertical_bar" : chartType;
-  const support = getImportedDatasetQuerySupport(dataset, primaryField, {
+  const filterChoiceSupport = getImportedFilterChoiceSupport(dataset);
+  const support = filterField && !filterChoiceSupport.executable
+    ? filterChoiceSupport
+    : filterField && filterValue === null
+    ? { executable: false, reason: "Choose a filter value or select No filter." }
+    : getImportedDatasetQuerySupport(dataset, primaryField, {
     bannerField,
     filter,
     measureField: queryMode === "measure" ? measureField : null,
@@ -663,7 +668,7 @@ function ImportedTileQueryEditor({
     setMeasureFieldId(nextDataset?.fields.find((field) => field.type === "numeric" || field.modelingRole === "candidate_measure")?.id ?? "none");
     setBannerFieldId("none");
     setFilterFieldId("none");
-    setFilterValue("all");
+    setFilterValue(null);
   }
 
   function changePrimaryField(nextFieldId: string) {
@@ -713,6 +718,7 @@ function ImportedTileQueryEditor({
 
   return (
     <div className="imported-query-editor">
+      {!dataset && <p role="alert">The original study is unavailable. Choose a replacement study explicitly before rerunning this result.</p>}
       <div className="explorer-section-header">
         <strong>Imported query</strong>
         <small>{support.reason}</small>
@@ -732,6 +738,7 @@ function ImportedTileQueryEditor({
         <label>
           Dataset
           <select value={dataset?.id ?? ""} onChange={(event) => changeDataset(event.target.value)}>
+            {!dataset && <option value="" disabled>Choose an available study...</option>}
             {importedDatasets.map((item) => (
               <option value={item.id} key={item.id}>{item.title}</option>
             ))}
@@ -808,7 +815,7 @@ function ImportedTileQueryEditor({
             value={filterField?.id ?? "none"}
             onChange={(event) => {
               setFilterFieldId(event.target.value);
-              setFilterValue("all");
+              setFilterValue(null);
             }}
           >
             <option value="none">No filter</option>
@@ -820,8 +827,8 @@ function ImportedTileQueryEditor({
         {filterField && (
           <label>
             Keep responses where
-            <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
-              <option value="all">Choose value...</option>
+            <select disabled={!filterChoiceSupport.executable} value={filterValue ?? ""} onChange={(event) => setFilterValue(event.target.value || null)}>
+              <option value="">Choose value...</option>
               {values.map((value) => (
                 <option value={value} key={value}>{value}</option>
               ))}

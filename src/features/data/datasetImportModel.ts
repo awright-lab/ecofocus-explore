@@ -1,3 +1,4 @@
+import { parseImportedNumber } from "./importedNumericValue";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 
 export interface DatasetImportResult {
@@ -76,7 +77,7 @@ function parseCsv(text: string) {
 
 function looksNumeric(values: string[]) {
   const sample = values.filter(Boolean);
-  return sample.length > 0 && sample.every((value) => Number.isFinite(Number(value.replace(/[$,%]/g, ""))));
+  return sample.length > 0 && sample.every((value) => parseImportedNumber(value) !== null);
 }
 
 function looksDate(values: string[]) {

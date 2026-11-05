@@ -27,6 +27,7 @@ export interface AnalyticsFilter {
 
 export interface ImportedAnalyticsSourceIdentity {
   kind: "imported";
+  measureBaseScope?: "cell";
   queryKind?: "categorical" | "measure";
   sourceRef?: DatasetSourceRef;
   datasetId: string;
@@ -137,6 +138,8 @@ export type SignificanceMethod = "none" | "mock_placeholder" | "column_compariso
 export type SignificanceStatus = "none" | "placeholder" | "unsupported" | "eligible" | "tested";
 
 export type SignificanceReasonCode =
+  | "weighted_inference_unsupported"
+  | "inference_precision_unverified"
   | "mock_provider_placeholder"
   | "mock_provider_not_available"
   | "wave_comparison_unsupported"
@@ -175,6 +178,7 @@ export interface AnalyticsSignificanceExecutionPlan {
 }
 
 export interface AnalyticsColumnComparisonExecutionInput {
+  inferenceBasis?: "unweighted_full_precision_v1";
   method: "column_comparison";
   confidenceLevel: ConfidenceLevel;
   metric: {
@@ -202,6 +206,7 @@ export interface AnalyticsColumnComparisonExecutionInput {
 }
 
 export interface AnalyticsWaveComparisonExecutionInput {
+  inferenceBasis?: "unweighted_full_precision_v1";
   method: "wave_comparison";
   confidenceLevel: ConfidenceLevel;
   metric: {
@@ -355,6 +360,7 @@ export interface AnalyticsQueryResponse {
   };
   annotations: AnalyticsAnnotation[];
   statistics: {
+    inferenceBasis?: "unweighted_full_precision_v1";
     confidenceLevel: ConfidenceLevel;
     significanceMethod: SignificanceMethod;
     significanceExecutionPlan: AnalyticsSignificanceExecutionPlan;

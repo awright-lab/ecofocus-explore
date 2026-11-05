@@ -1,3 +1,4 @@
+import { withSafeInference } from "../analytics/inferenceSafety";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../analytics/queryPlan";
 import { runColumnComparisonSignificanceAdapter, runWaveComparisonSignificanceAdapter } from "../analytics/significanceExecution";
 import { applyVariableSetRows } from "../analytics/variableSets";
@@ -411,6 +412,10 @@ function waveComparisonExecutionInput(
 }
 
 export function runMockAnalyticsQuery(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
+  return withSafeInference(runMockAnalyticsQueryInternal(query));
+}
+
+function runMockAnalyticsQueryInternal(query: AnalyticsQueryRequest): AnalyticsQueryResponse {
   const normalizedQuery = {
     ...query,
     confidenceLevel: query.confidenceLevel ?? 0.95,
@@ -670,9 +675,9 @@ function runMockMultiBinarySetQuery(
     warnings: collectBaseWarnings(series, getDatasetMetadata(query.dataset)?.minBaseWarning ?? 100),
     notes: [
       "Mock saved variable set built from Q15r1, Q15r2, Q15r7, Q15r8, and Q15r9.",
-      query.weight ? `Weighted data using ${weightLabel ?? query.weight}; sample size = ${series[0]?.bases[0] ?? 0}.` : `Unweighted mock output; sample size = ${series[0]?.bases[0] ?? 0}.`,
+      query.weight ? `Weighted data using ${weightLabel ?? query.weight}; weighted base total = ${series[0]?.bases[0] ?? 0}.` : `Unweighted mock output; sample size = ${series[0]?.bases[0] ?? 0}.`,
       `${Math.round(query.confidenceLevel * 100)}% confidence level for significance annotations.`,
-      "Arrows are placeholder significance annotations for chart/table rendering."
+      "No significance is calculated for these mock aggregates."
     ],
     metadataRefs: {
       dataset: query.dataset,
