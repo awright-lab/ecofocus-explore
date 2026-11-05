@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isolated durable workspace acceptance</title>
+<style>body{font:16px/1.5 system-ui;max-width:960px;margin:40px auto;padding:20px;background:#f4f8f4;color:#183b2b}button{padding:12px 18px;background:#245b40;color:white;border:0;border-radius:6px;font:inherit}pre{white-space:pre-wrap;background:white;padding:20px;border:1px solid #c8d9ce;border-radius:8px}h1{font-size:28px}</style>
+<h1>Isolated durable workspace acceptance</h1>
+<p>This developer fixture uses synthetic data in a separate IndexedDB namespace. It does not activate the repository in the product or change the current workspace save.</p>
+<button id="run">Run real IndexedDB checks</button><p id="status" role="status">Ready.</p><pre id="results" aria-label="Acceptance results"></pre>
+<script type="module">
+import { createDurableWorkspaceRepository } from '../../durableWorkspaceRepository.ts';
+const button=document.querySelector('#run'),status=document.querySelector('#status'),output=document.querySelector('#results');
+button.addEventListener('click',async()=>{
+ button.disabled=true;status.textContent='Running isolated synthetic checks…';output.textContent='';
+ const name=`ecofocus-durable-probe-${crypto.randomUUID()}`,cases=[],repos=[];let completed=0,aborted=0,abortNextCommit=false;
+ const legacyKey='insightcanvas_report_workspace_v2',legacyBefore=localStorage.getItem(legacyKey);
+ function assert(value,message){if(!value)throw new Error(message);}
+ function pass(label){cases.push(label);output.textContent=JSON.stringify({database:name,passed:cases.length,cases},null,2);}
+ const factory={open(dbName,version){
+  const request=indexedDB.open(dbName,version);
+  request.addEventListener('success',()=>{
+   const db=request.result,original=db.transaction.bind(db);
+   db.transaction=(...args)=>{
+    const tx=original(...args);tx.addEventListener('complete',()=>completed++);tx.addEventListener('abort',()=>aborted++);
+    if(abortNextCommit&&Array.from(args[0]).includes('workspaceHeads')&&Array.from(args[0]).includes('pendingDrafts')){
+     abortNextCommit=false;const originalStore=tx.objectStore.bind(tx);
+     tx.objectStore=(storeName)=>{const store=originalStore(storeName);if(storeName==='workspaceHeads'){const put=store.put.bind(store);store.put=(...values)=>{const putRequest=put(...values);putRequest.addEventListener('success',()=>tx.abort(),{once:true});return putRequest;};}return store;};
+    }
+    return tx;
+   };
+  },{once:true});return request;
+ }};
+ function repository(custom=factory){const repo=createDurableWorkspaceRepository(name,custom);repos.push(repo);return repo;}
+ function raw(workspaceId,value){return new Promise((resolve,reject)=>{const request=indexedDB.open(name,1);request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,tx=db.transaction('workspaceHeads',value?'readwrite':'readonly'),store=tx.objectStore('workspaceHeads');let result;const query=value?store.put(value):store.get(workspaceId);query.onsuccess=()=>{result=query.result;};tx.oncomplete=()=>{db.close();resolve(result);};tx.onabort=()=>{db.close();reject(tx.error);};};});}
+ try{
+  const rows=Array.from({length:1000},(_,r)=>Object.fromEntries(Array.from({length:60},(_,c)=>[`field_${c}`,String(r*60+c)])));
+  const payload=JSON.stringify({title:'Synthetic durable study',rows,model:{field_0:'numeric'},historical:{field_0:'text'}});
+  let a=repository();const first={workspaceId:'research',editorId:'editor-a',sequence:1,expectedRevision:null,payload};
+  const before=completed;await a.stage(first);assert(completed>before,'Stage acknowledged before transaction completion');assert(await a.read('research')===null,'Staging changed the saved head');
+  await a.close();a=repository();assert((await a.pending('research'))[0].payload===payload,'Pending bytes did not survive close/reopen');
+  assert(JSON.parse((await a.pending('research'))[0].payload).rows.length===1000,'Pending rows missing');pass('Durable staged draft survives close/reopen with all 1,000 × 60 values');
+  const saved=await a.commit(first);assert(saved.kind==='saved'&&saved.revision===1,'First commit failed');assert((await a.pending('research')).length===0,'Committed own draft not cleared');assert((await a.read('research')).payload===payload,'Committed bytes changed');pass('Head and own journal transition commit together');
+  const b=repository(),draftA={...first,sequence:2,expectedRevision:1,payload:payload.replace('Synthetic durable study','Synthetic title A')},draftB={...first,editorId:'editor-b',expectedRevision:1,payload:payload.replace('Synthetic durable study','Synthetic title B')};
+  await Promise.all([a.stage(draftA),b.stage(draftB)]);const concurrent=await Promise.all([a.commit(draftA),b.commit(draftB)]);
+  assert(concurrent.filter(value=>value.kind==='saved').length===1&&concurrent.filter(value=>value.kind==='conflict').length===1,'Concurrent writers did not resolve to one save and one conflict');
+  const winner=await a.read('research'),pending=await a.pending('research');assert(winner.revision===2&&pending.length===1,'Conflict journal was lost');const winnerIndex=concurrent.findIndex(value=>value.kind==='saved'),inputs=[draftA,draftB];assert(winner.payload===inputs[winnerIndex].payload&&pending[0].payload===inputs[1-winnerIndex].payload,'Winning or conflicting bytes changed');pass('Concurrent connections preserve the losing editor without overwriting the winner');
+  const latest={...first,workspaceId:'sequence',sequence:2,payload:'latest'},old={...first,workspaceId:'sequence',payload:'obsolete'};await a.stage(latest);assert((await a.stage(old)).kind==='superseded','Old sequence replaced a new draft');assert((await a.commit(old)).kind==='superseded','Old commit replaced a new draft');assert((await a.pending('sequence'))[0].payload==='latest','Latest draft lost');pass('Out-of-order same-editor operations cannot replace newer pending work');
+  let rejected=false;try{await a.stage({...latest,payload:'reused sequence'});}catch{rejected=true;}assert(rejected&&(await a.pending('sequence'))[0].payload==='latest','Sequence reuse changed stored bytes');pass('Reusing a pending sequence with different content aborts safely');
+  const interrupted={...first,editorId:'interrupted',expectedRevision:2,payload:'uncommitted candidate'};await a.stage(interrupted);abortNextCommit=true;rejected=false;try{await a.commit(interrupted);}catch{rejected=true;}
+  assert(rejected,'Injected commit abort was acknowledged as a save');assert(JSON.stringify(await a.read('research'))===JSON.stringify(winner),'Aborted head write was retained');assert((await a.pending('research')).some(value=>value.editorId==='interrupted'&&value.payload===interrupted.payload),'Aborted transaction cleared pending recovery');pass('Abort after head write rolls back both head and journal changes');
+  await raw('damaged',{workspaceId:'damaged',revision:'invalid',payload:'original damaged bytes'});const damaged={...first,workspaceId:'damaged'};await a.stage(damaged);rejected=false;try{await a.commit(damaged);}catch{rejected=true;}assert(rejected&&(await raw('damaged')).payload==='original damaged bytes','Damaged head was overwritten');assert((await a.pending('damaged')).length===1,'Recovery candidate lost');pass('Damaged heads remain intact with a separate pending candidate');
+  await raw('overflow',{workspaceId:'overflow',revision:Number.MAX_SAFE_INTEGER,payload:'last valid head'});const overflow={...first,workspaceId:'overflow',expectedRevision:Number.MAX_SAFE_INTEGER};await a.stage(overflow);rejected=false;try{await a.commit(overflow);}catch{rejected=true;}assert(rejected&&(await a.read('overflow')).revision===Number.MAX_SAFE_INTEGER,'Revision overflow changed the head');pass('Revision overflow aborts without fabricating a new revision');
+  await a.stage({...first,workspaceId:'a:b',editorId:'c'});await a.stage({...first,workspaceId:'a',editorId:'b:c'});assert((await a.pending('a:b')).length===1&&(await a.pending('a')).length===1,'Workspace/editor tuple identities collided');pass('Workspace namespaces and editor identities remain isolated');
+  let attempts=0;const retry=repository({open(...args){if(++attempts===1)throw new Error('Synthetic initial open failure');return factory.open(...args);}});rejected=false;try{await retry.read('research');}catch{rejected=true;}assert(rejected&&(await retry.read('research')).revision===2,'Failed open could not be retried');pass('An initial open failure does not poison later recovery');
+  const mutable={...first,workspaceId:'captured',payload:'captured original'},staging=a.stage(mutable);mutable.payload='changed after call';await staging;const captured=(await a.pending('captured'))[0];assert(captured.payload==='captured original','Stage read mutable caller state after awaiting');const committing=a.commit(captured);captured.payload='changed during commit';await committing;assert((await a.read('captured')).payload==='captured original','Commit read mutable caller state after awaiting');pass('Operation payloads are captured before asynchronous work');
+  assert(localStorage.getItem(legacyKey)===legacyBefore,'Current workspace save changed');pass('Existing workspace save bytes remain unchanged');
+  status.textContent=`PASS — ${cases.length} real IndexedDB checks`;
+  output.textContent=JSON.stringify({database:name,passed:cases.length,cases,completedTransactions:completed,abortedTransactions:aborted,syntheticRows:1000,syntheticFields:60,existingWorkspaceBytes:legacyBefore?.length??0,activeStorageMigrated:false},null,2);
+ }catch(error){status.textContent='FAIL — isolated acceptance';output.textContent=JSON.stringify({database:name,passed:cases.length,cases,error:String(error)},null,2);}
+ finally{await Promise.allSettled(repos.map(repo=>repo.close()));button.disabled=false;}
+});
+</script></html>
