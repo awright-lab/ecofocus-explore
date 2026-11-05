@@ -161,7 +161,7 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
     },
     async stage(value: PendingWorkspaceDraft) {
       assertDraft(value); const draft = { ...value }, digest = await workspaceDraftDigest(draft);
-      return transaction<{ kind: "staged" | "superseded" } | { kind: "saved"; revision: number }>([headsStore, pendingStore, receiptsStore], "readwrite", (tx, done) => {
+      return transaction<{ kind: "staged" } | { kind: "superseded" } | { kind: "saved"; revision: number }>([headsStore, pendingStore, receiptsStore], "readwrite", (tx, done) => {
         reconcile(tx, draft, digest, result => {
           if (result) { done(result); return; }
           const store = tx.objectStore(pendingStore), request = store.get([draft.workspaceId, draft.editorId]);
