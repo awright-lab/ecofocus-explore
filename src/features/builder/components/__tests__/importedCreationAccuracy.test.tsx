@@ -440,3 +440,24 @@ it('shows invalid-only subgroups as unavailable in grouped average previews with
  await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset])} launchContext={{importedDatasetId:dataset.id,importedFieldId:measure.id,importedFieldSnapshot:measure}} onClose={()=>{}}/>));
  const preview=host.querySelector('[aria-label="Analysis result preview"]')!;expect(preview.textContent).toContain('MissingUnavailable');expect(preview.textContent).toContain('not zero estimates');expect(button('Create table').disabled).toBe(false);
 });
+
+async function searchResearch(text: string) {
+ const input = host.querySelector<HTMLInputElement>('input[type="search"]')!;
+ await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text); input.dispatchEvent(new Event('input', { bubbles: true })); });
+}
+it('finds seeded questions by full wording and declared topic while retaining the selected question', async () => {
+ const create = vi.fn(async () => 'tile'); const packaging = defaultDataset.questions.find(item => item.id === 'Q_PACKAGING_TRUST')!;
+ await act(async () => root.render(<GuidedDataQueryModal key="wording" props={minimumProps([], { addTileFromSourceWithVisualization: create })} onClose={() => {}} />));
+ await searchResearch('food beverage packaging'); expect(Array.from(select('Question / variable').options).some(option => option.value === packaging.id)).toBe(true); expect(select('Question / variable').value).toBe(defaultQuestion.id); expect(host.textContent).toContain(defaultQuestion.label); expect(create).not.toHaveBeenCalled();
+ await act(async () => root.render(<GuidedDataQueryModal key="topic" props={minimumProps([], { question: packaging.id, selectedQuestion: packaging, addTileFromSourceWithVisualization: create })} onClose={() => {}} />));
+ await searchResearch('Perceptions'); expect(Array.from(select('Question / variable').options).some(option => option.value === 'Q15_TOP2_BRAND_PRIORITIES')).toBe(true); expect(select('Question / variable').value).toBe(packaging.id); expect(create).not.toHaveBeenCalled();
+});
+it('finds imported question wording across reordered accented terms without changing the selection or source', async () => {
+ const dataset = await csv('Q1,Q2,Q3,Spend\nYes,High,Daily,10\nNo,Low,Weekly,20\n'); dataset.fields[1].variableLabel = 'Please rate café packaging and household recycling'; const before = structuredClone(dataset), create = vi.fn(async () => 'tile');
+ await act(async () => root.render(<GuidedDataQueryModal props={minimumProps([dataset], { addTileFromImportedDatasetField: create })} onClose={() => {}} />)); const selected = select('Group responses by').value;
+ await searchResearch('household CAFE'); const ids = Array.from(select('Group responses by').options).map(option => option.value); expect(ids).toContain(dataset.fields[1].id); expect(ids).not.toContain(dataset.fields[2].id); expect(select('Group responses by').value).toBe(selected); expect(dataset).toEqual(before); expect(create).not.toHaveBeenCalled();
+});
+it('discloses that guided remote search covers only loaded metadata', async () => {
+ const dataset = await csv('Response,Spend\nYes,10\nNo,20\n'); dataset.fieldCount = 100; dataset.remote = { provider: 'netlify', projectUrl: '', bucket: '', objectPath: 'synthetic', uploadedAt: dataset.importedAt };
+ await act(async () => root.render(<GuidedDataQueryModal props={minimumProps([dataset])} onClose={() => {}} />)); expect(host.textContent).toContain('Search covers loaded fields'); expect(host.textContent).toContain('browse the full remote field list');
+});

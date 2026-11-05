@@ -1,3 +1,4 @@
+import { researchSearchMatcher } from "../../data/researchSearch";
 import { fieldTreeWindow } from "./fieldTreeWindow";
 import { CategoricalFieldProfile } from "./CategoricalFieldProfile";
 import { ImportedFieldSettings } from "./ImportedFieldSettings";
@@ -139,20 +140,20 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const variableSearchTerm = sourceSearch.trim().toLowerCase();
   const { pages: remoteFieldPages, total: remoteFieldTotal, error: remoteFieldError, load: loadRemoteFields, retry: retryRemoteFields } = useImportedFieldPages(usesRemoteFieldPaging ? activeImportedDataset!.id : null, variableSearchTerm, REMOTE_FIELD_PAGE_SIZE);
   const remoteLoadedFields = useMemo(() => Object.values(remoteFieldPages).flat(), [remoteFieldPages]);
+  const matchesLocalResearch = useMemo(() => researchSearchMatcher(sourceSearch), [sourceSearch]);
   const filteredModeledVariables = useMemo(() => {
     if (usesRemoteFieldPaging) return remoteLoadedFields;
     if (!variableSearchTerm) return modeledVariables;
     return modeledVariables.filter((field) => {
-      const searchableText = [
+      return matchesLocalResearch([
         importedFieldDisplayLabel(field),
         field.label,
         field.variableLabel,
         field.sourceColumn,
         field.sourceFormat
-      ].filter(Boolean).join(" ").toLowerCase();
-      return searchableText.includes(variableSearchTerm);
+      ]);
     });
-  }, [modeledVariables, remoteLoadedFields, usesRemoteFieldPaging, variableSearchTerm]);
+  }, [modeledVariables, remoteLoadedFields, usesRemoteFieldPaging, variableSearchTerm, matchesLocalResearch]);
   const variableTreeEntries = useMemo<VariableTreeEntry[]>(() => {
     if (usesRemoteFieldPaging) return [];
     if (variableSearchTerm) return filteredModeledVariables.map((field) => ({ type: "field", id: field.id, field }));

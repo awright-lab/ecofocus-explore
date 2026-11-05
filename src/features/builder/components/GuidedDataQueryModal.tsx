@@ -1,3 +1,4 @@
+import { researchSearchMatcher } from "../../data/researchSearch";
 import { analyticalCell } from "../../../../shared/analytics/resultCells";
 import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
 import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
@@ -182,7 +183,8 @@ export function GuidedDataQueryModal({
     importedQueryMode === "measure"
       ? importedMetric === "sum" ? "sum" : "average"
       : importedMetric === "count" ? "count" : "percent_selected";
-  const questionOptions = useMemo(() => filteredQuestions.filter((item) => `${item.shortLabel} ${item.id}`.toLowerCase().includes(fieldSearch.toLowerCase()) || item.id === question), [filteredQuestions, fieldSearch, question]);
+  const matchesResearchSearch = useMemo(() => researchSearchMatcher(fieldSearch), [fieldSearch]);
+  const questionOptions = useMemo(() => filteredQuestions.filter(item => item.id === question || matchesResearchSearch([item.id, item.label, item.shortLabel, item.topic, item.sourceColumn, ...(item.sourceVariables ?? [])])), [filteredQuestions, matchesResearchSearch, question]);
   const selectedChart = outputMode === "table"
     ? "table"
     : (importedBannerField || importedQueryMode === "measure") && chartType === "donut"
@@ -468,17 +470,18 @@ export function GuidedDataQueryModal({
               <span>2</span>
               <strong>Choose variable</strong>
             </div>
-            <label className="guided-field-search">Find a question or field<input type="search" placeholder="Search by question, label or field name" value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)} /></label>
+            <label className="guided-field-search">Find a question or field<input type="search" placeholder="Search wording, topic or field name" value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)} /></label>
             {fieldSearch && <p className="field-search-help" role="status">Your selected question stays available while you search. <button type="button" onClick={() => setFieldSearch("")}>Clear field search</button></p>}
+            {datasetMode === "imported" && importedDataset?.remote?.provider === "netlify" && importedDataset.fields.length < importedDataset.fieldCount && <p className="field-search-help">Search covers loaded fields. Use Advanced sources to browse the full remote field list.</p>}
             {datasetMode === "seeded" ? (
-              <label>
+              <><label>
                 Question / variable
                 <select value={question} onChange={(event) => selectSeededQuestion(event.target.value as QuestionId)}>
                   {questionOptions.map((item) => (
                     <option value={item.id} key={item.id}>{item.shortLabel}</option>
                   ))}
                 </select>
-              </label>
+              </label><div className="guided-query-variable-card"><strong>{selectedQuestion.label}</strong><small>Topic: {selectedQuestion.topic}</small></div></>
             ) : importedDataset ? (
               <>
                 <label>
@@ -490,7 +493,7 @@ export function GuidedDataQueryModal({
                   >
                     {!importedField && <option value="" disabled>Choose an available grouping field...</option>}
                     <option value={allRespondentsGroupingId}>All respondents (numeric summary)</option>
-                    {importedPrimaryFields.filter((field) => field.id === importedField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
+                    {importedPrimaryFields.filter((field) => field.id === importedField?.id || matchesResearchSearch([importedFieldDisplayLabel(field), field.label, field.variableLabel, field.id, field.sourceColumn])).map((field) => (
                       <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                     ))}
                   </select>
@@ -698,7 +701,7 @@ export function GuidedDataQueryModal({
                           <select value={selectedImportedMeasureFieldId} onChange={(event) => setSelectedImportedMeasureFieldId(event.target.value)}>
                             <option value="none">Choose a numeric field...</option>
                             {selectedImportedMeasureFieldId !== "none" && !importedMeasureField && <option value={selectedImportedMeasureFieldId} disabled>Unavailable numeric field</option>}
-                    {importedMeasureFields.filter((field) => field.id === importedMeasureField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
+                    {importedMeasureFields.filter((field) => field.id === importedMeasureField?.id || matchesResearchSearch([importedFieldDisplayLabel(field), field.label, field.variableLabel, field.id, field.sourceColumn])).map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
                           </select>

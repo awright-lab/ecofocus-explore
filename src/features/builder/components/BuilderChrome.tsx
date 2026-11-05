@@ -1,3 +1,4 @@
+import { ExportPreflightDialog } from "../../export/ExportPreflightDialog";
 import {
   memo,
   useEffect,
@@ -225,6 +226,7 @@ export const BuilderHeader = memo(function BuilderHeader({
     useState<ExportPackageConfirmationView | null>(null);
   const [exporting, setExporting] = useState<CoreExportTarget | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [preflightOpen, setPreflightOpen] = useState(false);
   const exportLock = useRef(false);
   const activeOutcomeMode = useMemo(
     () => outcomeModeView(activeProductMode),
@@ -402,6 +404,7 @@ export const BuilderHeader = memo(function BuilderHeader({
             <ChevronDown size={13} />
           </summary>
           <div>
+            <button type="button" disabled={Boolean(exporting)} onClick={() => setPreflightOpen(true)}>Review before exporting</button>
             <button
               type="button"
               disabled={Boolean(exporting)}
@@ -442,6 +445,7 @@ export const BuilderHeader = memo(function BuilderHeader({
           <span>{activeOutcomeMode.helper}</span>
         </div>
       )}
+      {preflightOpen && <ExportPreflightDialog dashboard={dashboard} onClose={() => setPreflightOpen(false)} />}
     </header>
   );
 });
