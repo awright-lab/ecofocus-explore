@@ -1,13 +1,14 @@
 import type { AnalyticsQueryResponse } from "../../../shared/types/analytics";
 import { type ImportedDatasetQueryConfig, runImportedDatasetQuery } from "./importedDatasetAnalytics";
-
-function isImportedQueryError(payload: unknown): payload is { error?: string; details?: string[] } {
-  return Boolean(payload && typeof payload === "object" && "error" in payload);
-}
+import { assertImportedQueryResponse, queryResponseObject } from "./importedQueryResponse";
 
 export async function runImportedDatasetQueryForRuntime(config: ImportedDatasetQueryConfig): Promise<AnalyticsQueryResponse> {
   if (config.dataset.remote?.provider !== "netlify") {
     return runImportedDatasetQuery(config);
+  }
+
+  if (config.groupingScope === "all_respondents") {
+    throw new Error("All-respondent numeric summaries currently require complete browser data.");
   }
 
   const response = await fetch("/.netlify/functions/imported-dataset-query", {
@@ -25,10 +26,11 @@ export async function runImportedDatasetQueryForRuntime(config: ImportedDatasetQ
   });
 
   const payload = await response.json().catch(() => null) as unknown;
-  if (!response.ok || !payload || isImportedQueryError(payload)) {
-    const detail = isImportedQueryError(payload) && payload.details?.length ? ` ${payload.details.join(" ")}` : "";
-    throw new Error(`${isImportedQueryError(payload) ? payload.error : `Imported dataset query failed with ${response.status}.`}${detail}`);
+  if (!response.ok || queryResponseObject(payload) && Object.hasOwn(payload,"error")) {
+    const error = queryResponseObject(payload) && typeof payload.error === "string" ? payload.error : `Imported dataset query failed with ${response.status}.`;
+    const details = queryResponseObject(payload) && Array.isArray(payload.details) ? payload.details.filter((detail): detail is string => typeof detail === "string") : [];
+    throw new Error(`${error}${details.length ? ` ${details.join(" ")}` : ""}`);
   }
-
-  return payload as AnalyticsQueryResponse;
+  assertImportedQueryResponse(payload, config);
+  return payload;
 }

@@ -4,6 +4,7 @@ import { workspaceSaveSession } from "./features/document/workspaceSaveSession";
 import { WorkspaceLoadRecovery, WorkspaceSaveRecovery } from "./features/document/WorkspaceSaveRecovery";
 import type { DashboardWorkspace } from "../shared/types/dashboard";
 import { DeferredWorkspaceImportRecovery } from "./features/document/DeferredWorkspaceImportRecovery";
+import { WorkspaceRouteRecovery, workspaceRouteIssue } from "./features/document/WorkspaceRouteRecovery";
 
 function loadWorkspaceSafely(): DashboardWorkspace | null {
   try { return workspaceSaveSession.load(); } catch { return null; }
@@ -36,11 +37,12 @@ export default function App() {
   }, []);
 
   if (!workspace) return <WorkspaceLoadRecovery />;
+  const routeIssue = workspaceRouteIssue(route, workspace);
   return (
     <>
       <WorkspaceSaveRecovery />
       <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={setWorkspace} />
-      {route.mode === "home" ? (
+      {routeIssue ? <WorkspaceRouteRecovery reason={routeIssue} /> : route.mode === "home" ? (
         <Suspense fallback={<div className="app-route-loading">Loading workspace...</div>}>
           <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />
         </Suspense>

@@ -1,4 +1,5 @@
 import type React from "react";
+import type { DocumentCommandCommit } from "./useDocumentCommandState";
 import { canvasHeight, canvasWidth, historyLimit } from "../builderConstants";
 import {
   buildPageFromTemplate,
@@ -37,13 +38,12 @@ import type {
   TextBlockPreset
 } from "../../../../shared/types/dashboard";
 
-type SetDashboardState = React.Dispatch<React.SetStateAction<DashboardDraft>>;
 type SetDashboardList = React.Dispatch<React.SetStateAction<DashboardDraft[]>>;
 type SetNullableId = React.Dispatch<React.SetStateAction<string | null>>;
 
 type UseBuilderDocumentSessionCommandsArgs = {
   dashboard: DashboardDraft;
-  setDashboardState: SetDashboardState;
+  commitDashboardChange: DocumentCommandCommit<DashboardDraft>;
   history: DashboardDraft[];
   setHistory: SetDashboardList;
   future: DashboardDraft[];
@@ -73,7 +73,7 @@ type UseBuilderDocumentSessionCommandsArgs = {
 
 export function useBuilderDocumentSessionCommands({
   dashboard,
-  setDashboardState,
+  commitDashboardChange,
   history,
   setHistory,
   future,
@@ -101,17 +101,11 @@ export function useBuilderDocumentSessionCommands({
   openPublishedSnapshot
 }: UseBuilderDocumentSessionCommandsArgs) {
   function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
-    setDashboardState((current) => {
-      const nextDashboard = typeof updater === "function" ? updater(current) : updater;
-
-      if (trackHistory) {
+    return commitDashboardChange(updater, trackHistory ? (current) => {
         setHistory((items) => [...items.slice(-historyLimit + 1), current]);
         setFuture([]);
         setSaveState("Saving...");
-      }
-
-      return nextDashboard;
-    });
+    } : undefined);
   }
 
   function undo() {

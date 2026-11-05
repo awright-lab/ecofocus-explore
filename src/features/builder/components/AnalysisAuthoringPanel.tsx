@@ -37,6 +37,7 @@ const ReportPageTree = lazy(() =>
 );
 
 export type GuidedDataQueryLaunchOptions = {
+  groupingScope?: "all_respondents";
   outputMode?: "table" | "chart";
   importedDatasetId?: string;
   importedFieldId?: string;
@@ -114,7 +115,7 @@ export type AnalysisAuthoringPanelProps = {
     fieldId: string,
     updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
   ) => void;
-  removeImportedDataset: (datasetId: string) => void;
+  removeImportedDataset: (datasetId: string) => string | null;
   openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
@@ -181,7 +182,7 @@ export type AnalysisAuthoringPanelProps = {
   setVariableSetOptionSelection: React.Dispatch<React.SetStateAction<string[]>>;
   addCanvasElement: (type: DashboardCanvasElement["type"]) => void;
   addTileFromQuery: () => void;
-  addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
+  addTileFromSourceWithVisualization: (chartType: ChartType, isCurrent?: () => boolean) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   addTileFromImportedDatasetField: (
     dataset: ImportedDatasetRecord,
@@ -189,6 +190,8 @@ export type AnalysisAuthoringPanelProps = {
     chartType: ChartType,
     metric: Metric,
     options?: {
+      groupingScope?: "all_respondents";
+      isCurrent?: () => boolean;
       measureField?: ImportedDatasetField | null;
       bannerField?: ImportedDatasetField | null;
       filter?: {

@@ -3,7 +3,7 @@ import { act, useRef, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BuilderHeader } from "../BuilderChrome";
-import { StudioCommandMenu } from "../StudioTools";
+import { StudioCommandMenu, StudioHelp } from "../StudioTools";
 import { initialDashboard } from "../../../document/documentSeeds";
 import { createReportRecord } from "../../../document/workspacePersistence";
 import { useModalAccessibility } from "../../hooks/useModalAccessibility";
@@ -55,6 +55,19 @@ describe("studio delivery and tool discovery", () => {
     expect(host.querySelectorAll('[role="option"]')).toHaveLength(1);
     await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
     expect(exportFile).toHaveBeenCalledOnce(); expect(create).not.toHaveBeenCalled(); expect(close).toHaveBeenCalledOnce();
+  });
+
+  it.each(["commands", "help"])("restores the opener after closing %s", async (kind) => {
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
+    const opener = document.createElement("button"); document.body.append(opener); opener.focus();
+    try {
+      await act(async () => root.render(kind === "commands"
+        ? <StudioCommandMenu commands={[]} onClose={() => {}} />
+        : <StudioHelp onClose={() => {}} />));
+      host.querySelector<HTMLElement>(kind === "commands" ? "input" : "button")!.focus();
+      await act(async () => root.render(null));
+      expect(document.activeElement).toBe(opener);
+    } finally { opener.remove(); }
   });
 
   it("keeps focus through parent rerenders and traps Tab among visible dialog controls", async () => {

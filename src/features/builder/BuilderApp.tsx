@@ -1,3 +1,6 @@
+import { buildAnalyticalTemplateFromTile } from "./components/libraryReuseModel";
+import { useDocumentCommandState } from "./hooks/useDocumentCommandState";
+import { editorModalOwnsKeyboard } from "./editorModalGuard";
 import { PublishedCanvas } from "./components/PublishedCanvas";
 import {
   Database,
@@ -118,6 +121,7 @@ import {
 } from "../document/workspacePersistence";
 import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
 import { deferredWorkspaceImports } from "../document/deferredWorkspaceImports";
+import { editorStudyRemovalBlocker } from "../document/importedStudyUsage";
 import type {
   AnalysisLibraryView,
   DesignModal,
@@ -192,10 +196,11 @@ export default function BuilderApp() {
   );
   const [publishedSnapshot, setPublishedSnapshot] =
     useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
-  const [dashboard, setDashboardState] = useState<DashboardDraft>(() =>
+  const [dashboard, setDashboardState, getDocumentReplacementVersion] = useDocumentCommandState<DashboardDraft>(() =>
     initialPublishedSnapshot
       ? initialPublishedSnapshot.dashboard
       : normalizeDashboard(initialReport.draft),
+    () => setIsLoading(false),
   );
   const {
     history,
@@ -205,7 +210,7 @@ export default function BuilderApp() {
     saveState,
     setSaveState,
     activePageId,
-    setActivePageId,
+    setActivePageId: updateActivePageIdState,
     selectedTileId,
     setSelectedTileId,
     selectedElementId,
@@ -249,7 +254,7 @@ export default function BuilderApp() {
     canvasZoom,
     setCanvasZoom,
     viewerMode,
-    setViewerMode,
+    setViewerMode: updateViewerModeState,
     selectedDataSource,
     setSelectedDataSource,
     isLoading,
@@ -257,6 +262,18 @@ export default function BuilderApp() {
     error,
     setError,
   } = useEditorSessionState();
+  const editorContextEpoch = useRef(0);
+  const pageContext = useRef(activePageId);
+  const viewerContext = useRef(viewerMode);
+  const setActivePageId = useCallback((id: string) => {
+    if (pageContext.current !== id) { pageContext.current = id; editorContextEpoch.current += 1; setIsLoading(false); }
+    updateActivePageIdState(id);
+  }, [updateActivePageIdState, setIsLoading]);
+  const setViewerMode = useCallback((value: boolean) => {
+    if (viewerContext.current !== value) { viewerContext.current = value; editorContextEpoch.current += 1; setIsLoading(false); }
+    updateViewerModeState(value);
+  }, [updateViewerModeState, setIsLoading]);
+  const getEditorContextVersion = useCallback(() => JSON.stringify([editorContextEpoch.current,getDocumentReplacementVersion()]), [getDocumentReplacementVersion]);
   const [activeProductMode, setActiveProductMode] =
     useState<WorkspaceProductMode>("story");
   const [guidedDataQuery, setGuidedDataQuery] = useState<
@@ -314,7 +331,7 @@ export default function BuilderApp() {
   }
   useEffect(() => {
     function handleCommand(event: KeyboardEvent) {
-      if (guidedDataQuery || event.defaultPrevented) return;
+      if (viewerMode || guidedDataQuery || event.defaultPrevented || (editorModalOwnsKeyboard(event) && !commandOpen)) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandOpen((current) => !current);
@@ -322,7 +339,7 @@ export default function BuilderApp() {
     }
     window.addEventListener("keydown", handleCommand);
     return () => window.removeEventListener("keydown", handleCommand);
-  }, [guidedDataQuery]);
+  }, [guidedDataQuery, commandOpen, viewerMode]);
   const reportRecords = workspace.reports.filter((report) => !report.archived);
   const workspaceLiveDatasetSources = useMemo<LiveDatasetSourceDescriptor[]>(
     () => [...(workspace.liveDatasetSources ?? [])],
@@ -586,83 +603,8 @@ export default function BuilderApp() {
   }
 
   function saveSelectedTileAnalyticalTemplate() {
-    if (!selectedTile || !selectedTileQuestion) return;
-
-    const tileTitle =
-      selectedTile.title.trim() || selectedTileQuestion.shortLabel;
-    const activeFilter = selectedTile.query.filters[0];
-    const activeFilterField = activeFilter
-      ? filterDimensions.find((item) => item.id === activeFilter.field)
-      : undefined;
-    const activeFilterValue =
-      activeFilterField && activeFilter
-        ? activeFilterField.values.find(
-            (item) => item.id === activeFilter.values[0],
-          )
-        : undefined;
-    const comparisonDatasetsLabel =
-      selectedTile.query.comparisonMode === "wave" &&
-      selectedTile.query.comparisonDatasets?.length
-        ? selectedTile.query.comparisonDatasets
-            .map(
-              (datasetId) =>
-                comparisonDatasetOptions.find((item) => item.id === datasetId)
-                  ?.label ?? datasetId,
-            )
-            .join(", ")
-        : "";
-    const fallbackSource = {
-      kind: "question" as const,
-      id: selectedTileQuestion.id,
-      label: selectedTileQuestion.shortLabel,
-    };
-    const source =
-      selectedTile.source?.kind === "variableSet"
-        ? {
-            kind: "variableSet" as const,
-            id: selectedTile.source.id,
-            label: selectedTile.source.label,
-          }
-        : selectedTile.source?.kind === "question"
-          ? {
-              kind: "question" as const,
-              id: selectedTile.source.id,
-              label: selectedTile.source.label,
-            }
-          : fallbackSource;
-    const nextTemplate: SavedAnalyticalTemplate = {
-      id: `analysis_template_${Date.now()}`,
-      datasetId: selectedTile.query.dataset,
-      label: `${tileTitle} template`,
-      description: `Saved analytical setup from tile: ${tileTitle}`,
-      source,
-      query: {
-        ...selectedTile.query,
-        chartType: selectedTile.visualization,
-        confidenceLevel: selectedTile.query.confidenceLevel ?? 0.95,
-      },
-      visualization: selectedTile.visualization,
-      summary: {
-        sourceLabel: source.label,
-        bannerLabel:
-          bannerDimensions.find(
-            (item) => item.id === selectedTile.query.breakBy,
-          )?.label ?? selectedTile.query.breakBy,
-        filterLabel:
-          activeFilter && activeFilter.values[0] !== "all"
-            ? `${activeFilterField?.label ?? activeFilter.field}: ${activeFilterValue?.label ?? activeFilter.values[0]}`
-            : "No filter",
-        weightLabel: selectedTile.query.weight
-          ? (defaultDataset.weights.find(
-              (item) => item.id === selectedTile.query.weight,
-            )?.label ?? selectedTile.query.weight)
-          : "Unweighted",
-        confidenceLabel: `${Math.round((selectedTile.query.confidenceLevel ?? 0.95) * 100)}% confidence`,
-        comparisonLabel: comparisonDatasetsLabel
-          ? `Wave comparison: ${comparisonDatasetsLabel}`
-          : "No wave comparison",
-      },
-    };
+    if (!selectedTile) return;
+    const nextTemplate = buildAnalyticalTemplateFromTile(selectedTile);
 
     setDashboard((current) => ({
       ...current,
@@ -698,6 +640,7 @@ export default function BuilderApp() {
   }
 
   function resetEditorForReport(nextDashboard: DashboardDraft) {
+    setError(null);
     setHistory([]);
     setFuture([]);
     setActivePageId(nextDashboard.pages[0]?.id ?? "page_overview");
@@ -973,7 +916,7 @@ export default function BuilderApp() {
     closePublishedReport,
   } = useBuilderDocumentSessionCommands({
     dashboard,
-    setDashboardState,
+    commitDashboardChange: setDashboardState,
     history,
     setHistory,
     future,
@@ -1149,12 +1092,17 @@ export default function BuilderApp() {
     createDerivedOutputFromDefinition,
     recreateDerivedOutputTile,
   } = useBuilderTileCommands({
+    documentId: activeReportId,
+    getContextVersion: getEditorContextVersion,
+    documentVersion: publishedSnapshot?.id,
+    readOnly: viewerMode,
     activePage,
     canvasScale,
     query,
     selectedQuestion,
     selectedVariableSet,
     savedVariableSets,
+    importedDatasets: workspaceImportedDatasets,
     selectedTile,
     selectedElement,
     setDashboard,
@@ -1212,8 +1160,11 @@ export default function BuilderApp() {
     fieldId: string,
     updates: Parameters<typeof updateWorkspaceImportedDatasetField>[3],
   ) {
+    editorContextEpoch.current += 1;
+    setIsLoading(false);
+    const currentWorkspace = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
     const nextWorkspace = updateWorkspaceImportedDatasetField(
-      workspace,
+      currentWorkspace,
       datasetId,
       fieldId,
       updates,
@@ -1224,22 +1175,26 @@ export default function BuilderApp() {
   }
 
   function removeImportedDataset(datasetId: string) {
-    setDashboard((current) => ({
-      ...current,
-      status: "draft",
-      importedDatasets: current.importedDatasets.filter(
-        (dataset) => dataset.id !== datasetId,
-      ),
-    }));
-    const nextWorkspace = removeWorkspaceImportedDataset(workspace, datasetId);
-    setWorkspace(nextWorkspace);
-    const saved = saveDashboardWorkspace(nextWorkspace);
-    setError(saved ? null : workspaceSaveFailureMessage);
+    try {
+      const editorBlocker = editorStudyRemovalBlocker(datasetId, history, future, isLoading);
+      if (editorBlocker) return editorBlocker;
+      // Include changes not yet reached by the autosave timer in the dependency
+      // check. A failed write retains the pre-removal state for backup/retry.
+      const currentWorkspace = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
+      const nextWorkspace = removeWorkspaceImportedDataset(currentWorkspace, datasetId);
+      if (!saveDashboardWorkspace(nextWorkspace, currentWorkspace)) return workspaceSaveFailureMessage;
+      setWorkspace(nextWorkspace);
+      // Workspace deletion is not a canvas edit. Preserve existing history but
+      // do not add an undo entry that could resurrect a removed embedded copy.
+      setDashboard(nextWorkspace.reports.find(report => report.id === activeReportId)!.draft, false);
+      setError(null);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "This study could not be removed. Its data has been kept.";
+    }
   }
 
   function openGuidedDataQuery(options?: GuidedDataQueryLaunchOptions) {
-    setLeftPanelView("data");
-    setExploreView("source");
     setGuidedDataQuery({
       ...options,
       outputMode: options?.outputMode ?? "table",
@@ -1342,6 +1297,14 @@ export default function BuilderApp() {
     const route = parseWorkspaceRoute();
     if (route.mode === "builder" && route.reportId && route.datasetId) window.history.replaceState(null, "", makeBuilderReportPath(route.reportId));
   }, []);
+  const revealCreatedAnalysis = useCallback(() => {
+    setActiveProductMode("story");
+    setLeftOpen(false);
+    setInspectorPinned(true);
+    // The originating field button may leave the DOM when Studies closes.
+    // Restore a stable keyboard destination after modal cleanup restores inert.
+    window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[aria-label="Create analysis"]')?.focus());
+  }, [setActiveProductMode]);
   const openPageDesignPanel = useCallback(() => {
     setSettingsView("page");
     setInspectorPinned(true);
@@ -1422,8 +1385,8 @@ export default function BuilderApp() {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       // Inert backgrounds still receive window-level keyboard events. Suspend
-      // canvas actions while Analyze owns focus; keep native dialog controls usable.
-      if (guidedDataQuery || event.defaultPrevented) return;
+      // canvas actions while any dialog owns focus; keep its controls usable.
+      if (viewerMode || guidedDataQuery || event.defaultPrevented || editorModalOwnsKeyboard(event)) return;
       const target = event.target as HTMLElement | null;
       const isEditingText =
         target?.tagName === "INPUT" ||
@@ -1498,7 +1461,7 @@ export default function BuilderApp() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dashboard, history, future, selectedTile, selectedElement, activePage, guidedDataQuery]);
+  }, [dashboard, history, future, selectedTile, selectedElement, activePage, guidedDataQuery, viewerMode]);
 
   if (viewerMode) {
     const viewerPath =
@@ -1719,7 +1682,7 @@ export default function BuilderApp() {
     },
     {
       id: "share",
-      label: "Publish a snapshot",
+      label: "Save a browser snapshot",
       group: "Deliver",
       run: publishDashboard,
     },
@@ -2028,7 +1991,8 @@ export default function BuilderApp() {
             <X size={17} />
           </button>
           <BuilderInspector
-            key={`${selectionKey ?? "page"}:${settingsView === "page" ? "page" : "object"}`}
+            key={JSON.stringify([activeReportId, activePage.id, selectionKey, settingsView === "page" ? "page" : "object"])}
+            getEditorContextVersion={getEditorContextVersion}
             outcomeMode={activeOutcomeMode.mode}
             outcomeLabel={activeOutcomeMode.label}
             outcomeHelper={activeOutcomeMode.helper}
@@ -2328,6 +2292,7 @@ export default function BuilderApp() {
             initialOutputMode={guidedDataQuery.outputMode}
             launchContext={guidedDataQuery}
             onClose={closeGuidedDataQuery}
+            onCreated={revealCreatedAnalysis}
           />
         </Suspense>
       )}

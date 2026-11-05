@@ -1,3 +1,4 @@
+import { analyticalCell } from "../../../shared/analytics/resultCells";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
 import { buildPageVisualSvg, dataUrlToBytes, renderPageVisualImages, type PageVisualImage, type SvgRasterizer } from "./pageVisualExport";
@@ -286,7 +287,7 @@ export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[])
           ...tile.result.table.map((row) => [
             row.label,
             tile.appearance.axisLabelOverrides[row.optionId] ?? row.label,
-            ...tile.result.columns.flatMap((column) => [row.values[column.id], row.bases[column.id]])
+            ...tile.result.columns.flatMap((column) => [analyticalCell(tile.result,row,column.id).value ?? "Unavailable", row.bases[column.id]])
           ])
         ]
       });

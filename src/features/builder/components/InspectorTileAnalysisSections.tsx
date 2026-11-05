@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
+import { useRef, useState } from "react";
+import { useInspectorQueryRequest, useInvalidatingQueryOption } from "../hooks/useInspectorQueryRequest";
 import type React from "react";
 import { rangeFill } from "../../design-system/DesignControls";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
@@ -611,29 +613,35 @@ function ImportedTileQueryEditor({
   tile,
   importedDatasets,
   updateSelectedTile,
-  isLoading
+  isLoading,
+  getEditorContextVersion,
 }: {
   tile: DashboardTile;
   importedDatasets: ImportedDatasetRecord[];
   updateSelectedTile: (updates: Partial<DashboardTile>) => void;
   isLoading: boolean;
+  getEditorContextVersion?: () => string | number;
 }) {
   const source = tile.result.metadataRefs.source?.kind === "imported" ? tile.result.metadataRefs.source : null;
   const initialDataset = source ? importedDatasets.find((dataset) => dataset.id === source.datasetId) ?? null : null;
-  const [datasetId, setDatasetId] = useState(source?.datasetId ?? initialDataset?.id ?? "");
+  const studies = useRef({value:importedDatasets,version:0});
+  if(studies.current.value!==importedDatasets) studies.current={value:importedDatasets,version:studies.current.version+1};
+  const request=useInspectorQueryRequest(JSON.stringify([tile.id,tile.query,tile.result.query,studies.current.version]),getEditorContextVersion);
+  const [datasetId, setDatasetId] = useInvalidatingQueryOption(source?.datasetId ?? initialDataset?.id ?? "",request.invalidate);
   const dataset = importedDatasets.find((item) => item.id === datasetId) ?? null;
-  const [primaryFieldId, setPrimaryFieldId] = useState(source?.primaryFieldId ?? dataset?.fields[0]?.id ?? "");
-  const [bannerFieldId, setBannerFieldId] = useState(source?.bannerFieldId ?? "none");
-  const [filterFieldId, setFilterFieldId] = useState(source?.filterFieldId ?? "none");
-  const [filterValue, setFilterValue] = useState<string | null>(source?.filterValue ?? null);
-  const [metric, setMetric] = useState<Metric>(tile.result.metric.id);
-  const [queryMode, setQueryMode] = useState<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical");
-  const [measureFieldId, setMeasureFieldId] = useState(source?.measureFieldId ?? "none");
-  const [chartType, setChartType] = useState<ChartType>(tile.visualization);
-  const [isUpdatingImportedResult, setIsUpdatingImportedResult] = useState(false);
-  const [importedUpdateError, setImportedUpdateError] = useState<string | null>(null);
+  const [primaryFieldId, setPrimaryFieldId] = useInvalidatingQueryOption(source?.groupingScope === "all_respondents" ? allRespondentsGroupingId : source?.primaryFieldId ?? "",request.invalidate);
+  const [bannerFieldId, setBannerFieldId] = useInvalidatingQueryOption(source?.bannerFieldId ?? "none",request.invalidate);
+  const [filterFieldId, setFilterFieldId] = useInvalidatingQueryOption(source?.filterFieldId ?? "none",request.invalidate);
+  const [filterValue, setFilterValue] = useInvalidatingQueryOption<string | null>(source?.filterValue ?? null,request.invalidate);
+  const [metric, setMetric] = useInvalidatingQueryOption<Metric>(tile.result.metric.id,request.invalidate);
+  const [queryMode, setQueryMode] = useInvalidatingQueryOption<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical",request.invalidate);
+  const [measureFieldId, setMeasureFieldId] = useInvalidatingQueryOption(source?.measureFieldId ?? "none",request.invalidate);
+  const [chartType, setChartType] = useInvalidatingQueryOption<ChartType>(tile.visualization,request.invalidate);
+  const isUpdatingImportedResult=request.busy,importedUpdateError=request.error;
   const primaryFields = importedExecutableFields(dataset);
-  const primaryField = primaryFields.find((field) => field.id === primaryFieldId) ?? null;
+  const groupingScope = primaryFieldId === allRespondentsGroupingId ? "all_respondents" as const : undefined;
+  const allRespondents = allRespondentsGroupingField(dataset);
+  const primaryField = groupingScope ? allRespondents : primaryFields.find((field) => field.id === primaryFieldId) ?? null;
   const measureOptions = importedMeasureFields(dataset);
   const measureField = measureOptions.find((field) => field.id === measureFieldId) ?? null;
   const bannerOptions = importedBannerFields(dataset, primaryField?.id ?? "");
@@ -649,7 +657,7 @@ function ImportedTileQueryEditor({
   const selectedChartType = (bannerField || queryMode === "measure") && chartType === "donut" ? "vertical_bar" : chartType;
   const filterChoiceSupport = getImportedFilterChoiceSupport(dataset);
   const selectionIssue = importedQuerySelectionIssue({
-    grouping: { id: primaryFieldId, fields: primaryFields },
+    grouping: { id: primaryFieldId, fields: [...primaryFields, allRespondents] },
     comparison: { id: bannerFieldId, fields: bannerOptions },
     filter: { id: filterFieldId, fields: filterOptions },
     ...(queryMode === "measure" ? { measure: { id: measureFieldId, fields: measureOptions } } : {}),
@@ -661,6 +669,7 @@ function ImportedTileQueryEditor({
     : filterField && filterValue === null
     ? { executable: false, reason: "Choose a filter value or select No filter." }
     : getImportedDatasetQuerySupport(dataset, primaryField, {
+    groupingScope,
     bannerField,
     filter,
     measureField: queryMode === "measure" ? measureField : null,
@@ -682,23 +691,26 @@ function ImportedTileQueryEditor({
 
   function changePrimaryField(nextFieldId: string) {
     setPrimaryFieldId(nextFieldId);
+    if (nextFieldId === allRespondentsGroupingId) { setQueryMode("measure"); setMetric("average"); }
     if (nextFieldId === bannerFieldId) setBannerFieldId("none");
   }
 
   async function applyImportedQuery() {
     if (!dataset || !primaryField || !canApply) return;
-    setImportedUpdateError(null);
-    setIsUpdatingImportedResult(true);
+    const operation=request.begin();
+    if(!operation)return;
     try {
       const result = await runImportedDatasetQueryForRuntime({
         dataset,
         field: primaryField,
+        groupingScope,
         measureField: queryMode === "measure" ? measureField : null,
         bannerField,
         filter,
         chartType: selectedChartType,
         metric: effectiveMetric
       });
+      if(!operation.isCurrent())return;
       const title = queryMode === "measure" && measureField
         ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${importedFieldDisplayLabel(measureField)} by ${importedFieldDisplayLabel(primaryField)}`
         : importedFieldDisplayLabel(primaryField);
@@ -717,9 +729,9 @@ function ImportedTileQueryEditor({
         result
       });
     } catch (error) {
-      setImportedUpdateError(error instanceof Error ? error.message : "Imported result update failed.");
+      operation.fail(error);
     } finally {
-      setIsUpdatingImportedResult(false);
+      operation.finish();
     }
   }
 
@@ -758,6 +770,7 @@ function ImportedTileQueryEditor({
           Group responses by
           <select value={primaryField?.id ?? ""} onChange={(event) => changePrimaryField(event.target.value)}>
             {!primaryField && <option value="" disabled>Choose an available grouping field...</option>}
+            <option value={allRespondentsGroupingId}>All respondents (numeric summary)</option>
             {primaryFields.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -1085,10 +1098,12 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
         </div>
         {queryStatus.isImported ? (
           <ImportedTileQueryEditor
+            key={JSON.stringify([tile.id,tile.result.query])}
             tile={tile}
             importedDatasets={props.importedDatasets}
             updateSelectedTile={updateSelectedTile}
             isLoading={isLoading}
+            getEditorContextVersion={props.getEditorContextVersion}
           />
         ) : (
           <TileQuestionConfigSection {...props} />

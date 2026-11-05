@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { createRequire } from "node:module";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../pageVisualExport", async original => ({ ...await original<typeof import("../pageVisualExport")>(), renderPageVisualImages: vi.fn() }));
-import { renderPageVisualImages } from "../pageVisualExport";
+import { buildPageVisualSvg, renderPageVisualImages } from "../pageVisualExport";
 import { buildPdfBlob, buildPptxBlob, buildXlsxBlob, exportCoreDocument } from "../coreDocumentExports";
 import { assertExportResultsCurrent, spreadsheetColumnName } from "../exportIntegrity";
-import { buildNativePptxChartDescriptor } from "../pptxNativeCharts";
+import { buildNativePptxChartDescriptor, canReconstructTileAsNativePptxChart } from "../pptxNativeCharts";
 import { buildDashboardExportSpec } from "../../builder/builderExportPackage";
 import { updateTileFilterValue } from "../../builder/components/inspectorTileQueryModel";
 import { initialDashboard } from "../../document/documentSeeds";
@@ -25,14 +25,14 @@ function document(result: AnalyticsQueryResponse): DashboardDraft {
   page.tiles[0].appearance.axisLabelOverrides = { [result.table[0].optionId]: "DISPLAY-OVERRIDE-SENTINEL" };
   draft.pages = [page]; return draft;
 }
-async function analysis(csv: string, metric: "sum" | "count") {
+async function analysis(csv: string, metric: "sum" | "count" | "average") {
   const bytes = new TextEncoder().encode(csv); const imported = await importDatasetBuffer(bytes.buffer, "synthetic.csv");
   if (!imported.dataset) throw new Error(imported.error ?? "Synthetic import failed");
   const dataset = imported.dataset;
   for (const field of dataset.fields) if (field.sourceColumn !== "Spend") Object.assign(field, { type: "categorical", modelingRole: "candidate_dimension", eligibleForFilter: true, eligibleForBanner: true });
   const field = (name: string) => dataset.fields.find(field => field.sourceColumn === name)!;
   return runImportedDatasetQuery({ dataset, field: field("Answer"), bannerField: field("Banner"), filter: { field: field("Region"), value: selected },
-    measureField: metric === "sum" ? field("Spend") : null, chartType: "grouped_bar", metric });
+    measureField: metric === "count" ? null : { ...field("Spend"), type: "numeric", modelingRole: "candidate_measure" }, chartType: "grouped_bar", metric });
 }
 async function wide() {
   let csv = "Answer,Banner,Region,Spend\n";
@@ -189,4 +189,52 @@ describe("data-preserving export integrity", () => {
     const spec = buildDashboardExportSpec(draft, draft.pages); save("fixed-presentation-package.json", JSON.stringify(spec, null, 2));
     expect(spec.slides[0].tiles[0].result.table).toEqual(tile.result.table);
   });
+});
+
+it("retains small nonzero calculated values in XLSX, native chart data and visual labels", async () => {
+  const result = await analysis(`Answer,Banner,Region,Spend\nA,Core,${selected},0.000001\nA,Core,${selected},0.000003\n`, "sum");
+  const draft = document(result), tile = draft.pages[0].tiles[0];
+  expect(result.table[0].values[result.columns[0].id]).toBe(0.000004);
+  const { parts, bytes } = await files(buildXlsxBlob(draft, draft.pages));
+  const data = rows(parts.get("xl/worksheets/sheet2.xml")!).find(row => row[0]?.value === "A")!;
+  expect(Number(data[2].value)).toBe(0.000004); expect(data[2].number).toBe(true);
+  const descriptor = buildNativePptxChartDescriptor(tile, 1, 101, "rId2");
+  expect(descriptor.chartXml).toContain("0.000004"); expect(descriptor.chartXml).toContain("4E-6");
+  expect(xml(descriptor.chartXml).getElementsByTagName("c:valAx")[0].getElementsByTagName("c:numFmt")[0].getAttribute("formatCode")).toBe("General");
+  const svg = buildPageVisualSvg(draft.pages[0]); expect(svg).toContain("4E-6"); expect(svg).toContain('data-value="0.000004"');
+  save('precise-numeric-summary.xlsx', bytes); save('precise-numeric-summary.svg',svg); save('precise-numeric-chart.xml',descriptor.chartXml);
+});
+
+it("exports unavailable means as nonnumeric cells and sparse chart gaps, with explicit JSON status", async () => {
+ const result=await analysis(`Answer,Banner,Region,Spend\nNegative,A,${selected},-10\nLower,A,${selected},-20\nMissing,A,${selected},invalid\nZero,A,${selected},0\nNegative,B,${selected},-5\n`,"average");
+ const order=["Negative","Missing","Lower","Zero"];result.table=order.map(label=>result.table.find(row=>row.label===label)!);
+ const draft=document(result),tile=draft.pages[0].tiles[0];tile.layout={x:20,y:20,width:1200,height:680,zIndex:1};tile.appearance.showValueLabels=false;
+ const {parts}=await files(buildXlsxBlob(draft,draft.pages));const data=rows(parts.get("xl/worksheets/sheet2.xml")!);
+ const missing=data.find(row=>row[0]?.value==="Missing")!;expect(missing.filter(cell=>cell.value==="Unavailable")).toHaveLength(2);expect(missing[2].number).toBe(false);expect(missing[3]).toMatchObject({value:"0",number:true});
+ const zero=data.find(row=>row[0]?.value==="Zero")!;expect(zero[2]).toMatchObject({value:"0",number:true});
+ const descriptor=buildNativePptxChartDescriptor(tile,1,101,"rId2"),chart=xml(descriptor.chartXml);
+ const caches=Array.from(chart.getElementsByTagName("c:val"));
+ expect(caches[0].getElementsByTagName("c:ptCount")[0].getAttribute("val")).toBe("4");
+ expect(Array.from(caches[0].getElementsByTagName("c:pt")).map(point=>point.getAttribute("idx"))).toEqual(["0","2","3"]);
+ expect(Array.from(caches[1].getElementsByTagName("c:pt")).map(point=>point.getAttribute("idx"))).toEqual(["0"]);
+ tile.visualization="line_chart";const svg=buildPageVisualSvg(draft.pages[0]);
+ const points=Array.from(svg.matchAll(/<circle data-row="([^"]+)" data-column="([^"]+)" data-value="([^"]+)"/g));expect(points).toHaveLength(4);expect(points.some(point=>point[1]===result.table[1].optionId)).toBe(false);
+ const lines=Array.from(svg.matchAll(/<polyline data-series="[^"]+" points="([^"]+)"/g));expect(lines).toHaveLength(1);expect(lines[0][1].split(" ")).toHaveLength(2);
+ tile.visualization="table";const tableSvg=buildPageVisualSvg(draft.pages[0]);expect(tableSvg).toContain("Unavailable");
+ const spec=buildDashboardExportSpec(draft,draft.pages), exported=spec.slides[0].tiles[0].result;
+ expect(exported.cellStatuses.find(row=>row.rowId===result.table[1].optionId)?.cells[result.columns[0].id]).toEqual({status:"no_observations",value:null});
+ expect(exported.table[1].values[result.columns[0].id]).toBe(0);
+ save("missing-means-chart.xml",descriptor.chartXml);save("missing-means-line.svg",svg);save("missing-means-table.svg",tableSvg);
+});
+
+it("keeps an explicit unavailable-chart message in PPTX raster fallback when all means are empty", async () => {
+ const result=await analysis(`Answer,Banner,Region,Spend\nMissing,A,${selected},invalid\nOther,B,${selected},invalid\n`,"average");
+ const draft=document(result),tile=draft.pages[0].tiles[0];tile.layout={x:20,y:20,width:1200,height:680,zIndex:1};
+ expect(canReconstructTileAsNativePptxChart(tile)).toBe(false);expect(buildPageVisualSvg(draft.pages[0])).toContain("Unavailable: no valid numeric observations.");
+});
+
+it("rejects legacy unverified numeric bases in XLSX rather than exporting them as sample sizes", async () => {
+ const result=await analysis(`Answer,Banner,Region,Spend\nA,Core,${selected},10\nB,Growth,${selected},20\n`,"average");
+ if(result.metadataRefs.source?.kind!=="imported")throw Error("Missing imported source");delete result.metadataRefs.source.measureBaseScope;
+ const draft=document(result);expect(()=>buildXlsxBlob(draft,draft.pages)).toThrow("cached numeric sample bases are unverified");
 });

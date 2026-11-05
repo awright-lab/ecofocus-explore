@@ -1,3 +1,4 @@
+import { analyticalCellStatuses } from "../../../shared/analytics/resultCells";
 import { resultInferenceLabel, withSafeInference } from "../../../shared/analytics/inferenceSafety";
 import { canvasHeight, canvasWidth } from "./builderConstants";
 import {
@@ -102,6 +103,7 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
               query: tile.result.query,
               columns: tile.result.columns,
               table: tile.result.table,
+              cellStatuses: analyticalCellStatuses(tile.result),
               notes: tile.result.notes,
               warnings: tile.result.warnings,
               annotations: tile.result.annotations

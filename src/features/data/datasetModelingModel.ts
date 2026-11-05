@@ -1,5 +1,5 @@
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
-import { buildImportedFieldSuitability } from "./importedDatasetAnalytics";
+import { buildImportedFieldSuitability, isImportedFieldAnalysisCandidate } from "./importedDatasetAnalytics";
 import { importedSurveyQuestionDisplayLabel } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetModelingHealth {
@@ -116,13 +116,21 @@ export function fieldCompletenessLabel(field: ImportedDatasetField) {
   return `${field.nonEmptyCount.toLocaleString()} populated · ${field.distinctCount.toLocaleString()} distinct`;
 }
 
+function canGroupImportedField(field: ImportedDatasetField) {
+  return isImportedFieldAnalysisCandidate(field) && (field.type === "categorical" || field.modelingRole === "candidate_dimension");
+}
+
+function canMeasureImportedField(field: ImportedDatasetField) {
+  return isImportedFieldAnalysisCandidate(field) && (field.type === "numeric" || field.modelingRole === "candidate_measure");
+}
+
 export function buildImportedDatasetStructureSummary(dataset: ImportedDatasetRecord | null | undefined) {
   const fields = dataset?.fields ?? [];
-  const dimensions = fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
-  const filters = fields.filter((field) => field.eligibleForFilter);
-  const segments = fields.filter((field) => field.eligibleForSegment);
-  const banners = fields.filter((field) => field.eligibleForBanner);
-  const measures = fields.filter((field) => field.type === "numeric" || field.modelingRole === "candidate_measure");
+  const dimensions = fields.filter(canGroupImportedField);
+  const filters = dimensions.filter((field) => field.eligibleForFilter);
+  const segments = dimensions.filter((field) => field.eligibleForSegment);
+  const banners = dimensions.filter((field) => field.eligibleForBanner);
+  const measures = fields.filter(canMeasureImportedField);
   const health = buildImportedDatasetModelingHealth(dataset);
 
   return {
@@ -143,9 +151,9 @@ export function buildImportedDatasetStructureSummary(dataset: ImportedDatasetRec
 
 export function describeFieldModeling(field: ImportedDatasetField) {
   const eligibility = [
-    field.eligibleForFilter ? "filter" : null,
-    field.eligibleForSegment ? "segment" : null,
-    field.eligibleForBanner ? "banner" : null
+    canGroupImportedField(field) && field.eligibleForFilter ? "filter" : null,
+    canGroupImportedField(field) && field.eligibleForSegment ? "segment" : null,
+    canGroupImportedField(field) && field.eligibleForBanner ? "banner" : null
   ].filter(Boolean);
 
   return {
@@ -160,12 +168,10 @@ export function describeFieldModeling(field: ImportedDatasetField) {
 export function buildImportedDatasetModelingHealth(dataset: ImportedDatasetRecord | null | undefined): ImportedDatasetModelingHealth {
   const fields = dataset?.fields ?? [];
   const suitabilityByField = fields.map((field) => buildImportedFieldSuitability(field));
-  const queryReadyDimensions = suitabilityByField.filter((suitability) =>
-    suitability.readiness.status === "ready_dimension" || suitability.readiness.status === "limited"
-  ).length;
+  const queryReadyDimensions = fields.filter((field) => canGroupImportedField(field) && field.nonEmptyCount > 0).length;
   const queryReadyMeasures = suitabilityByField.filter((suitability) => suitability.readiness.status === "ready_measure").length;
-  const bannerReadyFields = fields.filter((field) => field.eligibleForBanner && (field.type === "categorical" || field.modelingRole === "candidate_dimension")).length;
-  const filterReadyFields = fields.filter((field) => field.eligibleForFilter && (field.type === "categorical" || field.modelingRole === "candidate_dimension")).length;
+  const bannerReadyFields = fields.filter((field) => field.eligibleForBanner && canGroupImportedField(field)).length;
+  const filterReadyFields = fields.filter((field) => field.eligibleForFilter && canGroupImportedField(field)).length;
   const fieldsNeedingReview = suitabilityByField.filter((suitability) => {
     const tone = suitability.readiness.tone;
     return tone === "attention" || tone === "limited" || tone === "blocked";
@@ -218,15 +224,22 @@ export function buildImportedDatasetModelingHealth(dataset: ImportedDatasetRecor
 
 export function buildImportedFieldModelingProfile(field: ImportedDatasetField): ImportedFieldModelingProfile {
   const suitability = buildImportedFieldSuitability(field);
+  const isCandidate = isImportedFieldAnalysisCandidate(field);
   const isDimension = field.type === "categorical" || field.modelingRole === "candidate_dimension";
   const isMeasure = field.type === "numeric" || field.modelingRole === "candidate_measure";
   const isDate = field.type === "date" || field.modelingRole === "candidate_date";
-  const distinctValueSummary = field.distinctCount > 40
+  const distinctValueSummary = !isCandidate
+    ? `${field.distinctCount.toLocaleString()} distinct reference values; review before analytical use`
+    : isMeasure && !isDimension
+    ? `${field.distinctCount.toLocaleString()} distinct numeric values; uniqueness is expected for continuous measurements`
+    : field.distinctCount > 40
     ? `${field.distinctCount.toLocaleString()} distinct values · better for tables or recoding before charts`
     : field.distinctCount > 12
       ? `${field.distinctCount.toLocaleString()} distinct values · usable, but banner use may be noisy`
       : `${field.distinctCount.toLocaleString()} distinct values · compact enough for simple imported charts`;
-  const analyticalRoleSummary = isMeasure
+  const analyticalRoleSummary = !isCandidate
+    ? suitability.readiness.reason
+    : isMeasure
     ? "Modeled as a numeric measure for averages and sums."
     : isDimension
       ? "Modeled as a categorical dimension for grouping, filters, segments, and crosstabs."
@@ -234,9 +247,9 @@ export function buildImportedFieldModelingProfile(field: ImportedDatasetField): 
         ? "Modeled as a date/time field; imported date analysis is not supported yet."
         : "Still a raw imported field; choose a role before relying on it for analysis.";
   const structureSummary = [
-    field.eligibleForFilter ? "can filter results" : null,
-    field.eligibleForSegment ? "segment-ready" : null,
-    field.eligibleForBanner ? "can break out results" : null
+    canGroupImportedField(field) && field.eligibleForFilter ? "can filter results" : null,
+    canGroupImportedField(field) && field.eligibleForSegment ? "segment-ready" : null,
+    canGroupImportedField(field) && field.eligibleForBanner ? "can break out results" : null
   ].filter(Boolean).join(" · ") || "No filter/breakout structure enabled";
 
   return {
@@ -254,8 +267,8 @@ export function buildImportedFieldModelingProfile(field: ImportedDatasetField): 
       importedFieldRoleLabel(field.modelingRole),
       suitability.readiness.label,
       ...(field.valueLabels && Object.keys(field.valueLabels).length ? ["Value labels"] : []),
-      ...(isMeasure ? ["Measure aggregation"] : []),
-      ...(isDimension ? ["Grouping field"] : [])
+      ...(isCandidate && isMeasure ? ["Measure aggregation"] : []),
+      ...(isCandidate && isDimension ? ["Grouping field"] : [])
     ]
   };
 }

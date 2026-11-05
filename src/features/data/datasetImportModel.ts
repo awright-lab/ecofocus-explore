@@ -1,4 +1,5 @@
 import { parseImportedNumber } from "./importedNumericValue";
+import { createImportedStudyId } from "../../../shared/importedStudyId";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 
 export interface DatasetImportResult {
@@ -38,38 +39,47 @@ function humanizeHeader(value: string) {
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
-function datasetId(fileName: string) {
-  return `dataset_${slug(fileName.replace(/\.[^.]+$/, ""))}_${Date.now().toString(36)}`;
-}
-
 function parseCsv(text: string) {
   const rows: string[][] = [];
   let current = "";
   let row: string[] = [];
   let inQuotes = false;
+  let quoteClosed = false;
+  let record = 1;
+  function malformed(reason: string): never {
+    throw new Error(`CSV could not be read at record ${record}, column ${row.length + 1}: ${reason}. Check the quotes in the source file and import it again.`);
+  }
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
     const next = text[index + 1];
-    if (char === "\"" && inQuotes && next === "\"") {
-      current += "\"";
-      index += 1;
-    } else if (char === "\"") {
-      inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
+    if (inQuotes) {
+      if (char === "\"") {
+        if (next === "\"") { current += "\""; index += 1; }
+        else { inQuotes = false; quoteClosed = true; }
+      } else current += char;
+    } else if (char === ",") {
       row.push(current.trim());
       current = "";
-    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      quoteClosed = false;
+    } else if (char === "\n" || char === "\r") {
       if (char === "\r" && next === "\n") index += 1;
       row.push(current.trim());
       current = "";
       if (row.some((cell) => cell.length > 0)) rows.push(row);
       row = [];
+      quoteClosed = false;
+      record += 1;
+    } else if (char === "\"") {
+      if (quoteClosed || current.trim()) malformed("a quote appeared inside an unquoted field");
+      inQuotes = true;
     } else {
+      if (quoteClosed && char !== " " && char !== "\t") malformed("unexpected text followed a closing quote");
       current += char;
     }
   }
 
+  if (inQuotes) malformed("a quoted field was not closed");
   row.push(current.trim());
   if (row.some((cell) => cell.length > 0)) rows.push(row);
   return rows;
@@ -153,7 +163,7 @@ function buildDataset(file: DatasetBuildSource, fileType: ImportedDatasetRecord[
   const previewRows = selectRepresentativePreviewRows(rows, fields, 50);
 
   return {
-    id: datasetId(file.name),
+    id: createImportedStudyId(file.name),
     title: file.name.replace(/\.[^.]+$/, ""),
     sourceType: "local_file",
     fileName: file.name,
@@ -191,15 +201,33 @@ function selectRepresentativePreviewRows(
     .map((item) => item.row);
 }
 
-function normalizeMatrix(matrix: string[][]): { headers: string[]; rows: string[][] } | null {
+function normalizeMatrix(matrix: string[][]): { headers: string[]; rows: string[][]; headerNotes: string[] } | null {
   if (matrix.length < 2) return null;
   const headerIndex = matrix.findIndex((row) => row.some((cell) => cell.trim().length > 0));
   if (headerIndex < 0 || headerIndex >= matrix.length - 1) return null;
   const rawHeaders = matrix[headerIndex];
-  const width = Math.max(rawHeaders.length, ...matrix.slice(headerIndex + 1).map((row) => row.length));
-  const headers = Array.from({ length: width }, (_, index) => rawHeaders[index]?.trim() || `Column ${index + 1}`);
+  let width = rawHeaders.length;
+  for (let index = headerIndex + 1; index < matrix.length; index += 1) width = Math.max(width, matrix[index].length);
+  // Reserve authored names before naming duplicates/missing headers, so a
+  // generated name cannot take the identity of a later authored column.
+  const reserved = new Set(rawHeaders.map(header => header.trim()).filter(Boolean));
+  const used = new Set<string>();
+  const headerNotes: string[] = [];
+  const headers = Array.from({ length: width }, (_, index) => {
+    const authored = rawHeaders[index]?.trim() ?? "";
+    const base = authored || `Column ${index + 1}`;
+    let candidate = base;
+    if (used.has(candidate) || (!authored && reserved.has(candidate))) {
+      let suffix = 2;
+      while (used.has(`${base} (${suffix})`) || reserved.has(`${base} (${suffix})`)) suffix += 1;
+      candidate = `${base} (${suffix})`;
+    }
+    used.add(candidate);
+    if (candidate !== authored) headerNotes.push(`Column ${index + 1}: ${authored ? `duplicate header "${authored}"` : "missing header"} imported as "${candidate}" to preserve its values separately.`);
+    return candidate;
+  });
   const rows = matrix.slice(headerIndex + 1).map((row) => headers.map((_, index) => row[index]?.trim() ?? ""));
-  return { headers, rows };
+  return { headers, rows, headerNotes };
 }
 
 function parseCsvImport(text: string): ParsedTabularData | null {
@@ -210,10 +238,11 @@ function parseCsvImport(text: string): ParsedTabularData | null {
     metadata: {
       formatLabel: "CSV raw import",
       metadataQuality: "raw",
-      parserNotes: ["CSV provides column headers and row values, but no survey-native labels or value labels."]
+      parserNotes: ["CSV provides column headers and row values, but no survey-native labels or value labels.", ...normalized.headerNotes]
     },
     notes: [
       "Initial model inferred from imported CSV columns.",
+      ...normalized.headerNotes,
       "CSV is metadata-light; review labels, roles, filters, banners, and measures before deeper analysis."
     ]
   };
@@ -229,6 +258,22 @@ function readUint32(view: DataView, offset: number) {
 
 function decodeText(bytes: Uint8Array) {
   return new TextDecoder("utf-8").decode(bytes);
+}
+
+function decodeCsvText(bytes: Uint8Array) {
+  const guidance = "CSV text could not be decoded safely. Export the source file as UTF-8 CSV and import it again; no study was created.";
+  const utf32 = (bytes[0] === 0xff && bytes[1] === 0xfe && bytes[2] === 0 && bytes[3] === 0)
+    || (bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 0xfe && bytes[3] === 0xff);
+  if (utf32) throw new Error(guidance);
+  const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? "utf-16le"
+    : bytes[0] === 0xfe && bytes[1] === 0xff ? "utf-16be" : "utf-8";
+  let text: string;
+  try { text = new TextDecoder(encoding, { fatal: true }).decode(bytes); }
+  catch { throw new Error(guidance); }
+  // NUL often signals BOM-less UTF-16 or binary content. Do not guess an
+  // encoding, remove bytes, or replace malformed characters in analytical data.
+  if (text.includes("\0")) throw new Error(guidance);
+  return { text, encoding: encoding.toUpperCase() };
 }
 
 function decodeSavText(bytes: Uint8Array) {
@@ -366,11 +411,13 @@ async function parseXlsxImport(file: File): Promise<ParsedTabularData> {
       sheetName,
       parserNotes: [
         `Imported first worksheet: ${sheetName}.`,
+        ...normalized.headerNotes,
         "Workbook headers were preserved and converted into cleaner display labels where possible."
       ]
     },
     notes: [
       `Initial model inferred from XLSX worksheet "${sheetName}".`,
+      ...normalized.headerNotes,
       "XLSX is structured, but usually does not include survey-native value labels; review modeling before advanced analysis."
     ]
   };
@@ -662,8 +709,10 @@ export async function importDatasetBuffer(
 ): Promise<DatasetImportResult> {
   try {
     if (fileType === "csv") {
-      const parsed = parseCsvImport(decodeText(new Uint8Array(buffer)));
+      const decoded = decodeCsvText(new Uint8Array(buffer));
+      const parsed = parseCsvImport(decoded.text);
       if (!parsed) return { error: "CSV import needs a header row and at least one data row." };
+      parsed.metadata.parserNotes.push(`Decoded CSV text as ${decoded.encoding}.`);
       return { dataset: buildDataset({ name: fileName }, fileType, parsed) };
     }
 

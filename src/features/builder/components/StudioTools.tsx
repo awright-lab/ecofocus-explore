@@ -91,6 +91,8 @@ export function StudioCommandMenu({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Capture before the dialog input receives React autoFocus during commit.
+  const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [group, setGroup] = useState("All tools");
@@ -99,9 +101,8 @@ export function StudioCommandMenu({
     (group === "All tools" || command.group === group) && query.toLowerCase().trim().split(/\s+/).every((word) => `${command.label} ${command.group} ${command.shortcut ?? ""}`.toLowerCase().includes(word)),
   );
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     ref.current?.showModal();
-    return () => { if (previous?.isConnected) previous.focus(); };
+    return () => { if (opener.current?.isConnected) opener.current.focus(); };
   }, []);
   useEffect(() => {
     ref.current
@@ -211,8 +212,11 @@ export function StudioCommandMenu({
 
 export function StudioHelp({ onClose, actions = [] }: { onClose: () => void; actions?: StudioCommand[] }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Capture before the dialog input receives React autoFocus during commit.
+  const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   useEffect(() => {
     ref.current?.showModal();
+    return () => { if (opener.current?.isConnected) opener.current.focus(); };
   }, []);
   return (
     <dialog

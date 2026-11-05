@@ -2,7 +2,8 @@ import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
 import { encodeImportedRows } from "./workspaceRowStorage";
-import { assertConsistentSavedStudies, isSavedObject, readSavedStudies, type SavedWorkspaceFormat } from "./workspaceStorageValidation";
+import { importedStudyRemovalBlocker, draftImportedStudyReferences } from "./importedStudyUsage";
+import { assertConsistentSavedStudies, assertSavedReportIdentities, assertSavedCanvasIdentities, isSavedObject, readSavedStudies, type SavedWorkspaceFormat } from "./workspaceStorageValidation";
 import type {
   DatasetConnectionProfile,
   DatasetConnectionVerificationReport,
@@ -17,6 +18,7 @@ export const legacyWorkspaceStorageKey = "insightcanvas_report_workspace_v1";
 export const workspaceStorageKey = "insightcanvas_report_workspace_v2";
 
 export type WorkspaceRoute =
+  | { mode: "invalid"; reportId: null }
   | { mode: "home"; reportId: null }
   | { mode: "builder"; reportId: string | null; datasetId?: string }
   | { mode: "published"; reportId: string | null; snapshotId: string | null };
@@ -43,9 +45,15 @@ export function makeBuilderReportPath(reportId: string) {
 
 export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute {
   const [path, query] = hash.replace(/^#\/?/, "").split("?");
-  const parts = path.split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+  const segments = path.split("/");
+  if (segments.at(-1) === "") segments.pop(); // Accept one conventional trailing slash.
+  if (segments.some(part => !part)) return { mode: "invalid", reportId: null };
+  let parts: string[];
+  try { parts = segments.map((part) => decodeURIComponent(part)); }
+  catch { return { mode: "invalid", reportId: null }; }
 
   if (parts[0] === "published") {
+    if (parts.length !== 3) return { mode: "invalid", reportId: null };
     return {
       mode: "published",
       reportId: parts[1] ?? null,
@@ -54,6 +62,7 @@ export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute
   }
 
   if (parts[0] === "reports") {
+    if (parts.length > 2) return { mode: "invalid", reportId: null };
     const datasetId = new URLSearchParams(query).get("study");
     return {
       mode: "builder",
@@ -62,7 +71,7 @@ export function parseWorkspaceRoute(hash = window.location.hash): WorkspaceRoute
     };
   }
 
-  return { mode: "home", reportId: null };
+  return parts.length ? { mode: "invalid", reportId: null } : { mode: "home", reportId: null };
 }
 
 function cloneDashboard(dashboard: DashboardDraft): DashboardDraft {
@@ -108,9 +117,11 @@ function migrateLegacyDashboard(): DashboardWorkspace | null {
   const savedDashboard = window.localStorage.getItem(storageKey);
   if (savedDashboard === null) return null;
   const parsed: unknown = JSON.parse(savedDashboard);
-  const dashboard = normalizeDashboard(readSavedDashboard(parsed, "v1"));
+  const savedDraft = readSavedDashboard(parsed, "v1");
+  assertSavedReportIdentities([{ id: savedDraft.id, draft: savedDraft }], "v1");
+  const dashboard = normalizeDashboard(savedDraft);
   const report = createReportRecord(dashboard);
-  return {
+  return normalizeDashboardWorkspace({
     id: "local_workspace",
     label: "InsightCanvas Workspace",
     activeReportId: report.id,
@@ -119,7 +130,7 @@ function migrateLegacyDashboard(): DashboardWorkspace | null {
     importedDatasets: dashboard.importedDatasets,
     reports: [report],
     publishedSnapshots: []
-  };
+  });
 }
 
 function readSavedDashboard(value: unknown, format: SavedWorkspaceFormat): DashboardDraft {
@@ -127,11 +138,18 @@ function readSavedDashboard(value: unknown, format: SavedWorkspaceFormat): Dashb
       !value.pages.every((page) => isSavedObject(page) && Array.isArray(page.elements) && Array.isArray(page.tiles))) {
     throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
   }
+  assertSavedCanvasIdentities(value.pages as Array<Record<string, unknown>>);
   if (format === "v2" && (typeof value.id !== "string" || typeof value.title !== "string" ||
       !["draft", "published"].includes(value.status as string))) {
     throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
   }
-  return { ...value, importedDatasets: readSavedStudies(value.importedDatasets, format) } as unknown as DashboardDraft;
+  if (format === "v1" && ((value.title != null && typeof value.title !== "string") ||
+      (value.status != null && !["draft", "published"].includes(value.status as string)))) {
+    throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
+  }
+  return { ...value,
+    ...(format === "v1" ? { title: value.title ?? "Untitled report", status: value.status ?? "draft" } : {}),
+    importedDatasets: readSavedStudies(value.importedDatasets, format) } as unknown as DashboardDraft;
 }
 
 function parseSavedWorkspace(raw: string, format: SavedWorkspaceFormat): DashboardWorkspace {
@@ -144,16 +162,23 @@ function parseSavedWorkspace(raw: string, format: SavedWorkspaceFormat): Dashboa
       throw new Error("The saved workspace is incomplete or damaged. Your saved data has not been changed.");
     }
   }
+  if (format === "v1" && ["id", "label", "activeReportId"].some((key) => parsed[key] != null && typeof parsed[key] !== "string")) {
+    throw new Error("The saved workspace is incomplete or damaged. Your saved data has not been changed.");
+  }
   if (format === "v2" && !["id", "label", "activeReportId"].every((key) => typeof parsed[key] === "string")) {
     throw new Error("The saved workspace is incomplete or damaged. Your saved data has not been changed.");
   }
   const reports = parsed.reports.map((report) => {
     if (!isSavedObject(report)) throw new Error("The saved report is damaged.");
+    if (format === "v1" && ["title", "createdAt", "updatedAt", "lastOpenedAt"].some((key) => report[key] != null && typeof report[key] !== "string")) {
+      throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
+    }
     if (format === "v2" && !["id", "title", "createdAt", "updatedAt", "lastOpenedAt"].every((key) => typeof report[key] === "string")) {
       throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");
     }
     return { ...report, draft: readSavedDashboard(report.draft, format) };
   });
+  assertSavedReportIdentities(reports, format);
   const publishedSnapshots = ((parsed.publishedSnapshots ?? []) as Array<Record<string, unknown>>).map((snapshot) => ({
     ...snapshot, dashboard: readSavedDashboard(snapshot.dashboard, format)
   }));
@@ -307,9 +332,16 @@ export function upsertWorkspaceImportedDataset(workspace: DashboardWorkspace, da
 }
 
 export function removeWorkspaceImportedDataset(workspace: DashboardWorkspace, datasetId: string): DashboardWorkspace {
+  const blocker = importedStudyRemovalBlocker(workspace, datasetId);
+  if (blocker) throw new Error(blocker);
   return {
     ...workspace,
-    importedDatasets: workspace.importedDatasets.filter((dataset) => dataset.id !== datasetId)
+    importedDatasets: workspace.importedDatasets.filter((dataset) => dataset.id !== datasetId),
+    // Remove unused embedded draft copies too, or normalization resurrects the
+    // removed library entry on save/reopen. Snapshot copies remain historical.
+    reports: workspace.reports.map(report => ({ ...report, draft: { ...report.draft,
+      importedDatasets: report.draft.importedDatasets.filter(dataset => dataset.id !== datasetId),
+    } })),
   };
 }
 
@@ -619,12 +651,7 @@ export function createPublishedSnapshot(
   const versionLabel = `v${publishCount}`;
   const snapshotId = makeId("snapshot");
   const viewerPath = makePublishedViewerPath(dashboard.id, snapshotId);
-  const referencedStudies = new Set(dashboard.pages.flatMap((page) => page.tiles.flatMap((tile) => {
-    const source = tile.result.metadataRefs.source;
-    const querySource = tile.query.sourceIdentity;
-    return [tile.source?.datasetId, source?.kind === "imported" ? source.datasetId : undefined,
-      querySource?.kind === "imported" ? querySource.datasetId : undefined].filter((id): id is string => Boolean(id));
-  })));
+  const referencedStudies = new Set(draftImportedStudyReferences(dashboard).map(reference => reference.datasetId));
   const publishedDashboard = normalizeDashboard({
     ...cloneDashboard({
       ...dashboard,

@@ -161,3 +161,36 @@ pdf.close();print(json.dumps(outcomes))
       plotArea: analysisVisualLayout(p.tiles[0]).area })), null, 2));
   }, 30000);
 });
+
+it.each(["vertical_bar", "horizontal_bar", "grouped_bar", "stacked_bar", "line_chart"] as const)("preserves numeric geometry for tiny signed values in %s", async kind => {
+  const fixture = await page("tiny-geometry", 2, 1, kind, false, true);
+  const before = buildPageVisualSvg(fixture);
+  const scaled = structuredClone(fixture), result = scaled.tiles[0].result;
+  result.table.forEach(row => result.columns.forEach(column => { row.values[column.id] *= 1e-8; }));
+  result.series.forEach(series => { series.values = series.values.map(value => value * 1e-8); });
+  const after = buildPageVisualSvg(scaled);
+  const geometry = (svg: string) => kind === "line_chart"
+    ? [...svg.matchAll(/<circle data-row=.*? cx="([^"]+)" cy="([^"]+)"/g)].map(match => [Number(match[1]),Number(match[2])])
+    : [...svg.matchAll(/<g data-row=.*?<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g)].map(match => match.slice(1).map(Number));
+  const original = geometry(before), precise = geometry(after);
+  expect(original).toHaveLength(2); expect(precise).toHaveLength(2);
+  original.forEach((coordinates,index) => coordinates.forEach((coordinate,n) => expect(precise[index][n]).toBeCloseTo(coordinate,8)));
+  expect(after).not.toContain("NaN"); expect(after).not.toContain("Infinity");
+});
+it("refuses an unrepresentable signed chart range instead of exporting invalid geometry", async () => {
+  const fixture = await page("overflow-range", 2, 1, "vertical_bar", false, true), result = fixture.tiles[0].result;
+  result.table[0].values[result.columns[0].id] = -1e308; result.table[1].values[result.columns[0].id] = 1e308;
+  expect(() => buildPageVisualSvg(fixture)).toThrow("cannot be rendered safely");
+});
+
+it.each(["vertical_bar", "line_chart"] as const)("renders finite zero and negative-only domains for %s", async kind => {
+  for (const negative of [false,true]) {
+    const fixture=await page("bounded-domain",2,1,kind), result=fixture.tiles[0].result;
+    result.table.forEach((row,index)=>{ row.values[result.columns[0].id]=negative ? -(index+1)*1e-6 : 0; });
+    const svg=buildPageVisualSvg(fixture); expect(svg).not.toContain("NaN"); expect(svg).not.toContain("Infinity");
+    if(kind==="vertical_bar") {
+      const heights=[...svg.matchAll(/<g data-row=.*?<rect x="[^"]+" y="[^"]+" width="[^"]+" height="([^"]+)"/g)].map(match=>Number(match[1]));
+      expect(heights).toHaveLength(2); if(negative) expect(heights[1]).toBeGreaterThan(100); else expect(heights).toEqual([0,0]);
+    } else expect([...svg.matchAll(/<circle data-row=/g)]).toHaveLength(2);
+  }
+});

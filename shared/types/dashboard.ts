@@ -343,11 +343,7 @@ export interface SavedAnalyticalTemplate {
   datasetId: DatasetId;
   label: string;
   description: string;
-  source: {
-    kind: "question" | "variableSet";
-    id: string;
-    label: string;
-  };
+  source: NonNullable<DashboardTile["source"]>;
   query: AnalyticsQueryRequest;
   visualization: ChartType;
   summary: {

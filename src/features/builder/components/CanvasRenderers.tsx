@@ -1,5 +1,7 @@
+import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
+import { supportsDonutResult } from "../../analytics/analyticsDisplay";
+export { getCompatibleChartTypes, supportsDonutResult } from "../../analytics/analyticsDisplay";
 import { resultInferenceLabel, withSafeInference } from "../../../../shared/analytics/inferenceSafety";
-import { getQuestionMetadata } from "../../../../shared/metadata/ecofocus2025";
 import { memo, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import {
@@ -154,11 +156,12 @@ type ValueLabelFormatOptions = {
 };
 
 export function formatValue(
-  value: number,
+  value: number | null,
   format: AnalyticsQueryResponse["metric"]["valueFormat"],
   metricId?: AnalyticsQueryResponse["metric"]["id"],
   options: ValueLabelFormatOptions = {},
 ) {
+  if (value === null || !Number.isFinite(value)) return "Unavailable";
   if (format === "percent") {
     const decimals = options.percentDecimals ?? 0;
     const factor = 10 ** decimals;
@@ -208,7 +211,7 @@ function chartYAxisProps(result: AnalyticsQueryResponse, values: number[]) {
 
 function resultColumnValues(result: AnalyticsQueryResponse) {
   return result.table.flatMap((row) =>
-    result.columns.map((column) => Number(row.values[column.id] ?? 0)),
+    result.columns.map((column) => analyticalCell(result,row,column.id).value).filter((value): value is number => value !== null),
   );
 }
 
@@ -369,30 +372,6 @@ export const gradientStylePresets = [
     positions: [0, 25, 60, 100],
   },
 ];
-
-export function supportsDonutResult(result: AnalyticsQueryResponse) {
-  if (result.columns.length !== 1) return false;
-  const exclusive = result.query.sourceIdentity?.kind === "imported" ||
-    getQuestionMetadata(result.query.dataset, result.query.question)?.type === "single_select";
-  if (!exclusive || (result.metric.valueFormat === "number" && result.metric.id !== "count")) return false;
-  const values = result.table.map(row => row.values[result.columns[0].id]);
-  if (!values.every(value => Number.isFinite(value) && value >= 0)) return false;
-  const total = values.reduce((sum, value) => sum + value, 0);
-  // Imported percentages may already be rounded to one decimal place. Permit
-  // only their maximum aggregate rounding error, not an incomplete partition.
-  return result.metric.valueFormat === "percent" ? Math.abs(total - 100) <= 0.05 * values.length + 1e-8 : total > 0;
-}
-
-export function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
-  const isSingleSeries = result.columns.length === 1;
-  const chartTypes: ChartType[] = isSingleSeries
-    ? ["table", "vertical_bar", "horizontal_bar", "donut"]
-    : ["table", "grouped_bar", "stacked_bar", "line_chart"];
-  return chartTypes.filter((chartType) =>
-    defaultDataset.chartTypes.some((item) => item.id === chartType) &&
-    (chartType !== "donut" || supportsDonutResult(result)),
-  );
-}
 
 export function defaultVisualizationForQuestion(
   questionMetadata: (typeof defaultDataset.questions)[number],
@@ -598,7 +577,7 @@ export function ValueLabel(props: {
 }) {
   const { payload, result, appearance } = props;
 
-  if (!appearance.showValueLabels) return null;
+  if (!appearance.showValueLabels || props.value == null || !Number.isFinite(Number(props.value))) return null;
 
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
@@ -657,7 +636,7 @@ export function HorizontalValueLabel(props: {
 }) {
   const { result, appearance } = props;
 
-  if (!appearance.showValueLabels) return null;
+  if (!appearance.showValueLabels || props.value == null || !Number.isFinite(Number(props.value))) return null;
 
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
@@ -807,7 +786,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    value: row.values[column.id],
+    value: analyticalCell(result,row,column.id).value,
     base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
   }));
   const yAxisProps = chartYAxisProps(
@@ -882,7 +861,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -953,7 +932,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values,
+    ...analyticalRowValues(result,row),
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
@@ -1024,7 +1003,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1103,7 +1082,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    value: row.values[column.id],
+    value: analyticalCell(result,row,column.id).value,
     base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
   }));
   const xAxisProps = chartYAxisProps(
@@ -1190,7 +1169,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1251,7 +1230,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values,
+    ...analyticalRowValues(result,row),
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
@@ -1321,7 +1300,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1375,7 +1354,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values,
+    ...analyticalRowValues(result,row),
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
@@ -1428,7 +1407,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1473,7 +1452,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
   const chartData = result.table.map((row, index) => ({
     optionId: row.optionId,
     name: getAxisLabel(appearance, row.optionId, row.label),
-    value: row.values[column.id],
+    value: analyticalCell(result,row,column.id).value,
     fill: getBarStyle(
       appearance,
       row.optionId,
@@ -1503,7 +1482,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
                 cursor={false}
                 formatter={(value) => [
                   formatValue(
-                    Number(value ?? 0),
+                    value == null ? null : Number(value),
                     result.metric.valueFormat,
                     result.metric.id,
                     valueLabelFormatOptions(appearance),
@@ -1646,7 +1625,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                             }
                           >
                             {formatValue(
-                              row.values[column.id],
+                              analyticalCell(result,row,column.id).value,
                               result.metric.valueFormat,
                               result.metric.id,
                             )}
@@ -1721,6 +1700,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 export function ChartView({ tile }: { tile: DashboardTile }) {
   tile = { ...tile, result: withSafeInference(tile.result) };
   if (tile.visualization === "table") return <TableView tile={tile} />;
+  if (!resultColumnValues(tile.result).length) return <p role="status">Unavailable: no verified numeric observations. Rerun the analysis or review its source values.</p>;
   if (tile.visualization === "vertical_bar")
     return <VerticalBarChartView tile={tile} />;
   if (tile.visualization === "horizontal_bar")

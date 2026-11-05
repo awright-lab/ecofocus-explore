@@ -77,6 +77,58 @@ function compactRemote(dataset:ImportedDatasetRecord):ImportedDatasetRecord {
  return {...dataset,rows:[],previewRows:dataset.rows.slice(0,1),remote:{provider:'netlify',projectUrl:'',bucket:'',objectPath:'synthetic.csv',uploadedAt:dataset.importedAt}};
 }
 
+it('preserves the current analytical result when a remote update returns another study',async()=>{
+ const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,North\n'),tile=inspectorTile(dataset),before=structuredClone(tile),update=vi.fn();
+ const response=structuredClone(tile.result);if(response.query.sourceIdentity?.kind!=='imported')throw Error('fixture');response.query.sourceIdentity.datasetId='wrong-study';
+ vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(response),{status:200,headers:{'Content-Type':'application/json'}}));
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[compactRemote(dataset)],update)}/>));
+ expect(button('Update imported result').disabled).toBe(false);await act(async()=>button('Update imported result').click());
+ expect(host.textContent).toContain('incomplete or mismatched result');expect(update).not.toHaveBeenCalled();expect(tile).toEqual(before);expect(button('Update imported result').disabled).toBe(false);
+});
+
+it.each(['close panel','replace result'] as const)('ignores a pending imported update after %s',async(action)=>{
+ const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,North\n'),tile=inspectorTile(dataset),update=vi.fn();let resolve!:(value:Response)=>void;
+ vi.mocked(fetch).mockImplementation(()=>new Promise<Response>(done=>{resolve=done;}));await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[compactRemote(dataset)],update)}/>));await act(async()=>button('Update imported result').click());
+ const replacement=await csv('Answer,Region\nOther,West\nOther,West\n'),nextTile={...inspectorTile(replacement),id:tile.id},nextUpdate=vi.fn();
+ await act(async()=>root.render(action==='close panel'?<div>Panel closed</div>:<TileAnalysisQuerySection {...inspectorProps(nextTile,[compactRemote(dataset),compactRemote(replacement)],nextUpdate)}/>));
+ await act(async()=>resolve(new Response(JSON.stringify(tile.result),{status:200,headers:{'Content-Type':'application/json'}})));
+ expect(update).not.toHaveBeenCalled();expect(nextUpdate).not.toHaveBeenCalled();if(action==='replace result')expect(select('Dataset').value).toBe(replacement.id);
+});
+it('does not apply an old query after the user changes its result options',async()=>{
+ const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,North\n'),tile=inspectorTile(dataset),update=vi.fn();let resolve!:(value:Response)=>void;
+ vi.mocked(fetch).mockImplementation(()=>new Promise<Response>(done=>{resolve=done;}));await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[compactRemote(dataset)],update)}/>));await act(async()=>button('Update imported result').click());
+ await change('Result values','percent_selected');await act(async()=>resolve(new Response(JSON.stringify(tile.result),{status:200,headers:{'Content-Type':'application/json'}})));
+ expect(update).not.toHaveBeenCalled();expect(select('Result values').value).toBe('percent_selected');expect(button('Update imported result').disabled).toBe(false);
+});
+it('drops a pending imported update after an immediate editor context change without needing a render',async()=>{
+ const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,North\n'),tile=inspectorTile(dataset),update=vi.fn();let resolve!:(value:Response)=>void,version=0;
+ vi.mocked(fetch).mockImplementation(()=>new Promise<Response>(done=>{resolve=done;}));const props={...inspectorProps(tile,[compactRemote(dataset)],update),getEditorContextVersion:()=>version};
+ await act(async()=>root.render(<TileAnalysisQuerySection {...props}/>));await act(async()=>button('Update imported result').click());
+ await act(async()=>{version+=2;resolve(new Response(JSON.stringify(tile.result),{status:200,headers:{'Content-Type':'application/json'}}));});
+ expect(update).not.toHaveBeenCalled();expect(button('Update imported result').disabled).toBe(false);
+});
+it.each(['success','failure'] as const)('keeps a newer imported request running when an obsolete request ends with %s',async(outcome)=>{
+ const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,North\n'),tile=inspectorTile(dataset),update=vi.fn(),pending:Array<{resolve:(value:Response)=>void;reject:(error:Error)=>void}>=[];
+ vi.mocked(fetch).mockImplementation(()=>new Promise<Response>((resolve,reject)=>pending.push({resolve,reject})));await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[compactRemote(dataset)],update)}/>));
+ await act(async()=>button('Update imported result').click());await change('Result values','percent_selected');await act(async()=>button('Update imported result').click());expect(pending).toHaveLength(2);
+ await act(async()=>{if(outcome==='success')pending[0].resolve(new Response(JSON.stringify(tile.result),{status:200}));else pending[0].reject(new Error('Obsolete imported error'));});
+ expect(update).not.toHaveBeenCalled();expect(button('Updating...').disabled).toBe(true);expect(host.textContent).not.toContain('Obsolete imported error');
+ const latest=runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:'percent_selected',chartType:'table'});await act(async()=>pending[1].resolve(new Response(JSON.stringify(latest),{status:200})));
+ expect(update).toHaveBeenCalledOnce();expect(update.mock.calls[0][0].result.metric.id).toBe('percent_selected');expect(button('Update imported result').disabled).toBe(false);
+});
+it('invalidates a pending imported edit even when its options change back before React rerenders',async()=>{
+ const dataset=await csv('Answer\nYes\nNo\nYes\n'),tile=inspectorTile(dataset),update=vi.fn();let resolve!:(value:Response)=>void;
+ vi.mocked(fetch).mockImplementation(()=>new Promise<Response>(done=>{resolve=done;}));await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[compactRemote(dataset)],update)}/>));await act(async()=>button('Update imported result').click());
+ const metric=select('Result values');await act(async()=>{metric.value='percent_selected';metric.dispatchEvent(new Event('change',{bubbles:true}));metric.value='count';metric.dispatchEvent(new Event('change',{bubbles:true}));resolve(new Response(JSON.stringify(tile.result),{status:200}));});
+ expect(update).not.toHaveBeenCalled();expect(select('Result values').value).toBe('count');expect(button('Update imported result').disabled).toBe(false);
+});
+it('requires an explicit replacement when a saved imported result is missing its grouping identity',async()=>{
+ const dataset=await csv('Answer,Region\nYes,North\nNo,South\n'),tile=inspectorTile(dataset),update=vi.fn(),source=tile.result.metadataRefs.source;
+ if(source?.kind!=='imported')throw Error('fixture');delete (source as Partial<typeof source>).primaryFieldId;
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[dataset],update)}/>));expect(select('Group responses by').value).toBe('');expect(button('Update imported result').disabled).toBe(true);expect(update).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+ await change('Group responses by',dataset.fields[0].id);expect(button('Update imported result').disabled).toBe(false);
+});
+
 it.each(['grouping', 'comparison', 'filter', 'numeric'] as const)('preserves a saved result when its %s field is unavailable', async (role) => {
  const dataset=await csv('Answer,Region,Spend\nYes,North,10\nNo,South,20\nYes,South,30\n');
  const removed=role==='grouping'?dataset.fields[0]:role==='numeric'?dataset.fields[2]:dataset.fields[1];
@@ -204,4 +256,169 @@ it('renders corrected numeric cell bases and suppresses unverified legacy sample
  await act(async()=>root.render(<TileRenderer tile={tile} selected={false} onSelect={noop} onTitleChange={noop} onTitleAppearanceChange={noop}/>));expect(host.textContent).toContain('Base 2');expect(host.textContent).toContain('Base 4');expect(host.textContent).not.toContain('Base 6');
  const legacy=structuredClone(tile);const source=legacy.result.metadataRefs.source;if(source?.kind!=='imported')throw new Error('Expected imported source');delete source.measureBaseScope;legacy.result.table.forEach(row=>{row.bases.summary=6;});legacy.result.series.forEach(series=>{series.bases=[6];});const before=structuredClone(legacy);
  await act(async()=>root.render(<TileRenderer tile={legacy} selected={false} onSelect={noop} onTitleChange={noop} onTitleAppearanceChange={noop}/>));expect(host.textContent).not.toContain('Base 6');expect(host.textContent).toContain('Base unavailable; rerun');expect(host.textContent).toContain('Sample bases need refresh');expect(legacy).toEqual(before);
+});
+
+it('uses an existing-ID categorical modeling snapshot instead of older numeric metadata',async()=>{
+ const dataset=await csv('Answer,Spend\nYes,10\nNo,20\nYes,10\n'),before=structuredClone(dataset),create=vi.fn(async()=> 'tile');
+ const modeled={...dataset.fields[1],type:'categorical' as const,modelingRole:'candidate_dimension' as const,label:'Spending bands'};
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:modeled.id,importedFieldSnapshot:modeled}} onClose={()=>{}}/>));
+ expect(select('Group responses by').value).toBe(modeled.id);expect(button('Create table').disabled).toBe(false);
+ await change('Result values','count');await act(async()=>button('Create table').click());
+ const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number], 'table','count',{}];
+ expect(args[0].fields.filter(field=>field.id===modeled.id)).toEqual([modeled]);expect(args[1]).toEqual(modeled);
+ const result=runImportedDatasetQuery({dataset:args[0],field:args[1],chartType:args[2],metric:args[3],...args[4]});
+ expect(result.table.map(row=>[row.label,row.values.summary])).toEqual([['10',2],['20',1]]);expect(dataset).toEqual(before);
+});
+
+it('uses an existing-ID numeric modeling snapshot for the selected measure',async()=>{
+ const parsed=await csv('Answer,Spend\nYes,10\nNo,20\nYes,30\n');
+ const modeled={...parsed.fields[1],type:'numeric' as const,modelingRole:'candidate_measure' as const,label:'Amount spent'};
+ const dataset={...parsed,fields:parsed.fields.map(field=>field.id===modeled.id?{...field,type:'text' as const,modelingRole:'raw_variable' as const}:field)},before=structuredClone(dataset),create=vi.fn(async()=> 'tile');
+ const other=await csv('Answer,OtherAmount\nYes,40\nNo,60\n','other.csv');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset,other],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:modeled.id,importedFieldSnapshot:modeled}} onClose={()=>{}}/>));
+ expect(button('Create table').disabled).toBe(false);
+ await change('Imported dataset',other.id);expect(select('Number to summarize').selectedOptions[0].textContent).not.toBe('Amount spent');
+ await change('Imported dataset',dataset.id);expect(select('Number to summarize').value).toBe(modeled.id);
+ expect(button('Create table').disabled).toBe(false);
+ await act(async()=>button('Create table').click());
+ const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number], 'table','average',{measureField:ImportedDatasetRecord['fields'][number]}];
+ expect(args[4].measureField).toEqual(modeled);expect(args[3]).toBe('average');
+ expect(runImportedDatasetQuery({dataset:args[0],field:args[1],chartType:args[2],metric:args[3],...args[4]}).table.map(row=>[row.label,row.values.summary])).toEqual([['Yes',20],['No',20]]);
+ expect(dataset).toEqual(before);
+});
+
+it('clears blocked constraints after explicitly switching to a different study',async()=>{
+ const first=await csv('Answer,Region\nYes,North\nNo,South\n','first.csv'),second=await csv('Answer,Region\nYes,East\nYes,West\n','second.csv'),create=vi.fn(async()=> 'tile');
+ const render=(value:ImportedDatasetRecord)=><GuidedDataQueryModal props={minimumProps([value,second],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>;
+ await act(async()=>root.render(render(first)));await change('Limit to',first.fields[1].id);await change('Keep responses where','North');
+ await act(async()=>root.render(render({...first,fields:first.fields.slice(0,1)})));expect(button('Create table').disabled).toBe(true);
+ await change('Imported dataset',second.id);expect(select('Limit to').value).toBe('none');expect(button('Create table').disabled).toBe(false);
+ await act(async()=>button('Create table').click());
+ const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number],string,string,{filter:null;bannerField:null}];
+ expect(args[0].id).toBe(second.id);expect(args[4].filter).toBeNull();expect(args[4].bannerField).toBeNull();
+});
+
+
+it('requires explicit recovery rather than analyzing another field when launched from an identifier',async()=>{
+ const dataset=await csv('Respondent_ID,Answer\n1,Yes\n2,No\n3,Yes\n'),create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:dataset.fields[0].id,importedFieldSnapshot:dataset.fields[0]}} onClose={()=>{}}/>));
+ expect(select('Group responses by').value).toBe('');expect(button('Create table').disabled).toBe(true);expect(create).not.toHaveBeenCalled();
+ await change('Group responses by',dataset.fields[1].id);expect(button('Create table').disabled).toBe(false);
+});
+import { allRespondentsGroupingField, allRespondentsGroupingId } from '../../../data/numericSummaryScope';
+it('offers a clear explicit next step for a numeric-only study without creating an analysis automatically',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n'), original=structuredClone(dataset), create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ expect(host.textContent).not.toContain('Modeled-only for now.');
+ expect(button('Create table').disabled).toBe(true);expect(create).not.toHaveBeenCalled();
+ await act(async()=>button('Summarize all respondents').click());
+ expect(select('Group responses by').value).toBe(allRespondentsGroupingId);
+ expect(document.activeElement).toBe(select('Group responses by'));
+ expect(button('Create table').disabled).toBe(false);expect(host.textContent).toContain('n=3 valid values');
+ expect(create).not.toHaveBeenCalled();expect(dataset).toEqual(original);
+ await act(async()=>button('Create table').click());
+ const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number],'table','average',{groupingScope:'all_respondents';measureField:ImportedDatasetRecord['fields'][number]}];
+ expect(create).toHaveBeenCalledOnce();expect(args[3]).toBe('average');
+ expect(args[4]).toMatchObject({groupingScope:'all_respondents',measureField:{id:dataset.fields[0].id}});
+});
+it('does not advertise a local overall-summary shortcut for incomplete remote numeric studies',async()=>{
+ const dataset=compactRemote(await csv('Spend\n10\n20\n30\n')),create=vi.fn();
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ expect(Array.from(host.querySelectorAll('button')).some(node=>node.textContent==='Summarize all respondents')).toBe(false);
+ expect(button('Create table').disabled).toBe(true);expect(create).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+});
+it('creates an overall numeric-only result only after an explicit scope choice',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n'),create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ expect(button('Create table').disabled).toBe(true);await change('Group responses by',allRespondentsGroupingId);
+ expect(button('Create table').disabled).toBe(false);expect(host.textContent).toContain('n=3 valid values');
+ await act(async()=>button('Create table').click());
+ const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number],'table','average',{groupingScope:'all_respondents';measureField:ImportedDatasetRecord['fields'][number]}];
+ expect(args[4].groupingScope).toBe('all_respondents');expect(args[4].measureField.id).toBe(dataset.fields[0].id);
+ expect(runImportedDatasetQuery({dataset:args[0],field:args[1],metric:args[3],chartType:args[2],...args[4]}).table[0].values.summary).toBe(20);
+});
+it('reopens an overall summary in the inspector and updates it without losing scope',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n');
+ const result=runImportedDatasetQuery({dataset,field:allRespondentsGroupingField(dataset),groupingScope:'all_respondents',measureField:dataset.fields[0],metric:'average',chartType:'table'});
+ const tile=inspectorTile(dataset,result),before=structuredClone(tile),update=vi.fn();
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[dataset],update)}/>));
+ expect(select('Group responses by').value).toBe(allRespondentsGroupingId);expect(button('Update imported result').disabled).toBe(false);
+ await change('Result values','sum');await act(async()=>button('Update imported result').click());
+ const next=update.mock.calls[0][0].result;expect(next.table[0].values.summary).toBe(60);expect(next.metadataRefs.source.groupingScope).toBe('all_respondents');expect(tile).toEqual(before);
+});
+it('blocks a saved overall summary when its measure disappears, preserving the cached result',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n');const result=runImportedDatasetQuery({dataset,field:allRespondentsGroupingField(dataset),groupingScope:'all_respondents',measureField:dataset.fields[0],metric:'average',chartType:'table'});
+ const tile=inspectorTile(dataset,result),before=structuredClone(tile),update=vi.fn();
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[{...dataset,fields:[]}],update)}/>));
+ expect(button('Update imported result').disabled).toBe(true);expect(host.textContent).toContain('numeric field is no longer available');expect(update).not.toHaveBeenCalled();expect(tile).toEqual(before);
+});
+
+it('shows numeric calculation failures and blocks creation rather than hiding an unavailable mean',async()=>{
+ const dataset=await csv('Spend\ninvalid\nmissing\n');dataset.fields[0]={...dataset.fields[0],type:'numeric',modelingRole:'candidate_measure'};const create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ await change('Group responses by',allRespondentsGroupingId);
+ expect(host.querySelector('[role="alert"]')?.textContent).toContain('No valid numeric values remain');expect(button('Create table').disabled).toBe(true);expect(create).not.toHaveBeenCalled();
+});
+
+it('preserves a saved overall breakout result when a filter leaves an unavailable mean',async()=>{
+ const dataset=await csv('Spend,Region,Group\n10,North,A\n20,South,B\n');const result=runImportedDatasetQuery({dataset,field:allRespondentsGroupingField(dataset),groupingScope:'all_respondents',measureField:dataset.fields[0],bannerField:dataset.fields[2],metric:'average',chartType:'table'});
+ const tile=inspectorTile(dataset,result),before=structuredClone(tile),update=vi.fn();
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[dataset],update)}/>));
+ await change('Limit to',dataset.fields[1].id);await change('Keep responses where','North');await act(async()=>button('Update imported result').click());
+ expect(host.textContent).toContain('no valid numeric values for this average');expect(update).not.toHaveBeenCalled();expect(tile).toEqual(before);
+});
+
+it('honors the explicit selected-measure overall-summary launch action',async()=>{
+ const dataset=await csv('Spend,OtherNumber\n10,100\n20,200\n30,300\n'),create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:dataset.fields[1].id,importedFieldSnapshot:dataset.fields[1],groupingScope:'all_respondents'}} onClose={()=>{}}/>));
+ expect(select('Group responses by').value).toBe(allRespondentsGroupingId);expect(select('Number to summarize').value).toBe(dataset.fields[1].id);expect(button('Create table').disabled).toBe(false);
+ await act(async()=>button('Create table').click());const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number],'table','average',{groupingScope:'all_respondents';measureField:ImportedDatasetRecord['fields'][number]}];
+ expect(args[4].measureField.id).toBe(dataset.fields[1].id);expect(runImportedDatasetQuery({dataset:args[0],field:args[1],metric:args[3],chartType:args[2],...args[4]}).table[0].values.summary).toBe(200);
+});
+it('does not substitute another measure when an explicit overall-summary launch field is missing',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n'),create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:'missing-number',groupingScope:'all_respondents'}} onClose={()=>{}}/>));
+ expect(button('Create table').disabled).toBe(true);expect(host.textContent).toContain('numeric field is no longer available');expect(create).not.toHaveBeenCalled();
+});
+
+it('signals successful creation with the actual tile ID and never signals failed or canceled creation',async()=>{
+ const dataset=await csv('Answer\nYes\nNo\n');const created=vi.fn(),close=vi.fn(),create=vi.fn(async()=>null as string|null);
+ const render=()=> <GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={close} onCreated={created}/>;
+ await act(async()=>root.render(render()));await act(async()=>button('Create table').click());expect(created).not.toHaveBeenCalled();expect(close).not.toHaveBeenCalled();
+ await act(async()=>button('Cancel').click());expect(created).not.toHaveBeenCalled();expect(close).toHaveBeenCalledOnce();close.mockClear();
+ create.mockResolvedValue('actual-tile-id');await act(async()=>root.render(<GuidedDataQueryModal key='fresh' props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={close} onCreated={created}/>));await act(async()=>button('Create table').click());expect(created).toHaveBeenCalledExactlyOnceWith('actual-tile-id');expect(close).toHaveBeenCalledOnce();
+});
+
+it.each(['imported','sample'] as const)('ignores late %s completion after dismissal and leaves a new dialog open',async(kind)=>{
+ const dataset=await csv('Answer\nYes\nNo\n');let resolve!:(value:string)=>void;const pending=new Promise<string>(done=>{resolve=done;});const oldClose=vi.fn(),newClose=vi.fn(),created=vi.fn();
+ const overrides=kind==='imported'?{addTileFromImportedDatasetField:vi.fn(()=>pending)}:{addTileFromSourceWithVisualization:vi.fn(()=>pending)};
+ await act(async()=>root.render(<GuidedDataQueryModal key='old' props={minimumProps(kind==='imported'?[dataset]:[],overrides)} onClose={oldClose} onCreated={created}/>));
+ await act(async()=>button('Create table').click());expect(host.textContent).toContain('request may finish in the background');
+ await act(async()=>button('Cancel').click());expect(oldClose).toHaveBeenCalledOnce();
+ await act(async()=>root.render(<GuidedDataQueryModal key='new' props={minimumProps([dataset])} onClose={newClose} onCreated={created}/>));
+ await act(async()=>resolve('late-result'));
+ expect(oldClose).toHaveBeenCalledOnce();expect(newClose).not.toHaveBeenCalled();expect(created).not.toHaveBeenCalled();expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+});
+
+it('launches a continuous numeric measure with 100 distinct values and preserves its valid sample base',async()=>{
+ const dataset=await csv('Respondent_ID,Spend\n'+Array.from({length:100},(_,index)=>`${index+1},${index+1}`).join('\n'));const measure=dataset.fields[1],create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:measure.id,importedFieldSnapshot:measure,groupingScope:'all_respondents'}} onClose={()=>{}}/>));
+ expect(select('Number to summarize').value).toBe(measure.id);expect(button('Create table').disabled).toBe(false);expect(host.textContent).toContain('n=100 valid values');
+ await act(async()=>button('Create table').click());
+ const args=create.mock.calls[0] as unknown as [ImportedDatasetRecord,ImportedDatasetRecord['fields'][number],'table','average',{groupingScope:'all_respondents';measureField:ImportedDatasetRecord['fields'][number]}];
+ const result=runImportedDatasetQuery({dataset:args[0],field:args[1],metric:args[3],chartType:args[2],...args[4]});expect(result.table[0].values.summary).toBe(50.5);expect(result.table[0].bases.summary).toBe(100);
+});
+
+it('previews and creates a small nonzero numeric summary without displaying it as zero',async()=>{
+ const dataset=await csv('Spend\n0.000001\n0.000003\n'),create=vi.fn(async()=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} launchContext={{importedDatasetId:dataset.id,importedFieldId:dataset.fields[0].id,groupingScope:'all_respondents'}} onClose={()=>{}}/>));
+ expect(host.querySelector('[aria-label="Analysis result preview"]')?.textContent).toContain('2E-6');
+ expect(host.textContent).toContain('Numeric results retain calculation precision');expect(button('Create table').disabled).toBe(false);
+ await act(async()=>button('Create table').click());expect(create).toHaveBeenCalledOnce();
+});
+
+it('shows invalid-only subgroups as unavailable in grouped average previews without removing them',async()=>{
+ const dataset=await csv('Group,Spend\nNegative,-10\nMissing,invalid\nZero,0\n');const measure={...dataset.fields[1],type:'numeric' as const,modelingRole:'candidate_measure' as const};dataset.fields[1]=measure;
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset])} launchContext={{importedDatasetId:dataset.id,importedFieldId:measure.id,importedFieldSnapshot:measure}} onClose={()=>{}}/>));
+ const preview=host.querySelector('[aria-label="Analysis result preview"]')!;expect(preview.textContent).toContain('MissingUnavailable');expect(preview.textContent).toContain('not zero estimates');expect(button('Create table').disabled).toBe(false);
 });

@@ -28,6 +28,7 @@ export interface AnalyticsFilter {
 export interface ImportedAnalyticsSourceIdentity {
   kind: "imported";
   measureBaseScope?: "cell";
+  groupingScope?: "all_respondents";
   queryKind?: "categorical" | "measure";
   sourceRef?: DatasetSourceRef;
   datasetId: string;

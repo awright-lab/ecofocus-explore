@@ -238,17 +238,13 @@ export function buildAnalyticalTemplateFromTile(
     id: question.id,
     label: question.shortLabel
   };
-  const source =
-    tile.source?.kind === "variableSet"
-      ? { kind: "variableSet" as const, id: tile.source.id, label: tile.source.label }
-      : tile.source?.kind === "question"
-        ? { kind: "question" as const, id: tile.source.id, label: tile.source.label }
-        : fallbackSource;
+  const source = tile.source ? { ...tile.source } : fallbackSource;
   const query = {
     ...tile.query,
     chartType: tile.visualization,
     confidenceLevel: tile.query.confidenceLevel ?? 0.95
   };
+  const imported = query.sourceIdentity?.kind === "imported" ? query.sourceIdentity : null;
 
   return {
     id: options?.id ?? `analysis_template_${Date.now()}`,
@@ -259,11 +255,11 @@ export function buildAnalyticalTemplateFromTile(
     query,
     visualization: tile.visualization,
     summary: {
-      sourceLabel: source.label,
-      bannerLabel: queryBannerLabel(query),
-      filterLabel: queryFilterLabel(query),
+      sourceLabel: imported ? `${imported.datasetLabel}: ${imported.measureFieldLabel ?? imported.primaryFieldLabel}` : source.label,
+      bannerLabel: imported ? imported.bannerFieldLabel ?? "Total" : queryBannerLabel(query),
+      filterLabel: imported ? imported.filterFieldLabel && imported.filterValue !== undefined ? `${imported.filterFieldLabel}: ${imported.filterValue}` : "No filter" : queryFilterLabel(query),
       weightLabel: queryWeightLabel(query),
-      confidenceLabel: confidenceLabel(query),
+      confidenceLabel: imported ? "No statistical test" : confidenceLabel(query),
       comparisonLabel: queryComparisonLabel(query)
     }
   };

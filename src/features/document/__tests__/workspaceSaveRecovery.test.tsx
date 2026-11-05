@@ -1,12 +1,14 @@
+import * as importedRuntimeQuery from "../../data/importedDatasetRuntimeQuery";
+import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 // @vitest-environment jsdom
 import { act, StrictMode, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BuilderApp from "../../builder/BuilderApp";
 import { WorkspaceHome } from "../../workspace/WorkspaceHome";
-import { WorkspaceSaveRecovery } from "../WorkspaceSaveRecovery";
+import { WorkspaceSaveRecovery, WorkspaceLoadRecovery } from "../WorkspaceSaveRecovery";
 import { workspaceSaveSession } from "../workspaceSaveSession";
-import { createReportRecord, loadDashboardWorkspace, normalizeDashboardWorkspace, saveDashboardWorkspace, workspaceStorageKey } from "../workspacePersistence";
+import { createReportRecord, createPublishedSnapshot, loadDashboardWorkspace, normalizeDashboardWorkspace, saveDashboardWorkspace, workspaceStorageKey } from "../workspacePersistence";
 import { initialDashboard } from "../documentSeeds";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import type { DashboardPage, DashboardWorkspace } from "../../../../shared/types/dashboard";
@@ -20,8 +22,9 @@ vi.mock("../../data/importDatasetWorkspaceService", () => ({
 }));
 // Keep real editor/header commands and persistence; canvas geometry is unrelated
 // to storage failure and requires browser layout, which jsdom does not provide.
-vi.mock("../../builder/components/CanvasWorkspace", () => ({ CanvasWorkspace: ({ activePage, onSelectTile }: { activePage: DashboardPage; onSelectTile: (id: string) => void }) => <div>
+vi.mock("../../builder/components/CanvasWorkspace", () => ({ CanvasWorkspace: ({ activePage, onSelectTile, sortedPages, onSetActivePage }: { activePage: DashboardPage; onSelectTile: (id: string) => void; sortedPages: DashboardPage[]; onSetActivePage: (id: string) => void }) => <div>
   Report canvas
+  {sortedPages.length > 1 && <button onClick={() => onSetActivePage(sortedPages[1].id)}>Next page</button>}
   <output data-testid="canvas-state">{JSON.stringify(activePage)}</output>
   <button type="button" onClick={() => onSelectTile(activePage.tiles[0].id)}>Select first test tile</button>
 </div> }));
@@ -78,12 +81,104 @@ describe("workspace save recovery UI", () => {
     await act(async () => root.render(<StrictMode><WorkspaceSaveRecovery /><BuilderApp /></StrictMode>));
   }
 
+  async function openStudies() {
+    await act(async () => { await import("../../builder/components/DataExplorerPanel"); });
+    await act(async () => button("Studies").click());
+  }
+
+  it.each([false,true])("preserves a dirty report immediately when saving field settings (quota failure=%s)",async quotaFailure=>{
+    writeFailure.mockRestore();
+    const field=baseline.importedDatasets[0].fields[1];
+    await editor();
+    await act(async()=>button(baseline.reports[0].title).click());
+    const titleInput=host.querySelector<HTMLInputElement>('[aria-label="Document title"]')!;
+    await act(async()=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(titleInput,"Latest unsaved field report");
+      titleInput.dispatchEvent(new Event("input",{bubbles:true}));
+    });
+    await act(async()=>titleInput.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true})));
+    expect(loadDashboardWorkspace().reports[0].draft.title).toBe(baseline.reports[0].draft.title);
+    await openStudies();await act(async()=>button("Browse fields, filters, segments, and banners").click());
+    const chooseField=Array.from(host.querySelectorAll<HTMLButtonElement>(".variable-tree-row__select")).find(node=>node.querySelector("strong")?.textContent===field.label);
+    expect(chooseField).toBeTruthy();await act(async()=>chooseField!.click());
+    const type=host.querySelector<HTMLSelectElement>(`select[aria-label="Value type for ${field.label}"]`)!;
+    if(quotaFailure)writeFailure=vi.spyOn(Storage.prototype,"setItem").mockImplementation(()=>{throw new DOMException("Full","QuotaExceededError");});
+    await act(async()=>{type.value="categorical";type.dispatchEvent(new Event("change",{bubbles:true}));});
+    const latest=quotaFailure?workspaceSaveSession.getPending()!:loadDashboardWorkspace();
+    expect(latest.importedDatasets[0].fields[1].type).toBe("categorical");
+    expect(latest.reports[0].draft.title).toBe("Latest unsaved field report");
+    expect(latest.reports[0].title).toBe("Latest unsaved field report");
+    if(quotaFailure)expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+  });
+
+  it.each([false,true])("persists actual field settings while preserving raw values and historical snapshots (quota failure=%s)",async quotaFailure=>{
+    writeFailure.mockRestore();
+    const study=baseline.importedDatasets[0],field=study.fields[1];
+    study.rows[0].Spend="$10";study.rows[1].Spend="invalid";
+    Object.assign(field,{type:"categorical",modelingRole:"candidate_dimension",eligibleForFilter:true,eligibleForSegment:true,eligibleForBanner:true});
+    baseline.reports[0].draft.importedDatasets=[study];
+    baseline=createPublishedSnapshot(baseline,baseline.reports[0].draft).workspace;
+    const beforeRows=structuredClone(study.rows),beforePages=structuredClone(baseline.reports[0].draft.pages),beforeSnapshot=structuredClone(baseline.publishedSnapshots[0]);
+    expect(saveDashboardWorkspace(baseline)).toBe(true);lastSaved=localStorage.getItem(workspaceStorageKey)!;
+    await editor();await openStudies();await act(async()=>button("Browse fields, filters, segments, and banners").click());
+    const chooseField=Array.from(host.querySelectorAll<HTMLButtonElement>(".variable-tree-row__select")).find(node=>node.querySelector("strong")?.textContent===field.label);expect(chooseField).toBeTruthy();
+    await act(async()=>chooseField!.click());
+    const type=host.querySelector<HTMLSelectElement>(`select[aria-label="Value type for ${field.label}"]`);expect(type).toBeTruthy();expect(type!.value).toBe("categorical");
+    if(quotaFailure)writeFailure=vi.spyOn(Storage.prototype,"setItem").mockImplementation(()=>{throw new DOMException("Full","QuotaExceededError");});
+    await act(async()=>{type!.value="numeric";type!.dispatchEvent(new Event("change",{bubbles:true}));});
+    expect(type!.value).toBe("numeric");
+    if(quotaFailure){
+      expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);expect(host.querySelector('[aria-label="Workspace not saved"]')).not.toBeNull();
+      expect(workspaceSaveSession.getPending()?.importedDatasets[0].fields[1].type).toBe("numeric");
+      expect(workspaceSaveSession.getPending()?.importedDatasets[0].rows).toEqual(beforeRows);
+      writeFailure.mockRestore();await act(async()=>{expect(workspaceSaveSession.retry()).toBe(true);});
+    }
+    const reopened=loadDashboardWorkspace();
+    expect(reopened.importedDatasets[0].fields[1]).toMatchObject({type:"numeric",modelingRole:"candidate_measure",eligibleForFilter:false,eligibleForSegment:false,eligibleForBanner:false});
+    expect(reopened.importedDatasets[0].rows).toEqual(beforeRows);expect(reopened.reports[0].draft.pages).toEqual(beforePages);expect(reopened.publishedSnapshots[0]).toEqual(beforeSnapshot);
+  });
+
+  it("keeps the study and selection when removal cannot be saved, and retries the pre-removal state", async () => {
+    vi.spyOn(window,"confirm").mockReturnValue(true);
+    await editor(); await openStudies();
+    const dataset=baseline.importedDatasets[0];
+    await act(async()=>button(`Remove ${dataset.title}`).click());
+    expect(host.querySelector('.study-removal-error')?.textContent).toContain("could not be saved");
+    expect(button(`Remove ${dataset.title}`)).toBeTruthy();
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+    expect(workspaceSaveSession.getPending()?.importedDatasets[0].rows).toEqual(dataset.rows);
+    writeFailure.mockRestore();
+    await act(async()=>{ expect(workspaceSaveSession.retry()).toBe(true); });
+    expect(loadDashboardWorkspace().importedDatasets[0].rows).toEqual(dataset.rows);
+  });
+
+  it("blocks removal from the actual editor when another analysis uses the study", async () => {
+    writeFailure.mockRestore(); vi.spyOn(window,"confirm").mockReturnValue(true);
+    const dataset=baseline.importedDatasets[0],tile=baseline.reports[0].draft.pages[0].tiles[0];
+    const result=runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:"count",chartType:"table"});tile.query=result.query;tile.result=result;
+    expect(saveDashboardWorkspace(baseline)).toBe(true);lastSaved=localStorage.getItem(workspaceStorageKey)!;
+    await editor();await openStudies();await act(async()=>button(`Remove ${dataset.title}`).click());
+    expect(host.querySelector('.study-removal-error')?.textContent).toContain("still used");
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);expect(loadDashboardWorkspace().importedDatasets[0].rows).toEqual(dataset.rows);
+  });
+
+  it("removes an unused study without clearing unrelated Undo/Redo or restoring it on Undo", async () => {
+    vi.spyOn(window,"confirm").mockReturnValue(true);await selectedEditorWithHistory();await openStudies();
+    const dataset=baseline.importedDatasets[0];expect(button("Undo").disabled).toBe(false);expect(button("Redo").disabled).toBe(false);
+    await act(async()=>button(`Remove ${dataset.title}`).click());
+    expect(host.querySelector('.study-removal-error')).toBeNull();expect(loadDashboardWorkspace().importedDatasets).toHaveLength(0);
+    expect(button("Undo").disabled).toBe(false);expect(button("Redo").disabled).toBe(false);
+    await act(async()=>button("Undo").click());
+    expect(Array.from(host.querySelectorAll("button")).some(node=>node.getAttribute("aria-label")===`Remove ${dataset.title}`)).toBe(false);
+    expect(loadDashboardWorkspace().importedDatasets).toHaveLength(0);
+  });
+
 
   function canvasState(): DashboardPage {
     return JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!);
   }
 
-  async function analysisWithSelectedTile() {
+  async function selectedEditorWithHistory() {
     writeFailure.mockRestore();
     await editor();
     expect(canvasState().tiles.length).toBeGreaterThan(0);
@@ -100,6 +195,19 @@ describe("workspace save recovery UI", () => {
     await act(async () => trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true })));
     expect(canvasState().tiles.at(-1)!.layout.x).toBe(duplicatedX);
     trigger.focus();
+    return trigger;
+  }
+
+  it("reverses one editor duplication with one Undo and restores it with one Redo under StrictMode",async()=>{
+    writeFailure.mockRestore();await editor();await act(async()=>button("Select first test tile").click());const before=canvasState().tiles.length;
+    await act(async()=>button("Create analysis").dispatchEvent(new KeyboardEvent("keydown",{key:"d",ctrlKey:true,bubbles:true})));
+    expect(canvasState().tiles).toHaveLength(before+1);expect(button("Undo").disabled).toBe(false);
+    await act(async()=>button("Undo").click());expect(canvasState().tiles).toHaveLength(before);expect(button("Undo").disabled).toBe(true);expect(button("Redo").disabled).toBe(false);
+    await act(async()=>button("Redo").click());expect(canvasState().tiles).toHaveLength(before+1);expect(button("Redo").disabled).toBe(true);
+  });
+
+  async function analysisWithSelectedTile() {
+    const trigger = await selectedEditorWithHistory();
     await act(async () => trigger.click());
     await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
     const dialog = host.querySelector<HTMLElement>('[role="dialog"]')!;
@@ -123,6 +231,21 @@ describe("workspace save recovery UI", () => {
       expect(canvasState()).toEqual(before);
       expect(host.querySelector(".studio-command-dialog")).toBeNull();
       expect(host.querySelector('[role="dialog"]')).toBe(dialog);
+    }
+  });
+
+  it.each(["command menu", "help"] as const)("protects the selected result while %s controls have focus", async (surface) => {
+    await selectedEditorWithHistory();
+    await act(async () => button(surface === "command menu" ? "Find a tool" : "Help").click());
+    const control = button(surface === "command menu" ? "All tools" : "Close help");
+    control.focus(); const before = canvasState();
+    for (const shortcut of [{key:"Delete"},{key:"Backspace"},{key:"ArrowRight"},{key:"d",ctrlKey:true},{key:"z",ctrlKey:true},{key:"y",ctrlKey:true}]) {
+      await act(async () => control.dispatchEvent(new KeyboardEvent("keydown", {...shortcut,bubbles:true,cancelable:true})));
+      expect(canvasState()).toEqual(before);
+    }
+    if (surface === "help") {
+      await act(async () => control.dispatchEvent(new KeyboardEvent("keydown", {key:"k",ctrlKey:true,bubbles:true,cancelable:true})));
+      expect(host.querySelector('.studio-command-dialog')).toBeNull();
     }
   });
 
@@ -174,6 +297,42 @@ describe("workspace save recovery UI", () => {
     expect(canvasState().tiles).toHaveLength(before.tiles.length - 1);
   });
 
+  it("downloads a proactive versioned backup with deferred imports without saving or replacing the workspace", async () => {
+    writeFailure.mockRestore(); vi.useRealTimers();
+    const pending = {...structuredClone(baseline.importedDatasets[0]),id:"deferred-synthetic"}; deferredWorkspaceImports.remember(pending);
+    let downloaded: Blob | undefined;
+    vi.stubGlobal("URL",class extends URL {static createObjectURL(blob:Blob){downloaded=blob;return "blob:synthetic-backup";}static revokeObjectURL(){}});
+    vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(()=>{});
+    const writes=vi.spyOn(Storage.prototype,"setItem");
+    await act(async()=>root.render(<WorkspaceHome workspace={baseline} onWorkspaceChange={()=>{}}/>));
+    writes.mockClear(); // Ignore ordinary view-preference initialization before the download.
+    await act(async()=>button("Download workspace backup").click());
+    expect(host.querySelector('[role="status"]')?.textContent).toContain("Backup restoration is not available");
+    const text=await new Promise<string>(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.readAsText(downloaded!);});
+    const envelope=JSON.parse(text);expect(envelope).toMatchObject({kind:"ecofocus-workspace-backup",version:1,format:"workspace-v2"});
+    expect(JSON.parse(envelope.payload).importedDatasets[0].rows).toHaveLength(30);
+    expect(JSON.parse(envelope.pendingImportsPayload)[0].id).toBe(pending.id);expect(envelope.inventory.pendingImports).toBe(1);
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);expect(writes).not.toHaveBeenCalled();expect(deferredWorkspaceImports.getPending()).toHaveLength(1);
+  });
+
+  it("shows a retryable backup download error while preserving the unsaved workspace", async () => {
+    await editor();await act(async()=>vi.advanceTimersByTime(1000));
+    const pending=workspaceSaveSession.getPending();
+    vi.stubGlobal("URL",class extends URL {static createObjectURL():string{throw Error("Synthetic backup blocked");}});
+    await act(async()=>button("Download workspace backup").click());
+    expect(host.textContent).toContain("Synthetic backup blocked");expect(button("Download workspace backup").disabled).toBe(false);
+    expect(workspaceSaveSession.getPending()).toBe(pending);expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+  });
+
+  it("keeps a damaged saved recovery download byte-for-byte original instead of wrapping it", async () => {
+    writeFailure.mockRestore();vi.useRealTimers();const raw="\r\n{broken synthetic JSON: ☘}\r\n";localStorage.setItem(workspaceStorageKey,raw);
+    let downloaded:Blob|undefined;vi.stubGlobal("URL",class extends URL {static createObjectURL(blob:Blob){downloaded=blob;return "blob:raw-recovery";}static revokeObjectURL(){}});
+    vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(()=>{});
+    await act(async()=>root.render(<WorkspaceLoadRecovery/>));await act(async()=>button("Download saved workspace").click());
+    const text=await new Promise<string>(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.readAsText(downloaded!);});
+    expect(text).toBe(raw);expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+  });
+
   it("reports failed autosave, protects unload, downloads complete recovery data, and retries", async () => {
     await editor();
     await act(async () => vi.advanceTimersByTime(1000));
@@ -198,7 +357,8 @@ describe("workspace save recovery UI", () => {
     await act(async () => {
       text = await new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsText(downloaded!); });
     });
-    expect(JSON.parse(text).importedDatasets[0].rows).toHaveLength(30);
+    expect(JSON.parse(text)).toMatchObject({kind:"ecofocus-workspace-backup",version:1,format:"workspace-v2"});
+    expect(JSON.parse(JSON.parse(text).payload).importedDatasets[0].rows).toHaveLength(30);
     expect(workspaceSaveSession.hasPending()).toBe(true);
 
     writeFailure.mockRestore();
@@ -243,6 +403,16 @@ describe("workspace save recovery UI", () => {
     expect(window.location.hash).toContain("/published/");
     expect(host.querySelector(".published-shell")).not.toBeNull();
     expect(loadDashboardWorkspace().publishedSnapshots).toHaveLength(1);
+  });
+
+  it("keeps snapshots read-only even when a draft selection and editing history still exist",async()=>{
+    await selectedEditorWithHistory();await act(async()=>button("Save snapshot").click());expect(host.querySelector('.published-shell')).not.toBeNull();
+    const count=host.querySelector('.published-page-meta')?.textContent,stored=localStorage.getItem(workspaceStorageKey),back=button("Back to draft");
+    for(const shortcut of [{key:"Delete"},{key:"Backspace"},{key:"ArrowRight"},{key:"d",ctrlKey:true},{key:"z",ctrlKey:true},{key:"y",ctrlKey:true},{key:"k",ctrlKey:true}]){
+      await act(async()=>back.dispatchEvent(new KeyboardEvent("keydown",{...shortcut,bubbles:true,cancelable:true})));
+      expect(host.querySelector('.published-page-meta')?.textContent).toBe(count);expect(localStorage.getItem(workspaceStorageKey)).toBe(stored);
+    }
+    await act(async()=>back.click());expect(host.querySelector('.studio-command-dialog')).toBeNull();expect(host.querySelector('.published-shell')).toBeNull();
   });
 
   it("reports import save failure and retains full imported data across route remounts", async () => {
@@ -383,6 +553,61 @@ describe("workspace save recovery UI", () => {
     expect(deferredWorkspaceImports.getPending()).toHaveLength(0);
   });
 
+  it("loads the correct imported query when separate pages reuse a tile ID", async () => {
+    writeFailure.mockRestore();
+    const firstStudy = baseline.importedDatasets[0];
+    const secondStudy = { ...structuredClone(firstStudy), id: "second-study", title: "Second synthetic study" };
+    baseline.importedDatasets.push(secondStudy);
+    const firstPage = baseline.reports[0].draft.pages[0];
+    firstPage.tiles = [firstPage.tiles[0]];
+    const firstResult = runImportedDatasetQuery({ dataset: firstStudy, field: firstStudy.fields[0], chartType: "table", metric: "count" });
+    Object.assign(firstPage.tiles[0], { visualization: "table", query: firstResult.query, result: firstResult });
+    const secondPage = structuredClone(firstPage); secondPage.id = "second-page"; secondPage.title = "Second page";
+    const secondResult = runImportedDatasetQuery({ dataset: secondStudy, field: secondStudy.fields[0], chartType: "table", metric: "percent_selected" });
+    Object.assign(secondPage.tiles[0], { query: secondResult.query, result: secondResult });
+    baseline.reports[0].draft.pages = [firstPage, secondPage];
+    expect(saveDashboardWorkspace(baseline)).toBe(true); await editor();
+    await act(async () => button("Select first test tile").click());
+    await act(async () => button("Data").click());
+    await act(async () => { await import("../../builder/components/InspectorTileAnalysisSections"); });
+    function querySelect(label: string) {
+      const node = Array.from(host.querySelectorAll<HTMLLabelElement>(".imported-query-editor label"))
+        .find(item => item.firstChild?.textContent?.trim() === label)?.querySelector("select");
+      expect(node, label).toBeTruthy(); return node!;
+    }
+    expect(querySelect("Dataset").value).toBe(firstStudy.id);
+    expect(querySelect("Result values").value).toBe("count");
+    await act(async () => button("Next page").click());
+    expect(canvasState().id).toBe(secondPage.id);
+    await act(async () => button("Data").click());
+    expect(querySelect("Dataset").value).toBe(secondStudy.id);
+    expect(querySelect("Result values").value).toBe("percent_selected");
+    const runtime = vi.spyOn(importedRuntimeQuery, "runImportedDatasetQueryForRuntime").mockImplementation(async config => runImportedDatasetQuery(config));
+    await act(async () => button("Update imported result").click());
+    expect(runtime).toHaveBeenCalledOnce(); expect(runtime.mock.calls[0][0].dataset.id).toBe(secondStudy.id);
+    expect(runtime.mock.calls[0][0].metric).toBe("percent_selected");
+    await act(async () => vi.advanceTimersByTime(1000));
+    const saved = loadDashboardWorkspace().reports[0].draft;
+    expect(saved.pages[0].tiles[0].result.metadataRefs.source).toMatchObject({datasetId: firstStudy.id});
+    expect(saved.pages[1].tiles[0].result.metadataRefs.source).toMatchObject({datasetId: secondStudy.id});
+  });
+
+  it.each([false,true])("offers usable numeric chart styles without dropping series (breakout=%s)", async breakout => {
+    writeFailure.mockRestore();
+    const parsed = await importDatasetBuffer(new TextEncoder().encode("Segment,Region,Spend\nCore,North,10\nCore,South,20\nGrowth,North,30\nGrowth,South,40\n").buffer,"visualization.csv");
+    const dataset = parsed.dataset!; baseline.importedDatasets = [dataset];
+    const result = runImportedDatasetQuery({ dataset, field: dataset.fields[0], measureField: dataset.fields[2], bannerField: breakout ? dataset.fields[1] : null, metric: "average", chartType: "table" });
+    const page = baseline.reports[0].draft.pages[0]; page.tiles = [{...page.tiles[0],visualization:"table",query:result.query,result}];
+    expect(saveDashboardWorkspace(baseline)).toBe(true); await editor();
+    await act(async () => button("Select first test tile").click());
+    const picker = Array.from(host.querySelectorAll("label")).find(label=>label.firstChild?.textContent?.trim()==="Chart type")!.querySelector("select")!;
+    expect(Array.from(picker.options).map(option=>option.value)).toEqual(breakout ? ["table","grouped_bar","stacked_bar","line_chart"] : ["table","vertical_bar","horizontal_bar"]);
+    await act(async()=>{ picker.value = breakout ? "grouped_bar" : "horizontal_bar"; picker.dispatchEvent(new Event("change",{bubbles:true})); });
+    expect(canvasState().tiles[0].visualization).toBe(breakout ? "grouped_bar" : "horizontal_bar");
+    expect(canvasState().tiles[0].result.table).toEqual(result.table); expect(canvasState().tiles[0].result.series).toEqual(result.series);
+    expect(canvasState().tiles[0].query.metric).toBe("average");
+  });
+
   it("opens a spacious study workspace with distinct navigation and a return to the page", async () => {
     writeFailure.mockRestore();
     await editor();
@@ -392,6 +617,57 @@ describe("workspace save recovery UI", () => {
     expect(button("Back to page")).toBeTruthy();
     await act(async () => button("Back to page").click());
     expect(host.querySelector('[data-analysis-workspace="true"]')).toBeNull();
+  });
+
+  it("reveals the new result on the page after creating from Studies, but leaves cancellation in Studies", async () => {
+    writeFailure.mockRestore(); await editor(); await act(async () => button("Studies").click());
+    await act(async () => { await import("../../builder/components/DataExplorerPanel"); });
+    expect(host.querySelector('[data-analysis-workspace="true"]')).not.toBeNull();
+    await act(async () => button("Create analysis").click());
+    await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
+    await act(async () => button("Cancel").click());
+    expect(host.querySelector('[data-analysis-workspace="true"]')).not.toBeNull();
+    await act(async () => button("Create analysis").click());
+    await act(async () => button("Create table").click());
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(host.querySelector('[data-analysis-workspace="true"]')).toBeNull();
+    expect(host.querySelector('.editor-location strong')?.textContent).toBe("Page canvas");
+    expect(canvasState().tiles).toHaveLength(baseline.reports[0].draft.pages[0].tiles.length + 1);
+    expect(canvasState().tiles.at(-1)?.result.metadataRefs.source?.kind).toBe("imported");
+    await act(async () => { vi.advanceTimersByTime(32); });
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Create analysis");
+  });
+
+  it.each(["success", "failure"] as const)("ignores a dismissed imported creation's late %s without changing the next dialog or report", async (outcome) => {
+    writeFailure.mockRestore();
+    let resolve!: (value: ReturnType<typeof runImportedDatasetQuery>) => void;
+    let reject!: (error: Error) => void;
+    const pending = new Promise<ReturnType<typeof runImportedDatasetQuery>>((done, fail) => { resolve = done; reject = fail; });
+    const query = vi.spyOn(importedRuntimeQuery, "runImportedDatasetQueryForRuntime").mockReturnValueOnce(pending);
+    await editor(); const before = canvasState(); await act(async () => button("Studies").click());
+    await act(async () => button("Create analysis").click());
+    await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
+    await act(async () => button("Create table").click()); expect(query).toHaveBeenCalledOnce();
+    await act(async () => button("Cancel").click());
+    await act(async () => button("Create analysis").click());
+    const nextDialog = host.querySelector('[role="dialog"]'); expect(nextDialog).not.toBeNull();
+    expect(button("Waiting for data request").disabled).toBe(true);
+    await act(async () => { if (outcome === "success") resolve(runImportedDatasetQuery(query.mock.calls[0][0])); else reject(new Error("Old dismissed analysis failed")); });
+    expect(host.querySelector('[role="dialog"]')).toBe(nextDialog);
+    expect(host.querySelector('[data-analysis-workspace="true"]')).not.toBeNull();
+    expect(host.textContent).not.toContain("Old dismissed analysis failed");
+    await act(async () => button("Cancel").click()); await act(async () => button("Back to page").click());
+    expect(canvasState()).toEqual(before);
+  });
+
+  it("preserves the Styles workspace when analysis creation is canceled", async () => {
+    writeFailure.mockRestore(); await editor(); await act(async () => button("Styles").click());
+    expect(host.querySelector('.brand-panel')).not.toBeNull();
+    await act(async () => button("Create analysis").click());
+    await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
+    await act(async () => button("Cancel").click());
+    expect(host.querySelector('.brand-panel')).not.toBeNull();
+    expect(host.querySelector('.editor-location strong')?.textContent).toBe("Styles & brand");
   });
 
   it("contains analysis-dialog focus, closes on Escape and restores focus to its trigger", async () => {

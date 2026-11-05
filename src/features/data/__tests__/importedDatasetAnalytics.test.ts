@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 import {
   buildImportedFieldSuitability,
+  isLikelyImportedIdentifierField,
   buildImportedQueryRecommendations,
   buildImportedResultProvenance,
   formatImportedMeasureValue,
@@ -553,5 +554,42 @@ describe("imported dataset measure analytics", () => {
         })
       ])
     });
+  });
+});
+
+describe("continuous numeric field eligibility", () => {
+  it("keeps mostly unique numeric observations available for averages and sums", () => {
+    const measure = { ...spendField, nonEmptyCount: 100, distinctCount: 100 };
+    expect(isLikelyImportedIdentifierField(measure)).toBe(false);
+    expect(firstImportedMeasureField({ ...dataset, fields: [measure] })?.id).toBe(measure.id);
+    expect(buildImportedFieldSuitability(measure).readiness.status).toBe("ready_measure");
+  });
+  it.each(["respondent_id", "record_number", "audit_value"])("still excludes a named identifier/system measure: %s", sourceColumn => {
+    expect(isLikelyImportedIdentifierField({ ...spendField, sourceColumn, nonEmptyCount: 100, distinctCount: 100 })).toBe(true);
+  });
+  it("keeps a mostly unique unmodeled text field flagged for review", () => {
+    expect(isLikelyImportedIdentifierField({ ...spendField, type: "text", modelingRole: "raw_variable", nonEmptyCount: 100, distinctCount: 100 })).toBe(true);
+  });
+});
+
+describe("numeric result precision", () => {
+  it.each(["average", "sum"] as const)("preserves fractional observations in %s results rather than rounding stored values", metric => {
+    const precise = { ...dataset, rowCount: 2, rows: [{segment:"Core",spend:"0.000001"},{segment:"Core",spend:"0.000003"}] };
+    const result = runImportedDatasetQuery({dataset:precise,field:segmentField,measureField:spendField,metric,chartType:"table"});
+    const expected = metric === "average" ? 0.000002 : 0.000004;
+    expect(result.table[0].values.summary).toBeCloseTo(expected,12); expect(result.series[0].values[0]).toBeCloseTo(expected,12);
+    expect(result.table[0].values.summary).not.toBe(0); expect(result.table[0].bases.summary).toBe(2);
+    expect(JSON.parse(JSON.stringify(result)).table[0].values.summary).toBe(expected);
+  });
+  it("preserves useful precision beyond one decimal without rounding the source result", () => {
+    const precise = {...dataset,rowCount:2,rows:[{segment:"Core",spend:"1.23456"},{segment:"Core",spend:"2.34567"}]};
+    const result=runImportedDatasetQuery({dataset:precise,field:segmentField,measureField:spendField,metric:"average",chartType:"table"});
+    expect(result.table[0].values.summary).toBeCloseTo(1.790115,12);
+  });
+  it("formats small nonzero measures visibly and keeps display rounding separate", () => {
+    expect(formatImportedMeasureValue(0.000002,"average")).toBe("2E-6");
+    expect(formatImportedMeasureValue(-0.000002,"sum")).toBe("-2E-6");
+    expect(formatImportedMeasureValue(1.23456,"average")).toBe("1.2346");
+    expect(formatImportedMeasureValue(0,"average")).toBe("0");
   });
 });

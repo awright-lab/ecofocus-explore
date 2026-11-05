@@ -46,3 +46,14 @@ The final confirmation should name the current and incoming workspace, counts, r
 The envelope, limit and inspection function exist only in the test harness as design experiments. These tests do not establish a production restore feature. Existing strict storage-validation tests additionally cover original stored-byte recovery and legacy migrations.
 
 Before enabling writes, add failure-injection tests for all transaction boundaries, quota, blocked storage, revision changes, two current tabs and an older writer, pending imports and navigation races, duplicate/cross-document IDs, all real historical fixture shapes, oversized expanded rows/cells/deep nesting, cancellation, remote-unavailable previews, save/reopen/undo and keyboard/focus behavior. Run native browser acceptance. Earlier native UI testing was blocked by desktop input access denial and an in-app localhost timeout; no native restore acceptance is claimed.
+
+
+## November 5: portable download implemented; restore remains unavailable
+
+New workspace downloads now use the version-1 `ecofocus-workspace-backup` envelope, with the required `format: "workspace-v2"` discriminator, creation time and a string `payload` containing the complete in-memory workspace JSON. `pendingImportsPayload` separately captures JSON for completed imports retained in the deferred-import buffer. These strings capture the values at download creation. No normalization, compaction, deduplication, validation downgrade or active-storage write occurs during backup creation. Imports whose asynchronous work has not finished cannot be captured.
+
+The inventory lists each study occurrence by workspace/report/snapshot/pending-import scope, declared versus stored rows/fields, preview availability and remote provider. It marks partial/inconsistent row coverage, missing field metadata and configured remote-service dependencies. It never fetches missing data or calls a live service. Conflicting records retain their separate source values; the inventory does not prove they can safely be merged or restored.
+
+A download is available from the workspace header and the failed-save recovery banner. The failed-save copy prefers pending in-memory edits. The UI explicitly states that restore is unavailable and warns about missing data and connected-service dependencies. The damaged-save recovery action still downloads its exact original stored bytes, without an envelope or reserialization. Existing untagged downloads remain valid recovery artifacts but require explicit format selection in a future inspection flow.
+
+This resolves format ambiguity for new portable downloads and provides proactive access. It does not implement inspection, validated conversion, transactional restore, old-tab coordination, automatic backup retention or a remote-data backup service. All replacement/merge safeguards above remain required.

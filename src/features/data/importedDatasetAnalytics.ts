@@ -1,3 +1,5 @@
+import { FiniteNumericSum } from "./finiteNumericSum";
+import { allRespondentsGroupingId } from "./numericSummaryScope";
 import { parseImportedNumber } from "./importedNumericValue";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
@@ -6,6 +8,7 @@ import { normalizeDatasetSourceRefForImportedDataset } from "./datasetSourceRegi
 import { importedSurveyQuestionDisplayLabel, importedSurveyQuestionPrompt } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetQueryConfig {
+  groupingScope?: "all_respondents";
   dataset: ImportedDatasetRecord;
   field: ImportedDatasetField;
   measureField?: ImportedDatasetField | null;
@@ -120,7 +123,10 @@ export function isLikelyImportedIdentifierField(field: ImportedDatasetField | nu
   const looksLikeSystemField =
     /(^|_|\b)(edit|edits|hidden|marker|markers|sys|system|admin|audit|timestamp)(\b|_)/.test(source) ||
     /\b(hidden|internal|admin|audit|track changes|marker is used to track)\b/.test(label);
+  // Continuous measurements commonly have one distinct value per respondent.
+  // Named identifiers/system fields remain excluded regardless of numeric type.
   const mostlyUnique =
+    !isExecutableMeasure(field) &&
     field.nonEmptyCount > 50 &&
     field.distinctCount <= field.nonEmptyCount &&
     field.distinctCount / Math.max(field.nonEmptyCount, 1) > 0.9;
@@ -143,10 +149,9 @@ function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefine
   return importedSurveyQuestionDisplayLabel(field);
 }
 
-function importedRawFieldValue(row: Record<string, string>, field: ImportedDatasetField | null | undefined) {
+export function importedRawFieldValue(row: Record<string, string>, field: ImportedDatasetField | null | undefined) {
   if (!field) return "";
-  const exactValue = row[field.sourceColumn];
-  if (exactValue !== undefined) return exactValue;
+  if (Object.hasOwn(row, field.sourceColumn)) return row[field.sourceColumn] ?? "";
   const matchingKey = Object.keys(row).find((key) => key.toLowerCase() === field.sourceColumn.toLowerCase());
   return matchingKey ? row[matchingKey] ?? "" : "";
 }
@@ -169,10 +174,12 @@ export function importedMetricLabel(metric: Metric) {
 }
 
 export function formatImportedMeasureValue(value: number, metric: Metric) {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: metric === "average" || metric === "sum" ? 1 : 0
-  }).format(value);
+  if (!Number.isFinite(value)) return "Unavailable";
+  const isMeasure = metric === "average" || metric === "sum";
+  const scientific = isMeasure && value !== 0 && (Math.abs(value) < 0.0001 || Math.abs(value) >= 1e12);
+  return new Intl.NumberFormat("en-US", scientific
+    ? { notation: "scientific", maximumSignificantDigits: 5 }
+    : { minimumFractionDigits: 0, maximumFractionDigits: isMeasure ? 4 : 0 }).format(value);
 }
 
 export function importedMeasureBasesNeedRefresh(result: AnalyticsQueryResponse) {
@@ -261,8 +268,8 @@ export function buildImportedFieldSuitability(field: ImportedDatasetField): Impo
   const badges = [
     ...(isDimension ? ["Dimension"] : []),
     ...(isMeasure ? ["Measure"] : []),
-    ...(field.eligibleForBanner ? ["Banner"] : []),
-    ...(field.eligibleForFilter ? ["Filter"] : [])
+    ...(isDimension && field.eligibleForBanner ? ["Banner"] : []),
+    ...(isDimension && field.eligibleForFilter ? ["Filter"] : [])
   ];
 
   if (isMeasure && !isDimension) {
@@ -597,6 +604,7 @@ export function getImportedDatasetQuerySupport(
   dataset: ImportedDatasetRecord | null | undefined,
   field: ImportedDatasetField | null | undefined,
   options?: {
+    groupingScope?: "all_respondents";
     bannerField?: ImportedDatasetField | null;
     filter?: {
       field: ImportedDatasetField | null;
@@ -609,6 +617,13 @@ export function getImportedDatasetQuerySupport(
 ): ImportedDatasetQuerySupport {
   if (!dataset) return { executable: false, reason: "Choose an imported dataset." };
   if (!field) return { executable: false, reason: "Choose an imported field." };
+  if (field.id === allRespondentsGroupingId && options?.groupingScope !== "all_respondents") {
+    return { executable: false, reason: "Select an explicit all-respondent numeric summary scope." };
+  }
+  if (options?.groupingScope === "all_respondents") {
+    if (!isMeasureMetric(options.metric) || field.id !== allRespondentsGroupingId) return { executable: false, reason: "All respondents is available only for an explicit numeric sum or average." };
+    if (dataset.remote?.provider === "netlify") return { executable: false, reason: "All-respondent numeric summaries currently require complete browser data. Server-backed studies still support grouped summaries." };
+  }
   if (dataset.remote?.provider !== "netlify" && !importedDatasetHasQueryableRows(dataset) && dataset.rowCount > 0) {
     return { executable: false, reason: "The complete respondent data is unavailable in this browser. Re-import the source file before analyzing; preview rows cannot represent the full study." };
   }
@@ -699,6 +714,7 @@ function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAna
     kind: "imported",
     ...(isMeasureMetric(config.metric) ? { measureBaseScope: "cell" as const } : {}),
     queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",
+    ...(config.groupingScope ? { groupingScope: config.groupingScope } : {}),
     sourceRef: normalizeDatasetSourceRefForImportedDataset(config.dataset),
     datasetId: config.dataset.id,
     datasetLabel: config.dataset.title,
@@ -804,13 +820,9 @@ export function importedFieldValues(dataset: ImportedDatasetRecord | null | unde
   return importedFieldCategories(dataset, field).map((category) => category.label);
 }
 
-function roundMeasure(value: number) {
-  const scaled = value * 10;
-  return Number.isFinite(scaled) ? Math.round(scaled) / 10 : value;
-}
-
 export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): AnalyticsQueryResponse {
   const support = getImportedDatasetQuerySupport(config.dataset, config.field, {
+    groupingScope: config.groupingScope,
     bannerField: config.bannerField,
     filter: config.filter,
     measureField: config.measureField,
@@ -830,11 +842,11 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     : sourceRows;
   const bannerCategories = config.bannerField ? importedFieldCategories(config.dataset, config.bannerField) : [{ key: null, label: "Total" }];
   const columnBases = new Map<ImportedCategoryKey, number>(bannerCategories.map(({ key }) => [key, 0]));
-  const counts = new Map<ImportedCategoryKey, Map<ImportedCategoryKey, { count: number; sum: number }>>();
+  const counts = new Map<ImportedCategoryKey, Map<ImportedCategoryKey, { count: number; sum: FiniteNumericSum }>>();
   let skippedBlankPrimaryResponses = 0;
   let skippedInvalidMeasures = 0;
   rows.forEach((row) => {
-    const rawValue = importedRawFieldValue(row, config.field);
+    const rawValue = config.groupingScope === "all_respondents" ? "All respondents" : importedRawFieldValue(row, config.field);
     if (!rawValue.trim()) {
       skippedBlankPrimaryResponses += 1;
       return;
@@ -843,28 +855,37 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     const bannerValue = config.bannerField ? importedCategoryKey(config.bannerField, importedRawFieldValue(row, config.bannerField)) : null;
     const numericValue = config.measureField ? parseImportedNumber(importedRawFieldValue(row, config.measureField)) : null;
     const usableMeasureValue = numericValue !== null && Number.isFinite(numericValue);
+    // Keep observed grouping categories even when none of their measurements
+    // are usable; their mean is unavailable, rather than a missing category.
+    if (config.metric === "average" && !counts.has(value)) counts.set(value, new Map());
     if (isMeasureMetric(config.metric) && !usableMeasureValue) { skippedInvalidMeasures += 1; return; }
     columnBases.set(bannerValue, (columnBases.get(bannerValue) ?? 0) + 1);
-    const rowCounts = counts.get(value) ?? new Map<ImportedCategoryKey, { count: number; sum: number }>();
-    const current = rowCounts.get(bannerValue) ?? { count: 0, sum: 0 };
-    const nextSum = current.sum + (usableMeasureValue ? numericValue! : 0);
-    if (!Number.isFinite(nextSum)) throw new Error("This numeric summary exceeds the supported number range. Rescale the source values before summarizing; no result was created.");
+    const rowCounts = counts.get(value) ?? new Map<ImportedCategoryKey, { count: number; sum: FiniteNumericSum }>();
+    const current = rowCounts.get(bannerValue) ?? { count: 0, sum: new FiniteNumericSum() };
+    if (!current.sum.add(usableMeasureValue ? numericValue! : 0)) throw new Error("This numeric summary exceeds the supported number range. Rescale the source values before summarizing; no result was created.");
     rowCounts.set(bannerValue, {
       count: current.count + 1,
-      sum: nextSum
+      sum: current.sum
     });
     counts.set(value, rowCounts);
   });
   // Aggregate by source code, then decorate labels for display. Partial label
   // dictionaries must not drop observed codes, and equal labels are not equal codes.
-  const declaredKeys = declaredCategoryKeys(config.field);
-  const categoryLabels = importedCategoryLabels(config.field,
-    sourceRows.map((row) => importedCategoryKey(config.field, importedRawFieldValue(row, config.field))));
+  if (config.groupingScope === "all_respondents" && ![...columnBases.values()].some(base => base > 0)) {
+    throw new Error("No valid numeric values remain for this summary. Check the selected number and filter; no result was created.");
+  }
+  if (config.groupingScope === "all_respondents" && config.metric === "average" &&
+      bannerCategories.some(({ key }) => (columnBases.get(key) ?? 0) === 0)) {
+    throw new Error("A breakout group has no valid numeric values for this average. Remove the breakout or choose a supported grouping; no zero mean was created.");
+  }
+  const declaredKeys = config.groupingScope === "all_respondents" ? [] : declaredCategoryKeys(config.field);
+  const categoryLabels = config.groupingScope === "all_respondents" ? new Map<ImportedCategoryKey, string>([["All respondents", "All respondents"]])
+    : importedCategoryLabels(config.field, sourceRows.map((row) => importedCategoryKey(config.field, importedRawFieldValue(row, config.field))));
   const unlistedKeys = [...counts.keys()].filter((key) => !declaredKeys.includes(key!)).sort((a, b) => {
     const total = (key: ImportedCategoryKey) => [...(counts.get(key)?.values() ?? [])].reduce((sum, cell) => sum + cell.count, 0);
     return total(b) - total(a) || categoryLabels.get(a)!.localeCompare(categoryLabels.get(b)!);
   });
-  const entries = [...declaredKeys, ...unlistedKeys].map((key) => [key, counts.get(key) ?? new Map<ImportedCategoryKey, { count: number; sum: number }>()] as const);
+  const entries = [...declaredKeys, ...unlistedKeys].map((key) => [key, counts.get(key) ?? new Map<ImportedCategoryKey, { count: number; sum: FiniteNumericSum }>()] as const);
   const metric = config.metric === "average"
     ? { id: "average" as const, label: `Average ${importedFieldDisplayLabel(config.measureField) ?? "number"}`, valueFormat: "number" as const }
     : config.metric === "sum"
@@ -884,10 +905,13 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
       id: `${slug(label, "value")}_${index + 1}`,
       label,
       values: bannerCategories.map(({ key }) => {
-        const cell = rowCounts.get(key) ?? { count: 0, sum: 0 };
+        const cell = rowCounts.get(key) ?? { count: 0, sum: new FiniteNumericSum() };
         const base = columnBases.get(key) ?? 0;
-        if (metric.id === "average") return cell.count > 0 ? roundMeasure(cell.sum / cell.count) : 0;
-        if (metric.id === "sum") return roundMeasure(cell.sum);
+        if (metric.id === "average" || metric.id === "sum") {
+          const total = cell.sum.value();
+          if (total === null) throw new Error("This numeric summary exceeds the supported number range. Rescale the source values before summarizing; no result was created.");
+          return metric.id === "sum" ? total : cell.count > 0 ? total / cell.count : 0;
+        }
         return metric.id === "count" ? cell.count : base > 0 ? Math.round((cell.count / base) * 1000) / 10 : 0;
       }),
       bases: bannerCategories.map(({ key }) => isMeasureMetric(config.metric) ? rowCounts.get(key)?.count ?? 0 : columnBases.get(key) ?? 0)
@@ -940,6 +964,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
       }
     },
     warnings: [
+      ...(config.metric === "average" && table.some(row => columns.some(column => row.bases[column.id] === 0)) ? ["Unavailable averages have no valid numeric observations in that cell. They are not zero estimates."] : []),
       ...(!config.dataset.rows?.length && sourceRows === config.dataset.previewRows ? ["Imported result is based on stored preview rows only."] : []),
       ...(config.filter?.field && rows.length === 0 ? ["Imported filter returned no matching rows."] : []),
       ...(skippedInvalidMeasures > 0 ? [`Skipped ${skippedInvalidMeasures.toLocaleString()} row${skippedInvalidMeasures === 1 ? "" : "s"} without a valid numeric value for ${importedFieldDisplayLabel(config.measureField)}.`] : []),

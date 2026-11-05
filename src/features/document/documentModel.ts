@@ -24,7 +24,7 @@ import {
 import { defaultVisualizationForQuestion, getCompatibleChartTypes, getQuestionLabel } from "../analytics/analyticsDisplay";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import { normalizeDatasetSourceRefForImportedDataset } from "../data/datasetSourceRegistry";
-import type { BreakById } from "../../../shared/types/analytics";
+import type { AnalyticsQueryRequest, BreakById } from "../../../shared/types/analytics";
 import type { DashboardDraft, DashboardPage, ImportedDatasetField, ImportedDatasetRecord, PageThemePreset, TileAppearance } from "../../../shared/types/dashboard";
 
 export function makeTileId() {
@@ -80,25 +80,28 @@ function normalizePageProvenance(page: DashboardPage, pageThemes: PageThemePrese
   };
 }
 
-function normalizeTemplateQuery(query: Partial<DashboardDraft["analysisLibrary"]["templates"][number]["query"]> | undefined) {
+function normalizeTemplateQuery(query: Partial<DashboardDraft["analysisLibrary"]["templates"][number]["query"]> | undefined): AnalyticsQueryRequest & { comparisonDatasets: NonNullable<AnalyticsQueryRequest["comparisonDatasets"]> } {
   const question = defaultDataset.questions.find((item) => item.id === query?.question) ?? defaultQuestion;
+  const externalSource = query?.sourceIdentity?.kind === "imported" || query?.sourceIdentity?.kind === "live" ||
+    query?.sourceRef && query.sourceRef.kind !== "seeded_demo";
   const comparisonMode = query?.comparisonMode ?? "none";
-  const chartType = query?.chartType && question.allowedChartTypes.includes(query.chartType)
+  const chartType = query?.chartType && (externalSource || question.allowedChartTypes.includes(query.chartType))
     ? query.chartType
     : defaultVisualizationForQuestion(question);
 
   return {
+    ...query,
     dataset: query?.dataset ?? defaultDataset.id,
-    question: question.id,
+    question: externalSource ? query?.question ?? question.id : question.id,
     breakBy:
       comparisonMode === "wave"
         ? "SUMMARY"
-        : query?.breakBy && question.allowedBreakBys.includes(query.breakBy)
+        : query?.breakBy && (externalSource || question.allowedBreakBys.includes(query.breakBy))
           ? query.breakBy
           : question.allowedBreakBys[0],
     filters: query?.filters ?? [],
-    weight: query?.weight ?? defaultDataset.defaultWeight,
-    metric: query?.metric && question.allowedMetrics.includes(query.metric) ? query.metric : question.defaultMetric,
+    weight: query?.weight === undefined ? defaultDataset.defaultWeight : query.weight,
+    metric: query?.metric && (externalSource || question.allowedMetrics.includes(query.metric)) ? query.metric : question.defaultMetric,
     chartType,
     confidenceLevel: query?.confidenceLevel ?? 0.95,
     comparisonMode,
@@ -354,6 +357,7 @@ export function normalizeDashboard(dashboard: DashboardDraft): DashboardDraft {
             query,
             outputKind,
             spec: {
+              ...definition.spec,
               columnId: definition.spec?.columnId ?? query.breakBy,
               columnLabel: definition.spec?.columnLabel ?? definition.summary?.structureLabel ?? "Selected column",
               rowId: definition.spec?.rowId,

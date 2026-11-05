@@ -1,3 +1,4 @@
+import { analyticalCell } from "../../../../shared/analytics/resultCells";
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
 import type { DashboardPage, DashboardTile, SavedDerivedDefinition } from "../../../../shared/types/dashboard";
 import type { DerivedDefinitionRecreationCue, DerivedOutputLibraryActionCue, DerivedOutputRecreationCue } from "../builderTypes";
@@ -123,21 +124,21 @@ export interface DerivedDefinitionLibraryItemView {
 
 const topNCount = 5;
 
-function leadingRow(rows: AnalyticsTableRow[], columnId: string) {
-  return rows.reduce<AnalyticsTableRow | null>((leader, row) => {
+function leadingRow(result: AnalyticsQueryResponse, columnId: string) {
+  return result.table.filter(row=>analyticalCell(result,row,columnId).status === "available").reduce<AnalyticsTableRow | null>((leader, row) => {
     if (!leader) return row;
     return (row.values[columnId] ?? 0) > (leader.values[columnId] ?? 0) ? row : leader;
   }, null);
 }
 
-function topRows(rows: AnalyticsTableRow[], columnId: string, count: number) {
-  return [...rows]
+function topRows(result: AnalyticsQueryResponse, columnId: string, count: number) {
+  return result.table.filter(row=>analyticalCell(result,row,columnId).status === "available")
     .sort((left, right) => (right.values[columnId] ?? 0) - (left.values[columnId] ?? 0))
     .slice(0, count);
 }
 
-function bottomRows(rows: AnalyticsTableRow[], columnId: string, count: number) {
-  return [...rows]
+function bottomRows(result: AnalyticsQueryResponse, columnId: string, count: number) {
+  return result.table.filter(row=>analyticalCell(result,row,columnId).status === "available")
     .sort((left, right) => (left.values[columnId] ?? 0) - (right.values[columnId] ?? 0))
     .slice(0, count);
 }
@@ -198,19 +199,20 @@ function derivedDefinitionSourceMatches(definition: SavedDerivedDefinition, sour
 }
 
 function extractRows(tile: DashboardTile, columnId: string, kind: "top_n_extract" | "bottom_n_extract") {
-  return kind === "top_n_extract" ? topRows(tile.result.table, columnId, topNCount) : bottomRows(tile.result.table, columnId, topNCount);
+  return kind === "top_n_extract" ? topRows(tile.result, columnId, topNCount) : bottomRows(tile.result, columnId, topNCount);
 }
 
 function usableRowDifferenceRows(tile: DashboardTile, columnId: string) {
-  return tile.result.table.filter((row) => Number.isFinite(row.values[columnId]));
+  return tile.result.table.filter((row) => analyticalCell(tile.result,row,columnId).status === "available");
 }
 
 function resolveRowDifferenceSpec(tile: DashboardTile, config: DerivedOutputConfig = {}) {
+  if (config.columnId && !tile.result.columns.some(column=>column.id===config.columnId)) return null;
   const column = tile.result.columns.find((item) => item.id === config.columnId) ?? tile.result.columns[0];
   if (!column) return null;
 
   const rows = usableRowDifferenceRows(tile, column.id);
-  if (rows.length < 2) return null;
+  if (rows.length < 2 || (config.rowId && !rows.some(row=>row.optionId===config.rowId)) || (config.comparedRowId && !rows.some(row=>row.optionId===config.comparedRowId))) return null;
 
   const leftRow = rows.find((row) => row.optionId === config.rowId) ?? rows[0];
   const rightRow =
@@ -293,7 +295,7 @@ export function buildDerivedSummaryOutputView(tile: DashboardTile): DerivedOutpu
     return unavailableView("lead_row_summary", "Summary output unavailable", "This result has no columns to summarize.");
   }
 
-  const row = leadingRow(tile.result.table, column.id);
+  const row = leadingRow(tile.result, column.id);
   if (!row) {
     return unavailableView("lead_row_summary", "Summary output unavailable", "This result has no rows to summarize.");
   }
@@ -322,7 +324,7 @@ export function buildDerivedTopNOutputView(tile: DashboardTile): DerivedOutputVi
     return unavailableView("top_n_extract", "Top-N extract unavailable", "This result has no columns to extract from.");
   }
 
-  const rows = topRows(tile.result.table, column.id, topNCount);
+  const rows = topRows(tile.result, column.id, topNCount);
   if (!rows.length) {
     return unavailableView("top_n_extract", "Top-N extract unavailable", "This result has no rows to extract.");
   }
@@ -627,7 +629,7 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
 export function buildDerivedSummaryResponse(tile: DashboardTile): AnalyticsQueryResponse | null {
   const column = tile.result.columns[0];
   if (!column) return null;
-  const row = leadingRow(tile.result.table, column.id);
+  const row = leadingRow(tile.result, column.id);
   if (!row) return null;
 
   const value = row.values[column.id] ?? 0;
@@ -666,7 +668,7 @@ export function buildDerivedSummaryResponse(tile: DashboardTile): AnalyticsQuery
 export function buildDerivedSummaryMetadata(tile: DashboardTile): NonNullable<DashboardTile["derivedOutput"]> | null {
   const column = tile.result.columns[0];
   if (!column) return null;
-  const row = leadingRow(tile.result.table, column.id);
+  const row = leadingRow(tile.result, column.id);
   if (!row) return null;
   const value = row.values[column.id] ?? 0;
   const base = row.bases[column.id] ?? 0;

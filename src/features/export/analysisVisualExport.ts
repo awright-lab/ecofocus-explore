@@ -1,3 +1,4 @@
+import { analyticalCell } from "../../../shared/analytics/resultCells";
 import type { DashboardTile } from "../../../shared/types/dashboard";
 import { formatValue, supportsDonutResult } from "../builder/components/CanvasRenderers";
 import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
@@ -31,7 +32,7 @@ function text(value: string, x: number, y: number, size = 10, anchor = "start", 
   return `<text x="${x}" y="${y}" font-family="Arial, sans-serif" font-size="${size}" text-anchor="${anchor}" fill="${xmlText(color)}">${xmlText(value)}</text>`;
 }
 function label(tile: DashboardTile, id: string, source: string) { return tile.appearance.axisLabelOverrides[id] ?? source; }
-function value(tile: DashboardTile, amount: number) {
+function value(tile: DashboardTile, amount: number | null) {
   return formatValue(amount, tile.result.metric.valueFormat, tile.result.metric.id, { percentDecimals: tile.appearance.labelPercentDecimals, percentRounding: tile.appearance.labelPercentRounding });
 }
 function base(tile: DashboardTile, amount: number) { return `${tile.result.weighting.applied ? "W" : "n"}=${amount}`; }
@@ -64,7 +65,7 @@ export function analysisVisualLayout(tile: DashboardTile) {
 function check(tile: DashboardTile) {
   if (importedMeasureBasesNeedRefresh(tile.result)) throw new Error(`Refresh "${tile.title}" before exporting its numeric sample bases.`);
   for (const row of tile.result.table) for (const column of tile.result.columns) {
-    if (!Number.isFinite(row.values[column.id]) || !Number.isFinite(row.bases[column.id]) || row.bases[column.id] < 0) throw new Error(`"${tile.title}" has missing or invalid export values/bases.`);
+    if (["invalid", "rerun_required"].includes(analyticalCell(tile.result,row,column.id).status) || !Number.isFinite(row.bases[column.id]) || row.bases[column.id] < 0) throw new Error(`"${tile.title}" has missing or invalid export values/bases.`);
   }
   if (!tile.result.table.length || !tile.result.columns.length) throw new Error(`"${tile.title}" has no analytical cells to export.`);
 }
@@ -85,9 +86,9 @@ function table(tile: DashboardTile) {
     svg += `<g data-row="${xmlText(row.optionId)}"><rect x="${area.x}" y="${y}" width="${area.width}" height="${rowHeight}" fill="${rowIndex % 2 ? "#fff" : "#f6f9fb"}" stroke="#dce3e9"/>`;
     lines.forEach((line, n) => { svg += text(line, area.x + 6, y + 12 + n * 12); });
     columns.forEach((column, index) => {
-      const formatted = value(tile, row.values[column.id]), sample = base(tile, row.bases[column.id]);
+      const formatted = value(tile, analyticalCell(tile.result,row,column.id).value), sample = base(tile, row.bases[column.id]);
       if (Math.max(formatted.length, sample.length) * 6 > cell - 10) throw new Error("An export cell label cannot fit. Enlarge the table or use Excel/JSON.");
-      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${row.values[column.id]}" data-base="${row.bases[column.id]}">${text(formatted, area.x + first + index * cell + 6, y + 11)}${text(sample, area.x + first + index * cell + 6, y + 22, 8)}</g>`;
+      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${analyticalCell(tile.result,row,column.id).value ?? ""}" data-base="${row.bases[column.id]}">${text(formatted, area.x + first + index * cell + 6, y + 11)}${text(sample, area.x + first + index * cell + 6, y + 22, 8)}</g>`;
     });
     svg += "</g>";
   });
@@ -102,6 +103,16 @@ function legend(tile: DashboardTile, area: ReturnType<typeof analysisVisualLayou
     svg: tile.result.columns.map((column, index) => `<rect x="${area.x + index % perRow * width}" y="${area.y + Math.floor(index / perRow) * 15}" width="8" height="8" fill="${xmlText(color(tile, column.id, index))}"/>${text(label(tile, column.id, column.label), area.x + index % perRow * width + 12, area.y + Math.floor(index / perRow) * 15 + 8, 9)}`).join("") };
 }
 
+function numericExtent(amounts: number[]) {
+  const low = Math.min(0, ...amounts);
+  const maximum = Math.max(0, ...amounts);
+  const high = low === maximum ? 1 : maximum;
+  if (!Number.isFinite(low) || !Number.isFinite(high) || !Number.isFinite(high - low) || high <= low) {
+    throw new Error("This chart's numeric range cannot be rendered safely. Rescale the source values before exporting.");
+  }
+  return { low, high };
+}
+
 function bars(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), rows = tile.result.table, columns = tile.result.columns;
   const horizontal = tile.visualization === "horizontal_bar", stacked = tile.visualization === "stacked_bar";
@@ -109,8 +120,8 @@ function bars(tile: DashboardTile) {
   const key = legend(tile, area), plot = { x: area.x + (horizontal ? area.width * 0.25 : 45), y: area.y + key.height + 25,
     width: horizontal ? area.width * 0.75 - 85 : area.width - 55, height: area.height - key.height - 85 };
   if (plot.height < 55) throw new Error("Chart/legend cannot fit completely. Enlarge the object or use Excel/JSON.");
-  const extents = stacked ? rows.flatMap(row => [columns.reduce((sum, column) => sum + Math.max(0, row.values[column.id]), 0), columns.reduce((sum, column) => sum + Math.min(0, row.values[column.id]), 0)]) : rows.flatMap(row => columns.map(column => row.values[column.id]));
-  const low = Math.min(0, ...extents), high = Math.max(1, ...extents), span = high - low;
+  const extents = stacked ? rows.flatMap(row => [columns.reduce((sum, column) => sum + Math.max(0, analyticalCell(tile.result,row,column.id).value ?? 0), 0), columns.reduce((sum, column) => sum + Math.min(0, analyticalCell(tile.result,row,column.id).value ?? 0), 0)]) : rows.flatMap(row => columns.map(column => analyticalCell(tile.result,row,column.id).value).filter((amount): amount is number => amount !== null));
+  const { low, high } = numericExtent(extents), span = high - low;
   const coordinate = (amount: number) => horizontal ? plot.x + (amount - low) / span * plot.width : plot.y + (high - amount) / span * plot.height;
   const slot = (horizontal ? plot.height : plot.width) / rows.length;
   const barWidth = slot * 0.82 / (stacked ? 1 : columns.length);
@@ -125,7 +136,9 @@ function bars(tile: DashboardTile) {
     const names = completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor((horizontal ? area.width * 0.25 - 8 : slot) / 6)), horizontal ? Math.floor(slot / 11) : 3);
     names.forEach((name, n) => { svg += horizontal ? text(name, area.x, plot.y + rowIndex * slot + 11 + n * 11, 9) : text(name, plot.x + (rowIndex + 0.5) * slot, plot.y + plot.height + 32 + n * 11, 9, "middle"); });
     columns.forEach((column, columnIndex) => {
-      const amount = row.values[column.id], start = stacked ? amount >= 0 ? positive : negative : 0, end = start + amount;
+      const amount = analyticalCell(tile.result,row,column.id).value;
+      if (amount === null) return;
+      const start = stacked ? amount >= 0 ? positive : negative : 0, end = start + amount;
       if (stacked) { if (amount >= 0) positive = end; else negative = end; }
       const a = coordinate(start), b = coordinate(end), position = (horizontal ? plot.y : plot.x) + rowIndex * slot + slot * 0.09 + (stacked ? 0 : columnIndex * barWidth);
       svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${amount}" data-base="${row.bases[column.id]}"><rect x="${horizontal ? Math.min(a, b) : position}" y="${horizontal ? position : Math.min(a, b)}" width="${horizontal ? Math.abs(b - a) : barWidth - 2}" height="${horizontal ? barWidth - 2 : Math.abs(b - a)}" fill="${xmlText(color(tile, column.id, columnIndex))}"/>`;
@@ -148,15 +161,21 @@ function lines(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), key = legend(tile, area), rows = tile.result.table, columns = tile.result.columns;
   const top = area.y + key.height + 30, height = area.height - key.height - 75, slot = (area.width - 100) / Math.max(1, rows.length - 1);
   if (height < 55 || slot < 32) throw new Error("All line points/labels cannot fit. Enlarge the chart or use a table/Excel/JSON.");
-  const amounts = rows.flatMap(row => columns.map(column => row.values[column.id])), low = Math.min(0, ...amounts), high = Math.max(1, ...amounts);
+  const amounts = rows.flatMap(row => columns.map(column => analyticalCell(tile.result,row,column.id).value).filter((amount): amount is number => amount !== null)), { low, high } = numericExtent(amounts);
   const x = (index: number) => area.x + 50 + index * slot, y = (amount: number) => top + (high - amount) / (high - low) * height;
   if (tile.appearance.showValueLabels && (columns.length > 1 || slot < 70)) throw new Error("Line value labels need more space. Enlarge the chart or turn off value labels; no points were omitted.");
   let svg = key.svg + `<line x1="${x(0)}" x2="${x(0)}" y1="${top}" y2="${top + height}" stroke="#778995"/>` + text(value(tile, high), x(0) - 7, top + 4, 9, "end") + text(value(tile, low), x(0) - 7, top + height + 3, 9, "end");
   columns.forEach((column, index) => {
-    svg += `<polyline data-series="${xmlText(column.id)}" points="${rows.map((row, n) => `${x(n)},${y(row.values[column.id])}`).join(" ")}" fill="none" stroke="${xmlText(color(tile, column.id, index))}" stroke-width="2"/>`;
-    rows.forEach((row, n) => { svg += `<circle data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${row.values[column.id]}" data-base="${row.bases[column.id]}" cx="${x(n)}" cy="${y(row.values[column.id])}" r="3" fill="${xmlText(color(tile, column.id, index))}"/>`;
-      if (tile.appearance.showValueLabels) { svg += text(value(tile, row.values[column.id]), x(n), y(row.values[column.id]) - 18, 9, "middle"); if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), x(n), y(row.values[column.id]) - 8, 8, "middle"); }
+    let run: string[] = [];
+    const flush = () => { if (run.length > 1) svg += `<polyline data-series="${xmlText(column.id)}" points="${run.join(" ")}" fill="none" stroke="${xmlText(color(tile,column.id,index))}" stroke-width="2"/>`; run = []; };
+    rows.forEach((row,n) => {
+      const amount = analyticalCell(tile.result,row,column.id).value;
+      if (amount === null) { flush(); return; }
+      run.push(`${x(n)},${y(amount)}`);
+      svg += `<circle data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${amount}" data-base="${row.bases[column.id]}" cx="${x(n)}" cy="${y(amount)}" r="3" fill="${xmlText(color(tile,column.id,index))}"/>`;
+      if (tile.appearance.showValueLabels) { svg += text(value(tile,amount),x(n),y(amount)-18,9,"middle"); if(tile.appearance.showBases) svg += text(base(tile,row.bases[column.id]),x(n),y(amount)-8,8,"middle"); }
     });
+    flush();
   });
   rows.forEach((row, n) => completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor(Math.min(slot, 80) / 6)), 3).forEach((name, line) => { svg += text(name, x(n), top + height + 15 + line * 11, 9, "middle"); }));
   return svg;
@@ -188,6 +207,8 @@ export function analysisTileSvg(tile: DashboardTile, includeBody = true) {
   let svg = `<g><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${tile.appearance.borderRadius || 0}" fill="${xmlText(tile.appearance.background || "#fff")}" stroke="${xmlText(tile.appearance.borderColor || "#dce3e9")}"/>`;
   layout.title.forEach((line, n) => { svg += text(line, x + 20, y + 20 + n * 19, 16); });
   layout.context.forEach((line, n) => { svg += text(line, x + 20, y + 20 + layout.title.length * 19 + n * 11, 9); });
-  if (includeBody) svg += tile.visualization === "table" ? table(tile) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
+  const hasValues = tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
+  if (includeBody && !hasValues && tile.visualization !== "table") svg += text("Unavailable: no valid numeric observations.",layout.area.x,layout.area.y+24,12);
+  else if (includeBody) svg += tile.visualization === "table" ? table(tile) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
   return svg + "</g>";
 }

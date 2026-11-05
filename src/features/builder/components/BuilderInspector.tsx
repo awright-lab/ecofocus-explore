@@ -1,3 +1,5 @@
+import { analyticalCell } from "../../../../shared/analytics/resultCells";
+import { formatImportedMeasureValue } from "../../data/importedDatasetAnalytics";
 import { withSafeInference } from "../../../../shared/analytics/inferenceSafety";
 import {
   lazy,
@@ -52,6 +54,7 @@ import {
 } from "./CanvasRenderers";
 import {
   getChartTypeLabel,
+  getCompatibleChartTypes,
   getQuestionLabel,
 } from "../../analytics/analyticsDisplay";
 import { buildExecutedColumnComparisonPresentation } from "./analysisSignificancePresentationModel";
@@ -286,6 +289,7 @@ export type BuilderInspectorProps = {
   derivedOutputLibraryActionCue: DerivedOutputLibraryActionCue;
   deleteSelectedItem: () => void;
   isLoading: boolean;
+  getEditorContextVersion?: () => string | number;
   comparisonDatasets: DatasetId[];
 };
 
@@ -414,14 +418,12 @@ export const BuilderInspector = memo(function BuilderInspector(
   const leadColumn = selectedTile?.result.columns[0] ?? null;
   const leadRow = selectedTile?.result.table[0] ?? null;
   const leadValue =
-    leadColumn && leadRow ? leadRow.values[leadColumn.id] : undefined;
+    leadColumn && leadRow && selectedTile ? analyticalCell(selectedTile.result,leadRow,leadColumn.id).value : undefined;
   const leadValueLabel =
     typeof leadValue === "number"
       ? selectedTile?.result.metric.valueFormat === "percent"
         ? `${Math.round(leadValue)}%`
-        : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(
-            leadValue,
-          )
+        : formatImportedMeasureValue(leadValue, selectedTile?.result.metric.id ?? "count")
       : null;
   const executionReport =
     selectedTile ? withSafeInference(selectedTile.result).statistics.significanceExecutionReport : null;
@@ -572,22 +574,7 @@ export const BuilderInspector = memo(function BuilderInspector(
     if (itemId === "options") setSettingsView("options");
   }
   const chartTypeOptions = useMemo(
-    () =>
-      selectedTile
-        ? defaultDataset.chartTypes
-            .filter((chartTypeOption) =>
-              chartTypeOption.supportedMetrics.includes(
-                selectedTile.query.metric,
-              ),
-            )
-            .filter(chartTypeOption => chartTypeOption.id !== "donut" || selectedTile.result.columns.length === 1)
-            .filter(
-              (chartTypeOption) =>
-                !chartTypeOption.minSeries ||
-                selectedTile.result.columns.length >= chartTypeOption.minSeries,
-            )
-            .map((chartTypeOption) => chartTypeOption.id)
-        : [],
+    () => selectedTile ? getCompatibleChartTypes(selectedTile.result) : [],
     [selectedTile],
   );
   const activeDesignPaletteId = selectedTile

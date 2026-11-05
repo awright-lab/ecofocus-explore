@@ -1,3 +1,4 @@
+import { analyticalCell } from "../../../shared/analytics/resultCells";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import type { DashboardTile } from "../../../shared/types/dashboard";
 import { analysisVisualLayout } from "./analysisVisualExport";
@@ -56,8 +57,8 @@ function categoryCache(categories: string[]) {
   return `<c:strLit><c:ptCount val="${categories.length}"/>${categories.map((category, index) => `<c:pt idx="${index}"><c:v>${escapeXml(category)}</c:v></c:pt>`).join("")}</c:strLit>`;
 }
 
-function valueCache(values: number[]) {
-  return `<c:numLit><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>${values.map((value, index) => `<c:pt idx="${index}"><c:v>${num(value)}</c:v></c:pt>`).join("")}</c:numLit>`;
+function valueCache(values: Array<number | null>) {
+  return `<c:numLit><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>${values.map((value, index) => value === null ? "" : `<c:pt idx="${index}"><c:v>${num(value)}</c:v></c:pt>`).join("")}</c:numLit>`;
 }
 
 function seriesXml(tile: DashboardTile, categories: string[]) {
@@ -65,7 +66,7 @@ function seriesXml(tile: DashboardTile, categories: string[]) {
   const palette = tile.appearance.palette.length ? tile.appearance.palette : [tile.appearance.primaryColor, "#4F7FE8", "#6557C8", "#FF6B60"];
 
   return columns.map((column, index) => {
-    const values = tile.result.table.map((row) => row.values[column.id] ?? 0);
+    const values = tile.result.table.map((row) => analyticalCell(tile.result,row,column.id).value);
     return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>${escapeXml(tile.appearance.axisLabelOverrides[column.id] ?? column.label)}</c:v></c:tx><c:spPr><a:solidFill><a:srgbClr val="${hexColor(palette[index % palette.length])}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>${nativeLabels(tile, column.id)}<c:cat>${categoryCache(categories)}</c:cat><c:val>${valueCache(values)}</c:val></c:ser>`;
   }).join("");
 }
@@ -73,7 +74,9 @@ function seriesXml(tile: DashboardTile, categories: string[]) {
 function nativeLabels(tile: DashboardTile, columnId: string) {
   if (!tile.appearance.showValueLabels) return "";
   return `<c:dLbls>${tile.result.table.map((row, index) => {
-    const label = formatValue(row.values[columnId], tile.result.metric.valueFormat, tile.result.metric.id,
+    const amount = analyticalCell(tile.result,row,columnId).value;
+    if (amount === null) return "";
+    const label = formatValue(amount, tile.result.metric.valueFormat, tile.result.metric.id,
       { percentDecimals: tile.appearance.labelPercentDecimals, percentRounding: tile.appearance.labelPercentRounding });
     const base = tile.appearance.showBases ? ` (${tile.result.weighting.applied ? "W" : "n"}=${row.bases[columnId]})` : "";
     return `<c:dLbl><c:idx val="${index}"/><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr sz="900"/><a:t>${escapeXml(label + base)}</a:t></a:r></a:p></c:rich></c:tx><c:dLblPos val="${tile.visualization === "stacked_bar" ? "ctr" : "outEnd"}"/></c:dLbl>`;
@@ -88,7 +91,7 @@ function chartTitleXml(tile: DashboardTile) {
 function chartXml(tile: DashboardTile) {
   const categories = tile.result.table.map((row) => tile.appearance.axisLabelOverrides[row.optionId] ?? row.label);
   const grouping = tile.visualization === "stacked_bar" ? "stacked" : "clustered";
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:lang val="en-US"/><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>${seriesXml(tile, categories)}<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls><c:gapWidth val="140"/><c:overlap val="${tile.visualization === "stacked_bar" ? "100" : "0"}"/><c:axId val="100001"/><c:axId val="100002"/></c:barChart><c:catAx><c:axId val="100001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:crossAx val="100002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="100002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="${tile.result.metric.valueFormat === "percent" ? "0&quot;%&quot;" : "0.##"}" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:crossAx val="100001"/><c:crosses val="autoZero"/></c:valAx></c:plotArea><c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:lang val="en-US"/><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>${seriesXml(tile, categories)}<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls><c:gapWidth val="140"/><c:overlap val="${tile.visualization === "stacked_bar" ? "100" : "0"}"/><c:axId val="100001"/><c:axId val="100002"/></c:barChart><c:catAx><c:axId val="100001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:crossAx val="100002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="100002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:majorGridlines/><c:numFmt formatCode="${tile.result.metric.valueFormat === "percent" ? "0&quot;%&quot;" : "General"}" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/><c:crossAx val="100001"/><c:crosses val="autoZero"/></c:valAx></c:plotArea><c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend><c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`;
 }
 
 function graphicFrameXml(tile: DashboardTile, shapeId: number, relationshipId: string) {
@@ -98,7 +101,7 @@ function graphicFrameXml(tile: DashboardTile, shapeId: number, relationshipId: s
 
 export function canReconstructTileAsNativePptxChart(tile: DashboardTile) {
   if (tile.hidden || !supportedNativeChartTypes.has(tile.visualization)) return false;
-  return tile.result.table.length > 0 && tile.result.columns.length > 0;
+  return tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
 }
 
 export function buildNativePptxChartDescriptor(tile: DashboardTile, chartId: number, shapeId: number, relationshipId: string): PptxNativeChartDescriptor {

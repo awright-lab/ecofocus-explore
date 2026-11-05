@@ -1,3 +1,4 @@
+import { WorkspaceBackupButton } from "../document/WorkspaceBackupButton";
 import {
   ArrowRight,
   Atom,
@@ -323,6 +324,7 @@ export function WorkspaceHome({
   const [search, setSearch] = useState("");
   const [reportFilter, setReportFilter] = useState<"all" | "published" | "draft" | "changed">("all");
   const [showHelp, setShowHelp] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState<{text: string; failed: boolean} | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const workspaceRef = useRef(workspace);
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
@@ -1022,6 +1024,7 @@ export function WorkspaceHome({
             </strong>
           </div>
           <div className="workspace-home-header__actions">
+            <WorkspaceBackupButton getWorkspace={() => workspaceRef.current} className="workspace-home-secondary" onFeedback={(text, failed) => setBackupFeedback({text, failed})} />
             <button
               type="button"
               className="workspace-home-secondary"
@@ -1045,6 +1048,7 @@ export function WorkspaceHome({
             </button>
           </div>
         </header>
+        {backupFeedback && <p className="workspace-backup-feedback" role={backupFeedback.failed ? "alert" : "status"}>{backupFeedback.text}</p>}
         <input
           ref={fileInputRef}
           type="file"

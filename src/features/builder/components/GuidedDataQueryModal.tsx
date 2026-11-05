@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { analyticalCell } from "../../../../shared/analytics/resultCells";
+import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useModalAccessibility } from "../hooks/useModalAccessibility";
 import { runMockAnalyticsQuery } from "../../../../shared/mock/analytics";
 import { X } from "lucide-react";
@@ -17,6 +19,7 @@ import {
 import { importedSurveyQuestionPrompt } from "../../data/importedSurveyLabelModel";
 import {
   buildImportedFieldSuitability,
+  formatImportedMeasureValue,
   buildImportedQueryRecommendations,
   firstImportedDimensionField,
   firstImportedMeasureField,
@@ -31,6 +34,8 @@ import { importedQuerySelectionIssue } from "../../data/importedQuerySelection";
 import type { AnalysisAuthoringPanelProps, GuidedDataQueryLaunchOptions } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
+import type { ImportedDatasetRecord } from "../../../../shared/types/dashboard";
+
 type GuidedOutputMode = "table" | "chart";
 type ImportedQueryMode = "categorical" | "measure";
 type ImportedAnalysisIntent = "responses" | "compare" | "measure";
@@ -39,24 +44,42 @@ function supportedChartType(chartTypes: ChartType[]) {
   return chartTypes.find((item) => item !== "table") ?? "vertical_bar";
 }
 
+// A field launch carries an explicit modeling choice, including same-ID updates.
+// Apply it only to that study and leave the workspace's dataset/rows untouched.
+function withLaunchFieldSnapshot(dataset: ImportedDatasetRecord | null, launch?: GuidedDataQueryLaunchOptions) {
+  const snapshot = launch?.importedFieldSnapshot;
+  if (!dataset || dataset.id !== launch?.importedDatasetId || !snapshot) return dataset;
+  const exists = dataset.fields.some((field) => field.id === snapshot.id);
+  return { ...dataset, fields: exists
+    ? dataset.fields.map((field) => field.id === snapshot.id ? snapshot : field)
+    : [snapshot, ...dataset.fields] };
+}
+
 export function GuidedDataQueryModal({
   props,
   initialOutputMode = "table",
   launchContext,
-  onClose
+  onClose,
+  onCreated
 }: {
   props: AnalysisAuthoringPanelProps;
   initialOutputMode?: GuidedOutputMode;
   launchContext?: GuidedDataQueryLaunchOptions;
   onClose: () => void;
+  onCreated?: (tileId: string) => void;
 }) {
   const modalRef = useRef<HTMLElement | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
+  const importedGroupingRef = useRef<HTMLSelectElement | null>(null);
   const [fieldSearch, setFieldSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
-  useModalAccessibility(modalRef, onClose);
+  const active = useRef(true);
+  const requestSequence = useRef(0);
+  useEffect(() => { active.current = true; return () => { active.current = false; requestSequence.current += 1; }; }, []);
+  function dismiss() { active.current = false; requestSequence.current += 1; onClose(); }
+  useModalAccessibility(modalRef, dismiss);
   const {
     importedDatasets,
     selectedQuestion,
@@ -91,9 +114,7 @@ export function GuidedDataQueryModal({
   const launchDatasetBase = launchContext?.importedDatasetId
     ? importedDatasets.find((dataset) => dataset.id === launchContext.importedDatasetId) ?? null
     : importedDatasets[0] ?? null;
-  const launchDataset = launchDatasetBase && launchContext?.importedFieldSnapshot && !launchDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
-    ? { ...launchDatasetBase, fields: [launchContext.importedFieldSnapshot, ...launchDatasetBase.fields] }
-    : launchDatasetBase;
+  const launchDataset = withLaunchFieldSnapshot(launchDatasetBase, launchContext);
   const launchField = launchContext?.importedFieldSnapshot ?? launchDataset?.fields.find((field) => field.id === launchContext?.importedFieldId) ?? null;
   const launchFieldSuitability = launchField ? buildImportedFieldSuitability(launchField) : null;
   const launchFieldCanDriveAnalysis = isImportedFieldAnalysisCandidate(launchField);
@@ -103,22 +124,21 @@ export function GuidedDataQueryModal({
   const launchMeasureField = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure"
     ? launchField
     : firstImportedMeasureField(launchDataset);
-  const launchQueryMode: ImportedQueryMode = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
+  const launchQueryMode: ImportedQueryMode = launchContext?.groupingScope === "all_respondents" || (launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure") ? "measure" : "categorical";
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? launchContext?.importedDatasetId ?? "");
-  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchContext?.importedFieldId && !launchField ? launchContext.importedFieldId : launchPrimaryField?.id ?? "");
+  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchContext?.groupingScope === "all_respondents" ? allRespondentsGroupingId : launchContext?.importedFieldId && launchFieldSuitability?.recommendedQueryMode !== "measure"
+    ? launchField?.id ?? launchContext.importedFieldId : launchPrimaryField?.id ?? "");
   const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
   const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
   const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState<string | null>(null);
   const [importedMetric, setImportedMetric] = useState<Metric>(launchQueryMode === "measure" ? "average" : "percent_selected");
   const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>(launchQueryMode);
-  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(launchMeasureField?.id ?? "none");
+  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(launchContext?.groupingScope === "all_respondents" && launchContext.importedFieldId ? launchField?.id ?? launchContext.importedFieldId : launchMeasureField?.id ?? "none");
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
   const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? null;
   const missingRequestedStudy = datasetMode === "imported" && Boolean(selectedImportedDatasetId) && !importedDatasetBase;
-  const importedDataset = importedDatasetBase && launchContext?.importedFieldSnapshot && importedDatasetBase.id === launchContext.importedDatasetId && !importedDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
-    ? { ...importedDatasetBase, fields: [launchContext.importedFieldSnapshot, ...importedDatasetBase.fields] }
-    : importedDatasetBase;
+  const importedDataset = withLaunchFieldSnapshot(importedDatasetBase, launchContext);
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
   const importedPrimaryFieldCandidates = importedSummary.fields.filter((field) =>
     (field.type === "categorical" || field.modelingRole === "candidate_dimension") && isImportedFieldAnalysisCandidate(field)
@@ -126,7 +146,9 @@ export function GuidedDataQueryModal({
   const importedPrimaryFields = importedPrimaryFieldCandidates.length
     ? importedPrimaryFieldCandidates
     : importedSummary.fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
-  const importedField = importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? null;
+  const groupingScope = selectedImportedFieldId === allRespondentsGroupingId ? "all_respondents" as const : undefined;
+  const allRespondents = allRespondentsGroupingField(importedDataset);
+  const importedField = groupingScope ? allRespondents : importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? null;
   const importedAnswerChoices = importedFieldAnswerChoices(importedField);
   const importedAnswerChoiceSummary = importedFieldAnswerChoiceSummary(importedField);
   const importedQuestionPrompt = importedSurveyQuestionPrompt(importedField);
@@ -147,7 +169,7 @@ export function GuidedDataQueryModal({
       : null;
   const importedMeasureField = importedMeasureFields.find((field) => field.id === selectedImportedMeasureFieldId) ?? null;
   const importedFieldSuitability = importedField ? buildImportedFieldSuitability(importedField) : null;
-  const importedRecommendations = buildImportedQueryRecommendations(importedDataset, importedField, {
+  const importedRecommendations = groupingScope ? [] : buildImportedQueryRecommendations(importedDataset, importedField, {
     selectedQueryMode: importedQueryMode,
     measureField: importedMeasureField,
     bannerFields: importedBannerFields
@@ -166,7 +188,7 @@ export function GuidedDataQueryModal({
         : chartType;
   const filterChoiceSupport = getImportedFilterChoiceSupport(importedDataset);
   const selectionIssue = importedQuerySelectionIssue({
-    grouping: { id: selectedImportedFieldId, fields: importedPrimaryFields },
+    grouping: { id: selectedImportedFieldId, fields: [...importedPrimaryFields, allRespondents] },
     comparison: { id: selectedImportedBannerFieldId, fields: importedBannerFields },
     filter: { id: selectedImportedFilterFieldId, fields: importedFilterFields },
     ...(importedQueryMode === "measure" ? { measure: { id: selectedImportedMeasureFieldId, fields: importedMeasureFields } } : {}),
@@ -178,22 +200,25 @@ export function GuidedDataQueryModal({
     : importedFilterField && selectedImportedFilterValue === null
     ? { executable: false, reason: "Choose a filter value or select No filter." }
     : getImportedExecutionSupport(importedDataset, importedField, {
+    groupingScope,
     bannerField: importedBannerField,
     filter: importedFilter,
     measureField: importedQueryMode === "measure" ? importedMeasureField : null,
     metric: effectiveImportedMetric,
     chartType: selectedChart
   });
-  const canCreate = datasetMode === "seeded" || importedSupport.executable;
   const importedDatasetHasRows = importedDatasetHasQueryableRows(importedDataset);
-  const resultPreview = useMemo(() => {
+  const previewState = useMemo(() => {
     try {
-      if (datasetMode === "seeded") return runMockAnalyticsQuery({ ...props.query, chartType: selectedChart });
-      if (!importedSupport.executable || !importedDataset || !importedField || importedDataset.remote?.provider === "netlify") return null;
-      return runImportedDatasetQuery({ dataset: importedDataset, field: importedField, measureField: importedQueryMode === "measure" ? importedMeasureField : null,
-        bannerField: importedBannerField, filter: importedFilter, chartType: selectedChart, metric: effectiveImportedMetric });
-    } catch { return null; }
-  }, [datasetMode, props.query, selectedChart, importedDataset, importedField, importedSupport.executable, importedQueryMode, importedMeasureField, importedBannerField, importedFilter, effectiveImportedMetric]);
+      if (datasetMode === "seeded") return { result: runMockAnalyticsQuery({ ...props.query, chartType: selectedChart }), error: null };
+      if (!importedSupport.executable || !importedDataset || !importedField || importedDataset.remote?.provider === "netlify") return { result: null, error: null };
+      return { result: runImportedDatasetQuery({ dataset: importedDataset, field: importedField, groupingScope, measureField: importedQueryMode === "measure" ? importedMeasureField : null,
+        bannerField: importedBannerField, filter: importedFilter, chartType: selectedChart, metric: effectiveImportedMetric }), error: null };
+    } catch (error) { return { result: null, error: error instanceof Error ? error.message : "This setup could not be calculated. Check the selected fields and values." }; }
+  }, [datasetMode, props.query, selectedChart, importedDataset, importedField, importedSupport.executable, importedQueryMode, importedMeasureField, importedBannerField, importedFilter, effectiveImportedMetric, groupingScope]);
+  const resultPreview = previewState.result;
+  const previewFailure = previewState.error;
+  const canCreate = (datasetMode === "seeded" || importedSupport.executable) && !previewFailure;
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
   const importedRowCount = importedDataset?.rowCount ?? importedDataset?.rows?.length ?? 0;
@@ -219,6 +244,7 @@ export function GuidedDataQueryModal({
     {
       id: "responses",
       label: "Show answers for this question",
+      disabled: Boolean(groupingScope),
       helper: `Count how respondents answered ${importedGroupingLabel || "the selected field"}.`
     },
     {
@@ -227,7 +253,7 @@ export function GuidedDataQueryModal({
       helper: importedBannerFields.length
         ? "Break the answers out by gender, segment, status, or another grouping field."
         : "This dataset needs another group field before comparison is available.",
-      disabled: importedBannerFields.length === 0
+      disabled: Boolean(groupingScope) || importedBannerFields.length === 0
     },
     {
       id: "measure",
@@ -275,7 +301,9 @@ export function GuidedDataQueryModal({
   const weightSummary = weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted";
 
   async function createOutput(mode: GuidedOutputMode) {
-    if (!canCreate || creating || isLoading) return;
+    if (!canCreate || creating || isLoading || !active.current) return;
+    const request = ++requestSequence.current;
+    const isCurrent = () => active.current && requestSequence.current === request;
     setCreating(true);
     setCreationError(null);
     try {
@@ -285,19 +313,23 @@ export function GuidedDataQueryModal({
     if (datasetMode === "imported") {
       if (!importedDataset || !importedField) return;
       const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, effectiveImportedMetric, {
+        groupingScope,
+        isCurrent,
         measureField: importedQueryMode === "measure" ? importedMeasureField : null,
         bannerField: importedBannerField,
         filter: importedFilter
       });
-      if (created) onClose();
+      if (!isCurrent()) return;
+      if (created) { onClose(); onCreated?.(created); }
       else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
       return;
     }
-    const created = await addTileFromSourceWithVisualization(nextChartType);
-    if (created) onClose();
+    const created = await addTileFromSourceWithVisualization(nextChartType, isCurrent);
+    if (!isCurrent()) return;
+    if (created) { onClose(); onCreated?.(created); }
     else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
-    } catch (error) { setCreationError(error instanceof Error ? error.message : "Analysis failed. Please try again."); }
-    finally { setCreating(false); }
+    } catch (error) { if (isCurrent()) setCreationError(error instanceof Error ? error.message : "Analysis failed. Please try again."); }
+    finally { if (isCurrent()) setCreating(false); }
   }
 
   async function importStudy(file: File | undefined) {
@@ -333,6 +365,15 @@ export function GuidedDataQueryModal({
     setChartType(recommendation.chartType);
   }
 
+  function chooseImportedGrouping(fieldId: string) {
+    setSelectedImportedFieldId(fieldId);
+    if (fieldId === allRespondentsGroupingId) {
+      setImportedQueryMode("measure");
+      setImportedMetric("average");
+    }
+    if (fieldId === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId("none");
+  }
+
   function applyImportedAnalysisIntent(intent: ImportedAnalysisIntent) {
     if (intent === "responses") {
       setImportedQueryMode("categorical");
@@ -360,7 +401,7 @@ export function GuidedDataQueryModal({
   }
 
   return (
-    <div className="guided-query-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="guided-query-backdrop" role="presentation" onMouseDown={dismiss}>
       <section ref={modalRef} tabIndex={-1} className="guided-query-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-dialog-title" aria-describedby="analysis-dialog-helper" onMouseDown={(event) => event.stopPropagation()}>
         <header className="guided-query-header">
           <div>
@@ -368,7 +409,7 @@ export function GuidedDataQueryModal({
             <h2 id="analysis-dialog-title">{modalTitle}</h2>
             <small id="analysis-dialog-helper">{modalHelper}</small>
           </div>
-          <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
+          <button type="button" className="guided-query-close" onClick={dismiss} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
         </header>
 
         <div className="guided-query-body">
@@ -397,7 +438,7 @@ export function GuidedDataQueryModal({
                 <select
                   value={importedDataset?.id ?? ""}
                   onChange={(event) => {
-                    const dataset = importedDatasets.find((item) => item.id === event.target.value);
+                    const dataset = withLaunchFieldSnapshot(importedDatasets.find((item) => item.id === event.target.value) ?? null, launchContext);
                     const primaryField = firstImportedDimensionField(dataset);
                     const measureField = firstImportedMeasureField(dataset);
                     setSelectedImportedDatasetId(event.target.value);
@@ -438,19 +479,21 @@ export function GuidedDataQueryModal({
                 <label>
                   Group responses by
                   <select
+                    ref={importedGroupingRef}
                     value={importedField?.id ?? ""}
-                    onChange={(event) => {
-                      setSelectedImportedFieldId(event.target.value);
-                      if (event.target.value === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId("none");
-                    }}
+                    onChange={(event) => chooseImportedGrouping(event.target.value)}
                   >
                     {!importedField && <option value="" disabled>Choose an available grouping field...</option>}
+                    <option value={allRespondentsGroupingId}>All respondents (numeric summary)</option>
                     {importedPrimaryFields.filter((field) => field.id === importedField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
                       <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                     ))}
                   </select>
                 </label>
-                {importedField && (
+                {groupingScope && <div className="guided-query-variable-card"><strong>All respondents</strong>
+                  <span>Summarize the selected number across the study, with any chosen filter.</span>
+                  <small>Only valid numeric values contribute to the result and its sample base.</small></div>}
+                {importedField && !groupingScope && (
                   <div className="guided-query-variable-card">
                     <strong>{importedFieldDisplayLabel(importedField)}</strong>
                     <span>
@@ -753,15 +796,19 @@ export function GuidedDataQueryModal({
                         </div>
                       </details>
                     )}
-                    <div className={importedSupport.executable ? "guided-query-supported" : "guided-query-unsupported"}>
-                      <strong>{importedSupport.executable ? "Ready to create" : importedSupport.reason}</strong>
-                      <small>{importedSupport.executable ? "This will create a normal editable table or chart on the current page." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
+                    <div className={canCreate ? "guided-query-supported" : "guided-query-unsupported"}>
+                      <strong>{canCreate ? "Ready to create" : previewFailure ?? importedSupport.reason}</strong>
+                      <small>{canCreate ? "This will create a normal editable table or chart on the current page." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
                     </div>
                   </>
                 ) : (
                   <div className="guided-query-unsupported">
-                    <strong>Modeled-only for now.</strong>
+                    <strong>{importedField ? "Modeled-only for now." : "Choose what to analyze"}</strong>
                     <small>{importedSupport.reason}</small>
+                    {!importedField && importedPrimaryFieldCandidates.length === 0 && importedMeasureFieldCandidates.length > 0 && importedDataset?.remote?.provider !== "netlify" && <>
+                      <small>This study has numeric fields. Summarize a number across all respondents, then review the calculation before creating it.</small>
+                      <button type="button" onClick={() => { chooseImportedGrouping(allRespondentsGroupingId); importedGroupingRef.current?.focus(); }}>Summarize all respondents</button>
+                    </>}
                   </div>
                 )}
               </>
@@ -789,21 +836,23 @@ export function GuidedDataQueryModal({
               {resultPreview ? <>
                 <p>{datasetMode === "seeded" ? "Illustrative sample results" : "Calculated from your complete imported study"} · {resultPreview.metric.label}</p>
                 <div className="analysis-preview-scroll"><table><thead><tr><th scope="col">Answer</th>{resultPreview.columns.slice(0, 3).map((column) => <th scope="col" key={column.id}>{column.label}</th>)}</tr></thead>
-                  <tbody>{resultPreview.table.slice(0, 6).map((row) => <tr key={row.optionId}><th scope="row">{row.label}</th>{resultPreview.columns.slice(0, 3).map((column) => <td key={column.id}>{row.values[column.id] === undefined ? "—" : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(row.values[column.id])}{resultPreview.metric.valueFormat === "percent" ? "%" : ""}</td>)}</tr>)}</tbody></table></div>
-                <small>Showing up to 6 answers and 3 groups. The complete result is placed on the page.</small>
+                  <tbody>{resultPreview.table.slice(0, 6).map((row) => <tr key={row.optionId}><th scope="row">{row.label}</th>{resultPreview.columns.slice(0, 3).map((column) => <td key={column.id}>{analyticalCell(resultPreview, row, column.id).value === null ? "Unavailable" : resultPreview.metric.valueFormat === "number" ? formatImportedMeasureValue(row.values[column.id], resultPreview.metric.id) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(row.values[column.id])}{resultPreview.metric.valueFormat === "percent" ? "%" : ""}{datasetMode === "imported" && groupingScope && <small> (n={row.bases[column.id] ?? 0} valid values)</small>}</td>)}</tr>)}</tbody></table></div>
+                <small>Showing up to 6 answers and 3 groups. The complete result is placed on the page. Numeric results retain calculation precision; displayed values may be rounded.</small>
                 {resultPreview.warnings.length > 0 && <ul aria-label="Analysis data quality notices">{resultPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
-              </> : <p>{importedDataset?.remote?.provider === "netlify" ? "This study is queried securely on the server when you create the analysis." : "Choose a supported question and calculation to preview the results."}</p>}
+              </> : previewFailure ? <p role="alert">{previewFailure}</p> : <p>{importedDataset?.remote?.provider === "netlify" ? "This study is queried securely on the server when you create the analysis." : "Choose a supported question and calculation to preview the results."}</p>}
             </section>
           </aside>
         </div>
 
         <footer className="guided-query-footer">
+          {creating && <p role="status">Closing will ignore this analysis result; the request may finish in the background.</p>}
+          {isLoading && !creating && <p role="status">A data request is still finishing. Your setup is kept; creation will be available when it settles.</p>}
           {(creationError || props.error) && <p role="alert" className="analysis-create-error">{creationError || props.error}</p>}
-          <small>{canCreate ? "The table/chart will be placed on the current page and selected for editing." : importedSupport.reason}</small>
+          <small>{canCreate ? "The table/chart will be placed on the current page and selected for editing." : previewFailure ?? importedSupport.reason}</small>
           <div>
-            <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="secondary" onClick={dismiss}>Cancel</button>
             <button type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || isLoading || creating || importing}>
-              {isLoading || creating ? "Creating analysis…" : outputMode === "table" ? "Create table" : "Create chart"}
+              {creating ? "Creating analysis..." : isLoading ? "Waiting for data request" : outputMode === "table" ? "Create table" : "Create chart"}
             </button>
           </div>
         </footer>

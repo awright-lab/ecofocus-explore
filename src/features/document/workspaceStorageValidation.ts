@@ -130,3 +130,40 @@ export function assertConsistentSavedStudies(groups: ImportedDatasetRecord[][]):
     }
   }
 }
+
+// Report updates are keyed by ID. Ambiguous IDs could cause one autosave to
+// replace multiple distinct drafts, so reject them before any normalization.
+export function assertSavedReportIdentities(reports: Array<{ id?: unknown; draft: { id?: unknown } }>, format: SavedWorkspaceFormat) {
+  const seen = new Set<string>();
+  for (const [index, report] of reports.entries()) {
+    const id = report.id, draftId = report.draft.id;
+    if ((id != null && typeof id !== "string") || (draftId != null && typeof draftId !== "string") ||
+        (format === "v2" && (typeof id !== "string" || !id || typeof draftId !== "string" || !draftId))) {
+      throw new Error("The saved workspace has invalid report IDs. Your saved data has not been changed.");
+    }
+    // Match normalizeDashboardWorkspace's legacy fallback, including collisions
+    // between an explicit ID and an index-generated ID such as report_1.
+    const effectiveId = (id as string | null | undefined) || (draftId as string | null | undefined) || `report_${index + 1}`;
+    if (seen.has(effectiveId)) throw new Error("The saved workspace has duplicate report IDs. Your saved data has not been changed.");
+    seen.add(effectiveId);
+  }
+}
+
+// Editing and selection use page IDs, then tile/element IDs within that page.
+// Copies and snapshot versions intentionally have separate identity scopes.
+export function assertSavedCanvasIdentities(pages: Array<Record<string, unknown>>): void {
+  const pageIds = new Set<string>();
+  for (const page of pages) {
+    if (typeof page.id !== "string" || !page.id || pageIds.has(page.id)) {
+      throw new Error("The saved report has invalid or duplicate page IDs. Your saved data has not been changed.");
+    }
+    pageIds.add(page.id);
+    const objectIds = new Set<string>();
+    for (const item of [...page.tiles as unknown[], ...page.elements as unknown[]]) {
+      if (!isSavedObject(item) || typeof item.id !== "string" || !item.id || objectIds.has(item.id)) {
+        throw new Error("The saved page has invalid or duplicate object IDs. Your saved data has not been changed.");
+      }
+      objectIds.add(item.id);
+    }
+  }
+}
