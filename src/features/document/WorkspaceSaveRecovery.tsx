@@ -29,6 +29,7 @@ export function WorkspaceLoadRecovery() {
 
 export function WorkspaceSaveRecovery() {
   const pending = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.getPending);
+  const failure = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.getFailure);
   const [downloadError, setDownloadError] = useState(false);
 
   useEffect(() => {
@@ -64,11 +65,13 @@ export function WorkspaceSaveRecovery() {
   return (
     <aside className="workspace-save-recovery" role="alert" aria-label="Workspace not saved">
       <div>
-        <strong>Changes not saved</strong>
-        <p>{workspaceSaveFailureMessage}</p>
+        <strong>{failure === "conflict" ? "Another tab changed this workspace" : "Changes not saved"}</strong>
+        <p>{failure === "conflict"
+          ? "Saving is paused to protect the newer saved workspace. Your edits remain in this tab. Download a backup of these edits before reopening the latest saved workspace; retrying will not overwrite it."
+          : workspaceSaveFailureMessage}</p>
         {downloadError && <p>Backup download failed. Keep this tab open and retry.</p>}
       </div>
-      <button type="button" onClick={() => workspaceSaveSession.retry()}>Retry saving</button>
+      {failure !== "conflict" && <button type="button" onClick={() => workspaceSaveSession.retry()}>Retry saving</button>}
       <button type="button" onClick={downloadBackup}>Download workspace backup</button>
     </aside>
   );

@@ -279,11 +279,12 @@ function isStorageQuotaError(error: unknown) {
   return error instanceof DOMException && (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
 }
 
-export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
+export function writeDashboardWorkspaceVersion(workspace: DashboardWorkspace): { version: string } | false {
   const compactWorkspace = compactWorkspaceForStorage(workspace);
   try {
-    window.localStorage.setItem(workspaceStorageKey, JSON.stringify(compactWorkspace));
-    return true;
+    const version = JSON.stringify(compactWorkspace);
+    window.localStorage.setItem(workspaceStorageKey, version);
+    return { version };
   } catch (error) {
     // The payload is already compact. Retrying the identical write cannot make
     // quota available and must never silently discard respondent data.
@@ -292,6 +293,10 @@ export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
       : "Unable to save InsightCanvas workspace.", error);
     return false;
   }
+}
+
+export function saveDashboardWorkspace(workspace: DashboardWorkspace) {
+  return writeDashboardWorkspaceVersion(workspace) !== false;
 }
 
 export function upsertWorkspaceImportedDataset(workspace: DashboardWorkspace, dataset: ImportedDatasetRecord): DashboardWorkspace {

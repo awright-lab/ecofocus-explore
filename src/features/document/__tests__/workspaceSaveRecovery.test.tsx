@@ -208,6 +208,26 @@ describe("workspace save recovery UI", () => {
     expect(loadDashboardWorkspace().importedDatasets[0].rows).toHaveLength(30);
   });
 
+  it("pauses a stale editor's snapshot save and offers backup without overwriting newer storage", async () => {
+    writeFailure.mockRestore();
+    await editor();
+    const newer = { ...loadDashboardWorkspace(), label: "Newer saved workspace from another tab" };
+    const newerRaw = JSON.stringify(newer); localStorage.setItem(workspaceStorageKey, newerRaw);
+    const writes = vi.spyOn(Storage.prototype, "setItem");
+    await act(async () => button("Save snapshot").click());
+    expect(host.textContent).toContain("Another tab changed this workspace");
+    expect(host.textContent).toContain("Download a backup of these edits");
+    expect(Array.from(host.querySelectorAll("button")).some(node => node.textContent === "Retry saving")).toBe(false);
+    expect(button("Download workspace backup")).toBeTruthy();
+    expect(window.location.hash).toBe(`#/reports/${baseline.reports[0].id}`);
+    expect(host.querySelector(".published-shell")).toBeNull();
+    expect(workspaceSaveSession.getPending()?.publishedSnapshots).toHaveLength(0);
+    expect(workspaceSaveSession.getPending()?.importedDatasets[0].rows).toHaveLength(30);
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(newerRaw);
+    expect(writes).not.toHaveBeenCalled();
+  });
+
   it("keeps failed publication in the draft editor and publishes only after storage recovers", async () => {
     await editor();
     await act(async () => button("Save snapshot").click());
