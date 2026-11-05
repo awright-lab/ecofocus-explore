@@ -14,7 +14,31 @@ export interface DurableWorkspaceHead {
 }
 export type DurableCommitResult = { kind: "saved"; revision: number } | { kind: "conflict"; revision: number | null } | { kind: "superseded" };
 
-const headsStore = "workspaceHeads", pendingStore = "pendingDrafts";
+type DurableReceiptResult = Exclude<DurableCommitResult, { kind: "conflict" }>;
+
+const headsStore = "workspaceHeads", pendingStore = "pendingDrafts", receiptsStore = "committedOperations";
+interface CommitReceipt {
+  workspaceId: string; editorId: string; sequence: number;
+  expectedRevision: number | null; revision: number; payloadDigest: string;
+}
+
+// JSON escapes unpaired UTF-16 surrogates before UTF-8 encoding, preserving
+// distinct opaque strings that TextEncoder alone would replace with U+FFFD.
+export async function workspaceDraftDigest(draft: PendingWorkspaceDraft): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("Secure hashing is unavailable. Keep the pending draft and original save.");
+  const bytes = new TextEncoder().encode(JSON.stringify([draft.expectedRevision, draft.payload]));
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+function assertReceipt(value: unknown, draft: PendingWorkspaceDraft): asserts value is CommitReceipt | undefined {
+  if (value === undefined) return;
+  const receipt = value as Partial<CommitReceipt>;
+  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt) || receipt.workspaceId !== draft.workspaceId || receipt.editorId !== draft.editorId ||
+      !validRevision(receipt.sequence) || !validRevision(receipt.revision) || (receipt.expectedRevision !== null && !validRevision(receipt.expectedRevision)) ||
+      (receipt.expectedRevision ?? 0) + 1 !== receipt.revision || typeof receipt.payloadDigest !== "string" || !/^[a-f0-9]{64}$/.test(receipt.payloadDigest)) {
+    throw new Error("The workspace commit receipt is damaged. Preserve its storage and pending draft.");
+  }
+}
 
 function validRevision(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
@@ -44,13 +68,14 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
     if (!connection) {
       const opening = new Promise<IDBDatabase>((resolve, reject) => {
         let abandoned = false;
-        const request = factory.open(databaseName, 1);
+        const request = factory.open(databaseName, 2);
         const fail = (error: unknown) => { abandoned = true; reject(error); };
         request.onblocked = () => fail(new Error("An older connection blocks this workspace database. Close that connection and retry."));
         request.onerror = () => fail(request.error ?? new Error("The workspace database could not open."));
         request.onupgradeneeded = () => {
           if (abandoned || closed) { request.transaction?.abort(); return; }
           const db = request.result;
+          if (!db.objectStoreNames.contains(receiptsStore)) db.createObjectStore(receiptsStore, { keyPath: ["workspaceId", "editorId"] });
           if (!db.objectStoreNames.contains(headsStore)) db.createObjectStore(headsStore, { keyPath: "workspaceId" });
           if (!db.objectStoreNames.contains(pendingStore)) {
             const pending = db.createObjectStore(pendingStore, { keyPath: ["workspaceId", "editorId"] });
@@ -87,7 +112,41 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
   const guardedHandlers = new WeakMap<IDBTransaction, (callback: () => void) => void>();
   const guard = (tx: IDBTransaction, callback: () => void) => () => guardedHandlers.get(tx)!(callback);
 
+  // A bounded receipt per editor/workspace establishes the latest accepted
+  // operation even after the pending draft was cleared or another editor saved.
+  // Hashing happens before opening a write transaction; no async gaps inside it.
+  function reconcile(tx: IDBTransaction, draft: PendingWorkspaceDraft, digest: string, done: (result: DurableReceiptResult | null) => void) {
+    const request = tx.objectStore(receiptsStore).get([draft.workspaceId, draft.editorId]);
+    request.onsuccess = guard(tx, () => {
+      const receipt: unknown = request.result; assertReceipt(receipt, draft);
+      if (!receipt) { done(null); return; }
+      if (receipt.sequence === draft.sequence && (receipt.payloadDigest !== digest || receipt.expectedRevision !== draft.expectedRevision)) {
+        throw new Error("A committed draft sequence was reused with different content.");
+      }
+      const headRequest = tx.objectStore(headsStore).get(draft.workspaceId);
+      headRequest.onsuccess = guard(tx, () => {
+        assertHead(headRequest.result, draft.workspaceId);
+        const head: DurableWorkspaceHead | undefined = headRequest.result;
+        if (!head || head.revision < receipt.revision || (receipt.sequence === draft.sequence && head.revision === receipt.revision && head.payload !== draft.payload)) {
+          throw new Error("The saved workspace and commit receipt disagree. Preserve storage and recover a separate copy.");
+        }
+        done(receipt.sequence < draft.sequence ? null : receipt.sequence === draft.sequence ? { kind: "saved", revision: receipt.revision } : { kind: "superseded" });
+      });
+    });
+  }
+
   return {
+    async inspect(workspaceId: string) {
+      return transaction<{ head: DurableWorkspaceHead | null; pending: PendingWorkspaceDraft[] }>([headsStore, pendingStore], "readonly", (tx, done) => {
+        const snapshot: { head: DurableWorkspaceHead | null; pending: PendingWorkspaceDraft[] } = { head: null, pending: [] };
+        let remaining = 2;
+        const finish = () => { if (--remaining === 0) done(snapshot); };
+        const head = tx.objectStore(headsStore).get(workspaceId);
+        head.onsuccess = guard(tx, () => { assertHead(head.result, workspaceId); snapshot.head = head.result ?? null; finish(); });
+        const pending = tx.objectStore(pendingStore).index("workspaceId").getAll(workspaceId);
+        pending.onsuccess = guard(tx, () => { const drafts = pending.result as PendingWorkspaceDraft[]; drafts.forEach(assertDraft); snapshot.pending = drafts; finish(); });
+      });
+    },
     async read(workspaceId: string) {
       return transaction<DurableWorkspaceHead | null>([headsStore], "readonly", (tx, done) => {
         const request = tx.objectStore(headsStore).get(workspaceId);
@@ -101,42 +160,49 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
       });
     },
     async stage(value: PendingWorkspaceDraft) {
-      assertDraft(value); const draft = { ...value };
-      return transaction<{ kind: "staged" | "superseded" }>([pendingStore], "readwrite", (tx, done) => {
-        const store = tx.objectStore(pendingStore), request = store.get([draft.workspaceId, draft.editorId]);
-        request.onsuccess = guard(tx, () => {
-          const existing = request.result as PendingWorkspaceDraft | undefined;
-          if (existing) {
-            assertDraft(existing);
-            if (existing.sequence > draft.sequence) { done({ kind: "superseded" }); return; }
-            if (existing.sequence === draft.sequence) {
-              if (!sameDraft(existing, draft)) throw new Error("A pending draft sequence was reused with different content.");
-              done({ kind: "staged" }); return;
+      assertDraft(value); const draft = { ...value }, digest = await workspaceDraftDigest(draft);
+      return transaction<{ kind: "staged" | "superseded" } | { kind: "saved"; revision: number }>([headsStore, pendingStore, receiptsStore], "readwrite", (tx, done) => {
+        reconcile(tx, draft, digest, result => {
+          if (result) { done(result); return; }
+          const store = tx.objectStore(pendingStore), request = store.get([draft.workspaceId, draft.editorId]);
+          request.onsuccess = guard(tx, () => {
+            const existing = request.result as PendingWorkspaceDraft | undefined;
+            if (existing) {
+              assertDraft(existing);
+              if (existing.sequence > draft.sequence) { done({ kind: "superseded" }); return; }
+              if (existing.sequence === draft.sequence) {
+                if (!sameDraft(existing, draft)) throw new Error("A pending draft sequence was reused with different content.");
+                done({ kind: "staged" }); return;
+              }
             }
-          }
-          store.put(draft); done({ kind: "staged" });
+            store.put(draft); done({ kind: "staged" });
+          });
         });
       });
     },
     async commit(value: PendingWorkspaceDraft): Promise<DurableCommitResult> {
-      assertDraft(value); const draft = { ...value };
-      return transaction<DurableCommitResult>([headsStore, pendingStore], "readwrite", (tx, done) => {
-        const pending = tx.objectStore(pendingStore), request = pending.get([draft.workspaceId, draft.editorId]);
-        request.onsuccess = guard(tx, () => {
-          const staged = request.result as PendingWorkspaceDraft | undefined;
-          if (!staged) throw new Error("Stage this draft durably before committing it.");
-          assertDraft(staged);
-          if (!sameDraft(staged, draft)) { done({ kind: "superseded" }); return; }
-          const heads = tx.objectStore(headsStore), headRequest = heads.get(draft.workspaceId);
-          headRequest.onsuccess = guard(tx, () => {
-            assertHead(headRequest.result, draft.workspaceId);
-            const revision = headRequest.result?.revision ?? null;
-            if (revision !== draft.expectedRevision) { done({ kind: "conflict", revision }); return; }
-            const next = (revision ?? 0) + 1;
-            if (!Number.isSafeInteger(next)) throw new Error("The workspace revision limit was reached.");
-            heads.put({ workspaceId: draft.workspaceId, revision: next, payload: draft.payload } satisfies DurableWorkspaceHead);
-            pending.delete([draft.workspaceId, draft.editorId]);
-            done({ kind: "saved", revision: next });
+      assertDraft(value); const draft = { ...value }, digest = await workspaceDraftDigest(draft);
+      return transaction<DurableCommitResult>([headsStore, pendingStore, receiptsStore], "readwrite", (tx, done) => {
+        reconcile(tx, draft, digest, result => {
+          if (result) { done(result); return; }
+          const pending = tx.objectStore(pendingStore), request = pending.get([draft.workspaceId, draft.editorId]);
+          request.onsuccess = guard(tx, () => {
+            const staged = request.result as PendingWorkspaceDraft | undefined;
+            if (!staged) throw new Error("Stage this draft durably before committing it.");
+            assertDraft(staged);
+            if (!sameDraft(staged, draft)) { done({ kind: "superseded" }); return; }
+            const heads = tx.objectStore(headsStore), headRequest = heads.get(draft.workspaceId);
+            headRequest.onsuccess = guard(tx, () => {
+              assertHead(headRequest.result, draft.workspaceId);
+              const revision = headRequest.result?.revision ?? null;
+              if (revision !== draft.expectedRevision) { done({ kind: "conflict", revision }); return; }
+              const next = (revision ?? 0) + 1;
+              if (!Number.isSafeInteger(next)) throw new Error("The workspace revision limit was reached.");
+              heads.put({ workspaceId: draft.workspaceId, revision: next, payload: draft.payload } satisfies DurableWorkspaceHead);
+              tx.objectStore(receiptsStore).put({ workspaceId: draft.workspaceId, editorId: draft.editorId, sequence: draft.sequence, expectedRevision: draft.expectedRevision, revision: next, payloadDigest: digest } satisfies CommitReceipt);
+              pending.delete([draft.workspaceId, draft.editorId]);
+              done({ kind: "saved", revision: next });
+            });
           });
         });
       });
