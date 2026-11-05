@@ -1,3 +1,4 @@
+import { WorkspaceStoragePanel } from "./WorkspaceStoragePanel";
 import { WorkspaceBackupButton } from "../document/WorkspaceBackupButton";
 import {
   ArrowRight,
@@ -1049,6 +1050,7 @@ export function WorkspaceHome({
           </div>
         </header>
         {backupFeedback && <p className="workspace-backup-feedback" role={backupFeedback.failed ? "alert" : "status"}>{backupFeedback.text}</p>}
+        <WorkspaceStoragePanel workspace={workspace} />
         <input
           ref={fileInputRef}
           type="file"

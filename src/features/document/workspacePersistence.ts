@@ -308,6 +308,28 @@ function compactWorkspaceForStorage(workspace: DashboardWorkspace): DashboardWor
   };
 }
 
+// On-demand text-size estimate using exactly the same compaction as saving.
+// Two bytes per UTF-16 code unit describes the text, not browser quota usage,
+// compression, database overhead or an available-capacity guarantee.
+export function measureWorkspaceStorage(workspace: DashboardWorkspace, savedText: string | null) {
+  const compact = compactWorkspaceForStorage(workspace);
+  const studies: Array<{ key: string; title: string; scope: string; textBytes: number; storedRows: number; declaredRows: number; storedFields: number; declaredFields: number }> = [];
+  function add(scopeId: string, scope: string, datasets: ImportedDatasetRecord[]) {
+    datasets.forEach(dataset => {
+      const encoded = dataset as ImportedDatasetRecord & { rowStorage?: { values?: unknown[] } };
+      const storedRows = Array.isArray(encoded.rowStorage?.values) ? encoded.rowStorage.values.length : dataset.rows.length;
+      studies.push({ key: JSON.stringify([scopeId, dataset.id]), title: dataset.title, scope,
+        textBytes: JSON.stringify(dataset).length * 2, storedRows: Math.max(storedRows, dataset.previewRows.length), declaredRows: dataset.rowCount,
+        storedFields: dataset.fields.length, declaredFields: dataset.fieldCount });
+    });
+  }
+  add("workspace", "Current study library", compact.importedDatasets);
+  compact.publishedSnapshots.forEach(snapshot => add(`snapshot:${snapshot.id}`, `Snapshot ${snapshot.versionLabel} · ${snapshot.dashboard.title}`, snapshot.dashboard.importedDatasets));
+  const projectedTextBytes = JSON.stringify(compact).length * 2;
+  return { projectedTextBytes, otherTextBytes: Math.max(0, projectedTextBytes - studies.reduce((sum, study) => sum + study.textBytes, 0)), savedTextBytes: savedText === null ? null : savedText.length * 2,
+    snapshotCount: compact.publishedSnapshots.length, studies };
+}
+
 function isStorageQuotaError(error: unknown) {
   return error instanceof DOMException && (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
 }

@@ -4199,3 +4199,20 @@ dialog::backdrop {
 .imported-field-settings label { display: grid; gap: 6px; margin-top: 10px; font-size: 12px; }
 .imported-field-settings select { width: 100%; min-width: 0; padding: 8px; border: 1px solid #b9cbc0; border-radius: 6px; background: white; color: #194e3d; }
 .imported-field-settings p { margin-bottom: 0; font-size: 12px; line-height: 1.5; font-weight: 400; }
+
+.workspace-storage-panel { margin: 0 0 20px; padding: 16px 20px; border: 1px solid #d4dfd7; border-radius: 14px; background: #fff; color: #253e30; }
+.workspace-storage-panel summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.workspace-storage-panel summary:focus-visible { outline: 3px solid #53876a; outline-offset: 5px; }
+.workspace-storage-panel p { font-size: 13px; line-height: 1.6; }
+.workspace-storage-panel__result dl { display: flex; flex-wrap: wrap; gap: 16px 40px; margin: 20px 0 12px; }
+.workspace-storage-panel__result dt { font-size: 12px; color: #52695c; }
+.workspace-storage-panel__result dd { margin: 6px 0 0; font-size: 21px; font-weight: 650; }
+.workspace-storage-panel__note { color: #52695c; max-width: 760px; }
+.workspace-storage-panel__table { overflow-x: auto; margin-top: 20px; }
+.workspace-storage-panel table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.workspace-storage-panel caption { text-align: left; font-weight: 650; padding: 0 0 12px; }
+.workspace-storage-panel th, .workspace-storage-panel td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e9e4; vertical-align: top; }
+.workspace-storage-panel th:first-child { padding-left: 0; }
+.workspace-storage-panel th { font-weight: 600; }
+.workspace-storage-panel th small { display: block; max-width: 460px; margin-top: 5px; font-size: 12px; font-weight: 400; color: #52695c; overflow-wrap: anywhere; }
+.workspace-storage-panel td { min-width: 110px; }
