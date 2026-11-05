@@ -7,6 +7,11 @@
 <button id="run">Run real IndexedDB checks</button><p id="status" role="status">Ready.</p><pre id="results" aria-label="Acceptance results"></pre>
 <script type="module">
 import { createDurableWorkspaceRepository } from '../../durableWorkspaceRepository.ts';
+import { prepareLegacyWorkspaceCopy, inspectLegacyWorkspaceCopy } from '../../legacyWorkspaceMigration.ts';
+import { initialDashboard } from '../../documentSeeds.ts';
+import { createReportRecord, normalizeDashboardWorkspace, createPublishedSnapshot, workspaceStorageKey, legacyWorkspaceStorageKey } from '../../workspacePersistence.ts';
+import { storageKey } from '../../../builder/builderConstants.ts';
+import { syntheticStudy, syntheticStudySums, expectedSyntheticSums } from './syntheticStudy.ts';
 const button=document.querySelector('#run'),status=document.querySelector('#status'),output=document.querySelector('#results');
 button.addEventListener('click',async()=>{
  button.disabled=true;status.textContent='Running isolated synthetic checks…';output.textContent='';
@@ -51,9 +56,27 @@ button.addEventListener('click',async()=>{
   await a.stage({...first,workspaceId:'a:b',editorId:'c'});await a.stage({...first,workspaceId:'a',editorId:'b:c'});assert((await a.pending('a:b')).length===1&&(await a.pending('a')).length===1,'Workspace/editor tuple identities collided');pass('Workspace namespaces and editor identities remain isolated');
   let attempts=0;const retry=repository({open(...args){if(++attempts===1)throw new Error('Synthetic initial open failure');return factory.open(...args);}});rejected=false;try{await retry.read('research');}catch{rejected=true;}assert(rejected&&(await retry.read('research')).revision===2,'Failed open could not be retried');pass('An initial open failure does not poison later recovery');
   const mutable={...first,workspaceId:'captured',payload:'captured original'},staging=a.stage(mutable);mutable.payload='changed after call';await staging;const captured=(await a.pending('captured'))[0];assert(captured.payload==='captured original','Stage read mutable caller state after awaiting');const committing=a.commit(captured);captured.payload='changed during commit';await committing;assert((await a.read('captured')).payload==='captured original','Commit read mutable caller state after awaiting');pass('Operation payloads are captured before asynchronous work');
+  const {dataset}=await syntheticStudy(1000,60);
+  let legacyWorkspace=normalizeDashboardWorkspace({reports:[createReportRecord({...structuredClone(initialDashboard),importedDatasets:[dataset]})],importedDatasets:[dataset]});
+  legacyWorkspace=createPublishedSnapshot(legacyWorkspace,legacyWorkspace.reports[0].draft).workspace;
+  for(const sourceKey of [workspaceStorageKey,legacyWorkspaceStorageKey,storageKey]){
+   const sourceValue=sourceKey===storageKey?legacyWorkspace.reports[0].draft:{...legacyWorkspace,futureExtension:{preserved:'original Unicode 日本語'}};
+   const sourceRaw=JSON.stringify(sourceValue,null,2)+'\r\n',copyId=`migration-${sourceKey}`;
+   let reads=0;const sourceStorage={getItem(key){reads++;return key===sourceKey?sourceRaw:null;}};
+   const migration=prepareLegacyWorkspaceCopy(copyId,sourceStorage);assert(migration,'No migration copy');
+   const operation={workspaceId:copyId,editorId:'migration-probe',sequence:1,expectedRevision:null,payload:migration.payload};
+   await a.stage(operation);assert((await a.commit(operation)).kind==='saved','Migration copy did not commit');
+   await a.close();a=repository();const head=await a.read(copyId),reopened=inspectLegacyWorkspaceCopy(head.payload);
+   assert(reopened.source.raw===sourceRaw,'Migration changed original text');assert(reopened.workspace.id===copyId,'Migration lost separate namespace');
+   assert(JSON.stringify(reopened.workspace.importedDatasets[0].rows)===JSON.stringify(dataset.rows),'Migration changed ordered raw rows');
+   const actualSums=syntheticStudySums(reopened.workspace.importedDatasets[0]);assert(Object.entries(expectedSyntheticSums(1000)).every(([region,total])=>actualSums[region]===total),'Migration changed analysis results: '+JSON.stringify(actualSums));
+   assert(reopened.workspace.activeReportId===legacyWorkspace.activeReportId,'Migration changed active report');
+   if(sourceKey!==storageKey)assert(JSON.stringify(reopened.workspace.publishedSnapshots[0].dashboard.importedDatasets[0].rows)===JSON.stringify(dataset.rows),'Migration lost historical rows');
+   pass(`Separate ${sourceKey} copy preserves exact source, 1,000 x 60 rows, analysis and history through real database reopen`);
+  }
   assert(localStorage.getItem(legacyKey)===legacyBefore,'Current workspace save changed');pass('Existing workspace save bytes remain unchanged');
   status.textContent=`PASS — ${cases.length} real IndexedDB checks`;
-  output.textContent=JSON.stringify({database:name,passed:cases.length,cases,completedTransactions:completed,abortedTransactions:aborted,syntheticRows:1000,syntheticFields:60,existingWorkspaceBytes:legacyBefore?.length??0,activeStorageMigrated:false},null,2);
+  output.textContent=JSON.stringify({database:name,passed:cases.length,cases,completedTransactions:completed,abortedTransactions:aborted,syntheticRows:1000,syntheticFields:60,existingWorkspaceCodeUnits:legacyBefore?.length??0,activeStorageMigrated:false},null,2);
  }catch(error){status.textContent='FAIL — isolated acceptance';output.textContent=JSON.stringify({database:name,passed:cases.length,cases,error:String(error)},null,2);}
  finally{await Promise.allSettled(repos.map(repo=>repo.close()));button.disabled=false;}
 });

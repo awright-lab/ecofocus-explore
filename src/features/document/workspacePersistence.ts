@@ -113,9 +113,7 @@ function defaultWorkspace(): DashboardWorkspace {
   };
 }
 
-function migrateLegacyDashboard(): DashboardWorkspace | null {
-  const savedDashboard = window.localStorage.getItem(storageKey);
-  if (savedDashboard === null) return null;
+function migrateLegacyDashboard(savedDashboard: string): DashboardWorkspace {
   const parsed: unknown = JSON.parse(savedDashboard);
   const savedDraft = readSavedDashboard(parsed, "v1");
   assertSavedReportIdentities([{ id: savedDraft.id, draft: savedDraft }], "v1");
@@ -190,13 +188,27 @@ function parseSavedWorkspace(raw: string, format: SavedWorkspaceFormat): Dashboa
   } as DashboardWorkspace);
 }
 
-export function readStoredWorkspaceCopy(): string | null {
-  // Use the same source precedence as loading, including empty/damaged copies.
-  for (const key of [workspaceStorageKey, legacyWorkspaceStorageKey, storageKey]) {
-    const raw = window.localStorage.getItem(key);
-    if (raw !== null) return raw;
+export type StoredWorkspaceSource = { key: typeof workspaceStorageKey | typeof legacyWorkspaceStorageKey | typeof storageKey; raw: string };
+
+// Capture the exact winning source once. Empty or damaged newer saves must not
+// fall through to an older source, and readers never repair/write storage.
+export function readStoredWorkspaceSource(storage: Pick<Storage, "getItem"> = window.localStorage): StoredWorkspaceSource | null {
+  for (const key of [workspaceStorageKey, legacyWorkspaceStorageKey, storageKey] as const) {
+    const raw = storage.getItem(key);
+    if (raw !== null) return { key, raw };
   }
   return null;
+}
+
+export function decodeStoredWorkspaceSource(source: StoredWorkspaceSource): DashboardWorkspace {
+  if (source.key === workspaceStorageKey) return parseSavedWorkspace(source.raw, "v2");
+  if (source.key === legacyWorkspaceStorageKey) return parseSavedWorkspace(source.raw, "v1");
+  if (source.key === storageKey) return migrateLegacyDashboard(source.raw);
+  throw new Error("Unknown saved workspace format. Existing storage was not changed.");
+}
+
+export function readStoredWorkspaceCopy(): string | null {
+  return readStoredWorkspaceSource()?.raw ?? null;
 }
 
 export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspace> | null | undefined): DashboardWorkspace {
@@ -244,12 +256,8 @@ export function normalizeDashboardWorkspace(workspace: Partial<DashboardWorkspac
 export function loadDashboardWorkspace(): DashboardWorkspace {
   // A new key keeps older app versions from treating encoded data as a preview.
   // A malformed v2 workspace fails closed instead of autosaving a default over it.
-  const current = window.localStorage.getItem(workspaceStorageKey);
-  if (current !== null) return parseSavedWorkspace(current, "v2");
-  const savedWorkspace = window.localStorage.getItem(legacyWorkspaceStorageKey);
-  if (savedWorkspace !== null) return parseSavedWorkspace(savedWorkspace, "v1");
-
-  return migrateLegacyDashboard() ?? defaultWorkspace();
+  const source = readStoredWorkspaceSource();
+  return source ? decodeStoredWorkspaceSource(source) : defaultWorkspace();
 }
 
 function compactImportedDatasetForWorkspace(dataset: ImportedDatasetRecord): ImportedDatasetRecord {
