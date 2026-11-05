@@ -268,7 +268,9 @@ function compactWorkspaceForStorage(workspace: DashboardWorkspace): DashboardWor
     })),
     publishedSnapshots: workspace.publishedSnapshots.map((snapshot) => ({
       ...snapshot,
-      dashboard: compactDashboardForWorkspaceStorage(snapshot.dashboard)
+      // Snapshots own historical study versions. They cannot borrow the mutable
+      // workspace copy after reopening, even when dataset IDs are identical.
+      dashboard: { ...snapshot.dashboard, importedDatasets: snapshot.dashboard.importedDatasets.map(encodeImportedRows) }
     }))
   };
 }
@@ -612,8 +614,20 @@ export function createPublishedSnapshot(
   const versionLabel = `v${publishCount}`;
   const snapshotId = makeId("snapshot");
   const viewerPath = makePublishedViewerPath(dashboard.id, snapshotId);
+  const referencedStudies = new Set(dashboard.pages.flatMap((page) => page.tiles.flatMap((tile) => {
+    const source = tile.result.metadataRefs.source;
+    const querySource = tile.query.sourceIdentity;
+    return [tile.source?.datasetId, source?.kind === "imported" ? source.datasetId : undefined,
+      querySource?.kind === "imported" ? querySource.datasetId : undefined].filter((id): id is string => Boolean(id));
+  })));
   const publishedDashboard = normalizeDashboard({
-    ...cloneDashboard(dashboard),
+    ...cloneDashboard({
+      ...dashboard,
+      // Reopened drafts store their studies at workspace level. Capture the
+      // same current studies used by the editor before making an immutable copy.
+      importedDatasets: mergeImportedDatasets(dashboard.importedDatasets, workspace.importedDatasets.filter((study) =>
+        referencedStudies.has(study.id) || dashboard.importedDatasets.some((attached) => attached.id === study.id)))
+    }),
     status: "published",
     publishMetadata: {
       ...dashboard.publishMetadata,
