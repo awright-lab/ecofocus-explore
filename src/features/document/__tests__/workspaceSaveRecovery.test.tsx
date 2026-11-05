@@ -86,6 +86,44 @@ describe("workspace save recovery UI", () => {
     await act(async () => button("Studies").click());
   }
 
+  it.each([false,true])("creates one undoable analysis page from a later page and preserves recovery data (quota=%s)", async quotaFailure => {
+    if (!quotaFailure) writeFailure.mockRestore();
+    const draft = baseline.reports[0].draft, first = structuredClone(draft.pages[0]);
+    const origin = { ...structuredClone(first), id: "analysis_origin_page", title: "Analysis origin", order: 2, tiles: [], elements: [] };
+    draft.pages = [first, origin];
+    if (quotaFailure) {
+      writeFailure.mockRestore(); expect(saveDashboardWorkspace(baseline)).toBe(true);
+      writeFailure = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Synthetic quota", "QuotaExceededError"); });
+    } else expect(saveDashboardWorkspace(baseline)).toBe(true);
+    workspaceSaveSession.remember(null);
+    await editor();
+    await act(async () => button("Next page").click());
+    expect(JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!).id).toBe(origin.id);
+    await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
+    await act(async () => button("Create analysis").click());
+    const destination = Array.from(host.querySelectorAll("label")).find(label => label.textContent?.startsWith("Place analysis"))!.querySelector("select")!;
+    await act(async () => { destination.value = "new_page"; destination.dispatchEvent(new Event("change", { bubbles: true })); });
+    await act(async () => button("Create table on new page").click());
+    const created = JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!);
+    expect(created.id).not.toBe(origin.id); expect(created.tiles).toHaveLength(1);
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    const saved = quotaFailure ? workspaceSaveSession.getPending()! : loadDashboardWorkspace();
+    expect(saved.reports[0].draft.pages).toHaveLength(3); expect(saved.importedDatasets[0].rows).toHaveLength(30);
+    expect(saved.reports[0].draft.pages.slice(0, 2)).toEqual([first, origin]);
+    await act(async () => button("Create analysis").click());
+    await act(async () => button("Create table on new page").click());
+    const secondCreated = JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!);
+    expect(secondCreated.id).not.toBe(created.id);
+    await act(async () => button("Undo").click());
+    expect(JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!)).toEqual(created);
+    await act(async () => button("Undo").click());
+    expect(JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!).id).toBe(origin.id);
+    await act(async () => button("Redo").click());
+    expect(JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!)).toEqual(created);
+    await act(async () => button("Redo").click());
+    expect(JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!)).toEqual(secondCreated);
+  });
+
   it.each([false,true])("preserves a dirty report immediately when saving field settings (quota failure=%s)",async quotaFailure=>{
     writeFailure.mockRestore();
     const field=baseline.importedDatasets[0].fields[1];
@@ -259,7 +297,7 @@ describe("workspace save recovery UI", () => {
     expect(editKey.defaultPrevented).toBe(false);
     expect(document.activeElement).toBe(input);
     expect(canvasState()).toEqual(before);
-    const first = button("Close guided data query"), last = button("Create table");
+    const first = button("Close guided data query"), last = button("Create table on new page");
     last.focus();
     await act(async () => last.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
     expect(document.activeElement).toBe(first);
@@ -628,11 +666,12 @@ describe("workspace save recovery UI", () => {
     await act(async () => button("Cancel").click());
     expect(host.querySelector('[data-analysis-workspace="true"]')).not.toBeNull();
     await act(async () => button("Create analysis").click());
-    await act(async () => button("Create table").click());
+    await act(async () => button("Create table on new page").click());
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.querySelector('[data-analysis-workspace="true"]')).toBeNull();
     expect(host.querySelector('.editor-location strong')?.textContent).toBe("Page canvas");
-    expect(canvasState().tiles).toHaveLength(baseline.reports[0].draft.pages[0].tiles.length + 1);
+    expect(canvasState().tiles).toHaveLength(1);
+    expect(canvasState().id).not.toBe(baseline.reports[0].draft.pages[0].id);
     expect(canvasState().tiles.at(-1)?.result.metadataRefs.source?.kind).toBe("imported");
     await act(async () => { vi.advanceTimersByTime(32); });
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Create analysis");
@@ -647,7 +686,7 @@ describe("workspace save recovery UI", () => {
     await editor(); const before = canvasState(); await act(async () => button("Studies").click());
     await act(async () => button("Create analysis").click());
     await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
-    await act(async () => button("Create table").click()); expect(query).toHaveBeenCalledOnce();
+    await act(async () => button("Create table on new page").click()); expect(query).toHaveBeenCalledOnce();
     await act(async () => button("Cancel").click());
     await act(async () => button("Create analysis").click());
     const nextDialog = host.querySelector('[role="dialog"]'); expect(nextDialog).not.toBeNull();
@@ -683,10 +722,10 @@ describe("workspace save recovery UI", () => {
     expect(document.activeElement).toBe(dialog);
     expect(host.querySelector<HTMLElement>(".builder-header")?.inert).toBe(true);
     expect(host.querySelector('[aria-label="Analysis result preview"]')).not.toBeNull();
-    expect(button("Create table")).toBeTruthy();
+    expect(button("Create table on new page")).toBeTruthy();
     expect(Array.from(dialog.querySelectorAll("button")).some((node) => node.textContent === "Create chart")).toBe(false);
     await act(async () => button("Chart").click());
-    expect(button("Create chart")).toBeTruthy();
+    expect(button("Create chart on new page")).toBeTruthy();
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
@@ -712,9 +751,9 @@ describe("workspace save recovery UI", () => {
     await editor();
     await act(async () => button("Create analysis").click());
     await act(async () => button("Explore the sample study").click());
-    await act(async () => button("Create table").click());
+    await act(async () => button("Create table on new page").click());
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
     expect(host.querySelector(".analysis-create-error")?.textContent).toContain("could not be created");
-    expect(button("Create table").disabled).toBe(false);
+    expect(button("Create table on new page").disabled).toBe(false);
   });
 });

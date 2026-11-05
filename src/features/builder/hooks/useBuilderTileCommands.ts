@@ -1,4 +1,6 @@
 import type React from "react";
+import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
+import { buildPageFromTemplate } from "../builderDocumentCommands";
 import { useAnalysisOperationOwnership } from "./useAnalysisOperationOwnership";
 import { runAnalyticsQuery } from "../../../lib/api";
 import { applyVariableSetRows } from "../../../../shared/analytics/variableSets";
@@ -42,7 +44,7 @@ type UseBuilderTileCommandsArgs = {
   selectedElement: DashboardCanvasElement | null;
   setDashboard: SetDashboard;
   selectTile: (tileId: string) => void;
-  setActivePageId: (pageId: string) => void;
+  setActivePageId: (pageId: string, originPageId?: string) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   applyQuestionSelection: (question: typeof defaultDataset.questions[number]) => void;
   applyVariableSetSelection: (variableSet: SavedVariableSet) => void;
@@ -163,6 +165,30 @@ export function useBuilderTileCommands({
   setError
 }: UseBuilderTileCommandsArgs) {
   const beginOperation = useAnalysisOperationOwnership(JSON.stringify([documentId, activePage.id, documentVersion]), readOnly, setIsLoading, getContextVersion);
+  function insertCreatedAnalysis(tile: DashboardTile, ownsContext: () => boolean, destination?: AnalysisDestination) {
+    const newPage = destination === "new_page" ? buildPageFromTemplate({ pageCount: 0, pageThemes: [], pageMasters: [] }) : null;
+    const inserted = setDashboard((current) => {
+      if (!ownsContext() || current.id !== documentId) return current;
+      const sourcePage = current.pages.find(page => page.id === activePage.id);
+      if (!sourcePage) return current;
+      if (newPage) {
+        if (current.pages.some(page => page.id === newPage.id)) return current;
+        const order = current.pages.reduce((maximum, page) => Math.max(maximum, page.order), 0) + 1;
+        const layout = findAnalysisPlacement(newPage)!;
+        return { ...current, status: "draft", pages: [...current.pages, { ...newPage, title: `Analysis ${order}`, order, tiles: [{ ...tile, layout }] }] };
+      }
+      const layout = destination === "current_page" ? findAnalysisPlacement(sourcePage, tile.layout) : tile.layout;
+      if (!layout) return current;
+      return { ...current, status: "draft", pages: current.pages.map(page => page.id === sourcePage.id ? { ...page, tiles: [...page.tiles, { ...tile, layout }] } : page) };
+    });
+    if (!inserted) {
+      if (destination && ownsContext()) setError("This page has no room for the analysis. Choose a new page in analysis setup, or make space and retry. Your existing objects are unchanged.");
+      return null;
+    }
+    if (newPage) setActivePageId(newPage.id, activePage.id);
+    selectTile(tile.id);
+    return tile.id;
+  }
   async function executeQuery(nextQuery: AnalyticsQueryRequest, source: DashboardTile["source"]) {
     if (nextQuery.sourceIdentity?.kind !== "imported" &&
         (source?.kind === "importedField" || nextQuery.sourceRef && ["imported_file","workspace_database"].includes(nextQuery.sourceRef.kind))) {
@@ -176,7 +202,7 @@ export function useBuilderTileCommands({
     sourceLabel: string,
     position?: { x: number; y: number },
     source?: DashboardTile["source"],
-    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean }
+    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean; destination?: AnalysisDestination }
   ) {
     const operation = beginOperation(options?.isCurrent);
     if (!operation) return null;
@@ -214,14 +240,7 @@ export function useBuilderTileCommands({
         result: resolvedResponse
       };
 
-      const inserted = setDashboard((current) => !operation.ownsContext() || current.id !== documentId ? current : ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
-      }));
-      if (!inserted) return null;
-      selectTile(tile.id);
-      return tile.id;
+      return insertCreatedAnalysis(tile, operation.ownsContext, options?.destination);
     } catch (queryError) {
       if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
       return null;
@@ -285,7 +304,7 @@ export function useBuilderTileCommands({
     );
   }
 
-  async function addTileFromSourceWithVisualization(nextVisualization: ChartType, isCurrent?: () => boolean) {
+  async function addTileFromSourceWithVisualization(nextVisualization: ChartType, isCurrent?: () => boolean, destination?: AnalysisDestination) {
     return createTileFromSource(
       { ...query, chartType: nextVisualization },
       selectedVariableSet?.label ?? selectedQuestion.shortLabel,
@@ -293,7 +312,7 @@ export function useBuilderTileCommands({
       selectedVariableSet
         ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
         : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel },
-      { isCurrent }
+      { isCurrent, destination }
     );
   }
 
@@ -313,6 +332,7 @@ export function useBuilderTileCommands({
     nextVisualization: ChartType,
     nextMetric: Metric,
     options?: {
+      destination?: AnalysisDestination;
       groupingScope?: "all_respondents";
       isCurrent?: () => boolean;
       measureField?: ImportedDatasetField | null;
@@ -376,14 +396,7 @@ export function useBuilderTileCommands({
         result: response
       };
 
-      const inserted = setDashboard((current) => !operation.ownsContext() || current.id !== documentId ? current : ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
-      }));
-      if (!inserted) return null;
-      selectTile(tile.id);
-      return tile.id;
+      return insertCreatedAnalysis(tile, operation.ownsContext, options?.destination);
     } catch (queryError) {
       if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this imported-data view.");
       return null;

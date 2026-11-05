@@ -26,12 +26,12 @@ function makeDocument(id:string,withTile:boolean):DashboardDraft {
  return value;
 }
 async function setup(kind:Kind) {
- const reportA=makeDocument("report_a",kind.includes("refresh")),reportB=makeDocument("report_b",kind.includes("refresh"));let change!:(next:DashboardDraft)=>void,edit!:(title:string)=>void,changePage!:(id:string)=>void,changeReadOnly!:(value:boolean)=>void;const loadingCalls:boolean[]=[],errorCalls:Array<string|null>=[];
+ const reportA=makeDocument("report_a",kind.includes("refresh")),reportB=makeDocument("report_b",kind.includes("refresh"));let change!:(next:DashboardDraft)=>void,modify!:(update:(next:DashboardDraft)=>DashboardDraft)=>void,edit!:(title:string)=>void,changePage!:(id:string)=>void,changeReadOnly!:(value:boolean)=>void;const loadingCalls:boolean[]=[],errorCalls:Array<string|null>=[];
  const parsed=await importDatasetBuffer(new TextEncoder().encode("Answer\nYes\nNo\nYes\n").buffer,"synthetic_owner.csv"),dataset=parsed.dataset!;
  const remote={...dataset,rows:[],remote:{provider:"netlify" as const,projectUrl:"",bucket:"",objectPath:"synthetic.csv",uploadedAt:dataset.importedAt}};
  const response=kind.startsWith("imported")?runImportedDatasetQuery({dataset:{...remote,rows:dataset.rows},field:dataset.fields[0],metric:"count",chartType:"table"}):structuredClone(initialDashboard.pages[0].tiles[0].result);
  if(kind==="imported refresh")for(const report of [reportA,reportB]){const tile=report.pages[0].tiles[0];tile.query=structuredClone(response.query);tile.result=structuredClone(response);tile.source={kind:"importedField",id:`${dataset.id}:${dataset.fields[0].id}`,label:"Answer",datasetId:dataset.id,fieldId:dataset.fields[0].id};if(report===reportB)tile.result.notes=["Existing second report result"];}
- function Harness(){const [busy,setBusy]=useState(false),[draft,setDraft,getReplacementVersion]=useDocumentCommandState(reportA,()=>setBusy(false)),[pageId,setPageId]=useState("shared_page"),[readOnly,setReadOnly]=useState(false),[failure,setFailure]=useState<string|null>(null);current=draft;loading=busy;error=failure;change=setDraft;edit=title=>{setDraft(value=>({...value,title}));};
+ function Harness(){const [busy,setBusy]=useState(false),[draft,setDraft,getReplacementVersion]=useDocumentCommandState(reportA,()=>setBusy(false)),[pageId,setPageId]=useState("shared_page"),[readOnly,setReadOnly]=useState(false),[failure,setFailure]=useState<string|null>(null);current=draft;loading=busy;error=failure;change=setDraft;modify=update=>{setDraft(update);};edit=title=>{setDraft(value=>({...value,title}));};
   const epoch=useRef(0),pageRef=useRef(pageId),viewerRef=useRef(readOnly);
   changePage=id=>{if(pageRef.current!==id){pageRef.current=id;epoch.current+=1;setBusy(false);}setPageId(id);};changeReadOnly=value=>{if(viewerRef.current!==value){viewerRef.current=value;epoch.current+=1;setBusy(false);}setReadOnly(value);};
   const getContextVersion=useCallback(()=>JSON.stringify([epoch.current,getReplacementVersion()]),[getReplacementVersion]);
@@ -40,14 +40,14 @@ async function setup(kind:Kind) {
    setDashboard:(update:DashboardDraft|((value:DashboardDraft)=>DashboardDraft))=>setDraft(update),selectTile:select,setActivePageId:changePage,
    updateTile:(id:string,updates:Partial<DashboardTile>)=>setDraft(value=>({...value,pages:value.pages.map(page=>({...page,tiles:page.tiles.map(tile=>tile.id===id?{...tile,...updates}:tile)}))})),
    applyQuestionSelection:noop,applyVariableSetSelection:noop,recordDerivedOutputCreationCue:noop,recordDerivedOutputRecreationCue:noop,recordDerivedDefinitionRecreationCue:noop,setIsLoading:onLoading,setError:onError};
-  commands=useBuilderTileCommands(args);return <button onClick={()=>setDraft(reportB)}>Switch report</button>;
+  commands=useBuilderTileCommands(args);return <button data-active-page={pageId} onClick={()=>setDraft(reportB)}>Switch report</button>;
  }
  await act(async()=>root.render(<Harness/>));
  const start=()=>kind==="create"?commands.addTileFromAnalyticalTemplate({id:"template",datasetId:response.query.dataset,label:"Synthetic template",description:"",source:{kind:"question",id:response.query.question,label:"Question"},query:response.query,visualization:"table",summary:{sourceLabel:"Question",bannerLabel:"Total",filterLabel:"None",weightLabel:"None",confidenceLabel:"95%",comparisonLabel:"None"}})
   :kind==="imported"?commands.addTileFromImportedDatasetField(remote,dataset.fields[0],"table","count")
   :kind==="starter"?commands.createSourceDrivenSmartStarter("source_table_insight")
   :commands.rerunTileAnalysis(current.pages[0].tiles[0],response.query);
- return {reportA,reportB,response,start,change:(next:DashboardDraft)=>change(next),edit:(title:string)=>edit(title),changePage:(id:string)=>changePage(id),changeReadOnly:(value:boolean)=>changeReadOnly(value),loadingCalls,errorCalls};
+ return {reportA,reportB,response,dataset,remote,start,change:(next:DashboardDraft)=>change(next),modify:(update:(next:DashboardDraft)=>DashboardDraft)=>modify(update),edit:(title:string)=>edit(title),changePage:(id:string)=>changePage(id),changeReadOnly:(value:boolean)=>changeReadOnly(value),loadingCalls,errorCalls};
 }
 async function finish(response:AnalyticsQueryResponse,index=0) {await act(async()=>requests[index].resolve(new Response(JSON.stringify(response),{status:200,headers:{"Content-Type":"application/json"}})));}
 it.each(["create","imported","starter","refresh","imported refresh"] as const)("does not commit a late %s result into another report sharing page/tile IDs",async(kind)=>{
@@ -120,4 +120,25 @@ it.each(["create","imported","starter","refresh"] as const)("does not emit an ol
 it("allows ordinary edits while a query is pending and preserves them when the result arrives",async()=>{
  const fixture=await setup("create");let pending!:Promise<unknown>;await act(async()=>{pending=fixture.start();});await act(async()=>fixture.edit("Title edited while waiting"));expect(loading).toBe(true);
  await finish(fixture.response);expect(await pending).not.toBeNull();expect(current.title).toBe("Title edited while waiting");expect(current.pages[0].tiles).toHaveLength(1);expect(select).toHaveBeenCalledOnce();expect(loading).toBe(false);
+});
+it.each(["seeded","imported"] as const)("creates a %s analysis and its explicitly chosen page in one accepted update",async kind=>{
+ const fixture=await setup(kind==="seeded"?"create":"imported");const before=structuredClone(current);let pending!:Promise<string|null>;
+ await act(async()=>{pending=kind==="seeded"?commands.addTileFromSourceWithVisualization("table",undefined,"new_page"):commands.addTileFromImportedDatasetField(fixture.remote,fixture.dataset.fields[0],"table","count",{destination:"new_page"});});
+ expect(current).toEqual(before);await finish(fixture.response);const id=await pending;expect(id).toBeTruthy();
+ expect(current.pages.slice(0,2)).toEqual(before.pages);expect(current.pages).toHaveLength(3);
+ const added=current.pages[2];expect(added.elements).toEqual([]);expect(added.tiles).toHaveLength(1);expect(added.tiles[0].id).toBe(id);expect(added.tiles[0].result).toEqual(fixture.response);
+ expect(host.querySelector('button')?.getAttribute('data-active-page')).toBe(added.id);expect(select).toHaveBeenCalledWith(id);expect(loading).toBe(false);
+});
+it("rechecks current-page room against ordinary edits made while an analysis is pending",async()=>{
+ const fixture=await setup("create");let pending!:Promise<string|null>;await act(async()=>{pending=commands.addTileFromSourceWithVisualization("table",undefined,"current_page");});
+ await act(async()=>fixture.modify(value=>({...value,pages:value.pages.map((page,index)=>index? page:{...page,tiles:[{...structuredClone(initialDashboard.pages[0].tiles[0]),layout:{x:48,y:72,width:760,height:460,zIndex:1}}]})})));
+ const before=structuredClone(current);await finish(fixture.response);expect(await pending).toBeNull();expect(current).toEqual(before);expect(select).not.toHaveBeenCalled();expect(error).toContain("no room");
+});
+it.each(["cancel","navigate","failure"] as const)("does not leave a new page behind after %s",async reason=>{
+ const fixture=await setup("create");let owner=true,pending!:Promise<string|null>;await act(async()=>{pending=commands.addTileFromSourceWithVisualization("table",()=>owner,"new_page");});
+ if(reason==="cancel")owner=false;
+ if(reason==="navigate")await act(async()=>fixture.changePage("next_page"));
+ const before=structuredClone(current);
+ if(reason==="failure")await act(async()=>requests[0].reject(new Error("Synthetic placement request failed")));else await finish(fixture.response);
+ expect(await pending).toBeNull();expect(current).toEqual(before);expect(current.pages).toHaveLength(2);expect(select).not.toHaveBeenCalled();
 });

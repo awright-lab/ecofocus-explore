@@ -1,4 +1,5 @@
 import { analyticalCell } from "../../../../shared/analytics/resultCells";
+import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
 import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useModalAccessibility } from "../hooks/useModalAccessibility";
@@ -75,6 +76,9 @@ export function GuidedDataQueryModal({
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const currentPageHasRoom = useMemo(() => !props.activePage || findAnalysisPlacement(props.activePage) !== null, [props.activePage]);
+  const [destination, setDestination] = useState<AnalysisDestination>(() => currentPageHasRoom ? "current_page" : "new_page");
+  const destinationAvailable = destination === "new_page" || currentPageHasRoom;
   const active = useRef(true);
   const requestSequence = useRef(0);
   useEffect(() => { active.current = true; return () => { active.current = false; requestSequence.current += 1; }; }, []);
@@ -301,7 +305,7 @@ export function GuidedDataQueryModal({
   const weightSummary = weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted";
 
   async function createOutput(mode: GuidedOutputMode) {
-    if (!canCreate || creating || isLoading || !active.current) return;
+    if (!canCreate || !destinationAvailable || creating || isLoading || !active.current) return;
     const request = ++requestSequence.current;
     const isCurrent = () => active.current && requestSequence.current === request;
     setCreating(true);
@@ -313,6 +317,7 @@ export function GuidedDataQueryModal({
     if (datasetMode === "imported") {
       if (!importedDataset || !importedField) return;
       const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, effectiveImportedMetric, {
+        destination,
         groupingScope,
         isCurrent,
         measureField: importedQueryMode === "measure" ? importedMeasureField : null,
@@ -324,7 +329,7 @@ export function GuidedDataQueryModal({
       else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
       return;
     }
-    const created = await addTileFromSourceWithVisualization(nextChartType, isCurrent);
+    const created = await addTileFromSourceWithVisualization(nextChartType, isCurrent, destination);
     if (!isCurrent()) return;
     if (created) { onClose(); onCreated?.(created); }
     else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
@@ -556,6 +561,16 @@ export function GuidedDataQueryModal({
             <div className="guided-query-step__header">
               <span>3</span>
               <strong>Shape analysis</strong>
+            </div>
+            <div className="guided-query-placement">
+          <label>Place analysis
+            <select value={destination} disabled={creating} onChange={(event) => setDestination(event.target.value as AnalysisDestination)}>
+              <option value="current_page" disabled={!currentPageHasRoom}>Current page{currentPageHasRoom ? "" : " — no room"}</option>
+              <option value="new_page">New page</option>
+            </select>
+          </label>
+          {!currentPageHasRoom && <p>This page has no clear space for a full-size analysis. A new page keeps existing objects in place.</p>}
+          {!destinationAvailable && <p role="alert">Choose a new page or make space on the current page before creating this analysis.</p>}
             </div>
             <div className="guided-query-output-toggle" aria-label="Output type">
               <button type="button" aria-pressed={outputMode === "table"} className={outputMode === "table" ? "active" : ""} onClick={() => setOutputMode("table")}>Table</button>
@@ -798,7 +813,7 @@ export function GuidedDataQueryModal({
                     )}
                     <div className={canCreate ? "guided-query-supported" : "guided-query-unsupported"}>
                       <strong>{canCreate ? "Ready to create" : previewFailure ?? importedSupport.reason}</strong>
-                      <small>{canCreate ? "This will create a normal editable table or chart on the current page." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
+                      <small>{canCreate ? `This will create a normal editable table or chart on ${destination === "new_page" ? "a new page" : "the current page"}.` : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
                     </div>
                   </>
                 ) : (
@@ -848,11 +863,11 @@ export function GuidedDataQueryModal({
           {creating && <p role="status">Closing will ignore this analysis result; the request may finish in the background.</p>}
           {isLoading && !creating && <p role="status">A data request is still finishing. Your setup is kept; creation will be available when it settles.</p>}
           {(creationError || props.error) && <p role="alert" className="analysis-create-error">{creationError || props.error}</p>}
-          <small>{canCreate ? "The table/chart will be placed on the current page and selected for editing." : previewFailure ?? importedSupport.reason}</small>
+          <small>{canCreate ? `The table/chart will be placed on ${destination === "new_page" ? "a new page" : "the current page"} and selected for editing.` : previewFailure ?? importedSupport.reason}</small>
           <div>
             <button type="button" className="secondary" onClick={dismiss}>Cancel</button>
-            <button type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || isLoading || creating || importing}>
-              {creating ? "Creating analysis..." : isLoading ? "Waiting for data request" : outputMode === "table" ? "Create table" : "Create chart"}
+            <button type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || !destinationAvailable || isLoading || creating || importing}>
+              {creating ? "Creating analysis..." : isLoading ? "Waiting for data request" : `${outputMode === "table" ? "Create table" : "Create chart"}${destination === "new_page" ? " on new page" : ""}`}
             </button>
           </div>
         </footer>

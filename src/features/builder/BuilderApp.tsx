@@ -1,3 +1,4 @@
+import { resolveAnalysisPage } from "./analysisPlacement";
 import { buildAnalyticalTemplateFromTile } from "./components/libraryReuseModel";
 import { useDocumentCommandState } from "./hooks/useDocumentCommandState";
 import { editorModalOwnsKeyboard } from "./editorModalGuard";
@@ -264,11 +265,13 @@ export default function BuilderApp() {
   } = useEditorSessionState();
   const editorContextEpoch = useRef(0);
   const pageContext = useRef(activePageId);
+  const analysisPageOrigins = useRef(new Map<string, string>());
   const viewerContext = useRef(viewerMode);
-  const setActivePageId = useCallback((id: string) => {
+  const setActivePageId = useCallback((id: string, originPageId?: string) => {
+    if (originPageId) analysisPageOrigins.current.set(JSON.stringify([dashboard.id, id]), originPageId);
     if (pageContext.current !== id) { pageContext.current = id; editorContextEpoch.current += 1; setIsLoading(false); }
     updateActivePageIdState(id);
-  }, [updateActivePageIdState, setIsLoading]);
+  }, [updateActivePageIdState, setIsLoading, dashboard.id]);
   const setViewerMode = useCallback((value: boolean) => {
     if (viewerContext.current !== value) { viewerContext.current = value; editorContextEpoch.current += 1; setIsLoading(false); }
     updateViewerModeState(value);
@@ -374,8 +377,8 @@ export default function BuilderApp() {
   );
   const activePage = useMemo(
     () =>
-      sortedPages.find((page) => page.id === activePageId) ?? sortedPages[0],
-    [activePageId, sortedPages],
+      resolveAnalysisPage(sortedPages, activePageId, dashboard.id, analysisPageOrigins.current),
+    [activePageId, sortedPages, dashboard.id],
   );
   const selectedTile = useMemo(
     () => activePage?.tiles.find((tile) => tile.id === selectedTileId) ?? null,

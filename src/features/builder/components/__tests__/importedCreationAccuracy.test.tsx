@@ -306,6 +306,24 @@ it('requires explicit recovery rather than analyzing another field when launched
  await change('Group responses by',dataset.fields[1].id);expect(button('Create table').disabled).toBe(false);
 });
 import { allRespondentsGroupingField, allRespondentsGroupingId } from '../../../data/numericSummaryScope';
+it('offers a clearly labeled new page when the current page is full, creating nothing until confirmed',async()=>{
+ const dataset=await csv('Answer\nYes\nNo\n'),create=vi.fn(async()=> 'tile'),activePage=structuredClone(initialDashboard.pages[0]);
+ activePage.elements=[];activePage.tiles=[{...activePage.tiles[0],layout:{x:48,y:72,width:760,height:460,zIndex:1}}];const before=structuredClone(activePage);
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{activePage,addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ expect(select('Place analysis').value).toBe('new_page');expect(select('Place analysis').options[0].disabled).toBe(true);
+ expect(button('Create table on new page').disabled).toBe(false);expect(create).not.toHaveBeenCalled();expect(activePage).toEqual(before);
+ await act(async()=>button('Create table on new page').click());expect(create).toHaveBeenCalledOnce();
+ expect((create.mock.calls[0] as unknown[])[4]).toMatchObject({destination:'new_page'});expect(activePage).toEqual(before);
+});
+it('keeps an explicit current-page choice when room changes, requiring a new destination before creation',async()=>{
+ const dataset=await csv('Answer\nYes\nNo\n'),create=vi.fn(),activePage=structuredClone(initialDashboard.pages[0]);activePage.elements=[];activePage.tiles=[];
+ const props=minimumProps([dataset],{activePage,addTileFromImportedDatasetField:create});await act(async()=>root.render(<GuidedDataQueryModal props={props} onClose={()=>{}}/>));
+ expect(select('Place analysis').value).toBe('current_page');
+ const full={...activePage,tiles:[{...structuredClone(initialDashboard.pages[0].tiles[0]),layout:{x:48,y:72,width:760,height:460,zIndex:1}}]};
+ await act(async()=>root.render(<GuidedDataQueryModal props={{...props,activePage:full}} onClose={()=>{}}/>));
+ expect(select('Place analysis').value).toBe('current_page');expect(button('Create table').disabled).toBe(true);expect(create).not.toHaveBeenCalled();
+ await change('Place analysis','new_page');expect(button('Create table on new page').disabled).toBe(false);
+});
 it('offers a clear explicit next step for a numeric-only study without creating an analysis automatically',async()=>{
  const dataset=await csv('Spend\n10\n20\n30\n'), original=structuredClone(dataset), create=vi.fn(async()=> 'tile');
  await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));

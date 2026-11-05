@@ -1,3 +1,4 @@
+import type { AnalysisDestination } from "../analysisPlacement";
 import { lazy, memo, Suspense, useMemo, useState } from "react";
 import { BuilderPanel } from "./BuilderChrome";
 import {
@@ -182,7 +183,7 @@ export type AnalysisAuthoringPanelProps = {
   setVariableSetOptionSelection: React.Dispatch<React.SetStateAction<string[]>>;
   addCanvasElement: (type: DashboardCanvasElement["type"]) => void;
   addTileFromQuery: () => void;
-  addTileFromSourceWithVisualization: (chartType: ChartType, isCurrent?: () => boolean) => Promise<string | null>;
+  addTileFromSourceWithVisualization: (chartType: ChartType, isCurrent?: () => boolean, destination?: AnalysisDestination) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   addTileFromImportedDatasetField: (
     dataset: ImportedDatasetRecord,
@@ -190,6 +191,7 @@ export type AnalysisAuthoringPanelProps = {
     chartType: ChartType,
     metric: Metric,
     options?: {
+      destination?: AnalysisDestination;
       groupingScope?: "all_respondents";
       isCurrent?: () => boolean;
       measureField?: ImportedDatasetField | null;

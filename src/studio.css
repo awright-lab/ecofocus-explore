@@ -4016,6 +4016,8 @@ dialog::backdrop {
 .guided-import-action { margin-top: 14px; padding: 10px 14px; border: 1px solid #bbd4c5; background: #eff7f2; color: #20583f; border-radius: 8px; cursor: pointer; }
 .guided-query-footer { gap: 14px; flex-wrap: wrap; padding: 20px 30px; background: #fff; border-top: 1px solid #dfe8e2; }
 .analysis-create-error { flex-basis: 100%; margin: 0; color: #a12e25; background: #fff2ef; padding: 12px; border-radius: 8px; }
+.guided-query-placement { margin-bottom: 18px; padding: 12px; border: 1px solid #dce7df; border-radius: 8px; background: #f8fbf8; }
+.guided-query-placement p { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: #4d6255; }
 .analysis-result-preview { margin-top: 24px; border-top: 1px solid #d4e2d9; padding-top: 18px; }
 .analysis-result-preview h3 { margin: 0 0 8px; color: #204c39; font-size: 15px; }
 .analysis-result-preview p, .analysis-result-preview small { font-size: 12px; line-height: 1.5; }
