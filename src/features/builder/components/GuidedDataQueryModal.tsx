@@ -27,6 +27,7 @@ import {
   importedFieldValues
 } from "../../data/importedDatasetAnalytics";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
+import { importedQuerySelectionIssue } from "../../data/importedQuerySelection";
 import type { AnalysisAuthoringPanelProps, GuidedDataQueryLaunchOptions } from "./AnalysisAuthoringPanel";
 import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
 
@@ -105,7 +106,7 @@ export function GuidedDataQueryModal({
   const launchQueryMode: ImportedQueryMode = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
   const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? launchContext?.importedDatasetId ?? "");
-  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchPrimaryField?.id ?? "");
+  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchContext?.importedFieldId && !launchField ? launchContext.importedFieldId : launchPrimaryField?.id ?? "");
   const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
   const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
   const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState<string | null>(null);
@@ -125,7 +126,7 @@ export function GuidedDataQueryModal({
   const importedPrimaryFields = importedPrimaryFieldCandidates.length
     ? importedPrimaryFieldCandidates
     : importedSummary.fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
-  const importedField = importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? importedPrimaryFields[0] ?? null;
+  const importedField = importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? null;
   const importedAnswerChoices = importedFieldAnswerChoices(importedField);
   const importedAnswerChoiceSummary = importedFieldAnswerChoiceSummary(importedField);
   const importedQuestionPrompt = importedSurveyQuestionPrompt(importedField);
@@ -164,7 +165,15 @@ export function GuidedDataQueryModal({
         ? supportedChartType(selectedChartTypes)
         : chartType;
   const filterChoiceSupport = getImportedFilterChoiceSupport(importedDataset);
-  const importedSupport = importedFilterField && !filterChoiceSupport.executable
+  const selectionIssue = importedQuerySelectionIssue({
+    grouping: { id: selectedImportedFieldId, fields: importedPrimaryFields },
+    comparison: { id: selectedImportedBannerFieldId, fields: importedBannerFields },
+    filter: { id: selectedImportedFilterFieldId, fields: importedFilterFields },
+    ...(importedQueryMode === "measure" ? { measure: { id: selectedImportedMeasureFieldId, fields: importedMeasureFields } } : {}),
+    filterValue: selectedImportedFilterValue, filterValues: importedFilterValues, completeFilterValues: filterChoiceSupport.executable
+  });
+  const importedSupport = selectionIssue ? { executable: false, reason: selectionIssue }
+    : importedFilterField && !filterChoiceSupport.executable
     ? filterChoiceSupport
     : importedFilterField && selectedImportedFilterValue === null
     ? { executable: false, reason: "Choose a filter value or select No filter." }
@@ -381,6 +390,7 @@ export function GuidedDataQueryModal({
             <input ref={importRef} type="file" accept=".csv,.xlsx,.sav" hidden aria-label="Import study file" onChange={(event) => void importStudy(event.target.files?.[0])} />
             <button type="button" className="guided-import-action" disabled={importing} onClick={() => importRef.current?.click()}>{importing ? "Importing study…" : "Import CSV, Excel or SPSS"}</button>
             {missingRequestedStudy && <p role="alert">The requested study is unavailable. No replacement study has been selected.</p>}
+            {datasetMode === "imported" && importedDataset && selectionIssue && <p role="alert">{selectionIssue}</p>}
             {datasetMode === "imported" && importedDatasets.length > 0 && (
               <label>
                 Imported dataset
@@ -434,6 +444,7 @@ export function GuidedDataQueryModal({
                       if (event.target.value === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId("none");
                     }}
                   >
+                    {!importedField && <option value="" disabled>Choose an available grouping field...</option>}
                     {importedPrimaryFields.filter((field) => field.id === importedField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
                       <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                     ))}
@@ -628,6 +639,7 @@ export function GuidedDataQueryModal({
                           Number to summarize
                           <select value={selectedImportedMeasureFieldId} onChange={(event) => setSelectedImportedMeasureFieldId(event.target.value)}>
                             <option value="none">Choose a numeric field...</option>
+                            {selectedImportedMeasureFieldId !== "none" && !importedMeasureField && <option value={selectedImportedMeasureFieldId} disabled>Unavailable numeric field</option>}
                     {importedMeasureFields.filter((field) => field.id === importedMeasureField?.id || `${importedFieldDisplayLabel(field)} ${field.sourceColumn}`.toLowerCase().includes(fieldSearch.toLowerCase())).map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
@@ -638,6 +650,7 @@ export function GuidedDataQueryModal({
                         <label>
                           Compare by
                           <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
+                            {selectedImportedBannerFieldId !== "none" && !importedBannerField && <option value={selectedImportedBannerFieldId} disabled>Unavailable comparison field</option>}
                             {importedBannerFields.map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
@@ -669,6 +682,7 @@ export function GuidedDataQueryModal({
                             Optional comparison group
                             <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
                               <option value="none">No group - all respondents</option>
+                              {selectedImportedBannerFieldId !== "none" && !importedBannerField && <option value={selectedImportedBannerFieldId} disabled>Unavailable comparison field</option>}
                               {importedBannerFields.map((field) => (
                                 <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                               ))}
@@ -698,6 +712,7 @@ export function GuidedDataQueryModal({
                             }}
                           >
                             <option value="none">No filter</option>
+                            {selectedImportedFilterFieldId !== "none" && !importedFilterField && <option value={selectedImportedFilterFieldId} disabled>Unavailable filter field</option>}
                             {importedFilterFields.map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
@@ -708,6 +723,7 @@ export function GuidedDataQueryModal({
                             Keep responses where
                             <select disabled={!filterChoiceSupport.executable} value={selectedImportedFilterValue ?? ""} onChange={(event) => setSelectedImportedFilterValue(event.target.value || null)}>
                               <option value="">Choose value...</option>
+                              {selectedImportedFilterValue !== null && filterChoiceSupport.executable && !importedFilterValues.includes(selectedImportedFilterValue) && <option value={selectedImportedFilterValue} disabled>Unavailable value: {selectedImportedFilterValue}</option>}
                               {importedFilterValues.map((value) => (
                                 <option value={value} key={value}>{value}</option>
                               ))}

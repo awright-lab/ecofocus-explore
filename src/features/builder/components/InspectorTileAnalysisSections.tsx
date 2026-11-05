@@ -5,6 +5,7 @@ import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/anal
 import { buildImportedResultProvenance, getImportedDatasetQuerySupport, getImportedFilterChoiceSupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
+import { importedQuerySelectionIssue } from "../../data/importedQuerySelection";
 import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
@@ -632,7 +633,7 @@ function ImportedTileQueryEditor({
   const [isUpdatingImportedResult, setIsUpdatingImportedResult] = useState(false);
   const [importedUpdateError, setImportedUpdateError] = useState<string | null>(null);
   const primaryFields = importedExecutableFields(dataset);
-  const primaryField = primaryFields.find((field) => field.id === primaryFieldId) ?? primaryFields[0] ?? null;
+  const primaryField = primaryFields.find((field) => field.id === primaryFieldId) ?? null;
   const measureOptions = importedMeasureFields(dataset);
   const measureField = measureOptions.find((field) => field.id === measureFieldId) ?? null;
   const bannerOptions = importedBannerFields(dataset, primaryField?.id ?? "");
@@ -647,7 +648,15 @@ function ImportedTileQueryEditor({
       : metric === "count" ? "count" : "percent_selected";
   const selectedChartType = (bannerField || queryMode === "measure") && chartType === "donut" ? "vertical_bar" : chartType;
   const filterChoiceSupport = getImportedFilterChoiceSupport(dataset);
-  const support = filterField && !filterChoiceSupport.executable
+  const selectionIssue = importedQuerySelectionIssue({
+    grouping: { id: primaryFieldId, fields: primaryFields },
+    comparison: { id: bannerFieldId, fields: bannerOptions },
+    filter: { id: filterFieldId, fields: filterOptions },
+    ...(queryMode === "measure" ? { measure: { id: measureFieldId, fields: measureOptions } } : {}),
+    filterValue, filterValues: values, completeFilterValues: filterChoiceSupport.executable
+  });
+  const support = selectionIssue ? { executable: false, reason: selectionIssue }
+    : filterField && !filterChoiceSupport.executable
     ? filterChoiceSupport
     : filterField && filterValue === null
     ? { executable: false, reason: "Choose a filter value or select No filter." }
@@ -719,6 +728,7 @@ function ImportedTileQueryEditor({
   return (
     <div className="imported-query-editor">
       {!dataset && <p role="alert">The original study is unavailable. Choose a replacement study explicitly before rerunning this result.</p>}
+      {dataset && selectionIssue && <p role="alert">{selectionIssue}</p>}
       <div className="explorer-section-header">
         <strong>Imported query</strong>
         <small>{support.reason}</small>
@@ -747,6 +757,7 @@ function ImportedTileQueryEditor({
         <label>
           Group responses by
           <select value={primaryField?.id ?? ""} onChange={(event) => changePrimaryField(event.target.value)}>
+            {!primaryField && <option value="" disabled>Choose an available grouping field...</option>}
             {primaryFields.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -772,8 +783,9 @@ function ImportedTileQueryEditor({
         {queryMode === "measure" && (
           <label>
             Number to average or sum
-            <select value={measureField?.id ?? "none"} onChange={(event) => setMeasureFieldId(event.target.value)}>
+            <select value={measureFieldId} onChange={(event) => setMeasureFieldId(event.target.value)}>
               <option value="none">Choose a number...</option>
+              {measureFieldId !== "none" && !measureField && <option value={measureFieldId} disabled>Unavailable numeric field</option>}
               {measureOptions.map((field) => (
                 <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
               ))}
@@ -784,8 +796,9 @@ function ImportedTileQueryEditor({
       <div className="guided-query-field-grid">
         <label>
           Optional breakout
-          <select value={bannerField?.id ?? "none"} onChange={(event) => setBannerFieldId(event.target.value)}>
+          <select value={bannerFieldId} onChange={(event) => setBannerFieldId(event.target.value)}>
             <option value="none">No breakout - all respondents</option>
+            {bannerFieldId !== "none" && !bannerField && <option value={bannerFieldId} disabled>Unavailable comparison field</option>}
             {bannerOptions.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -812,13 +825,14 @@ function ImportedTileQueryEditor({
         <label>
           Limit to
           <select
-            value={filterField?.id ?? "none"}
+            value={filterFieldId}
             onChange={(event) => {
               setFilterFieldId(event.target.value);
               setFilterValue(null);
             }}
           >
             <option value="none">No filter</option>
+            {filterFieldId !== "none" && !filterField && <option value={filterFieldId} disabled>Unavailable filter field</option>}
             {filterOptions.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -829,6 +843,7 @@ function ImportedTileQueryEditor({
             Keep responses where
             <select disabled={!filterChoiceSupport.executable} value={filterValue ?? ""} onChange={(event) => setFilterValue(event.target.value || null)}>
               <option value="">Choose value...</option>
+              {filterValue !== null && filterChoiceSupport.executable && !values.includes(filterValue) && <option value={filterValue} disabled>Unavailable value: {filterValue}</option>}
               {values.map((value) => (
                 <option value={value} key={value}>{value}</option>
               ))}
