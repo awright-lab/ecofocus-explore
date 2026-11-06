@@ -42,7 +42,7 @@ export function buildGuidedStoryPages(draft: DashboardDraft, plan: GuidedStoryPl
     if(!finding.takeaway.trim()||finding.takeaway.length>240||!finding.implication.trim()||finding.implication.length>240)throw new Error("Write a takeaway and an implication for each finding, up to 240 characters each.");
     const title=text("Story title",`${plan.title.trim()}${plan.findings.length>1?` · ${index+1} / ${plan.findings.length}`:""}`,44,88,30,"#245a46");title.style.fontWeight="700";
     const claim=text("Evidence-linked takeaway",finding.takeaway.trim(),174,230,22);claim.evidence=reviewNarrative(claim,draft.pages,[finding.evidence]);
-    const implication=text("Authored implication",`Implication — your interpretation\n${finding.implication.trim()}`,420,148,18);implication.evidence=reviewNarrative(implication,draft.pages,[finding.evidence]);
+    const implication=text("Authored implication",`Implication — your interpretation\n${finding.implication.trim()}`,420,170,18);implication.evidence=reviewNarrative(implication,draft.pages,[finding.evidence]);
     const method=text("Recorded methodology",storyMethodology(finding.evidence),590,158,11,"#41594e");method.evidence=reviewNarrative(method,draft.pages,[finding.evidence]);
     const page:DashboardPage={...defaultPageDesign(),id:makePageId(),title:`${plan.title.trim()} — ${index+1}`,order:order+index,showCanvasGrid:false,provenance:{status:"custom",masterStatus:"none"},tiles:[],elements:[title,text("Finding section label","FINDING AND RECORDED EVIDENCE",140,24,12,"#39784d"),claim,implication,method]};
     // The same text reconstruction used by PDF must fit before any page is added.

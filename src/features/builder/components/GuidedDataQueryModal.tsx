@@ -62,13 +62,15 @@ export function GuidedDataQueryModal({
   initialOutputMode = "table",
   launchContext,
   onClose,
-  onCreated
+  onCreated,
+  onStartQuestion
 }: {
   props: AnalysisAuthoringPanelProps;
   initialOutputMode?: GuidedOutputMode;
   launchContext?: GuidedDataQueryLaunchOptions;
   onClose: () => void;
   onCreated?: (tileId: string) => void;
+  onStartQuestion?: () => void;
 }) {
   const modalRef = useRef<HTMLElement | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
@@ -414,6 +416,7 @@ export function GuidedDataQueryModal({
           <button type="button" className="guided-query-close" onClick={dismiss} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
         </header>
 
+        {onStartQuestion&&<div className="guided-query-question-entry"><button type="button" disabled={creating||importing} onClick={()=>{dismiss();onStartQuestion();}}>Start with a business question</button><small>Question, audience, reviewed result and editable insight pages.</small></div>}
         <div className="guided-query-body">
           <section className="guided-query-step">
             <div className="guided-query-step__header">

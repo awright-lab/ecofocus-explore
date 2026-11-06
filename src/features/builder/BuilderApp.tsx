@@ -1,3 +1,4 @@
+import { buildJourneyPages,type JourneyDraft } from "../journey/questionJourneyModel";
 import { deferredWorkspaceHistory } from "../document/deferredWorkspaceHistory";
 import { findingFollowUps } from "../analytics/findingFollowUps";
 import { buildGuidedStoryPages,type GuidedStoryPlan } from "../narratives/guidedStoryModel";
@@ -176,6 +177,7 @@ const GuidedDataQueryModal = lazy(() =>
     default: module.GuidedDataQueryModal,
   })),
 );
+const QuestionJourney = lazy(() => import("../journey/QuestionJourney"));
 const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
@@ -292,6 +294,9 @@ export default function BuilderApp() {
     useState<WorkspaceProductMode>("story");
   const [storyBuilderOpen,setStoryBuilderOpen] = useState(false);
   const [linkedViewsOpen,setLinkedViewsOpen] = useState(false);
+  const [questionJourneyOpen,setQuestionJourneyOpen]=useState(false);
+  const questionDrafts=useRef(new Map<string,JourneyDraft>());
+  const cacheQuestionDraft=useCallback((plan:JourneyDraft)=>{questionDrafts.current.set(plan.setup.reportId,plan);},[]);
   const storyDrafts=useRef(new Map<string,GuidedStoryPlan>());
   const cacheStoryDraft=useCallback((plan:GuidedStoryPlan)=>{storyDrafts.current.set(plan.reportId,plan);},[]);
   const [guidedDataQuery, setGuidedDataQuery] = useState<
@@ -1660,6 +1665,7 @@ export default function BuilderApp() {
   }
 
   const studioCommands: StudioCommand[] = [
+    {id:"question-journey",label:"Start with a business question",group:"Create",icon:Presentation,run:()=>setQuestionJourneyOpen(true)},
     {id:"linked-views",label:"Explore linked views",group:"Analyze",icon:Database,run:()=>setLinkedViewsOpen(true)},
     {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
@@ -2204,6 +2210,17 @@ export default function BuilderApp() {
           />
         </Suspense>
       )}
+      {questionJourneyOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading question workflow...</div>}><QuestionJourney key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialDraft={questionDrafts.current.get(dashboard.id)} onDraftChange={cacheQuestionDraft} onClose={()=>setQuestionJourneyOpen(false)} onImportStudy={()=>{setQuestionJourneyOpen(false);openGuidedDataQuery({sourceMode:"imported"});}} onCreate={(preview,wording)=>{
+        let pages:ReturnType<typeof buildJourneyPages>=[];
+        const inserted=setDashboard(current=>{
+          if(viewerContext.current||current.id!==preview.setup.reportId)throw new Error("The report changed. Reopen this workflow in the current report; no pages were added.");
+          const studies=Array.from(new Map([...current.importedDatasets,...(workspaceRef.current.importedDatasets??[])].map(study=>[study.id,study])).values());
+          pages=buildJourneyPages(current,studies,preview,wording);
+          return {...current,status:"draft",pages:[...current.pages,...pages]};
+        });
+        if(!inserted||pages.length!==2)throw new Error("The pages could not be added. Original analyses and your wording are preserved.");
+        questionDrafts.current.delete(preview.setup.reportId);setQuestionJourneyOpen(false);setActivePageId(pages[1].id);selectElement(pages[1].elements.find(element=>element.evidence)!.id);
+      }}/></Suspense>}
       {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
       {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
         let pages:ReturnType<typeof buildGuidedStoryPages>=[];
@@ -2386,6 +2403,7 @@ export default function BuilderApp() {
             launchContext={guidedDataQuery}
             onClose={closeGuidedDataQuery}
             onCreated={revealCreatedAnalysis}
+            onStartQuestion={()=>{closeGuidedDataQuery();setQuestionJourneyOpen(true);}}
           />
         </Suspense>
       )}

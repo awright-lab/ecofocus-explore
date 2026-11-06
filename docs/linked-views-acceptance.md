@@ -1,6 +1,6 @@
-# Linked interactive views - original goal30 review candidate
+# Linked interactive views - original goal30 scoped acceptance
 
-Original goal: select a group in one chart and explore it in related charts, with visible filters and an easy path back. This candidate implements a dedicated, temporary local exploration workspace. It is not independently accepted yet.
+Original goal: select a group in one chart and explore it in related charts, with visible filters and an easy path back. Independent review accepted52d71065 for a dedicated, temporary local exploration workspace. Selection uses associated-table controls with visible filters and Back/Reset; persistent or canvas-wide brushing is outside this scope.
 
 ## Workflow and boundaries
 
@@ -20,7 +20,7 @@ Actual desktop browser:1,000 synthetic rows/30fields, two related existing analy
 
 Fresh three-chart native acceptance subsequently passed through a permitted host-local server: selecting North then Growth produced125regional responses, averageSpend49 with valid n125, and125Growth responses. Back restored the North population of250; Reset restored the full originals. Saved draftUnchanged remained true before and after, including appearance and all1,000rows/30fields. Cold reopen preserved the three original analyses and started with zero linked selections. Real bars, values and active chips were visually inspected. A375px responsive viewport produced a359px dialog with clientWidth/scrollWidth both359; focus containment and Escape were checked. This is bounded geometry/keyboard acceptance, not full touchscreen or screen-reader certification.
 
-Full-suite/build counts and exact publication commit are recorded in the external goal30 review packet after final verification. No independent acceptance, live Snowflake, secure online report, Office visual or OS download claim is made.
+Full-suite/build counts and exact publication commit are recorded in the external goal30 review packet after final verification. Independent acceptance covers the temporary local workflow described above. No live Snowflake, secure online report, Office visual or OS download claim is made.
 
 ## Audience-budget correction for independent re-review
 
@@ -28,4 +28,4 @@ Review found that wrapping a valid saved audience inside another AND group exhau
 
 Temporary intersection results are explicitly rejected by ordinary saved-query replay, durable evidence attachment and formatted report export. Explore itself never places those temporary copies in the report; original report exports remain available. This prevents another workflow from silently dropping the linked scope.
 
-Seven additional regressions cover valid depth6/63-node/64-node definitions, chained selection and Back/Reset, unknown exclusions, invalid source versions, source metadata, original-rule preservation, replay/evidence/export refusal, and both boundary definitions through the dialog. Native actualApp verification used1,000synthetic rows/30fields, a saved seven-node tree with leaf depth6 and a saved63-node tree atdepth5. North followed byGrowth produced125regional responses and meanSpend49 withn125. Back/Reset and cold reopen retained the exact original source queries, result tables, rules and complete draft. Full1,720tests passed/two skipped; TypeScript/build results and exact publication are in the current review packet. Goal30 remains an independent-review candidate.
+Seven additional regressions cover valid depth6/63-node/64-node definitions, chained selection and Back/Reset, unknown exclusions, invalid source versions, source metadata, original-rule preservation, replay/evidence/export refusal, and both boundary definitions through the dialog. Native actualApp verification used1,000synthetic rows/30fields, a saved seven-node tree with leaf depth6 and a saved63-node tree atdepth5. North followed byGrowth produced125regional responses and meanSpend49 withn125. Back/Reset and cold reopen retained the exact original source queries, result tables, rules and complete draft. Full1,720tests passed/two skipped; TypeScript/build results and exact publication are in the current review packet. Independent re-review accepted this correction at52d71065 for the stated temporary local scope.

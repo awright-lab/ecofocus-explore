@@ -23,6 +23,7 @@ export function useModalAccessibility(ref: RefObject<HTMLElement | null>, onClos
     document.body.style.overflow = "hidden";
     modal.focus();
     function onKeyDown(event: KeyboardEvent) {
+      if (event.isComposing) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onCloseRef.current(); return; }
       if (event.key !== "Tab") return;
       const controls = Array.from(modal!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]'))
