@@ -29,6 +29,7 @@ export function draftImportedStudyReferences(draft: DashboardDraft): Array<{ dat
     for (const datasetId of new Set(ids)) references.push({ datasetId, location });
   }
   for (const audience of draft.savedAudiences??[]) add(`Saved audience: ${audience.label}`,[audience.datasetId]);
+  for (const study of draft.importedDatasets) if (study.preparation) add(`Preparation history: ${study.title}`, [study.preparation.sourceDatasetId]);
   for (const page of draft.pages) for (const element of page.elements) if(element.evidence!==undefined) add(`${page.title}: evidence for ${element.name}`,narrativeStudyIds(element.evidence));
   for (const page of draft.pages) for (const tile of page.tiles) add(`${page.title}: ${tile.title}`, tileStudyIds(tile));
   for (const template of draft.analysisLibrary.templates) add(`Saved analysis: ${template.label}`, [...sourceStudyIds(template.source), ...queryStudyIds(template.query)]);
@@ -48,6 +49,7 @@ export function importedStudyUsage(workspace: DashboardWorkspace, datasetId: str
   const usage = workspace.reports.flatMap(report => draftLocations(report.draft, datasetId).map(location => ({
     reportId: report.id, reportTitle: report.title, location,
   })));
+  for (const study of workspace.importedDatasets) if (study.preparation?.sourceDatasetId === datasetId) usage.push({ reportId: "workspace", reportTitle: "Study library", location: `Preparation history: ${study.title}` });
   for (const snapshot of workspace.publishedSnapshots) {
     if (!snapshot.dashboard.importedDatasets.some(dataset => dataset.id === datasetId)) {
       for (const location of draftLocations(snapshot.dashboard, datasetId)) usage.push({

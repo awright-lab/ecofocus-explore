@@ -1,6 +1,6 @@
 # Calculated metrics — original goal 21 review candidate
 
-Original goal: reusable formulas, indices and ratios with incompatible-base and invalid-calculation checks. This candidate extends the existing saved calculation library and derived results. Independent goal acceptance is pending; it is not counted among accepted goals.
+Original goal: reusable formulas, indices and ratios with incompatible-base and invalid-calculation checks. Independent review recommends accepting this goal within the documented paired-cell local scope following the arithmetic/provenance and frozen-workflow checks. It extends the existing saved calculation library and derived results; broader respondent-field, weighted and remote calculation capabilities are not implied.
 
 ## Supported workflow
 
@@ -51,4 +51,4 @@ Independent review accepts the guard correction at f1bab737 within development-l
 | Invalid calculations | Parser and numeric bounds, division-by-zero/nonfinite/underflow guards, damaged-cache/source validation and explicit errors preserve prior data. |
 | End-to-end persistence | Original frozen three-page App workflow cold-reopens with the entire 515,016-byte inspection exact, including study, pages, definitions and refreshed 25/-75 results. Retained stale navigation preserves it. The separate reviewed HMR fix protects development session replacement. |
 
-The supported paired-cell local workflow now meets these implementation and verification criteria; the earlier cold-reopen engineering gate is closed for that frozen workflow. No remaining code blocker is identified within this stated scope. The original-goal status remains a review candidate until the coordinator records final original-scope acceptance; accepting the development save fix alone does not automatically supply that decision. Arbitrary respondent-level formulas, cross-study arithmetic, weighted/remote inputs and survey inference remain outside this bounded implementation. Crash durability belongs to storage goal 1 and is neither required nor established by this calculation acceptance.
+The supported paired-cell local workflow now meets these implementation and verification criteria; the earlier cold-reopen engineering gate is closed for that frozen workflow. The coordinator subsequently conveyed independent review's recommendation to accept original goal 21 within this documented scope. This follows the separate original-goal review, not merely acceptance of the development save fix. Arbitrary respondent-level formulas, cross-study arithmetic, weighted/remote inputs and survey inference remain outside this bounded implementation. Crash durability belongs to storage goal 1 and is neither required nor established by this calculation acceptance.

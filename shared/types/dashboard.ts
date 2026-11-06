@@ -589,6 +589,7 @@ export interface ImportedDatasetField {
 }
 
 export interface ImportedDatasetRecord {
+  preparation?: import("./dataPreparation").StudyPreparation;
   id: string;
   title: string;
   sourceType: "local_file" | "supabase" | "netlify";

@@ -51,3 +51,16 @@ it("focuses the dialog, makes background inert and handles Escape", async () => 
   const props = await fixture(), dialog = document.querySelector('[role="dialog"]')!; expect(document.activeElement).toBe(dialog); expect(host.inert).toBe(true); await act(async () => dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))); expect(props.onClose).toHaveBeenCalledOnce();
 });
 
+it.each(['__proto__', 'constructor', 'toString'])("renders an unlabeled prototype-named raw code %s safely and preserves explicit own labels", async code => {
+  const props = await fixture(); props.studies[0].rows[0].AnswerA = code;
+  props.studies[0].fields[1].valueLabels = {};
+  await configure(props);
+  const list = document.querySelector('#response-code-examples-0')!;
+  expect(Array.from(list.querySelectorAll('option')).find(option => option.value === code)?.textContent).toBe(code);
+  Object.defineProperty(props.studies[0].fields[1].valueLabels, code, { value: 'Explicit answer label', enumerable: true });
+  await act(async () => root.render(<MultiResponseExplorer {...props} />));
+  expect(Array.from(list.querySelectorAll('option')).find(option => option.value === code)?.textContent).toBe('Explicit answer label');
+  await change('Response 1 selected code', code); await act(async () => document.querySelector<HTMLInputElement>('.multi-response-base input')!.click()); await run();
+  expect(document.querySelector('[aria-label="Multiple-response results"]')).not.toBeNull(); expect(fetch).not.toHaveBeenCalled();
+});
+

@@ -1,5 +1,6 @@
 import type { ImportedDatasetRecord } from "../../../shared/types/dashboard";
 import { decodeImportedRows } from "./workspaceRowStorage";
+import { assertStudyPreparation } from "../../../shared/types/dataPreparation";
 
 // The storage key is the format discriminator. Only pre-v2 saves may omit
 // collections or modeling metadata that older versions did not write.
@@ -50,6 +51,8 @@ function assertField(value: unknown, format: SavedWorkspaceFormat) {
 
 function readSavedStudy(value: unknown, format: SavedWorkspaceFormat): ImportedDatasetRecord {
   if (!isSavedObject(value) || typeof value.id !== "string" || !value.id || !isCount(value.rowCount) || !Array.isArray(value.fields)) invalidStudy();
+  assertStudyPreparation(value.preparation);
+  if (value.preparation?.sourceDatasetId === value.id) invalidStudy();
   for (const key of ["title", "fileName", "importedAt"]) {
     if ((format === "v2" || value[key] !== undefined) && typeof value[key] !== "string") invalidStudy();
   }

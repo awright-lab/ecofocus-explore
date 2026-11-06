@@ -197,6 +197,7 @@ export function normalizeImportedDatasetField(field: Partial<ImportedDatasetFiel
 export function normalizeImportedDataset(dataset: Partial<ImportedDatasetRecord>, index: number): ImportedDatasetRecord {
   const rowCount = dataset.rowCount ?? dataset.previewRows?.length ?? 0;
   const normalized: ImportedDatasetRecord = {
+    preparation: dataset.preparation,
     id: dataset.id ?? `imported_dataset_${index + 1}`,
     title: dataset.title ?? dataset.fileName ?? `Imported dataset ${index + 1}`,
     sourceType: dataset.sourceType ?? "local_file",

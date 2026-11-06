@@ -181,6 +181,7 @@ const QuestionJourney = lazy(() => import("../journey/QuestionJourney"));
 const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
 const LinearModelExplorer = lazy(() => import("../models/LinearModelExplorer"));
 const MultiResponseExplorer = lazy(() => import("../multi-response/MultiResponseExplorer"));
+const DataPreparation = lazy(() => import("../data-preparation/DataPreparation"));
 const CalculatedMetricBuilder = lazy(() => import("../metrics/CalculatedMetricBuilder"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
@@ -299,6 +300,7 @@ export default function BuilderApp() {
   const [linkedViewsOpen,setLinkedViewsOpen] = useState(false);
   const [linearModelOpen,setLinearModelOpen] = useState(false);
   const [multiResponseOpen,setMultiResponseOpen] = useState(false);
+  const [dataPreparationOpen,setDataPreparationOpen] = useState(false);
   const [calculatedMetricOpen,setCalculatedMetricOpen] = useState(false);
   const [questionJourneyOpen,setQuestionJourneyOpen]=useState(false);
   const questionDrafts=useRef(new Map<string,JourneyDraft>());
@@ -1676,6 +1678,7 @@ export default function BuilderApp() {
     {id:"linked-views",label:"Explore linked views",group:"Analyze",icon:Database,run:()=>setLinkedViewsOpen(true)},
     {id:"linear-model",label:"Explore numeric relationships",group:"Analyze",icon:Database,run:()=>setLinearModelOpen(true)},
     {id:"multiple-response",label:"Analyze multiple-response overlaps",group:"Analyze",icon:Database,run:()=>setMultiResponseOpen(true)},
+    {id:"data-preparation",label:"Clean and recode a study copy",group:"Analyze",icon:Database,run:()=>setDataPreparationOpen(true)},
     {id:"calculated-metrics",label:"Build a calculated metric",group:"Analyze",icon:Database,run:()=>setCalculatedMetricOpen(true)},
     {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
@@ -2236,6 +2239,20 @@ export default function BuilderApp() {
       {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
       {linearModelOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading numeric relationships...</div>}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></Suspense>}
       {multiResponseOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response overlaps...</div>}><MultiResponseExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setMultiResponseOpen(false)}/></Suspense>}
+      {dataPreparationOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading data preparation...</div>}><DataPreparation key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setDataPreparationOpen(false)} onSave={async(preview,signal)=>{
+        const snapshot=workspaceRef.current, editVersion=getDocumentEditVersion(), route=window.location.hash;
+        const currentWorkspace=upsertDraftReport(snapshot,dashboard,activeReportId);
+        const source=currentWorkspace.importedDatasets.find(study=>study.id===preview.recipe.sourceDatasetId);
+        if(!source)return "The original study is missing. Your preview is preserved.";
+        const {verifyPreparedStudy,samePreparedStudy}=await import("../data-preparation/preparationModel");
+        await verifyPreparedStudy(source,preview.dataset);
+        if(signal.aborted||!importOwnerMounted.current||window.location.hash!==route||getDocumentEditVersion()!==editVersion||workspaceRef.current!==snapshot)return "The workspace changed or preparation was canceled. No prepared study was added; review and retry.";
+        const existing=currentWorkspace.importedDatasets.find(study=>study.id===preview.dataset.id);
+        if(existing&&!samePreparedStudy(existing,preview.dataset))return "A different study already uses this identity. Existing data is preserved; create a fresh preview.";
+        const next=upsertWorkspaceImportedDataset(currentWorkspace,existing??preview.dataset);workspaceRef.current=next;setWorkspace(next);
+        const saved=saveDashboardWorkspace(next,snapshot);setError(saved?null:workspaceSaveFailureMessage);
+        return saved?null:workspaceSaveFailureMessage;
+      }}/></Suspense>}
       {calculatedMetricOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading calculated metrics...</div>}><CalculatedMetricBuilder key={dashboard.id} draft={dashboard} selectedTileId={selectedTile?.id} onClose={()=>setCalculatedMetricOpen(false)} onChange={setDashboard} onNavigate={(pageId,tileId)=>{setActivePageId(pageId);selectTile(tileId);}} onCreateAnalysis={()=>{setCalculatedMetricOpen(false);openGuidedDataQuery({sourceMode:"imported"});}}/></Suspense>}
       {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
         let pages:ReturnType<typeof buildGuidedStoryPages>=[];

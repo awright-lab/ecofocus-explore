@@ -705,6 +705,15 @@ export function createPublishedSnapshot(
   const snapshotId = makeId("snapshot");
   const viewerPath = makePublishedViewerPath(dashboard.id, snapshotId);
   const referencedStudies = new Set(draftImportedStudyReferences(dashboard).map(reference => reference.datasetId));
+  for (const study of dashboard.importedDatasets) referencedStudies.add(study.id);
+  // A prepared snapshot must retain the original needed to inspect/replay its
+  // history even when the report references only the resulting study.
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const study of [...workspace.importedDatasets, ...dashboard.importedDatasets]) if (referencedStudies.has(study.id) && study.preparation && !referencedStudies.has(study.preparation.sourceDatasetId)) {
+      referencedStudies.add(study.preparation.sourceDatasetId); changed = true;
+    }
+  }
   const publishedDashboard = normalizeDashboard({
     ...cloneDashboard({
       ...dashboard,
