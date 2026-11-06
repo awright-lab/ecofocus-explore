@@ -1,5 +1,5 @@
 import type { AnalyticsQueryResponse,ChartType,Metric } from "../../../shared/types/analytics";
-import type { DashboardDraft,DashboardPage,DashboardTile,ImportedDatasetRecord } from "../../../shared/types/dashboard";
+import type { DashboardDraft,DashboardPage,DashboardTile,ImportedDatasetRecord,ImportedDatasetField } from "../../../shared/types/dashboard";
 import { defaultAppearance } from "../builder/builderConstants";
 import { defaultElementStyle,defaultPageDesign } from "../document/documentSeeds";
 import { makePageId,makeTileId,makeElementId } from "../document/documentModel";
@@ -12,9 +12,25 @@ export interface JourneySetup {
  reportId:string;question:string;headline:string;datasetId:string;importedAt:string;
  fieldId:string;purpose:"responses"|"compare"|"measure";measureId:string;bannerId:string;
  metric:Metric;chartType:ChartType;audienceId:string;
+ fieldBindings?: {study:Pick<ImportedDatasetRecord,"id"|"importedAt"|"sourceType"|"sourceRef"|"fileName"|"fileType"|"rowCount"|"fieldCount">;grouping:ImportedDatasetField;measure:ImportedDatasetField|null;comparison:ImportedDatasetField|null};
 }
 export interface JourneyDraft { setup:JourneySetup;takeaway:string;implication:string;rowId:string;columnId:string }
 export interface JourneyPreview { setup:JourneySetup;sourcePage:DashboardPage;result:AnalyticsQueryResponse;population:{included:number;excluded:number;unknown:number;total:number} }
+export function currentJourneyFieldBindings(setup:Pick<JourneySetup,"fieldId"|"purpose"|"measureId"|"bannerId">,dataset:ImportedDatasetRecord|undefined):JourneySetup["fieldBindings"] {
+ const find=(id:string)=>dataset?.fields.filter(field=>field.id===id)??[];
+ const grouping=find(setup.fieldId),measure=setup.purpose==="measure"?find(setup.measureId):[],comparison=setup.purpose==="compare"?find(setup.bannerId):[];
+ if(grouping.length!==1||setup.purpose==="measure"&&measure.length!==1||setup.purpose==="compare"&&comparison.length!==1)return undefined;
+ return structuredClone({study:{id:dataset!.id,importedAt:dataset!.importedAt,sourceType:dataset!.sourceType,sourceRef:dataset!.sourceRef,fileName:dataset!.fileName,fileType:dataset!.fileType,rowCount:dataset!.rowCount,fieldCount:dataset!.fieldCount},grouping:grouping[0],measure:measure[0]??null,comparison:comparison[0]??null});
+}
+export function journeyFieldBindingIssue(setup:JourneySetup,dataset:ImportedDatasetRecord|undefined):string|null {
+ if(!setup.fieldBindings)return null;
+ const current=currentJourneyFieldBindings(setup,dataset);
+ if(JSON.stringify(current)===JSON.stringify(setup.fieldBindings))return null;
+ const roles=["grouping","measure","comparison"]as const;
+ const details=roles.filter(role=>JSON.stringify(current?.[role])!==JSON.stringify(setup.fieldBindings![role])).map(role=>`${role}: recorded raw column ${setup.fieldBindings![role]?.sourceColumn??"None"}; current ${current?.[role]?.sourceColumn??"Unavailable"}`);
+ if(JSON.stringify(current?.study)!==JSON.stringify(setup.fieldBindings.study))details.unshift("Recorded study source or coverage changed");
+ return `Selected field mappings or metadata changed after planning. Review the current bindings before previewing. ${details.join(". ")}.`;
+}
 export function journeyConfig(draft:DashboardDraft,studies:ImportedDatasetRecord[],setup:JourneySetup) {
  if(setup.reportId!==draft.id)throw new Error("The report changed. Start this question in the current report.");
  if(!setup.question.trim()||setup.question.length>160||!setup.headline.trim()||setup.headline.length>80)throw new Error("Write a business question up to 160 characters and a deliverable title up to 80 characters.");
@@ -23,6 +39,7 @@ export function journeyConfig(draft:DashboardDraft,studies:ImportedDatasetRecord
  if(dataset.remote)throw new Error("This workflow requires a complete local study; remote sources are not executed.");
  if(dataset.rowCount>50000)throw new Error("This guided workflow currently supports up to 50,000 local rows.");
  if(!Number.isFinite(Date.parse(setup.importedAt))||dataset.importedAt!==setup.importedAt)throw new Error("The selected study was replaced. Choose it again and review a new preview; your wording is preserved.");
+ const bindingIssue=journeyFieldBindingIssue(setup,dataset);if(bindingIssue)throw new Error(bindingIssue);
  function field(id:string,role:string){const matches=dataset.fields.filter(field=>field.id===id);if(matches.length!==1)throw new Error(`Choose an available ${role} field.`);return matches[0];}
  const grouping=field(setup.fieldId,"grouping"),measure=setup.purpose==="measure"?field(setup.measureId,"numeric"):null,banner=setup.purpose==="compare"?field(setup.bannerId,"comparison"):null;
  if(!["responses","compare","measure"].includes(setup.purpose)||!(setup.purpose==="measure"?["average","sum"]:["count","percent_selected"]).includes(setup.metric))throw new Error("Choose a metric that matches the stated research purpose.");

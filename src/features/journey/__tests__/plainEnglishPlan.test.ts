@@ -82,3 +82,59 @@ it("preserves source snapshots and requires fresh calculation in the adopted exi
   const pages = buildJourneyPages(draft, [dataset], preview, { rowId: row.optionId, columnId: column.id, takeaway: "Recorded regional spending", implication: "Investigate context before acting." });
   expect(pages).toHaveLength(2); expect(pages.flatMap(page => page.elements).filter(element => element.evidence)).toHaveLength(4); expect({ draft, dataset }).toEqual(before);
 });
+
+function quotedStudy() {
+  const study = structuredClone(dataset);
+  const make = (id: string, label: string, sourceColumn: string, numeric = false) => ({ ...structuredClone(study.fields[numeric ? 2 : 0]), id, label, sourceColumn, researchConcepts: undefined });
+  study.fields.push(make("quoted-by", "Region by Segment", "QuotedBy"), make("quoted-for", "Region for Growth audience", "QuotedFor"), make("quoted-number", "Spend by Segment", "QuotedSpend", true));
+  study.fieldCount = study.fields.length;
+  study.rows.forEach(row => { row.QuotedBy = row.Region; row.QuotedFor = row.Region; row.QuotedSpend = row.Spend === "" ? "" : String(Number(row.Spend) * 10); });
+  return study;
+}
+it.each(['Count "Region by Segment"', 'Count "Region for Growth audience"', 'Count \u201cRegion by Segment\u201d', 'Count column "QuotedBy"'])("keeps quoted operators inside an exact field name: %s", question => {
+  const study = quotedStudy(), original = structuredClone(study), proposal = suggestLocalQuestion(question, study, [audience]);
+  expect(proposal.status).toBe("ready"); if (proposal.status !== "ready") throw Error(proposal.message);
+  expect(proposal.plan).toMatchObject({ purpose: "responses", metric: "count", bannerId: "", audienceId: "", fieldId: question.includes(" for ") ? "quoted-for" : "quoted-by" });
+  const draft = { ...structuredClone(initialDashboard), importedDatasets: [study], savedAudiences: [audience] }, setup = { reportId: draft.id, question, headline: "Quoted field", ...proposal.plan };
+  const preview = prepareJourney(draft, [study], setup); expect(preview.result.columns).toHaveLength(1); expect(preview.population.included).toBe(40); expect(study).toEqual(original);
+});
+it("separates quoted measure/group/audience names only at unquoted grammar boundaries", () => {
+  const study = quotedStudy(), namedAudience = { ...structuredClone(audience), label: "Growth for Region by Segment" };
+  const question = 'Average "Spend by Segment" by "Region for Growth audience" for "Growth for Region by Segment"';
+  const proposal = suggestLocalQuestion(question, study, [namedAudience]); expect(proposal.status).toBe("ready");
+  if (proposal.status !== "ready") throw Error(proposal.message);
+  expect(proposal.plan).toMatchObject({ fieldId: "quoted-for", measureId: "quoted-number", audienceId: audience.id, bannerId: "", metric: "average" });
+  const draft = { ...structuredClone(initialDashboard), importedDatasets: [study], savedAudiences: [namedAudience] };
+  expect(prepareJourney(draft, [study], { reportId: draft.id, headline: "Quoted mean", question, ...proposal.plan }).result.table.map(row => row.values.summary)).toEqual([100, 300]);
+});
+it.each(['Count "Region by Segment"', 'Count "Region for Growth audience"', 'Count "Region by Segment', 'Count \u201cRegion by Segment"', "Count 'Region by Segment'", 'Count Region by Segment by Income', 'Count Region for Growth audience for everyone', 'Count "Region\\" by Segment"'])("clarifies absent, malformed or unsupported quoted grammar rather than silently changing meaning: %s", question => {
+  const proposal = suggestLocalQuestion(question, dataset, [audience]); expect(proposal.status).toBe("clarify"); expect(proposal).not.toHaveProperty("plan");
+});
+it("binds raw-column mappings even when labels, IDs and import event remain unchanged", async () => {
+  const imported = await importDatasetBuffer(new TextEncoder().encode("Region,Spend\nNorth,10\nNorth,30\nSouth,20\nSouth,40\n").buffer, "synthetic-binding.csv"), study = imported.dataset!;
+  study.rows.forEach(row => { row.AlternateSpend = String(Number(row.Spend) * 10); });
+  const question = "Average Spend by Region", proposal = suggestLocalQuestion(question, study);
+  if (proposal.status !== "ready") throw Error(proposal.message);
+  const draft = { ...structuredClone(initialDashboard), importedDatasets: [study] }, setup: JourneySetup = { reportId: draft.id, headline: "Mapping", question, ...proposal.plan };
+  expect(prepareJourney(draft, [study], setup).result.table.map(row => row.values.summary)).toEqual([20, 30]);
+  const oldSnapshot = structuredClone(proposal.sourceBindings); study.fields[1].sourceColumn = "AlternateSpend";
+  expect(proposal.sourceBindings).toEqual(oldSnapshot); expect(() => confirmLocalQuestionSuggestion(proposal, question, study, [])).toThrow("changed");
+  const fresh = suggestLocalQuestion(question, study); if (fresh.status !== "ready") throw Error(fresh.message);
+  const matchingRenderedSummary = { ...structuredClone(proposal), summary: fresh.summary };
+  expect(() => confirmLocalQuestionSuggestion(matchingRenderedSummary, question, study, [])).toThrow("changed");
+  expect(fresh.sourceBindings.measure?.sourceColumn).toBe("AlternateSpend");
+  expect(prepareJourney(draft, [study], { ...setup, ...confirmLocalQuestionSuggestion(fresh, question, study, []) }).result.table.map(row => row.values.summary)).toEqual([200, 300]);
+});
+it.each(["grouping", "comparison", "value labels", "source reference"])("invalidates changed %s source bindings", kind => {
+  const study = structuredClone(dataset); study.sourceRef ??= { id: `imported:${study.id}`, kind: "imported_file", provider: "local_file", label: study.title, datasetId: study.id }; study.rows.forEach(row => { row.Alternate = row.Region; });
+  const question = "Count Region by Segment", proposal = suggestLocalQuestion(question, study); if (proposal.status !== "ready") throw Error(proposal.message);
+  if (kind === "grouping") study.fields[0].sourceColumn = "Alternate";
+  if (kind === "comparison") { study.rows.forEach(row => { row.Alternate = row.Segment; }); study.fields[1].sourceColumn = "Alternate"; }
+  if (kind === "value labels") study.fields[0].valueLabels = { North: "Different meaning" };
+  if (kind === "source reference" && study.sourceRef) study.sourceRef.id += "-replacement";
+  expect(() => confirmLocalQuestionSuggestion(proposal, question, study, [])).toThrow("changed");
+});
+
+it('retains adopted raw bindings through preview and page creation until explicitly reviewed',()=>{
+ const study=structuredClone(dataset);study.rows.forEach(row=>{row.AlternateSpend=row.Spend===''?'':String(Number(row.Spend)*10);});const question='Average Spend by Region',proposal=suggestLocalQuestion(question,study);if(proposal.status!=='ready')throw Error(proposal.message);const draft={...structuredClone(initialDashboard),importedDatasets:[study]},setup:JourneySetup={reportId:draft.id,headline:'Bound fields',question,...confirmLocalQuestionSuggestion(proposal,question,study,[])};const preview=prepareJourney(draft,[study],setup);study.fields[2].sourceColumn='AlternateSpend';expect(()=>prepareJourney(draft,[study],setup)).toThrow('mappings or metadata changed');const row=preview.result.table[0],column=preview.result.columns[0];expect(()=>buildJourneyPages(draft,[study],preview,{rowId:row.optionId,columnId:column.id,takeaway:'Recorded mean',implication:'Review context'})).toThrow('mappings or metadata changed');
+});
