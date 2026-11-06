@@ -584,3 +584,8 @@ The finished product should let a team:
 - publish interactive dashboards
 - export full reports and individual assets
 - share findings without leaving the platform
+
+
+## Original forty-goal acceptance checkpoint (2026-11-06)
+
+Nine goals have independent acceptance within their documented local-study scopes: 9, 10, 12, 25, 27, 28, 29, 30 and 35. These are scoped acceptances, not a claim that every original requirement works for remote/live/weighted sources or in production. Goal 22 now has a bounded temporary numeric-model review candidate; see [numeric model exploration](numeric-model-exploration.md). Independent acceptance is pending. Goals 13, 14 and 34 remain partial, and active transactional saves/recovery, secure cloud collaboration/publishing and live-service acceptance remain open. Implementation batches are not completed original goals. No merge or production deployment.

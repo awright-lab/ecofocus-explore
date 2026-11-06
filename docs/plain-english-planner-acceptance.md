@@ -1,6 +1,6 @@
-# Plain-English analysis planning — original goal 25 review candidate
+# Plain-English analysis planning - original goal 25 scoped acceptance
 
-Original goal: translate a plain-English question into a visible, editable analysis plan before running it, rather than inventing results. This candidate provides a bounded local grammar, integrated with the accepted question-to-insight workflow. It is a rules-based planner over declared metadata, not a general language model or a conversational research assistant. Independent original-scope acceptance remains pending.
+Original goal: translate a plain-English question into a visible, editable analysis plan before running it, rather than inventing results. Independent review accepted commit 2a2a6c0a within its bounded local grammar: named fields/audiences, complete local studies up to 50,000 rows and supported unweighted calculations. It integrates with the accepted question-to-insight workflow. This is a rules-based planner over declared metadata; general conversational research and remote/live analysis remain outside the accepted scope. The quote and stale-metadata corrections passed 24 focused review checks.
 
 ## Complete workflow
 
@@ -35,6 +35,6 @@ Reproducible fixture: `src/features/document/__tests__/fixtures/plainEnglishWork
 
 ## Independent-review correction
 
-Review reproduced quoted names silently becoming grouping/audience operators and changed raw mappings remaining accepted. Both are addressed in the current candidate: quote-aware boundaries resolve the entire quoted name or clarify, and captured source bindings invalidate even in-place mapping changes before adoption. Regression calculations reproduce old means20/30 versus new200/300 and require fresh explicit planning. Final verification and correction commit are in the external follow-up packet; independent re-review remains required.
+Review reproduced quoted names silently becoming grouping/audience operators and changed raw mappings remaining accepted. Both are addressed in accepted correction 2a2a6c0a: quote-aware boundaries resolve the entire quoted name or clarify, and captured source bindings invalidate even in-place mapping changes before adoption. Regression calculations reproduce old means20/30 versus new200/300 and require fresh explicit planning. Independent re-review confirmed both corrections and accepted the bounded local implementation; broad conversational research remains outside this scope.
 
 The correction adds24regressions (19model and5UI) for literal quoted names, malformed grammar, raw mappings, full metadata/source bindings, in-place mutation, adopted-plan drift and calculated-preview invalidation. Final suite1,841passed/2skipped; TypeScript and production build passed. Native actual-App quote checks preserve the exact saved page and entire study. Mapping drift is exercised in an isolated in-memory fixture using the actual planner component and query model; it does not exercise a product raw-mapping editor or workspace writer. Ordinary goal25 persistence/export evidence remains in the original packet. Adopted bindings are in-memory workflow state, not immutable fingerprints for every saved analysis.

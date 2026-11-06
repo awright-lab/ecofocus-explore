@@ -179,6 +179,7 @@ const GuidedDataQueryModal = lazy(() =>
 );
 const QuestionJourney = lazy(() => import("../journey/QuestionJourney"));
 const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
+const LinearModelExplorer = lazy(() => import("../models/LinearModelExplorer"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
 export default function BuilderApp() {
@@ -294,6 +295,7 @@ export default function BuilderApp() {
     useState<WorkspaceProductMode>("story");
   const [storyBuilderOpen,setStoryBuilderOpen] = useState(false);
   const [linkedViewsOpen,setLinkedViewsOpen] = useState(false);
+  const [linearModelOpen,setLinearModelOpen] = useState(false);
   const [questionJourneyOpen,setQuestionJourneyOpen]=useState(false);
   const questionDrafts=useRef(new Map<string,JourneyDraft>());
   const cacheQuestionDraft=useCallback((plan:JourneyDraft)=>{questionDrafts.current.set(plan.setup.reportId,plan);},[]);
@@ -1667,6 +1669,7 @@ export default function BuilderApp() {
   const studioCommands: StudioCommand[] = [
     {id:"question-journey",label:"Start with a business question",group:"Create",icon:Presentation,run:()=>setQuestionJourneyOpen(true)},
     {id:"linked-views",label:"Explore linked views",group:"Analyze",icon:Database,run:()=>setLinkedViewsOpen(true)},
+    {id:"linear-model",label:"Explore numeric relationships",group:"Analyze",icon:Database,run:()=>setLinearModelOpen(true)},
     {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
       id: "analysis",
@@ -2222,6 +2225,7 @@ export default function BuilderApp() {
         questionDrafts.current.delete(preview.setup.reportId);setQuestionJourneyOpen(false);setActivePageId(pages[1].id);selectElement(pages[1].elements.find(element=>element.evidence)!.id);
       }}/></Suspense>}
       {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
+      {linearModelOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading numeric relationships...</div>}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></Suspense>}
       {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
         let pages:ReturnType<typeof buildGuidedStoryPages>=[];
         const inserted=setDashboard(current=>{
