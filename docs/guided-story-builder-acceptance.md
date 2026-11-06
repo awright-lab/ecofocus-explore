@@ -39,3 +39,9 @@ All four actual PDF-embedded browser-rendered JPEGs decoded successfully and wer
 These checks do not establish native Microsoft Office rendering, OS download completion or pixel-identical canvas/PDF layout. Linked-text export wrapping is deliberately conservative. The prior Office COM denial and older uncertain download were not retried. No live Snowflake/remote service was called, no real respondent data used, and no merge, production deployment, credentials, permissions, billing or production-data changes occurred. Restore and durable recovery remain inactive.
 
 Formatted linked-story exports currently require source pages in the export scope, following the existing evidence guard. Standalone story-only packages are not claimed; dense or unready source layouts can still need existing preflight adjustments.
+
+## Methodology provenance correction (review finding)
+
+New story pages now link the generated methodology to the same recorded source cell as the takeaway and implication. Changing a source metric, filter, base or recorded context marks all three objects as needing review. Reviewing the two authored objects alone cannot clear the methodology warning or permit formatted exports. Correct and explicitly review the methodology as well, or recreate that story page from the current result. Text remains authored/reviewable; the tool does not validate interpretation truth.
+
+The regression reproduces a 25% source changing to count 250, reviews both authored objects, confirms methodology remains stale and PDF/PPTX/XLSX refuse, saves/reopens the workspace, then corrects/reviews methodology and confirms the export guard clears. The layout allocates additional room for its visible citation. Existing already-created plain text is preserved; this change does not infer links or silently rewrite old methodology. Older story pages require explicit methodology linking/review or recreation before relying on automatic drift warnings.
