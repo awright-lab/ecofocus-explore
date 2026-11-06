@@ -1,3 +1,4 @@
+import { validSourceCategoryKey } from "../../../shared/analytics/sourceCategoryIdentity";
 import type { DashboardDraft, DashboardTile, ReportColorTheme, TileAppearance } from "../../../shared/types/dashboard";
 import { resultIdentityIssue } from "../../../shared/analytics/resultIdentities";
 export function validReportColorTheme(value: unknown): value is ReportColorTheme {
@@ -13,9 +14,7 @@ export function reportColorEligibility(tile: DashboardTile): string | null {
     const validKeys = (items: Array<{ sourceCategoryKey?: string }>) => {
       const keys = new Set<string>();
       return items.every(item => {
-        if (typeof item.sourceCategoryKey !== "string" || keys.has(item.sourceCategoryKey)) return false;
-        try { const key: unknown = JSON.parse(item.sourceCategoryKey); if (key !== null && typeof key !== "string") return false; }
-        catch { return false; }
+        if (!validSourceCategoryKey(item.sourceCategoryKey) || keys.has(item.sourceCategoryKey)) return false;
         keys.add(item.sourceCategoryKey); return true;
       });
     };
@@ -51,8 +50,28 @@ export function reconcileReportColors(draft: DashboardDraft): DashboardDraft {
         return [entry.id, byKey.get(key)!];
       }));
     }
-    const reportColorSlots = { rows: bind("rows", tile.result.table.map(row => ({ id: row.optionId, label: row.label, sourceCategoryKey: row.sourceCategoryKey }))), columns: bind("columns", tile.result.columns), originalPalette: [...(tile.appearance.reportColorSlots?.originalPalette ?? tile.appearance.palette)] };
-    return { ...tile, appearance: { ...tile.appearance, reportColorsEnabled: true, reportColorSlots, palette: [...theme.palette] } };
+    const previous = tile.appearance.reportColorSlots;
+    const rows = bind("rows", tile.result.table.map(row => ({ id: row.optionId, label: row.label, sourceCategoryKey: row.sourceCategoryKey }))), columns = bind("columns", tile.result.columns);
+    const styles = { ...previous?.styles };
+    // Capture explicit edits against the result that owned their ID. A query
+    // may regenerate raw IDs; the stored semantic slot owns the style thereafter.
+    for (const [id, style] of Object.entries(tile.appearance.barStyles)) {
+      for (const map of previous ? [previous.rows, previous.columns] : [rows, columns]) {
+        if (Object.hasOwn(map, id)) styles[String(map[id])] = { ...style };
+      }
+    }
+    // Keep editable raw IDs aligned with their current semantic owners too.
+    // Otherwise a second reconciliation could recapture a stale raw override
+    // against a different category that inherited its old frequency-based ID.
+    const barStyles = { ...tile.appearance.barStyles };
+    for (const map of previous ? [previous.rows, previous.columns, rows, columns] : [rows, columns]) {
+      for (const id of Object.keys(map)) delete barStyles[id];
+    }
+    for (const map of [rows, columns]) for (const [id, slot] of Object.entries(map)) {
+      if (styles[String(slot)]) barStyles[id] = { ...styles[String(slot)] };
+    }
+    const reportColorSlots = { rows, columns, styles, originalPalette: [...(previous?.originalPalette ?? tile.appearance.palette)] };
+    return { ...tile, appearance: { ...tile.appearance, barStyles, reportColorsEnabled: true, reportColorSlots, palette: [...theme.palette] } };
   }) }));
   return { ...draft, reportColorTheme: { ...theme, slots }, pages };
 }
@@ -67,14 +86,23 @@ export function paletteColor(appearance: TileAppearance, role: "rows" | "columns
   return appearance.palette[index % Math.max(1, appearance.palette.length)] ?? appearance.primaryColor;
 }
 export function chartColor(tile: DashboardTile, role: "rows" | "columns", id: string, index: number): string {
-  const override = Object.hasOwn(tile.appearance.barStyles, id) ? tile.appearance.barStyles[id]?.color : undefined;
-  return override ?? paletteColor(tile.appearance, role, id, index);
+  const map = tile.appearance.reportColorSlots?.[role];
+  const semantic = tile.appearance.reportColorsEnabled && map && Object.hasOwn(map,id) ? tile.appearance.reportColorSlots?.styles?.[String(map[id])] : undefined;
+  const override = tile.appearance.reportColorsEnabled && map ? semantic?.color : Object.hasOwn(tile.appearance.barStyles, id) ? tile.appearance.barStyles[id]?.color : undefined;
+  return override ?? (tile.appearance.barFillMode === "gradient" && !tile.appearance.reportColorsEnabled ? tile.appearance.primaryColor : paletteColor(tile.appearance, role, id, index));
 }
 
 export function removeReportColorTheme(draft: DashboardDraft): DashboardDraft {
   const { reportColorTheme: _theme, ...rest } = draft;
   return { ...rest, status: "draft", pages: draft.pages.map(page => ({ ...page, tiles: page.tiles.map(tile => {
     const { reportColorSlots, reportColorsEnabled: _enabled, ...appearance } = tile.appearance;
-    return { ...tile, appearance: { ...appearance, palette: tile.appearance.reportColorsEnabled && reportColorSlots ? [...reportColorSlots.originalPalette] : appearance.palette } };
+    const barStyles = { ...appearance.barStyles };
+    if (tile.appearance.reportColorsEnabled && reportColorSlots) {
+      for (const map of [reportColorSlots.rows,reportColorSlots.columns]) for (const [id,slot] of Object.entries(map)) {
+        delete barStyles[id];
+        const style = reportColorSlots.styles?.[String(slot)]; if (style) barStyles[id] = { ...style };
+      }
+    }
+    return { ...tile, appearance: { ...appearance, barStyles, palette: tile.appearance.reportColorsEnabled && reportColorSlots ? [...reportColorSlots.originalPalette] : appearance.palette } };
   }) })) };
 }

@@ -1,3 +1,4 @@
+import { getBarStyle, chartGradientId, chartPaint } from "../../design-system/chartPaint";
 import { paletteColor } from "../../design-system/reportColors";
 import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
 import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
@@ -59,33 +60,8 @@ import {
   formatImportedMeasureValue,
 } from "../../data/importedDatasetAnalytics";
 
-export function getBarStyle(
-  appearance: TileAppearance,
-  id: string,
-  fallbackColor: string,
-) {
-  const defaultGradientColor =
-    appearance.barFillMode === "gradient" && !appearance.reportColorsEnabled
-      ? appearance.primaryColor
-      : fallbackColor;
-  return {
-    color: appearance.barStyles[id]?.color ?? defaultGradientColor,
-    fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
-    gradientTo:
-      appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
-    gradientType:
-      appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
-    gradientAngle:
-      appearance.barStyles[id]?.gradientAngle ?? appearance.barGradientAngle,
-    gradientStops:
-      appearance.barStyles[id]?.gradientStops ?? appearance.barGradientStops,
-    radius: appearance.barStyles[id]?.radius ?? appearance.barRadius,
-  };
-}
-
-export function gradientId(tileId: string, key: string) {
-  return `gradient_${tileId.replace(/[^a-zA-Z0-9]/g, "_")}_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
-}
+export { getBarStyle } from "../../design-system/chartPaint";
+export const gradientId = chartGradientId;
 
 export function SvgGradientStops({
   from,
@@ -765,11 +741,7 @@ function SeriesLegend({ tile }: { tile: DashboardTile }) {
           <span
             className="chart-legend-swatch"
             style={{
-              background: getBarStyle(
-                tile.appearance,
-                column.id,
-                paletteColor(tile.appearance, "columns", column.id, index),
-              ).color,
+              background: tile.visualization !== "line_chart" && chartPaint(tile,"columns",column.id,index).fillMode === "gradient" ? gradientCss(chartPaint(tile,"columns",column.id,index).color,chartPaint(tile,"columns",column.id,index).gradientTo,chartPaint(tile,"columns",column.id,index).gradientStops,chartPaint(tile,"columns",column.id,index).gradientType === "radial" ? "radial" : "linear",`${chartPaint(tile,"columns",column.id,index).gradientAngle ?? 180}deg`) : chartPaint(tile,"columns",column.id,index).color,
             }}
           />
           <span>{column.label}</span>
@@ -814,9 +786,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {chartData.map((item, index) => {
-              const fallback =
-                paletteColor(appearance, "rows", item.optionId, index);
-              const style = getBarStyle(appearance, item.optionId, fallback);
+              const style = chartPaint(tile, "rows", item.optionId, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, item.optionId)}
@@ -877,17 +847,9 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
               <Cell
                 key={item.optionId}
                 fill={
-                  getBarStyle(
-                    appearance,
-                    item.optionId,
-                    paletteColor(appearance, "rows", item.optionId, index),
-                  ).fillMode === "gradient"
+                  chartPaint(tile, "rows", item.optionId, index).fillMode === "gradient"
                     ? `url(#${gradientId(tile.id, item.optionId)})`
-                    : getBarStyle(
-                        appearance,
-                        item.optionId,
-                        paletteColor(appearance, "rows", item.optionId, index),
-                      ).color
+                    : chartPaint(tile, "rows", item.optionId, index).color
                 }
                 {...({
                   radius: [
@@ -953,9 +915,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {result.columns.map((column, index) => {
-              const fallback =
-                paletteColor(appearance, "columns", column.id, index);
-              const style = getBarStyle(appearance, column.id, fallback);
+              const style = chartPaint(tile, "columns", column.id, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, column.id)}
@@ -1018,17 +978,9 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
               dataKey={column.id}
               name={column.label}
               fill={
-                getBarStyle(
-                  appearance,
-                  column.id,
-                  paletteColor(appearance, "columns", column.id, index),
-                ).fillMode === "gradient"
+                chartPaint(tile, "columns", column.id, index).fillMode === "gradient"
                   ? `url(#${gradientId(tile.id, column.id)})`
-                  : getBarStyle(
-                      appearance,
-                      column.id,
-                      paletteColor(appearance, "columns", column.id, index),
-                    ).color
+                  : chartPaint(tile, "columns", column.id, index).color
               }
               radius={[
                 getBarStyle(appearance, column.id, appearance.primaryColor)
@@ -1104,9 +1056,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {chartData.map((item, index) => {
-              const fallback =
-                paletteColor(appearance, "rows", item.optionId, index);
-              const style = getBarStyle(appearance, item.optionId, fallback);
+              const style = chartPaint(tile, "rows", item.optionId, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, item.optionId)}
@@ -1185,17 +1135,9 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
               <Cell
                 key={item.optionId}
                 fill={
-                  getBarStyle(
-                    appearance,
-                    item.optionId,
-                    paletteColor(appearance, "rows", item.optionId, index),
-                  ).fillMode === "gradient"
+                  chartPaint(tile, "rows", item.optionId, index).fillMode === "gradient"
                     ? `url(#${gradientId(tile.id, item.optionId)})`
-                    : getBarStyle(
-                        appearance,
-                        item.optionId,
-                        paletteColor(appearance, "rows", item.optionId, index),
-                      ).color
+                    : chartPaint(tile, "rows", item.optionId, index).color
                 }
               />
             ))}
@@ -1244,9 +1186,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {result.columns.map((column, index) => {
-              const fallback =
-                paletteColor(appearance, "columns", column.id, index);
-              const style = getBarStyle(appearance, column.id, fallback);
+              const style = chartPaint(tile, "columns", column.id, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, column.id)}
@@ -1310,17 +1250,9 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
               name={column.label}
               stackId="stack"
               fill={
-                getBarStyle(
-                  appearance,
-                  column.id,
-                  paletteColor(appearance, "columns", column.id, index),
-                ).fillMode === "gradient"
+                chartPaint(tile, "columns", column.id, index).fillMode === "gradient"
                   ? `url(#${gradientId(tile.id, column.id)})`
-                  : getBarStyle(
-                      appearance,
-                      column.id,
-                      paletteColor(appearance, "columns", column.id, index),
-                    ).color
+                  : chartPaint(tile, "columns", column.id, index).color
               }
               radius={
                 index === result.columns.length - 1
@@ -1415,11 +1347,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
               dataKey={column.id}
               name={column.label}
               stroke={
-                getBarStyle(
-                  appearance,
-                  column.id,
-                  paletteColor(appearance, "columns", column.id, index),
-                ).color
+                chartPaint(tile, "columns", column.id, index).color
               }
               strokeWidth={3}
               dot={{ r: 4 }}
@@ -1440,11 +1368,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     name: getAxisLabel(appearance, row.optionId, row.label),
     value: analyticalCell(result,row,column.id).value,
-    fill: getBarStyle(
-      appearance,
-      row.optionId,
-      paletteColor(appearance, "rows", row.optionId, index),
-    ).color,
+    fill: chartPaint(tile, "rows", row.optionId, index).color,
   }));
   return (
     <div

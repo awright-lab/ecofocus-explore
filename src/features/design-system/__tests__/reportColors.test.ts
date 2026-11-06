@@ -1,3 +1,6 @@
+import { chartPaint, chartGradientId } from "../chartPaint";
+import { applyVariableSetRows } from "../../../../shared/analytics/variableSets";
+import { canReconstructTileAsNativePptxChart } from "../../export/pptxNativeCharts";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 import { expect, it } from "vitest";
@@ -67,6 +70,7 @@ it("uses the same column colors in reconstructed PDF SVG and native PowerPoint",
 it("preserves row colors in vertical-bar PDF and native PowerPoint data points", () => {
  const draft = applyReportColorTheme(fixture(), palette), tile = draft.pages[0].tiles[0]; tile.visualization = "vertical_bar"; tile.result.columns = [tile.result.columns[0]]; draft.pages[0].tiles = [tile];
  const pptx = buildNativePptxChartDescriptor(tile, 1, 3, "rId2").chartXml;
+ expect(pptx).not.toContain("<c:legend>");
  tile.result.table.forEach((row, index) => { const color = chartColor(tile, "rows", row.optionId, index); expect(buildPageVisualSvg(draft.pages[0])).toContain(`fill="${color}"`); expect(pptx).toContain(`<c:dPt><c:idx val="${index}"/><c:spPr><a:solidFill><a:srgbClr val="${color.slice(1).toUpperCase()}"`); });
 });
 
@@ -100,4 +104,38 @@ it("drops stale bindings when a replacement result lacks keys and rejoins the th
  expect(blocked.pages[0].tiles[0].appearance.reportColorSlots).toBeUndefined(); expect(blocked.pages[0].tiles[0].appearance.palette).toEqual(previousPalette);
  const restored = reconcileReportColors({ ...blocked, pages: [{ ...blocked.pages[0], tiles: [{ ...blocked.pages[0].tiles[0], result }] }] });
  expect(restored.pages[0].tiles[0].appearance.reportColorSlots!.rows).toEqual(themed.pages[0].tiles[0].appearance.reportColorSlots!.rows);
+});
+
+it("keeps an explicit gradient override on its semantic category when imported IDs change", async () => {
+ const {dataset} = await importDatasetBuffer(new TextEncoder().encode("Answer,Region\nYes,North\nYes,North\nNo,North\nNo,South\nNo,South\nNo,South\n").buffer,"synthetic-override.csv");
+ const config={dataset:dataset!,field:dataset!.fields[0],metric:"count" as const,chartType:"vertical_bar" as const}, result=runImportedDatasetQuery(config), filtered=runImportedDatasetQuery({...config,filter:{field:dataset!.fields[1],value:"North"}});
+ const draft=fixture(),tile=draft.pages[0].tiles[0];draft.pages[0].tiles=[tile];tile.result=result;tile.query=result.query;const old=result.table.find(row=>row.label==="Yes")!;
+ tile.appearance.barStyles[old.optionId]={color:"#ff0000",fillMode:"gradient",gradientTo:"#0000ff",radius:3};
+ const themed=applyReportColorTheme(draft,palette), next=filtered.table.find(row=>row.label==="Yes")!;expect(next.optionId).not.toBe(old.optionId);
+ const changed=reconcileReportColors({...themed,pages:[{...themed.pages[0],tiles:[{...themed.pages[0].tiles[0],result:filtered,query:filtered.query}]}]}), current=changed.pages[0].tiles[0];
+ expect(chartPaint(current,"rows",next.optionId,0)).toMatchObject({color:"#ff0000",fillMode:"gradient",gradientTo:"#0000ff"});expect(chartColor(current,"rows",next.optionId,0)).toBe("#ff0000");
+ const twice=reconcileReportColors(changed), currentAgain=twice.pages[0].tiles[0];
+ expect(chartPaint(currentAgain,"rows",next.optionId,0)).toMatchObject({color:"#ff0000",gradientTo:"#0000ff"});
+ const other=filtered.table.find(row=>row.label!=="Yes")!;
+ expect(chartPaint(currentAgain,"rows",other.optionId,1).color).not.toBe("#ff0000");
+ expect(currentAgain.appearance.barStyles[next.optionId].color).toBe("#ff0000");
+ const restored=removeReportColorTheme(twice);expect(restored.pages[0].tiles[0].appearance.barStyles[next.optionId].color).toBe("#ff0000");
+});
+it("keeps authored net identities and option aliases without inventing IDs for legacy sources", async () => {
+ const {dataset}=await importDatasetBuffer(new TextEncoder().encode("Answer\nYes\nNo\nMaybe\n").buffer,"synthetic-authored.csv");const result=runImportedDatasetQuery({dataset:dataset!,field:dataset!.fields[0],metric:"count",chartType:"table"});
+ const definition={id:"authored-stable",label:"Authored",rowMode:"authored" as const,rows:[{id:"net",label:"Combined",kind:"net" as const,sourceOptionIds:result.table.slice(0,2).map(row=>row.optionId),rowOrder:0,visible:true,emphasis:"summary" as const},{id:"alias",label:"Renamed",kind:"option" as const,sourceOptionIds:[result.table[0].optionId],rowOrder:1,visible:true,emphasis:"detail" as const}]};
+ const authored=applyVariableSetRows(result,definition), draft=fixture();draft.pages[0].tiles[0].result=authored;expect(reportColorEligibility(draft.pages[0].tiles[0])).toBeNull();expect(authored.table[1].sourceCategoryKey).toBe(result.table[0].sourceCategoryKey);
+ const changed=applyVariableSetRows(result,{...definition,rows:definition.rows.map(row=>({...row,label:"Display alias",rowOrder:1-row.rowOrder}))});expect(changed.table.find(row=>row.optionId==="net")!.sourceCategoryKey).toBe(authored.table[0].sourceCategoryKey);
+ const legacy=structuredClone(result);delete legacy.table[0].sourceCategoryKey;expect(applyVariableSetRows(legacy,definition).table[0].sourceCategoryKey).toBeUndefined();
+});
+it.each(["linear","radial"] as const)("preserves %s gradient stops and uses faithful PowerPoint image fallback", type => {
+ const draft=applyReportColorTheme(fixture(),palette),tile=draft.pages[0].tiles[0];draft.pages[0].tiles=[tile];tile.appearance.barFillMode="gradient";tile.appearance.barGradientType=type;tile.appearance.barGradientStops=[{id:"start",color:"#ff0000",position:0,opacity:100},{id:"mid",color:"#00ff00",position:40,opacity:35},{id:"end",color:"#0000ff",position:100,opacity:100}];
+ const svg=buildPageVisualSvg(draft.pages[0]);expect(svg).toContain(type==="radial"?"<radialGradient":"<linearGradient");expect(svg).toContain('stop-color="#00ff00" stop-opacity="0.35"');
+ const ids=[...svg.matchAll(/(?:linearGradient|radialGradient) id="([^"]+)"/g)].map(match=>match[1]);expect(new Set(ids).size).toBe(ids.length);expect(canReconstructTileAsNativePptxChart(tile)).toBe(false);expect(()=>buildNativePptxChartDescriptor(tile,1,3,"rId2")).toThrow("complete visual");
+});
+it("uses collision-free gradient IDs and retains selected title/axis styling in export",()=>{
+ expect(chartGradientId("tile","a-b")).not.toBe(chartGradientId("tile","a.b"));
+ const draft=applyReportColorTheme(fixture(),palette),tile=draft.pages[0].tiles[0];draft.pages[0].tiles=[tile];tile.appearance.titleFontSize=28;tile.appearance.titleTextAlign="right";tile.appearance.xAxisTextColor="#ff0066";tile.appearance.yAxisTextColor="#2233cc";tile.appearance.axisFontSize=13;
+ const svg=buildPageVisualSvg(draft.pages[0]);expect(svg).toContain('font-size="28"');expect(svg).toContain('text-anchor="end" fill="#38513b"');expect(svg).toContain('fill="#ff0066"');expect(svg).toContain('fill="#2233cc"');
+ const pptx=buildNativePptxChartDescriptor(tile,1,3,"rId2").chartXml;expect(pptx).toContain('val="FF0066"');expect(pptx).toContain('val="2233CC"');expect(pptx).toContain('sz="975"');
 });

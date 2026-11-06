@@ -21,7 +21,7 @@ export interface ReportColorTheme {
 }
 export interface TileAppearance {
   reportColorsEnabled?: boolean;
-  reportColorSlots?: { rows: Record<string, number>; columns: Record<string, number>; originalPalette: string[] };
+  reportColorSlots?: { rows: Record<string, number>; columns: Record<string, number>; originalPalette: string[]; styles?: Record<string, TileAppearance["barStyles"][string]> };
   primaryColor: string;
   palette: string[];
   background: string;

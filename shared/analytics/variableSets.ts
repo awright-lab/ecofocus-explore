@@ -1,3 +1,4 @@
+import { validSourceCategoryKey } from "./sourceCategoryIdentity";
 import type { AnalyticsAuthoredVariableSet, AnalyticsQueryResponse, AnalyticsTableRow } from "../types/analytics";
 import type { SavedVariableSet } from "../types/dashboard";
 import { getQuestionMetadata } from "../metadata/ecofocus2025";
@@ -69,6 +70,7 @@ export function applyVariableSetRows(response: AnalyticsQueryResponse, variableS
       const { values, bases } = aggregateRowValues(response, sourceRows);
 
       return {
+        sourceCategoryKey: sourceRows.every(source => validSourceCategoryKey(source.sourceCategoryKey)) ? row.kind === "option" && sourceRows.length === 1 ? sourceRows[0].sourceCategoryKey : JSON.stringify({ kind: "authored", definitionId: variableSet.id, rowId: row.id, rowKind: row.kind, members: [...new Set(sourceRows.map(source => source.sourceCategoryKey!))].sort() }) : undefined,
         optionId: row.id,
         label: row.label,
         values,

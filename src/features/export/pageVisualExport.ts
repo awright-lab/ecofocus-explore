@@ -46,11 +46,12 @@ function textLines(
   color: string,
   weight = 700,
   anchor: "start" | "middle" | "end" = "start",
+  fontFamily = "Inter, Arial, sans-serif",
 ) {
   return lines
     .map(
       (line, index) =>
-        `<text x="${x}" y="${y + index * size * 1.24}" fill="${escapeXml(color)}" font-family="Inter, Arial, sans-serif" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line)}</text>`,
+        `<text x="${x}" y="${y + index * size * 1.24}" fill="${escapeXml(color)}" font-family="${escapeXml(fontFamily)}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line)}</text>`,
     )
     .join("");
 }
@@ -87,7 +88,7 @@ function elementSvg(element: DashboardCanvasElement) {
       element.style.borderStyle === "none" || element.style.borderWidth <= 0
         ? ""
         : `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${element.style.borderRadius}" fill="none" stroke="${escapeXml(element.style.borderColor)}" stroke-width="${element.style.borderWidth}"/>`;
-    return `${background}${border}${textLines(lines, textX, y + element.style.padding + element.style.fontSize, element.style.fontSize, element.style.textColor, Number(element.style.fontWeight) || 700, anchor)}`;
+    return `${background}${border}${textLines(lines, textX, y + element.style.padding + element.style.fontSize, element.style.fontSize, element.style.textColor, Number(element.style.fontWeight) || 700, anchor, element.style.fontFamily)}`;
   }
   if (element.type === "circle") {
     return `<ellipse cx="${x + width / 2}" cy="${y + height / 2}" rx="${width / 2}" ry="${height / 2}" fill="${escapeXml(element.style.fill)}" stroke="${escapeXml(element.style.borderColor)}" stroke-width="${element.style.borderWidth}" opacity="${element.style.opacity / 100}"/>`;

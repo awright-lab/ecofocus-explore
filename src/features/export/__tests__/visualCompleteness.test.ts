@@ -101,7 +101,7 @@ describe("bounded visual export completeness", () => {
     expect(xml).toContain('<c:crosses val="autoZero"/>');
   });
   it("retains all 30 grouped series instead of capping or replacing data", async () => {
-    const fixture = await page("grouped-30", 1, 30, "grouped_bar", true); const svg = buildPageVisualSvg(fixture);
+    const fixture = await page("grouped-30", 1, 30, "grouped_bar", true); fixture.tiles[0].appearance.labelFontSize = 9; const svg = buildPageVisualSvg(fixture);
     expect(cells(svg)).toHaveLength(30); expect(sorted(cells(svg))).toEqual(sorted(sourceCells(fixture))); expect(svg).toContain("G30");
   });
   it("refuses layouts that cannot contain all rows or labels rather than truncating", async () => {
