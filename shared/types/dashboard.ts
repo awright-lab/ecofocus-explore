@@ -1,3 +1,4 @@
+import type { SavedImportedAudience } from "./audience";
 import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
 import type { ComparisonMode } from "./analytics";
@@ -617,6 +618,7 @@ export interface ImportedDatasetRecord {
 }
 
 export interface DashboardDraft {
+  savedAudiences?: SavedImportedAudience[];
   reportColorTheme?: ReportColorTheme;
   id: string;
   title: string;

@@ -1,3 +1,4 @@
+import { audienceDefinitionIssue } from "../audiences/audienceModel";
 import { resultWeightingLabel } from "../../../shared/analytics/weightingLabel";
 import { resultIdentityIssue } from "../../../shared/analytics/resultIdentities";
 import { analysisSettingsMatch } from "../../../shared/analytics/queryFreshness";
@@ -9,6 +10,9 @@ import { resultBannerLabel, resultDatasetLabel, resultFilterLabel, resultSourceL
 
 export function assertExportResultsCurrent(pages: DashboardPage[]): void {
   for (const page of pages) for (const tile of page.tiles.filter(tile => !tile.hidden)) {
+    const recorded=tile.result.query.sourceIdentity?.kind==="imported"?tile.result.query.sourceIdentity.audience:undefined;
+    const metadata=tile.result.metadataRefs.source?.kind==="imported"?tile.result.metadataRefs.source.audience:undefined;
+    if(recorded !== undefined && audienceDefinitionIssue(recorded) || metadata !== undefined && audienceDefinitionIssue(metadata) || JSON.stringify(recorded)!==JSON.stringify(metadata))throw new Error(`Refresh "${tile.title||tile.name}" before exporting: its recorded audience context is invalid or inconsistent.`);
     const identityIssue = resultIdentityIssue(tile.result);
     if (identityIssue) throw new Error(`Cannot export "${tile.title || tile.name}": ${identityIssue}`);
     if (!analysisSettingsMatch(tile.query, tile.result.query)) {

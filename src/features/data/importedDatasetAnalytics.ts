@@ -1,3 +1,7 @@
+import type { SavedImportedAudience } from "../../../shared/types/audience";
+import { compileAudience, audienceSummary } from "../audiences/audienceModel";
+import { importedRawFieldValue } from "./importedRawValue";
+export { importedRawFieldValue } from "./importedRawValue";
 import { FiniteNumericSum } from "./finiteNumericSum";
 import { allRespondentsGroupingId } from "./numericSummaryScope";
 import { parseImportedNumber } from "./importedNumericValue";
@@ -8,6 +12,7 @@ import { normalizeDatasetSourceRefForImportedDataset } from "./datasetSourceRegi
 import { importedSurveyQuestionDisplayLabel, importedSurveyQuestionPrompt } from "./importedSurveyLabelModel";
 
 export interface ImportedDatasetQueryConfig {
+  audience?: SavedImportedAudience;
   groupingScope?: "all_respondents";
   dataset: ImportedDatasetRecord;
   field: ImportedDatasetField;
@@ -149,12 +154,6 @@ function importedFieldDisplayLabel(field: ImportedDatasetField | null | undefine
   return importedSurveyQuestionDisplayLabel(field);
 }
 
-export function importedRawFieldValue(row: Record<string, string>, field: ImportedDatasetField | null | undefined) {
-  if (!field) return "";
-  if (Object.hasOwn(row, field.sourceColumn)) return row[field.sourceColumn] ?? "";
-  const matchingKey = Object.keys(row).find((key) => key.toLowerCase() === field.sourceColumn.toLowerCase());
-  return matchingKey ? row[matchingKey] ?? "" : "";
-}
 
 function uniqueSampleBases(result: AnalyticsQueryResponse, includeZero = false) {
   return [...new Set(result.table.flatMap((row) => result.columns.map(column => row.bases[column.id])).filter((base) => includeZero ? base >= 0 : base > 0))].sort((a, b) => a - b);
@@ -197,7 +196,8 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
   const groupingLabel = source.primaryFieldLabel;
   const measureLabel = source.measureFieldLabel ?? null;
   const bannerLabel = source.bannerFieldLabel ?? "No breakout";
-  const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel} is ${source.filterValue}` : "No filter";
+  const simpleFilter = source.filterFieldLabel && source.filterValue !== undefined ? `${source.filterFieldLabel} is ${source.filterValue}` : null;
+  const filterLabel = [source.audience !== undefined ? audienceSummary(source.audience) : null,simpleFilter].filter(Boolean).join(" AND ") || "No filter";
   const weighted = result.weighting.applied || Boolean(result.query.weight);
   const recordedBases = result.table.flatMap(row => result.columns.map(column => row.bases[column.id]));
   const invalidBases = recordedBases.some(base => !Number.isFinite(base) || base < 0 || !weighted && !Number.isSafeInteger(base));
@@ -612,6 +612,7 @@ export function getImportedDatasetQuerySupport(
   dataset: ImportedDatasetRecord | null | undefined,
   field: ImportedDatasetField | null | undefined,
   options?: {
+    audience?: SavedImportedAudience;
     groupingScope?: "all_respondents";
     bannerField?: ImportedDatasetField | null;
     filter?: {
@@ -625,6 +626,7 @@ export function getImportedDatasetQuerySupport(
 ): ImportedDatasetQuerySupport {
   if (!dataset) return { executable: false, reason: "Choose an imported dataset." };
   if (!field) return { executable: false, reason: "Choose an imported field." };
+  if(options?.audience !== undefined) { try { compileAudience(options.audience,dataset); } catch(error) { return { executable:false,reason:error instanceof Error?error.message:"The audience cannot be applied." }; } }
   if (field.id === allRespondentsGroupingId && options?.groupingScope !== "all_respondents") {
     return { executable: false, reason: "Select an explicit all-respondent numeric summary scope." };
   }
@@ -720,6 +722,7 @@ function slug(value: string, fallback: string) {
 function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAnalyticsSourceIdentity {
   return {
     kind: "imported",
+    ...(config.audience !== undefined ? { audience: structuredClone(config.audience) } : {}),
     ...(isMeasureMetric(config.metric) ? { measureBaseScope: "cell" as const } : {}),
     queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",
     ...(config.groupingScope ? { groupingScope: config.groupingScope } : {}),
@@ -845,9 +848,11 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   }
   const filterLabels = config.filter ? importedCategoryLabels(config.filter.field,
     sourceRows.map((row) => importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field)))) : null;
+  const audiencePredicate = config.audience !== undefined ? compileAudience(config.audience,config.dataset) : null;
+  const audienceRows = audiencePredicate ? sourceRows.filter(row=>audiencePredicate(row)===true) : sourceRows;
   const rows = config.filter?.field
-    ? sourceRows.filter((row) => filterLabels!.get(importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field))) === config.filter!.value)
-    : sourceRows;
+    ? audienceRows.filter((row) => filterLabels!.get(importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field))) === config.filter!.value)
+    : audienceRows;
   const bannerCategories = config.bannerField ? importedFieldCategories(config.dataset, config.bannerField) : [{ key: null, label: "Total" }];
   const columnBases = new Map<ImportedCategoryKey, number>(bannerCategories.map(({ key }) => [key, 0]));
   const counts = new Map<ImportedCategoryKey, Map<ImportedCategoryKey, { count: number; sum: FiniteNumericSum }>>();

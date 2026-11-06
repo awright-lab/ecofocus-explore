@@ -1,3 +1,4 @@
+import { AudienceControl } from "../../audiences/AudienceControl";
 import { ReportThemeControl } from "./ReportThemeControl";
 import { ExportPreflightDialog } from "../../export/ExportPreflightDialog";
 import {
@@ -195,6 +196,9 @@ export const BuilderHeader = memo(function BuilderHeader({
   onSearch,
   onHelp,
   onReportThemeChange,
+  onAudienceChange,
+  audienceDatasets,
+  selectedTileId,
 }: {
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
@@ -216,6 +220,9 @@ export const BuilderHeader = memo(function BuilderHeader({
   onSearch: () => void;
   onHelp: () => void;
   onReportThemeChange?: (update: (current: DashboardDraft) => DashboardDraft) => void;
+  onAudienceChange?: (update:(current:DashboardDraft)=>DashboardDraft)=>boolean;
+  audienceDatasets?: DashboardDraft["importedDatasets"];
+  selectedTileId?: string|null;
 }) {
   const readiness = useMemo(
     () => buildPublishReadinessView(dashboard),
@@ -311,6 +318,7 @@ export const BuilderHeader = memo(function BuilderHeader({
       </nav>
       <div className="publish-controls">
         {onReportThemeChange && <ReportThemeControl dashboard={dashboard} onChange={onReportThemeChange} />}
+        {onAudienceChange && <AudienceControl dashboard={dashboard} importedDatasets={audienceDatasets} selectedTileId={selectedTileId} onChange={onAudienceChange}/>}
         <button
           type="button"
           className="studio-search-trigger"

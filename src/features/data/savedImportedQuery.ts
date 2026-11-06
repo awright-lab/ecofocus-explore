@@ -28,7 +28,7 @@ export function resolveSavedImportedQuery(query: AnalyticsQueryRequest, datasets
   if (!filterField && source.filterValue !== undefined) throw new Error("This saved analysis is missing its filter field. Its result has not been recreated.");
   const filter = filterField ? { field: filterField, value: source.filterValue! } : null;
   if (filter && dataset.remote?.provider !== "netlify" && !importedFieldValues(dataset,filter.field).includes(filter.value)) throw new Error("The saved filter value is no longer present in this study. Its result has not been recreated.");
-  const config = { dataset, field, measureField, bannerField, filter, metric: query.metric, chartType: query.chartType, groupingScope: source.groupingScope };
+  const config = { dataset, field, measureField, bannerField, filter, audience:source.audience, metric: query.metric, chartType: query.chartType, groupingScope: source.groupingScope };
   const support = getImportedDatasetQuerySupport(dataset,field,config);
   if (!support.executable) throw new Error(support.reason);
   return config;

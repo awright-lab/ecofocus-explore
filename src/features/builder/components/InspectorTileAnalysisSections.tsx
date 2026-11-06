@@ -1,3 +1,4 @@
+import type { SavedImportedAudience } from "../../../../shared/types/audience";
 import { AnalysisEditPreview } from "./AnalysisEditPreview";
 import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
 import { useId, useRef, useState } from "react";
@@ -639,6 +640,7 @@ function ImportedTileQueryEditor({
   const [bannerFieldId, setBannerFieldId] = useInvalidatingQueryOption(source?.bannerFieldId ?? "none",request.invalidate);
   const [filterFieldId, setFilterFieldId] = useInvalidatingQueryOption(source?.filterFieldId ?? "none",request.invalidate);
   const [filterValue, setFilterValue] = useInvalidatingQueryOption<string | null>(source?.filterValue ?? null,request.invalidate);
+  const [audience,setAudience] = useInvalidatingQueryOption<SavedImportedAudience|null>(source?.audience??null,request.invalidate);
   const [metric, setMetric] = useInvalidatingQueryOption<Metric>(tile.result.metric.id,request.invalidate);
   const [queryMode, setQueryMode] = useInvalidatingQueryOption<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical",request.invalidate);
   const [measureFieldId, setMeasureFieldId] = useInvalidatingQueryOption(source?.measureFieldId ?? "none",request.invalidate);
@@ -678,6 +680,7 @@ function ImportedTileQueryEditor({
     groupingScope,
     bannerField,
     filter,
+    audience:audience??undefined,
     measureField: queryMode === "measure" ? measureField : null,
     metric: effectiveMetric,
     chartType: selectedChartType
@@ -714,6 +717,7 @@ function ImportedTileQueryEditor({
         measureField: queryMode === "measure" ? measureField : null,
         bannerField,
         filter,
+        audience:audience??undefined,
         chartType: selectedChartType,
         metric: effectiveMetric
       });
@@ -771,6 +775,7 @@ function ImportedTileQueryEditor({
           </div>
         </div>
       )}
+      {audience && <div role="status"><strong>Audience: {audience.label}</strong><p>This proposed query retains the recorded audience. Changing the study requires removing it explicitly.</p><button type="button" onClick={()=>setAudience(null)}>Remove audience from proposed query</button></div>}
       <div className="guided-query-field-grid">
         <label>
           Dataset

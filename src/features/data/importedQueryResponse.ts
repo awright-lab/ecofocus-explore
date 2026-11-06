@@ -1,3 +1,4 @@
+import { audienceDefinitionIssue } from "../audiences/audienceModel";
 import type { AnalyticsQueryResponse } from "../../../shared/types/analytics";
 import type { ImportedDatasetQueryConfig } from "./importedDatasetAnalytics";
 import { hasValidRecordedCalculations } from "../../../shared/analytics/recordedCalculation";
@@ -23,6 +24,7 @@ function matchesSource(value: unknown, config: ImportedDatasetQueryConfig) {
     filterFieldId: config.filter?.field?.id, filterValue: config.filter?.value, groupingScope: config.groupingScope,
   };
   if (Object.entries(expected).some(([key, expectedValue]) => (value[key] ?? null) !== (expectedValue ?? null))) return false;
+  if(value.audience !== undefined && audienceDefinitionIssue(value.audience) || config.audience !== undefined && audienceDefinitionIssue(config.audience) || JSON.stringify(value.audience)!==JSON.stringify(config.audience))return false;
   const measure = config.metric === "average" || config.metric === "sum";
   if (value.queryKind !== (measure ? "measure" : "categorical") || measure && value.measureBaseScope !== "cell") return false;
   for (const key of ["datasetLabel", "primaryFieldLabel", ...(measure ? ["measureFieldLabel"] : []), ...(config.bannerField ? ["bannerFieldLabel"] : []), ...(config.filter ? ["filterFieldLabel"] : [])]) {

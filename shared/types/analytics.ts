@@ -1,3 +1,4 @@
+import type { SavedImportedAudience } from "./audience";
 import type { DatasetSourceRef } from "./dataSource";
 
 export type DatasetId = "ecofocus_2023" | "ecofocus_2024" | "ecofocus_2025";
@@ -26,6 +27,7 @@ export interface AnalyticsFilter {
 }
 
 export interface ImportedAnalyticsSourceIdentity {
+  audience?: SavedImportedAudience;
   kind: "imported";
   measureBaseScope?: "cell";
   groupingScope?: "all_respondents";

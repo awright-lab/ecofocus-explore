@@ -1774,6 +1774,9 @@ export default function BuilderApp() {
         onHome={openWorkspaceHome}
         onSearch={() => setCommandOpen(true)}
         onReportThemeChange={next => setDashboard(next)}
+        onAudienceChange={next=>setDashboard(next)}
+        audienceDatasets={workspaceImportedDatasets}
+        selectedTileId={selectedTile?.id??null}
         onHelp={() => setHelpOpen(true)}
       />
 

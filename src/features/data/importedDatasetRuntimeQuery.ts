@@ -7,6 +7,8 @@ export async function runImportedDatasetQueryForRuntime(config: ImportedDatasetQ
     return runImportedDatasetQuery(config);
   }
 
+  if(config.audience !== undefined) throw new Error("Server-backed audience queries are not supported. No query was sent and the current result has been kept.");
+
   if (config.groupingScope === "all_respondents") {
     throw new Error("All-respondent numeric summaries currently require complete browser data.");
   }
