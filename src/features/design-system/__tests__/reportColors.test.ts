@@ -90,3 +90,14 @@ it("does not promise stable colors for imported results with missing, ambiguous 
  result.table[0].sourceCategoryKey = result.table[1].sourceCategoryKey; expect(reportColorEligibility(tile)).toMatch(/Refresh/);
  result.table[0].sourceCategoryKey = "{}"; expect(reportColorEligibility(tile)).toMatch(/Refresh/);
 });
+
+it("drops stale bindings when a replacement result lacks keys and rejoins the theme after refresh", async () => {
+ const { dataset } = await importDatasetBuffer(new TextEncoder().encode("Answer\nYes\nNo\n").buffer, "synthetic-replacement.csv");
+ const result = runImportedDatasetQuery({ dataset: dataset!, field: dataset!.fields[0], metric: "count", chartType: "vertical_bar" }), draft = fixture(), tile = draft.pages[0].tiles[0]; draft.pages[0].tiles = [tile]; tile.result = result;
+ const themed = applyReportColorTheme(draft, palette), previousPalette = [...tile.appearance.palette];
+ const missing = structuredClone(result); delete missing.table[0].sourceCategoryKey;
+ const blocked = reconcileReportColors({ ...themed, pages: [{ ...themed.pages[0], tiles: [{ ...themed.pages[0].tiles[0], result: missing }] }] });
+ expect(blocked.pages[0].tiles[0].appearance.reportColorSlots).toBeUndefined(); expect(blocked.pages[0].tiles[0].appearance.palette).toEqual(previousPalette);
+ const restored = reconcileReportColors({ ...blocked, pages: [{ ...blocked.pages[0], tiles: [{ ...blocked.pages[0].tiles[0], result }] }] });
+ expect(restored.pages[0].tiles[0].appearance.reportColorSlots!.rows).toEqual(themed.pages[0].tiles[0].appearance.reportColorSlots!.rows);
+});

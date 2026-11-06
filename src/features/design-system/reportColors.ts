@@ -37,7 +37,13 @@ export function reconcileReportColors(draft: DashboardDraft): DashboardDraft {
   const slots = theme.slots.map(slot => ({ ...slot })), byKey = new Map(slots.map(slot => [slot.key, slot.index]));
   let next = slots.reduce((max, slot) => Math.max(max, slot.index + 1), 0);
   const pages = draft.pages.map(page => ({ ...page, tiles: page.tiles.map(tile => {
-    if (tile.appearance.reportColorsEnabled === false || reportColorEligibility(tile)) return tile;
+    if (tile.appearance.reportColorsEnabled === false) return tile;
+    if (reportColorEligibility(tile)) {
+      // Never reuse bindings from another result when a cached/remote result
+      // lacks stable source keys. Retain its chart palette until refreshed.
+      if (!tile.appearance.reportColorSlots) return { ...tile, appearance: { ...tile.appearance, reportColorsEnabled: undefined } };
+      return { ...tile, appearance: { ...tile.appearance, palette: [...tile.appearance.reportColorSlots.originalPalette], reportColorSlots: undefined, reportColorsEnabled: undefined } };
+    }
     function bind(role: "rows" | "columns", entries: Array<{ id: string; label: string; sourceCategoryKey?: string }>): Record<string, number> {
       return Object.fromEntries(entries.map(entry => {
         const key = identity(tile, role, entry.id, entry.sourceCategoryKey);
