@@ -719,11 +719,12 @@ function slug(value: string, fallback: string) {
   return normalized || fallback;
 }
 
-function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAnalyticsSourceIdentity {
+function importedSourceIdentity(config: ImportedDatasetQueryConfig, intersectionAudience?: SavedImportedAudience): ImportedAnalyticsSourceIdentity {
   return {
     kind: "imported",
     datasetImportedAt: config.dataset.importedAt,
     ...(config.audience !== undefined ? { audience: structuredClone(config.audience) } : {}),
+    ...(intersectionAudience !== undefined ? { intersectionAudience: structuredClone(intersectionAudience) } : {}),
     ...(isMeasureMetric(config.metric) ? { measureBaseScope: "cell" as const } : {}),
     queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",
     ...(config.groupingScope ? { groupingScope: config.groupingScope } : {}),
@@ -832,7 +833,8 @@ export function importedFieldValues(dataset: ImportedDatasetRecord | null | unde
   return importedFieldCategories(dataset, field).map((category) => category.label);
 }
 
-export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): AnalyticsQueryResponse {
+export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, intersectionAudience?: SavedImportedAudience): AnalyticsQueryResponse {
+  if(intersectionAudience && config.dataset.remote) throw new Error("Temporary audience intersections require a complete local study.");
   const support = getImportedDatasetQuerySupport(config.dataset, config.field, {
     groupingScope: config.groupingScope,
     bannerField: config.bannerField,
@@ -850,7 +852,9 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   const filterLabels = config.filter ? importedCategoryLabels(config.filter.field,
     sourceRows.map((row) => importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field)))) : null;
   const audiencePredicate = config.audience !== undefined ? compileAudience(config.audience,config.dataset) : null;
-  const audienceRows = audiencePredicate ? sourceRows.filter(row=>audiencePredicate(row)===true) : sourceRows;
+  // Compile each independently: a valid saved audience retains its entire depth/node budget.
+  const intersectionPredicate = intersectionAudience !== undefined ? compileAudience(intersectionAudience,config.dataset) : null;
+  const audienceRows = audiencePredicate || intersectionPredicate ? sourceRows.filter(row=>(!audiencePredicate || audiencePredicate(row)===true) && (!intersectionPredicate || intersectionPredicate(row)===true)) : sourceRows;
   const rows = config.filter?.field
     ? audienceRows.filter((row) => filterLabels!.get(importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field))) === config.filter!.value)
     : audienceRows;
@@ -907,7 +911,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
       : config.metric === "count"
         ? { id: "count" as const, label: "Number of responses", valueFormat: "number" as const }
         : { id: "percent_selected" as const, label: "% of responses", valueFormat: "percent" as const };
-  const sourceIdentity = importedSourceIdentity(config);
+  const sourceIdentity = importedSourceIdentity(config,intersectionAudience);
   const query = importedQuery(config.chartType, metric.id, sourceIdentity);
   const columns = bannerCategories.map(({ key, label }, index) => ({
     sourceCategoryKey: JSON.stringify(key),
@@ -1003,6 +1007,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
     ],
     notes: [
       `Imported dataset: ${config.dataset.title}.`,
+      ...(intersectionAudience ? ["Temporary linked-view intersection applies in addition to the original audience and filter. Recreate it in Explore; ordinary saved-query replay is not supported."] : []),
       isMeasureMetric(config.metric)
         ? `Aggregated ${importedFieldDisplayLabel(config.measureField) ?? "numeric field"} by ${importedFieldDisplayLabel(config.field)}.`
         : `Counted responses for ${importedFieldDisplayLabel(config.field)}.`,

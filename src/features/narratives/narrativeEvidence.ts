@@ -75,6 +75,7 @@ export function captureNarrativeCell(pages: DashboardPage[], reference: CellRefe
   const identityIssue = resultIdentityIssue(result);
   if (identityIssue) throw new Error(identityIssue);
   if (!analysisSettingsMatch(tile.query,result.query)) throw new Error("Refresh the source analysis before reviewing its evidence; edited settings have not been applied.");
+  if(result.query.sourceIdentity?.kind==="imported"&&result.query.sourceIdentity.intersectionAudience!==undefined || result.metadataRefs.source?.kind==="imported"&&result.metadataRefs.source.intersectionAudience!==undefined) throw new Error("Temporary linked-view results cannot be attached as durable evidence. Create an ordinary analysis with an explicit audience first.");
   const audience = result.query.sourceIdentity?.kind==="imported"?result.query.sourceIdentity.audience:undefined;
   const metadataAudience = result.metadataRefs.source?.kind==="imported"?result.metadataRefs.source.audience:undefined;
   if (audience!==undefined&&audienceDefinitionIssue(audience) || metadataAudience!==undefined&&audienceDefinitionIssue(metadataAudience) || canonical(audience)!==canonical(metadataAudience)) throw new Error("The source audience context is invalid or inconsistent. Refresh the analysis first.");

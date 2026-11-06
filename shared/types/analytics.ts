@@ -30,6 +30,8 @@ export interface ImportedAnalyticsSourceIdentity {
   /** Recorded import event for version-safe follow-up execution. */
   datasetImportedAt?: string;
   audience?: SavedImportedAudience;
+  /** Temporary local intersection, validated separately from the saved audience. Ordinary saved-query replay rejects it. */
+  intersectionAudience?: SavedImportedAudience;
   kind: "imported";
   measureBaseScope?: "cell";
   groupingScope?: "all_respondents";

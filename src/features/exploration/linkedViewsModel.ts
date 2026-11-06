@@ -40,31 +40,39 @@ export function linkedStudy(draft: DashboardDraft, datasetId: string): LinkedStu
   if(views.length>12) throw new Error("This study has more than 12 eligible views. Linked exploration currently supports up to 12; no views were silently omitted.");
   return {dataset,views,excluded};
 }
-export function linkedSelection(study:LinkedStudy,tileId:string,rowId:string):LinkedSelection {
+export function linkedSelection(study:LinkedStudy,tileId:string,rowId:string,selections:LinkedSelection[]=[]):LinkedSelection {
   const view=study.views.find(view=>view.tile.id===tileId);
   if(!view) throw new Error("Choose an eligible linked view.");
   const config=configFor(view.tile,study.dataset);
   if(config.groupingScope==="all_respondents")throw new Error("An all-respondent total is not a selectable group.");
-  const row=view.tile.result.table.find(row=>row.optionId===rowId);
+  const intersection=linkedAudience(study,selections);
+  const fresh=runImportedDatasetQuery(config,intersection);
+  const displayed=selections.length?fresh:view.tile.result;
+  const row=displayed.table.find(row=>row.optionId===rowId);
   let value:unknown;try {value=JSON.parse(row?.sourceCategoryKey??"");}catch {throw new Error("This row lacks a recorded category key. Refresh the source analysis.");}
   if(typeof value!=="string"||!audienceCategoryChoices(study.dataset,config.field).some(choice=>choice.value===value))throw new Error("This row is not an observed selectable category.");
-  const fresh=runImportedDatasetQuery(config),verified=fresh.table.find(candidate=>candidate.sourceCategoryKey===row!.sourceCategoryKey);
+  const verified=fresh.table.find(candidate=>candidate.sourceCategoryKey===row!.sourceCategoryKey);
   if(!verified||verified.label!==row!.label||Object.keys(verified.values).length!==Object.keys(row!.values).length||Object.entries(verified.values).some(([key,value])=>row!.values[key]!==value||row!.bases[key]!==verified.bases[key]))throw new Error("This displayed group does not match the current source rows. Refresh the original analysis before selecting it.");
   return {fieldId:config.field.id,sourceColumn:config.field.sourceColumn,value,label:`${config.field.label}: ${row!.label}`};
 }
-export function runLinkedViews(study:LinkedStudy,selections:LinkedSelection[]):LinkedView[] {
+function linkedAudience(study:LinkedStudy,selections:LinkedSelection[]):SavedImportedAudience|undefined {
   if(selections.length>8)throw new Error("Use at most eight linked selections. Go Back or Reset to choose a different path.");
+  if(!selections.length)return undefined;
   const expressions:AudienceExpression[]=selections.map(selection=>{
     const field=study.dataset.fields.find(field=>field.id===selection.fieldId&&field.sourceColumn===selection.sourceColumn);
     if(!field||!audienceCategoryChoices(study.dataset,field).some(choice=>choice.value===selection.value))throw new Error("A selected category no longer matches this study.");
     return {kind:"category",fieldId:field.id,sourceColumn:field.sourceColumn,exclude:false,values:[selection.value]};
   });
+  const audience:SavedImportedAudience={version:1,id:"linked-exploration",label:"Linked selection",datasetId:study.dataset.id,importedAt:study.dataset.importedAt,expression:{kind:"group",match:"all",exclude:false,children:expressions}};
+  compileAudience(audience,study.dataset);
+  return audience;
+}
+export function runLinkedViews(study:LinkedStudy,selections:LinkedSelection[]):LinkedView[] {
+  const intersection=linkedAudience(study,selections);
   return study.views.map(view=>{
     const config=configFor(view.tile,study.dataset);
-    if(!selections.length)return view;
-    const audience:SavedImportedAudience={version:1,id:"linked-exploration",label:"Linked selection",datasetId:study.dataset.id,importedAt:study.dataset.importedAt,expression:{kind:"group",match:"all",exclude:false,children:[...(config.audience?[config.audience.expression]:[]),...expressions]}};
-    compileAudience(audience,study.dataset);
-    const result=runImportedDatasetQuery({...config,audience,chartType:view.tile.visualization});
+    if(!intersection)return view;
+    const result=runImportedDatasetQuery({...config,chartType:view.tile.visualization},intersection);
     return {...view,tile:{...view.tile,query:result.query,result}};
   });
 }

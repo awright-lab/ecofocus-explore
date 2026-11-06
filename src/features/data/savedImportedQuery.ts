@@ -7,6 +7,7 @@ import { runImportedDatasetQueryForRuntime } from "./importedDatasetRuntimeQuery
 export function resolveSavedImportedQuery(query: AnalyticsQueryRequest, datasets: ImportedDatasetRecord[]): ImportedDatasetQueryConfig {
   const source = query.sourceIdentity;
   if (source?.kind !== "imported") throw new Error("This saved analysis is missing its imported study context. Recreate it from the original result.");
+  if(source.intersectionAudience !== undefined) throw new Error("This is a temporary linked-view intersection. Recreate the selections in Explore; ordinary replay would lose their scope.");
   const dataset = datasets.find(item => item.id === source.datasetId);
   if (!dataset) throw new Error(`The study "${source.datasetLabel}" is unavailable. Restore its source data before reusing this analysis.`);
   if (source.datasetImportedAt !== undefined && source.datasetImportedAt !== dataset.importedAt) throw new Error("The study was replaced after this analysis ran. Review and rerun the original analysis before reusing it.");

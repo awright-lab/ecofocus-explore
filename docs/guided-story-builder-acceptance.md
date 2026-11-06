@@ -2,14 +2,14 @@
 
 Original goal: assemble selected findings into an editable narrative with evidence, implications and methodology.
 
-Status: implemented and tested **review candidate**. Independent original-scope acceptance is required before calling the goal complete.
+Status: independently accepted for **newly created stories** at9b6c53b. The review exercised methodology drift, export guards, save/reopen and explicit re-review. Older unlinked methodology needs explicit linking or recreation; native Office rendering and OS downloads remain unverified.
 
 ## Acceptance criteria and implementation
 
 1. A visible Story tool and searchable command open a guided workflow. Choose one to six exact recorded cells across report pages, using labeled analysis/answer/group choices and bounded searches. Ambiguous identities, pending results and inconsistent metric, weighting or source context are refused.
 2. Write an editable story title, takeaway and implication for each finding; reorder or remove findings. Recorded evidence and methodology remain inspectable. No business interpretation, causal conclusion or statistical significance is invented. Preview each new page before creation; clipped text/citations fail visibly.
 3. Review the wording and evidence explicitly. Creation rechecks every source against its captured snapshot and adds all story pages as one document edit. Original analyses, pages and respondent data stay in place. New text objects remain editable, with source links available through Properties.
-4. Both takeaways and implications use the existing recorded-evidence contract. Later edits or changed/missing results require review and block formatted export. Before creation, an explicit evidence update keeps authored wording, displays old/new recorded values and resets review; missing or ambiguous sources never silently rebind. Drafts are isolated by report.
+4. Takeaways, implications and generated methodology use the existing recorded-evidence contract. Later edits or changed/missing results require review and block formatted export. Before creation, an explicit evidence update keeps authored wording, displays old/new recorded values and resets review; missing or ambiguous sources never silently rebind. Drafts are isolated by report.
 5. Closing the dialog retains unfinished wording in this tab and reopening requires review again. This is memory-only convenience: create pages to save the story before reloading or closing the tab. It is not durable crash recovery or cloud synchronization.
 6. Created pages survive Undo/Redo, saving, cold reopen and local snapshot viewing. PDF/PPTX retain supported page content and citations. XLSX retains source tables and evidence definitions plus a Narrative text worksheet for headings, authored implications and methodology. Long text is split losslessly across numbered parts within Excel cell/line-feed limits, preserving Unicode.
 

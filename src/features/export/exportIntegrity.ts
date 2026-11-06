@@ -17,6 +17,7 @@ export function assertExportResultsCurrent(pages: DashboardPage[]): void {
     if(element.evidence!==undefined){const {x,y,width,height}=element.layout;if(![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>canvasWidth||y+height>canvasHeight)throw new Error(`Keep the complete linked text object "${element.name}" inside the page before exporting; its claim and citations must not be clipped.`);}
   }
   for (const page of pages) for (const tile of page.tiles.filter(tile => !tile.hidden)) {
+    if(tile.result.query.sourceIdentity?.kind==="imported"&&tile.result.query.sourceIdentity.intersectionAudience!==undefined || tile.result.metadataRefs.source?.kind==="imported"&&tile.result.metadataRefs.source.intersectionAudience!==undefined) throw new Error("Temporary linked-view results are not an exportable report analysis. Recreate an ordinary analysis with an explicit audience; original report exports are unchanged.");
     const recorded=tile.result.query.sourceIdentity?.kind==="imported"?tile.result.query.sourceIdentity.audience:undefined;
     const metadata=tile.result.metadataRefs.source?.kind==="imported"?tile.result.metadataRefs.source.audience:undefined;
     if(recorded !== undefined && audienceDefinitionIssue(recorded) || metadata !== undefined && audienceDefinitionIssue(metadata) || JSON.stringify(recorded)!==JSON.stringify(metadata))throw new Error(`Refresh "${tile.title||tile.name}" before exporting: its recorded audience context is invalid or inconsistent.`);
