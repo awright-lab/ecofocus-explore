@@ -300,6 +300,25 @@ export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[])
     });
   });
 
+  // Keep the authored story, including unlinked headings and methodology,
+  // alongside the existing analytical tables and evidence definitions.
+  const narrativeTextRows: Array<Array<string | number>> = [];
+  for(const page of sortedPages.filter(page=>page.elements.some(element=>!element.hidden&&element.evidence!==undefined))){
+    for(const element of page.elements.filter(element=>!element.hidden&&element.type==="text")){
+      const parts:string[]=[];let part="",lineFeeds=0;
+      for(const char of element.content){
+        if(part.length+char.length>32000||char==="\n"&&lineFeeds>=250){parts.push(part);part="";lineFeeds=0;}
+        part+=char;if(char==="\n")lineFeeds+=1;
+      }
+      parts.push(part);
+      parts.forEach((content,index)=>narrativeTextRows.push([page.title,element.name,index+1,parts.length,content]));
+    }
+  }
+  if(narrativeTextRows.length)sheets.push({name:safeSheetName("Narrative text","Narrative text",usedSheetNames),rows:[
+    ["Scope","Authored text from pages with recorded evidence links. Layout is not reproduced; see each page's Evidence worksheet for citations and recorded analytical context."],
+    ["Page","Text object","Part","Parts","Authored content"],...narrativeTextRows
+  ]});
+
   const workbookSheets = sheets.map((sheet, index) => `<sheet name="${escapeXml(sheet.name || `Sheet ${index + 1}`)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
   const workbookRels = sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
   const overrides = sheets.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
@@ -346,7 +365,7 @@ export async function exportCoreDocument(dashboard: DashboardDraft, pages: Dashb
     return { target, fileName: `${baseName}-${dashboard.status}.pdf`, warnings };
   }
 
-  warnings.push("XLSX exports analytical result tables and report metadata; visual-only canvas objects are not represented as spreadsheet objects.");
+  warnings.push("XLSX exports analytical tables, recorded evidence and authored narrative text; the canvas layout is not reproduced.");
   downloadBlob(buildXlsxBlob(dashboard, pages), `${baseName}-analysis-${dashboard.status}.xlsx`);
   return { target, fileName: `${baseName}-analysis-${dashboard.status}.xlsx`, warnings };
 }

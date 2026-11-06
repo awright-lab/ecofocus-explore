@@ -1,5 +1,6 @@
 import { deferredWorkspaceHistory } from "../document/deferredWorkspaceHistory";
 import { findingFollowUps } from "../analytics/findingFollowUps";
+import { buildGuidedStoryPages,type GuidedStoryPlan } from "../narratives/guidedStoryModel";
 import { scheduleAcknowledgedWorkspaceAutosave } from "../document/acknowledgedWorkspaceAutosave";
 import { resolveAnalysisPage } from "./analysisPlacement";
 import { buildAnalyticalTemplateFromTile } from "./components/libraryReuseModel";
@@ -175,6 +176,7 @@ const GuidedDataQueryModal = lazy(() =>
     default: module.GuidedDataQueryModal,
   })),
 );
+const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
 export default function BuilderApp() {
   const designModalRef = useRef<HTMLDivElement | null>(null);
@@ -287,6 +289,9 @@ export default function BuilderApp() {
   const getEditorContextVersion = useCallback(() => JSON.stringify([editorContextEpoch.current,getDocumentReplacementVersion()]), [getDocumentReplacementVersion]);
   const [activeProductMode, setActiveProductMode] =
     useState<WorkspaceProductMode>("story");
+  const [storyBuilderOpen,setStoryBuilderOpen] = useState(false);
+  const storyDrafts=useRef(new Map<string,GuidedStoryPlan>());
+  const cacheStoryDraft=useCallback((plan:GuidedStoryPlan)=>{storyDrafts.current.set(plan.reportId,plan);},[]);
   const [guidedDataQuery, setGuidedDataQuery] = useState<
     | (Required<Pick<GuidedDataQueryLaunchOptions, "outputMode">> &
         Omit<GuidedDataQueryLaunchOptions, "outputMode">)
@@ -1653,6 +1658,7 @@ export default function BuilderApp() {
   }
 
   const studioCommands: StudioCommand[] = [
+    {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
       id: "analysis",
       label: "Create a table or chart",
@@ -1807,6 +1813,7 @@ export default function BuilderApp() {
           onChange={chooseTool}
           onSearch={() => setCommandOpen(true)}
           onAnalyze={() => openGuidedDataQuery({ outputMode: "table" })}
+          onStory={() => setStoryBuilderOpen(true)}
         />
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
@@ -2193,6 +2200,16 @@ export default function BuilderApp() {
           />
         </Suspense>
       )}
+      {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
+        let pages:ReturnType<typeof buildGuidedStoryPages>=[];
+        const inserted=setDashboard(current=>{
+          if(viewerContext.current||current.id!==plan.reportId)throw new Error("The report changed. Close the story builder and choose the findings again.");
+          pages=buildGuidedStoryPages(current,plan);
+          return {...current,status:"draft",pages:[...current.pages,...pages]};
+        });
+        if(!inserted||!pages.length)throw new Error("The story could not be added. Original analyses are unchanged.");
+        storyDrafts.current.delete(plan.reportId);setStoryBuilderOpen(false);setActivePageId(pages[0].id);selectElement(pages[0].elements.find(element=>element.evidence)!.id);
+      }}/></Suspense>}
       {guidedDataQuery && (
         <Suspense
           fallback={

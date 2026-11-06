@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
+  BookOpenText,
   Check,
   Command,
   Database,
@@ -37,11 +38,13 @@ export function StudioRail({
   onChange,
   onSearch,
   onAnalyze,
+  onStory,
 }: {
   active: LeftPanelView | null;
   onChange: (view: LeftPanelView) => void;
   onSearch: () => void;
   onAnalyze: () => void;
+  onStory?: () => void;
 }) {
   return (
     <nav className="studio-rail" aria-label="Studio tools">
@@ -55,6 +58,7 @@ export function StudioRail({
         <Plus size={21} />
         <span>Analyze</span>
       </button>
+      {onStory&&<button type="button" className="studio-rail-story" onClick={onStory} aria-label="Build a story" title="Turn selected findings into an editable story"><BookOpenText size={20}/><span>Story</span></button>}
       <div className="studio-rail-divider" />
       {tools.map(({ id, label, icon: Icon }) => (
         <button
