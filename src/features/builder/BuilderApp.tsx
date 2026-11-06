@@ -176,6 +176,7 @@ const GuidedDataQueryModal = lazy(() =>
     default: module.GuidedDataQueryModal,
   })),
 );
+const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
 export default function BuilderApp() {
@@ -290,6 +291,7 @@ export default function BuilderApp() {
   const [activeProductMode, setActiveProductMode] =
     useState<WorkspaceProductMode>("story");
   const [storyBuilderOpen,setStoryBuilderOpen] = useState(false);
+  const [linkedViewsOpen,setLinkedViewsOpen] = useState(false);
   const storyDrafts=useRef(new Map<string,GuidedStoryPlan>());
   const cacheStoryDraft=useCallback((plan:GuidedStoryPlan)=>{storyDrafts.current.set(plan.reportId,plan);},[]);
   const [guidedDataQuery, setGuidedDataQuery] = useState<
@@ -1658,6 +1660,7 @@ export default function BuilderApp() {
   }
 
   const studioCommands: StudioCommand[] = [
+    {id:"linked-views",label:"Explore linked views",group:"Analyze",icon:Database,run:()=>setLinkedViewsOpen(true)},
     {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
       id: "analysis",
@@ -1814,6 +1817,7 @@ export default function BuilderApp() {
           onSearch={() => setCommandOpen(true)}
           onAnalyze={() => openGuidedDataQuery({ outputMode: "table" })}
           onStory={() => setStoryBuilderOpen(true)}
+          onExplore={() => setLinkedViewsOpen(true)}
         />
         <WorkspaceModeStrip
           pageTitle={dashboard.title}
@@ -2200,6 +2204,7 @@ export default function BuilderApp() {
           />
         </Suspense>
       )}
+      {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
       {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
         let pages:ReturnType<typeof buildGuidedStoryPages>=[];
         const inserted=setDashboard(current=>{

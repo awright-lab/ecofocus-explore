@@ -39,12 +39,14 @@ export function StudioRail({
   onSearch,
   onAnalyze,
   onStory,
+  onExplore,
 }: {
   active: LeftPanelView | null;
   onChange: (view: LeftPanelView) => void;
   onSearch: () => void;
   onAnalyze: () => void;
   onStory?: () => void;
+  onExplore?: () => void;
 }) {
   return (
     <nav className="studio-rail" aria-label="Studio tools">
@@ -59,6 +61,7 @@ export function StudioRail({
         <span>Analyze</span>
       </button>
       {onStory&&<button type="button" className="studio-rail-story" onClick={onStory} aria-label="Build a story" title="Turn selected findings into an editable story"><BookOpenText size={20}/><span>Story</span></button>}
+      {onExplore&&<button type="button" onClick={onExplore} aria-label="Explore linked views" title="Select groups across related analyses"><SlidersHorizontal size={20}/><span>Explore</span></button>}
       <div className="studio-rail-divider" />
       {tools.map(({ id, label, icon: Icon }) => (
         <button
