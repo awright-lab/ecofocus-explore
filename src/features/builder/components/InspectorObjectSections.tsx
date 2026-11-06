@@ -1,4 +1,5 @@
 import type React from "react";
+import { NarrativeEvidencePanel } from "../../narratives/NarrativeEvidencePanel";
 import { ColorField, rangeFill } from "../../design-system/DesignControls";
 import { fontFamilies } from "../builderConstants";
 import { effectShadow, gradientCss } from "../builderHelpers";
@@ -69,6 +70,7 @@ export function ElementInspector(props: BuilderInspectorProps) {
               )}
               {selectedElement.type === "text" && (
                 <>
+                  {props.evidencePages&&<NarrativeEvidencePanel key={selectedElement.id} element={selectedElement} pages={props.evidencePages} onUpdate={updateSelectedElement} onNavigate={props.onEvidenceNavigate}/>}
                   <div className="panel-title subtle">
                     <h2>Typography</h2>
                   </div>

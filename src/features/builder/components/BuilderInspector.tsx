@@ -189,6 +189,8 @@ export type BuilderInspectorProps = {
   onInspectorSurfaceChange?: (surface: InspectorSurface) => void;
   setSettingsView: (view: SettingsView) => void;
   activePage: DashboardPage;
+  evidencePages?: DashboardPage[];
+  onEvidenceNavigate?: (tileId:string)=>void;
   dashboardPageCount: number;
   updateActivePage: (updates: Partial<DashboardPage>) => void;
   duplicateActivePage: () => void;

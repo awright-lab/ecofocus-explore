@@ -1,4 +1,5 @@
 import { analyticalCell } from "../../../shared/analytics/resultCells";
+import { narrativeCitation } from "../narratives/narrativeEvidence";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
 import { buildPageVisualSvg, dataUrlToBytes, renderPageVisualImages, type PageVisualImage, type SvgRasterizer } from "./pageVisualExport";
@@ -264,6 +265,11 @@ export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[])
   ];
 
   sortedPages.forEach((page) => {
+    const narratives=page.elements.filter(element=>!element.hidden&&element.evidence!==undefined);
+    if(narratives.length)sheets.push({name:safeSheetName(`${page.order}-Evidence`,"Evidence",usedSheetNames),rows:[
+      ["Page",page.title],["Scope","Recorded links track selected result cells; they do not validate the written conclusion or authenticate source data."],
+      ...narratives.flatMap(element=>[["Text object",element.name],["Written claim",element.content],["Reviewed at",element.evidence!.reviewedAt],["Recorded citations",narrativeCitation(element)],["Evidence definition (JSON)",JSON.stringify(element.evidence)],[]])
+    ]});
     visibleTiles(page).forEach((tile) => {
       if (importedMeasureBasesNeedRefresh(tile.result)) throw new Error(`Refresh "${tile.title || tile.name}" before exporting: its cached numeric sample bases are unverified. JSON preserves the original result.`);
       for (const row of tile.result.table) for (const column of tile.result.columns) {

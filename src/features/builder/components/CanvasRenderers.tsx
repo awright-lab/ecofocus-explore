@@ -1,4 +1,6 @@
 import { getBarStyle, chartGradientId, chartPaint, chartHasConicFill } from "../../design-system/chartPaint";
+import { narrativeDisplayText } from "../../narratives/narrativeEvidence";
+import "../../narratives/narrativeEvidence.css";
 import { paletteColor } from "../../design-system/reportColors";
 import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
 import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
@@ -1843,10 +1845,12 @@ export const CanvasElementRenderer = memo(
     element,
     selected,
     onSelect,
+    evidenceWarning,
   }: {
     element: DashboardCanvasElement;
     selected: boolean;
     onSelect: () => void;
+    evidenceWarning?: string|null;
   }) {
     if (element.type === "image") {
       return (
@@ -1892,6 +1896,8 @@ export const CanvasElementRenderer = memo(
             textDecoration: element.style.textDecoration,
             textAlign: element.style.textAlign,
             lineHeight: element.style.lineHeight,
+            whiteSpace: element.evidence!==undefined?"pre-wrap":undefined,
+            overflowWrap: element.evidence!==undefined?"anywhere":undefined,
             padding: element.style.padding,
             background: backgroundStyle(
               element.style.fillMode,
@@ -1910,7 +1916,8 @@ export const CanvasElementRenderer = memo(
           }}
           onClick={onSelect}
         >
-          {element.content}
+          {element.evidence!==undefined&&evidenceWarning!==null&&<span role="status" className="narrative-review-badge">Evidence needs review: {evidenceWarning??"links are not checked in this preview"}</span>}
+          {narrativeDisplayText(element)}
         </div>
       );
     }
@@ -1944,5 +1951,5 @@ export const CanvasElementRenderer = memo(
     );
   },
   (previous, next) =>
-    previous.element === next.element && previous.selected === next.selected,
+    previous.element === next.element && previous.selected === next.selected && previous.evidenceWarning === next.evidenceWarning,
 );

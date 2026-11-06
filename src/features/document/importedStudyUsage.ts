@@ -28,6 +28,7 @@ export function draftImportedStudyReferences(draft: DashboardDraft): Array<{ dat
     for (const datasetId of new Set(ids)) references.push({ datasetId, location });
   }
   for (const audience of draft.savedAudiences??[]) add(`Saved audience: ${audience.label}`,[audience.datasetId]);
+  for (const page of draft.pages) for (const element of page.elements) if(element.evidence?.links) add(`${page.title}: evidence for ${element.name}`,element.evidence.links.flatMap(link=>link.snapshot.studyIds));
   for (const page of draft.pages) for (const tile of page.tiles) add(`${page.title}: ${tile.title}`, tileStudyIds(tile));
   for (const template of draft.analysisLibrary.templates) add(`Saved analysis: ${template.label}`, [...sourceStudyIds(template.source), ...queryStudyIds(template.query)]);
   for (const definition of draft.analysisLibrary.derivedDefinitions) add(`Saved calculation: ${definition.label}`, [...sourceStudyIds(definition.source), ...queryStudyIds(definition.query)]);

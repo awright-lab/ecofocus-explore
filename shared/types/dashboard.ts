@@ -1,4 +1,5 @@
 import type { SavedImportedAudience } from "./audience";
+import type { NarrativeEvidence } from "./narrative";
 import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
 import type { ComparisonMode } from "./analytics";
@@ -184,6 +185,7 @@ export interface DashboardTile {
 export type DashboardCanvasElementType = "text" | "rectangle" | "circle" | "image";
 
 export interface DashboardCanvasElement {
+  evidence?: NarrativeEvidence;
   id: string;
   name: string;
   type: DashboardCanvasElementType;

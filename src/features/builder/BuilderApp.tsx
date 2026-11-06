@@ -56,6 +56,7 @@ import {
 import { AnalysisAuthoringPanel } from "./components/AnalysisAuthoringPanel";
 import { BuilderInspector } from "./components/BuilderInspector";
 import type { GuidedDataQueryLaunchOptions } from "./components/AnalysisAuthoringPanel";
+import { narrativeState } from "../narratives/narrativeEvidence";
 import {
   CanvasElementRenderer,
   TileRenderer,
@@ -1412,6 +1413,10 @@ export default function BuilderApp() {
     ),
     [],
   );
+  const narrativeWarnings = useMemo(()=>new Map(dashboard.pages.flatMap(page=>page.elements.flatMap(element=>{
+    const state=narrativeState(element,dashboard.pages);
+    return state&&!state.current?[[element.id,state.reasons.join(" ")] as const]:[];
+  }))),[dashboard.pages]);
   const renderCanvasElement = useCallback(
     (
       element: DashboardCanvasElement,
@@ -1422,9 +1427,10 @@ export default function BuilderApp() {
         element={element}
         selected={selected}
         onSelect={onSelect}
+        evidenceWarning={narrativeWarnings.get(element.id)??null}
       />
     ),
-    [],
+    [narrativeWarnings],
   );
 
   useEffect(() => {
@@ -1608,6 +1614,7 @@ export default function BuilderApp() {
                         element={element}
                         selected={false}
                         onSelect={() => undefined}
+                        evidenceWarning={narrativeWarnings.get(element.id)??null}
                       />
                     </div>
                   ))}
@@ -2042,6 +2049,8 @@ export default function BuilderApp() {
           <BuilderInspector
             key={JSON.stringify([activeReportId, activePage.id, selectionKey, settingsView === "page" ? "page" : "object"])}
             getEditorContextVersion={getEditorContextVersion}
+            evidencePages={dashboard.pages}
+            onEvidenceNavigate={tileId=>{const page=dashboard.pages.find(page=>page.tiles.some(tile=>tile.id===tileId));if(page){setActivePageId(page.id);selectTile(tileId);}}}
             outcomeMode={activeOutcomeMode.mode}
             outcomeLabel={activeOutcomeMode.label}
             outcomeHelper={activeOutcomeMode.helper}

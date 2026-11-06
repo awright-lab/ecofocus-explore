@@ -1,12 +1,17 @@
 import type { DashboardDraft } from "../../../shared/types/dashboard";
+import { narrativeState } from "../narratives/narrativeEvidence";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { assertExportResultsCurrent } from "./exportIntegrity";
 import { buildPageVisualSvg } from "./pageVisualExport";
 
-export interface PreflightIssue { check: "Page boundary" | "Layout overlap" | "Analysis" | "Image" | "PDF layout"; message: string; objectId?: string }
+export interface PreflightIssue { check: "Page boundary" | "Layout overlap" | "Analysis" | "Image" | "PDF layout" | "Narrative evidence"; message: string; objectId?: string }
 export function buildReportPreflight(dashboard: DashboardDraft) {
   return [...dashboard.pages].sort((a, b) => a.order - b.order).map(page => {
     const issues: PreflightIssue[] = [];
+    for(const element of page.elements.filter(element=>!element.hidden)){
+      const state=narrativeState(element,dashboard.pages);
+      if(state&&!state.current)issues.push({check:"Narrative evidence",objectId:element.id,message:`${element.name}: ${state.reasons.join(" ")}`});
+    }
     for (const object of [...page.elements, ...page.tiles].filter(object => !object.hidden)) {
       const { x, y, width, height } = object.layout ?? { x: NaN, y: NaN, width: NaN, height: NaN };
       if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {

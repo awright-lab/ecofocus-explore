@@ -1,4 +1,6 @@
 import { audienceDefinitionIssue } from "../audiences/audienceModel";
+import { narrativeState } from "../narratives/narrativeEvidence";
+import { canvasWidth,canvasHeight } from "../builder/builderConstants";
 import { resultWeightingLabel } from "../../../shared/analytics/weightingLabel";
 import { resultIdentityIssue } from "../../../shared/analytics/resultIdentities";
 import { analysisSettingsMatch } from "../../../shared/analytics/queryFreshness";
@@ -9,6 +11,11 @@ import { buildImportedResultProvenance } from "../data/importedDatasetAnalytics"
 import { resultBannerLabel, resultDatasetLabel, resultFilterLabel, resultSourceLabel, sampleSizeLabel } from "../builder/components/CanvasRenderers";
 
 export function assertExportResultsCurrent(pages: DashboardPage[]): void {
+  for(const page of pages)for(const element of page.elements.filter(element=>!element.hidden)){
+    const state=narrativeState(element,pages);
+    if(state&&!state.current)throw new Error(`Review evidence for "${element.name}" before exporting: ${state.reasons.join(" ")} Include its source pages or restore/review its links. JSON keeps the original text and evidence.`);
+    if(element.evidence!==undefined){const {x,y,width,height}=element.layout;if(![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>canvasWidth||y+height>canvasHeight)throw new Error(`Keep the complete linked text object "${element.name}" inside the page before exporting; its claim and citations must not be clipped.`);}
+  }
   for (const page of pages) for (const tile of page.tiles.filter(tile => !tile.hidden)) {
     const recorded=tile.result.query.sourceIdentity?.kind==="imported"?tile.result.query.sourceIdentity.audience:undefined;
     const metadata=tile.result.metadataRefs.source?.kind==="imported"?tile.result.metadataRefs.source.audience:undefined;
