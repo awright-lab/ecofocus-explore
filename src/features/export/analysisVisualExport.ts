@@ -119,20 +119,28 @@ function numericExtent(amounts: number[]) {
   return { low, high };
 }
 
+function valueLabelLayout(tile: DashboardTile) {
+  const valueSize = tile.appearance.labelFontSize, baseSize = Math.max(8,valueSize - 1);
+  const gap = Math.max(10,baseSize * 1.3);
+  const blockHeight = valueSize + (tile.appearance.showBases ? gap : 0) + 6;
+  return { valueSize, baseSize, gap, blockHeight };
+}
+
 function bars(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), rows = tile.result.table, columns = tile.result.columns;
   const horizontal = tile.visualization === "horizontal_bar", stacked = tile.visualization === "stacked_bar";
+  const labels = valueLabelLayout(tile), topInset = tile.appearance.showValueLabels && !horizontal ? Math.max(25,labels.blockHeight + 10) : 25;
   if ((horizontal || tile.visualization === "vertical_bar") && columns.length !== 1) throw new Error("Use grouped or stacked bars to export multiple columns; no series were omitted.");
   const key = horizontal || tile.visualization === "vertical_bar" ? { height: 0, svg: "" } : legend(tile, area);
-  const plot = { x: area.x + (horizontal ? area.width * 0.25 : 45), y: area.y + key.height + 25,
-    width: horizontal ? area.width * 0.75 - 85 : area.width - 55, height: area.height - key.height - 85 };
+  const plot = { x: area.x + (horizontal ? area.width * 0.25 : 45), y: area.y + key.height + topInset,
+    width: horizontal ? area.width * 0.75 - 85 : area.width - 55, height: area.height - key.height - topInset - 60 };
   if (plot.height < 55) throw new Error("Chart/legend cannot fit completely. Enlarge the object or use Excel/JSON.");
   const extents = stacked ? rows.flatMap(row => [columns.reduce((sum, column) => sum + Math.max(0, analyticalCell(tile.result,row,column.id).value ?? 0), 0), columns.reduce((sum, column) => sum + Math.min(0, analyticalCell(tile.result,row,column.id).value ?? 0), 0)]) : rows.flatMap(row => columns.map(column => analyticalCell(tile.result,row,column.id).value).filter((amount): amount is number => amount !== null));
   const { low, high } = numericExtent(extents), span = high - low;
   const coordinate = (amount: number) => horizontal ? plot.x + (amount - low) / span * plot.width : plot.y + (high - amount) / span * plot.height;
   const slot = (horizontal ? plot.height : plot.width) / rows.length;
   const barWidth = slot * 0.82 / (stacked ? 1 : columns.length);
-  if (horizontal && slot < (tile.appearance.showBases && tile.appearance.showValueLabels ? 30 : 18)) throw new Error("All horizontal labels cannot fit. Enlarge the chart or turn off labels.");
+  if (horizontal && slot < Math.max(18,tile.appearance.axisFontSize * 1.3,tile.appearance.showValueLabels ? labels.blockHeight : 0)) throw new Error("All horizontal labels cannot fit. Enlarge the chart or turn off labels.");
   if (barWidth < (horizontal ? 14 : 10)) throw new Error("All bars cannot fit readably. Enlarge the chart or use a table/Excel/JSON.");
   let svg = key.svg + (horizontal ? `<line x1="${coordinate(0)}" x2="${coordinate(0)}" y1="${plot.y}" y2="${plot.y + plot.height}" stroke="${xmlText(tile.appearance.gridColor)}"/>` : `<line x1="${plot.x}" x2="${plot.x + plot.width}" y1="${coordinate(0)}" y2="${coordinate(0)}" stroke="${xmlText(tile.appearance.gridColor)}"/>`);
   svg += horizontal
@@ -151,13 +159,15 @@ function bars(tile: DashboardTile) {
       const a = coordinate(start), b = coordinate(end), position = (horizontal ? plot.y : plot.x) + rowIndex * slot + slot * 0.09 + (stacked ? 0 : columnIndex * barWidth);
       svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${amount}" data-base="${row.bases[column.id]}"><rect x="${horizontal ? Math.min(a, b) : position}" y="${horizontal ? position : Math.min(a, b)}" width="${horizontal ? Math.abs(b - a) : barWidth - 2}" height="${horizontal ? barWidth - 2 : Math.abs(b - a)}" fill="${xmlText(paint.fill)}"/>`;
       if (tile.appearance.showValueLabels) {
-        if (stacked && amount !== 0 && Math.abs(b - a) < Math.max(24,tile.appearance.labelFontSize * (tile.appearance.showBases ? 2.4 : 1.4))) throw new Error("Stacked value/base labels cannot fit. Enlarge the chart or turn off value labels; no values were omitted.");
+        if (stacked && amount !== 0 && Math.abs(b - a) < Math.max(24,labels.blockHeight)) throw new Error("Stacked value/base labels cannot fit. Enlarge the chart or turn off value labels; no values were omitted.");
         if (!horizontal && Math.max(value(tile, amount).length, tile.appearance.showBases ? base(tile, row.bases[column.id]).length : 0) * Math.max(5.8,tile.appearance.labelFontSize * 0.62) > barWidth) throw new Error("All value/base labels cannot fit across the bars. Enlarge the chart or turn off value labels.");
         const x = horizontal ? plot.x + plot.width + 8 : position + barWidth / 2;
-        const y = horizontal ? position + barWidth / 2 : stacked ? (a + b) / 2 : amount >= 0 ? b - 15 : b + 12;
+        const y = horizontal ? position + barWidth / 2 - (tile.appearance.showBases ? labels.gap / 2 : 0)
+          : stacked ? (a + b) / 2 - (tile.appearance.showBases ? labels.gap / 2 : 0)
+          : b - 6 - (tile.appearance.showBases ? labels.gap : 0);
         const anchor = horizontal ? "start" : "middle";
         svg += text(value(tile, amount), x, y, tile.appearance.labelFontSize, anchor, tile.appearance.labelColor);
-        if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), x, y + 10, Math.max(8,tile.appearance.labelFontSize - 1), anchor, tile.appearance.labelColor);
+        if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), x, y + labels.gap, labels.baseSize, anchor, tile.appearance.labelColor);
       }
       svg += "</g>";
     });
@@ -167,7 +177,9 @@ function bars(tile: DashboardTile) {
 
 function lines(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), key = legend(tile, area), rows = tile.result.table, columns = tile.result.columns;
-  const top = area.y + key.height + 30, height = area.height - key.height - 75, slot = (area.width - 100) / Math.max(1, rows.length - 1);
+  const labels = valueLabelLayout(tile), labelClearance = Math.max(6,tile.appearance.axisFontSize * 1.3 + 6);
+  const topInset = tile.appearance.showValueLabels ? Math.max(30,labels.blockHeight + labelClearance + 10) : 30;
+  const top = area.y + key.height + topInset, height = area.height - key.height - topInset - 45, slot = (area.width - 100) / Math.max(1, rows.length - 1);
   if (height < 55 || slot < 32) throw new Error("All line points/labels cannot fit. Enlarge the chart or use a table/Excel/JSON.");
   const amounts = rows.flatMap(row => columns.map(column => analyticalCell(tile.result,row,column.id).value).filter((amount): amount is number => amount !== null)), { low, high } = numericExtent(amounts);
   const x = (index: number) => area.x + 50 + index * slot, y = (amount: number) => top + (high - amount) / (high - low) * height;
@@ -181,7 +193,7 @@ function lines(tile: DashboardTile) {
       if (amount === null) { flush(); return; }
       run.push(`${x(n)},${y(amount)}`);
       svg += `<circle data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${amount}" data-base="${row.bases[column.id]}" cx="${x(n)}" cy="${y(amount)}" r="3" fill="${xmlText(color(tile,column.id,index))}"/>`;
-      if (tile.appearance.showValueLabels) { svg += text(value(tile,amount),x(n),y(amount)-18,tile.appearance.labelFontSize,"middle",tile.appearance.labelColor); if(tile.appearance.showBases) svg += text(base(tile,row.bases[column.id]),x(n),y(amount)-8,Math.max(8,tile.appearance.labelFontSize-1),"middle",tile.appearance.labelColor); }
+      if (tile.appearance.showValueLabels) { svg += text(value(tile,amount),x(n),y(amount)-labelClearance-(tile.appearance.showBases ? labels.gap : 0),labels.valueSize,"middle",tile.appearance.labelColor); if(tile.appearance.showBases) svg += text(base(tile,row.bases[column.id]),x(n),y(amount)-labelClearance,labels.baseSize,"middle",tile.appearance.labelColor); }
     });
     flush();
   });

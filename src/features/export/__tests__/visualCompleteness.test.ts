@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TableView } from "../../builder/components/CanvasRenderers";
+import { ChartView, TableView } from "../../builder/components/CanvasRenderers";
 import { initialDashboard } from "../../document/documentSeeds";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
@@ -221,4 +221,16 @@ it("retains chosen table type and color and native chart surface", async()=>{
  const html=renderToStaticMarkup(createElement(TableView,{tile}));expect(html).toContain('<th style="font-size:19px;color:#a02060">Answer');expect(html).toContain('style="font-size:23px;color:#a02060"');expect(html).toContain('font-size:22px;color:#a02060');
  tile.visualization="grouped_bar";tile.appearance.chartBackground="#dceafb";expect(buildNativePptxChartDescriptor(tile,1,3,"rId2").chartXml).toContain('<a:srgbClr val="DCEAFB"/>');
  tile.visualization="table";tile.appearance.labelFontSize=100;expect(()=>buildPageVisualSvg(fixture)).toThrow(/too many rows|cannot fit/);
+});
+
+it("shows an actionable conic limitation without altering recorded values", async()=>{
+ const fixture=await page("conic-preview",2,2,"grouped_bar",true),tile=fixture.tiles[0];tile.appearance.barFillMode="gradient";tile.appearance.barGradientType="conic";const before=structuredClone(tile);
+ const html=renderToStaticMarkup(createElement(ChartView,{tile}));expect(html).toContain('role="status"');expect(html).toContain("Conic fills cannot yet be rendered faithfully");expect(tile).toEqual(before);
+});
+
+it.each(["vertical_bar","horizontal_bar","line_chart"] as const)("separates selected 23px values and 22px bases in %s exports",async kind=>{
+ const fixture=await page("large-label-spacing",3,1,kind,false,true),tile=fixture.tiles[0];tile.appearance.labelFontSize=23;
+ const svg=buildPageVisualSvg(fixture),values=[...svg.matchAll(/<text [^>]* y="([^"]+)"[^>]*font-size="23"[^>]*>/g)],bases=[...svg.matchAll(/<text [^>]* y="([^"]+)"[^>]*font-size="22"[^>]*>n=1<\/text>/g)];
+ expect(values).toHaveLength(3);expect(bases).toHaveLength(3);for(let i=0;i<3;i++)expect(Number(bases[i][1])-Number(values[i][1])).toBeGreaterThanOrEqual(22*1.3-0.001);
+ if(kind==="line_chart") { const points=[...svg.matchAll(/<circle data-row=[^>]* cy="([^"]+)"/g)];expect(points).toHaveLength(3);for(let i=0;i<3;i++)expect(Number(points[i][1])-Number(bases[i][1])).toBeGreaterThanOrEqual(tile.appearance.axisFontSize*1.3+6-0.001); }
 });

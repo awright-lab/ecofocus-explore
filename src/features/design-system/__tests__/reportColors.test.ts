@@ -139,3 +139,9 @@ it("uses collision-free gradient IDs and retains selected title/axis styling in 
  const svg=buildPageVisualSvg(draft.pages[0]);expect(svg).toContain('font-size="28"');expect(svg).toContain('text-anchor="end" fill="#38513b"');expect(svg).toContain('fill="#ff0066"');expect(svg).toContain('fill="#2233cc"');
  const pptx=buildNativePptxChartDescriptor(tile,1,3,"rId2").chartXml;expect(pptx).toContain('val="FF0066"');expect(pptx).toContain('val="2233CC"');expect(pptx).toContain('sz="975"');
 });
+
+it("blocks conic visual exports instead of silently substituting a linear gradient",()=>{
+ const draft=fixture(),tile=draft.pages[0].tiles[0];draft.pages[0].tiles=[tile];tile.appearance.barFillMode="gradient";tile.appearance.barGradientType="conic";const original=structuredClone(draft);
+ expect(()=>buildPageVisualSvg(draft.pages[0])).toThrow(/Conic fills cannot yet be rendered faithfully/);expect(draft).toEqual(original);expect(canReconstructTileAsNativePptxChart(tile)).toBe(false);
+ tile.appearance.barFillMode="solid";expect(()=>buildPageVisualSvg(draft.pages[0])).not.toThrow();
+});

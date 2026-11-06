@@ -1,4 +1,4 @@
-import { getBarStyle, chartGradientId, chartPaint } from "../../design-system/chartPaint";
+import { getBarStyle, chartGradientId, chartPaint, chartHasConicFill } from "../../design-system/chartPaint";
 import { paletteColor } from "../../design-system/reportColors";
 import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
 import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
@@ -1610,6 +1610,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 
 export function ChartView({ tile }: { tile: DashboardTile }) {
   tile = { ...tile, result: withSafeInference(tile.result) };
+  if (chartHasConicFill(tile)) return <p role="status">Conic fills cannot yet be rendered faithfully. Choose a solid, linear or radial fill to view or export this chart. Your analysis and styling are retained.</p>;
   if (tile.visualization === "table") return <TableView tile={tile} />;
   if (!resultColumnValues(tile.result).length) return <p role="status">{tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no verified numeric observations."} Rerun the analysis or review its source values.</p>;
   if (tile.visualization === "vertical_bar")

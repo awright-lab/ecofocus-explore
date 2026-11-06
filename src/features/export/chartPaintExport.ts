@@ -4,6 +4,7 @@ function escape(value: string) { return value.replace(/&/g,"&amp;").replace(/</g
 export function barPaintSvg(tile: DashboardTile, role: "rows" | "columns", id: string, index: number) {
   const style = chartPaint(tile, role, id, index);
   if (style.fillMode !== "gradient") return { fill: style.color, definition: "" };
+  if (style.gradientType === "conic") throw new Error("Conic fills cannot yet be rendered faithfully. Choose a solid, linear or radial fill before exporting; no visual file was produced.");
   const key = chartGradientId(tile.id, JSON.stringify([role, id])), gradient = barGradient(style, tile.visualization === "horizontal_bar" ? "horizontal" : "vertical");
   const stops = gradient.stops.map(stop => {
     if (!Number.isFinite(stop.position) || !Number.isFinite(stop.opacity)) throw new Error("A chart gradient has invalid stops. Review its styling before exporting.");

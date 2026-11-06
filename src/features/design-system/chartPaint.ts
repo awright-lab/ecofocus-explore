@@ -22,3 +22,11 @@ export function barGradient(style: ReturnType<typeof getBarStyle>, orientation: 
   return { radial: style.gradientType === "radial", vector: svgLinearGradientVector(style.gradientAngle ?? (orientation === "horizontal" ? 90 : 180)),
     stops: normalizeGradientStops(style.color, style.gradientTo, style.gradientStops) };
 }
+
+export function chartHasConicFill(tile: DashboardTile) {
+  if (!["vertical_bar", "horizontal_bar", "grouped_bar", "stacked_bar"].includes(tile.visualization)) return false;
+  const rows = tile.visualization === "vertical_bar" || tile.visualization === "horizontal_bar";
+  const paints = rows ? tile.result.table.map((row,index) => chartPaint(tile,"rows",row.optionId,index))
+    : tile.result.columns.map((column,index) => chartPaint(tile,"columns",column.id,index));
+  return paints.some(paint => paint.fillMode === "gradient" && paint.gradientType === "conic");
+}
