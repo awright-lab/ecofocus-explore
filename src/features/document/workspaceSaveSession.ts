@@ -46,6 +46,9 @@ export function createWorkspaceSaveSession(
   }
   return {
     save,
+    // Awaitable acknowledgement boundary for consumers migrating to the
+    // transactional adapter. Legacy writes still complete synchronously here.
+    saveAsync: async (workspace: DashboardWorkspace, recoveryWorkspace = workspace) => save(workspace, recoveryWorkspace),
     load: () => {
       if (pending) return pending;
       // Do not adopt a newer baseline on route remount: older mounted state may

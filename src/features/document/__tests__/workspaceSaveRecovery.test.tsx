@@ -453,6 +453,35 @@ describe("workspace save recovery UI", () => {
     await act(async()=>back.click());expect(host.querySelector('.studio-command-dialog')).toBeNull();expect(host.querySelector('.published-shell')).toBeNull();
   });
 
+  it("does not let a delayed autosave mark a newer editor revision saved", async () => {
+    const acknowledgements: Array<(saved: boolean) => void> = [];
+    const save = vi.spyOn(workspaceSaveSession, "saveAsync").mockImplementation(value => {
+      workspaceSaveSession.remember(value);
+      return new Promise<boolean>(resolve => acknowledgements.push(resolve));
+    });
+    await editor();
+    await act(async () => vi.advanceTimersByTime(900));
+    expect(save).toHaveBeenCalledOnce();
+    expect(host.querySelector(".workspace-save-state")?.textContent).toBe("Changes not saved");
+    await act(async () => button(baseline.reports[0].title).click());
+    const input = host.querySelector<HTMLInputElement>('[aria-label="Document title"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Newer autosave revision");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    await act(async () => acknowledgements[0](true));
+    expect(host.querySelector(".workspace-save-state")?.textContent).toBe("Changes not saved");
+    expect(host.textContent).not.toContain("Saved just now");
+    await act(async () => vi.advanceTimersByTime(900));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1][0].reports[0].draft.title).toBe("Newer autosave revision");
+    await act(async () => acknowledgements[1](false));
+    expect(host.querySelector(".workspace-save-state")?.textContent).toBe("Changes not saved");
+    expect(workspaceSaveSession.getPending()?.reports[0].draft.title).toBe("Newer autosave revision");
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+  });
+
   it("reports import save failure and retains full imported data across route remounts", async () => {
     function Home() {
       const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());

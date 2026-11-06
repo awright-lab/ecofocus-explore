@@ -315,6 +315,9 @@ export function WorkspaceHome({
   onWorkspaceChange: (workspace: DashboardWorkspace) => void;
 }) {
   const saveDashboardWorkspace = workspaceSaveSession.save;
+  const saveDashboardWorkspaceAsync = workspaceSaveSession.saveAsync;
+  const [isSavingNavigation, setIsSavingNavigation] = useState(false);
+  const navigationOwner = useRef<{ token: symbol; workspace: DashboardWorkspace } | null>(null);
   const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const [introductionExpanded, setIntroductionExpanded] = useState(false);
   const [homeSection, setHomeSection] = useSessionPreference("workspace-section", "reports", ["reports", "data"] as const);
@@ -328,9 +331,27 @@ export function WorkspaceHome({
   const [backupFeedback, setBackupFeedback] = useState<{text: string; failed: boolean} | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const workspaceRef = useRef(workspace);
-  useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
+  useEffect(() => {
+    workspaceRef.current = workspace;
+    if (navigationOwner.current && navigationOwner.current.workspace !== workspace) {
+      navigationOwner.current = null;
+      setIsSavingNavigation(false);
+    }
+  }, [workspace]);
   const importOwnerMounted = useRef(true);
-  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; }; }, []);
+  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; navigationOwner.current = null; }; }, []);
+  useEffect(() => {
+    function cancelNavigation() {
+      navigationOwner.current = null;
+      if (importOwnerMounted.current) setIsSavingNavigation(false);
+    }
+    window.addEventListener("hashchange", cancelNavigation);
+    window.addEventListener("popstate", cancelNavigation);
+    return () => {
+      window.removeEventListener("hashchange", cancelNavigation);
+      window.removeEventListener("popstate", cancelNavigation);
+    };
+  }, []);
   const [isImporting, setIsImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState<{
     tone: "success" | "error";
@@ -421,6 +442,30 @@ export function WorkspaceHome({
       item.report.title.toLowerCase().includes(search.toLowerCase()) &&
       (reportFilter === "all" || reportFilter === "published" && Boolean(item.latestSnapshot) || reportFilter === "draft" && item.state === "draft" || reportFilter === "changed" && item.state === "changed"),
   );
+  async function saveBeforeNavigation(nextWorkspace: DashboardWorkspace, path: string) {
+    if (navigationOwner.current) return;
+    const token = Symbol("workspace-navigation");
+    navigationOwner.current = { token, workspace: nextWorkspace };
+    setIsSavingNavigation(true);
+    onWorkspaceChange(nextWorkspace);
+    try {
+      const saved = await saveDashboardWorkspaceAsync(nextWorkspace);
+      if (!importOwnerMounted.current || navigationOwner.current?.token !== token) return;
+      if (saved) navigate(path);
+      else setImportFeedback({ tone: "error", requiresSave: true, label: workspaceSaveFailureMessage });
+    } catch {
+      if (importOwnerMounted.current && navigationOwner.current?.token === token) {
+        workspaceSaveSession.remember(nextWorkspace);
+        setImportFeedback({ tone: "error", requiresSave: true, label: workspaceSaveFailureMessage });
+      }
+    } finally {
+      if (navigationOwner.current?.token === token) {
+        navigationOwner.current = null;
+        if (importOwnerMounted.current) setIsSavingNavigation(false);
+      }
+    }
+  }
+
   function openExample() {
     const example = reports.find((item) =>
       item.report.draft.pages.some((page) =>
@@ -432,43 +477,35 @@ export function WorkspaceHome({
       return;
     }
     const next = createExampleReport(workspace);
-    onWorkspaceChange(next.workspace);
-    if (!saveDashboardWorkspace(next.workspace)) return;
-    navigate(makeBuilderReportPath(next.report.id));
+    void saveBeforeNavigation(next.workspace, makeBuilderReportPath(next.report.id));
   }
 
   function navigate(path: string) {
+    navigationOwner.current = null;
+    if (importOwnerMounted.current) setIsSavingNavigation(false);
     window.location.hash = path.replace(/^#/, "");
   }
 
   function openReport(reportId: string) {
     const nextWorkspace = markReportOpened(workspace, reportId);
-    onWorkspaceChange(nextWorkspace);
-    if (!saveDashboardWorkspace(nextWorkspace)) return;
-    navigate(makeBuilderReportPath(reportId));
+    void saveBeforeNavigation(nextWorkspace, makeBuilderReportPath(reportId));
   }
 
   function createReport() {
     const next = createNewReportFromSeed(workspace);
-    onWorkspaceChange(next.workspace);
-    if (!saveDashboardWorkspace(next.workspace)) return;
-    navigate(makeBuilderReportPath(next.report.id));
+    void saveBeforeNavigation(next.workspace, makeBuilderReportPath(next.report.id));
   }
 
   function analyzeStudy(dataset: ImportedDatasetRecord) {
     const next = createNewReportFromSeed(workspace);
     next.report.title = `${dataset.title} analysis`;
     next.report.draft.title = next.report.title;
-    onWorkspaceChange(next.workspace);
-    if (!saveDashboardWorkspace(next.workspace)) return;
-    navigate(`${makeBuilderReportPath(next.report.id)}?study=${encodeURIComponent(dataset.id)}`);
+    void saveBeforeNavigation(next.workspace, `${makeBuilderReportPath(next.report.id)}?study=${encodeURIComponent(dataset.id)}`);
   }
 
   function duplicateReport(report: DashboardReportRecord) {
     const next = duplicateReportRecord(workspace, report);
-    onWorkspaceChange(next.workspace);
-    if (!saveDashboardWorkspace(next.workspace)) return;
-    navigate(makeBuilderReportPath(next.report.id));
+    void saveBeforeNavigation(next.workspace, makeBuilderReportPath(next.report.id));
   }
 
   function openPublished(item: ReportLibraryItem) {
@@ -499,7 +536,8 @@ export function WorkspaceHome({
         result.dataset,
       );
       onWorkspaceChange(nextWorkspace);
-      const saved = saveDashboardWorkspace(nextWorkspace);
+      const saved = await saveDashboardWorkspaceAsync(nextWorkspace);
+      if (!importOwnerMounted.current) return;
       setImportFeedback({
         tone: saved ? "success" : "error",
         requiresSave: !saved,
@@ -509,8 +547,10 @@ export function WorkspaceHome({
         ),
       });
     } finally {
-      setIsImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (importOwnerMounted.current) {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
     }
   }
 
@@ -1001,7 +1041,7 @@ export function WorkspaceHome({
           Study library<span>{importedDatasets.length}</span>
         </button>
         <div className="studio-nav-divider" />
-        <button type="button" onClick={openExample}>
+        <button type="button" onClick={openExample} disabled={isSavingNavigation}>
           <Leaf size={18} />
           Explore an example
           <ChevronRight size={14} />
@@ -1043,6 +1083,7 @@ export function WorkspaceHome({
                   : "workspace-home-primary"
               }
               onClick={createReport}
+              disabled={isSavingNavigation}
             >
               <Plus size={16} />
               New report
@@ -1050,6 +1091,7 @@ export function WorkspaceHome({
           </div>
         </header>
         {backupFeedback && <p className="workspace-backup-feedback" role={backupFeedback.failed ? "alert" : "status"}>{backupFeedback.text}</p>}
+        {isSavingNavigation && <p className="workspace-backup-feedback" role="status">Saving workspace before opening...</p>}
         <WorkspaceStoragePanel workspace={workspace} />
         <input
           ref={fileInputRef}

@@ -1,3 +1,4 @@
+import { scheduleAcknowledgedWorkspaceAutosave } from "../document/acknowledgedWorkspaceAutosave";
 import { resolveAnalysisPage } from "./analysisPlacement";
 import { buildAnalyticalTemplateFromTile } from "./components/libraryReuseModel";
 import { useDocumentCommandState } from "./hooks/useDocumentCommandState";
@@ -755,36 +756,13 @@ export default function BuilderApp() {
     if (workspaceSaveSession.hasPending()) {
       workspaceSaveSession.remember(upsertDraftReport(workspaceRef.current, dashboard, activeReportId));
     }
-    setSaveState("Saving...");
-    let settleTimer: number | undefined;
-    const saveTimer = window.setTimeout(() => {
-      try {
-        const nextWorkspace = upsertDraftReport(
-          workspaceRef.current,
-          dashboard,
-          activeReportId,
-        );
-        setWorkspace(nextWorkspace);
-        if (!saveDashboardWorkspace(nextWorkspace)) {
-          setSaveState("Not saved");
-          return;
-        }
-        setSaveState("Saved just now");
-        settleTimer = window.setTimeout(
-          () => setSaveState("Saved locally"),
-          2200,
-        );
-      } catch {
-        setSaveState("Not saved");
-      }
-    }, 900);
-
-    return () => {
-      window.clearTimeout(saveTimer);
-      if (settleTimer) {
-        window.clearTimeout(settleTimer);
-      }
-    };
+    return scheduleAcknowledgedWorkspaceAutosave({
+      capture: () => upsertDraftReport(workspaceRef.current, dashboard, activeReportId),
+      onCaptured: setWorkspace,
+      save: (nextWorkspace) => workspaceSaveSession.saveAsync(nextWorkspace),
+      onRejected: (nextWorkspace) => workspaceSaveSession.remember(nextWorkspace),
+      onState: setSaveState,
+    });
   }, [dashboard, activeReportId, publishedSnapshot, setSaveState]);
 
   useEffect(() => {
