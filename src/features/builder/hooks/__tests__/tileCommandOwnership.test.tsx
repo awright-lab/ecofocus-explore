@@ -142,3 +142,12 @@ it.each(["cancel","navigate","failure"] as const)("does not leave a new page beh
  if(reason==="failure")await act(async()=>requests[0].reject(new Error("Synthetic placement request failed")));else await finish(fixture.response);
  expect(await pending).toBeNull();expect(current).toEqual(before);expect(current.pages).toHaveLength(2);expect(select).not.toHaveBeenCalled();
 });
+it("retains reviewed follow-up context in a separate result without changing the source response or pages",async()=>{
+ const fixture=await setup("create"),before=structuredClone(current),responseBefore=structuredClone(fixture.response);let pending!:Promise<string|null>;
+ await act(async()=>{pending=commands.createTileFromSource(fixture.response.query,"Does North vary by Segment?",undefined,undefined,{destination:"new_page",contextNotes:["Original recorded finding: North / Total: 25%.","Add breakout Segment. Original preserved."]});});
+ await finish(fixture.response);expect(await pending).toBeTruthy();expect(current.pages.slice(0,2)).toEqual(before.pages);expect(current.pages[2].tiles[0].result.notes).toEqual([...fixture.response.notes,"Original recorded finding: North / Total: 25%.","Add breakout Segment. Original preserved."]);expect(fixture.response).toEqual(responseBefore);
+});
+it("drops a cancelled follow-up creation and its context without adding a page",async()=>{
+ const fixture=await setup("create"),before=structuredClone(current);let owner=true,pending!:Promise<string|null>;
+ await act(async()=>{pending=commands.createTileFromSource(fixture.response.query,"Follow-up",undefined,undefined,{destination:"new_page",isCurrent:()=>owner,contextNotes:["Cancelled context"]});});owner=false;await finish(fixture.response);expect(await pending).toBeNull();expect(current).toEqual(before);expect(select).not.toHaveBeenCalled();
+});

@@ -111,6 +111,7 @@ const TileAnalysisQuerySection = lazy(() =>
   })),
 );
 const ResultEvidencePanel = lazy(() => import("./ResultEvidencePanel"));
+const FindingFollowUps = lazy(() => import("./FindingFollowUps"));
 const TileAnalysisResultSection = lazy(() =>
   import("./InspectorTileAnalysisSections").then((module) => ({
     default: module.TileAnalysisResultSection,
@@ -190,6 +191,8 @@ export type BuilderInspectorProps = {
   setSettingsView: (view: SettingsView) => void;
   activePage: DashboardPage;
   evidencePages?: DashboardPage[];
+  followUpAudiences?: import("../../../../shared/types/audience").SavedImportedAudience[];
+  onCreateFindingFollowUp?: import("./FindingFollowUps").CreateFindingFollowUp;
   onEvidenceNavigate?: (tileId:string)=>void;
   dashboardPageCount: number;
   updateActivePage: (updates: Partial<DashboardPage>) => void;
@@ -1097,6 +1100,7 @@ export const BuilderInspector = memo(function BuilderInspector(
           <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
         </div>
       </div>
+      {props.onCreateFindingFollowUp && <Suspense fallback={<p>Loading follow-up questions...</p>}><FindingFollowUps key={selectedTile.id} tile={selectedTile} studies={props.importedDatasets} audiences={props.followUpAudiences} onCreate={props.onCreateFindingFollowUp} isLoading={isLoading}/></Suspense>}
       <Suspense fallback={<p>Loading result explanation...</p>}><ResultEvidencePanel key={selectedTile.id} tile={selectedTile} /></Suspense>
       <AssistantFolder
         title="Edit analysis"

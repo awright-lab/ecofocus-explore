@@ -27,6 +27,8 @@ export interface AnalyticsFilter {
 }
 
 export interface ImportedAnalyticsSourceIdentity {
+  /** Recorded import event for version-safe follow-up execution. */
+  datasetImportedAt?: string;
   audience?: SavedImportedAudience;
   kind: "imported";
   measureBaseScope?: "cell";

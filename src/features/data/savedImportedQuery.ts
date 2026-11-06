@@ -9,6 +9,7 @@ export function resolveSavedImportedQuery(query: AnalyticsQueryRequest, datasets
   if (source?.kind !== "imported") throw new Error("This saved analysis is missing its imported study context. Recreate it from the original result.");
   const dataset = datasets.find(item => item.id === source.datasetId);
   if (!dataset) throw new Error(`The study "${source.datasetLabel}" is unavailable. Restore its source data before reusing this analysis.`);
+  if (source.datasetImportedAt !== undefined && source.datasetImportedAt !== dataset.importedAt) throw new Error("The study was replaced after this analysis ran. Review and rerun the original analysis before reusing it.");
   if ([query.sourceRef, source.sourceRef].some(ref => ref && ref.datasetId !== dataset.id)) throw new Error("This saved analysis has conflicting study references. Its result has not been recreated.");
   if (query.weight !== null) throw new Error("Weighted imported templates are not supported. Recreate this analysis with an explicit unweighted query.");
   if (query.authoredVariableSet || query.comparisonMode === "wave") throw new Error("This imported template contains unsupported authored rows or wave comparisons. Recreate it from the original result.");

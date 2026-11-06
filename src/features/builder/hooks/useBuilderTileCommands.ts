@@ -202,7 +202,7 @@ export function useBuilderTileCommands({
     sourceLabel: string,
     position?: { x: number; y: number },
     source?: DashboardTile["source"],
-    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean; destination?: AnalysisDestination }
+    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean; destination?: AnalysisDestination; contextNotes?: string[] }
   ) {
     const operation = beginOperation(options?.isCurrent);
     if (!operation) return null;
@@ -237,7 +237,7 @@ export function useBuilderTileCommands({
         query: response.query,
         visualization: tileQuery.chartType,
         appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
-        result: resolvedResponse
+        result: options?.contextNotes?.length ? { ...resolvedResponse, notes: [...resolvedResponse.notes, ...options.contextNotes] } : resolvedResponse
       };
 
       return insertCreatedAnalysis(tile, operation.ownsContext, options?.destination);

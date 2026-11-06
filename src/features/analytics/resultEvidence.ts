@@ -55,7 +55,9 @@ export function buildResultEvidence(tile: DashboardTile, rowId: string, columnId
     ...(measure ? [{ label: "Numeric measure", value: imported?.measureFieldLabel ?? "Not identified in the saved source metadata" }] : []),
     { label: "Metric", value: result.metric.label }, { label: baseLabel, value: baseValue },
     { label: "Weighting", value: unverifiedWeight ? "A weight was requested, but its application is not confirmed in the saved result" : appliedWeight ? `${result.weighting.label || "Weight applied"}; weighted totals are not respondent sample sizes` : "Unweighted" },
-    { label: "Filter", value: filter }, { label: "Data version", value: "Not recorded with this result" },
+    { label: "Filter", value: filter },
+    ...(imported?.datasetImportedAt && Number.isFinite(Date.parse(imported.datasetImportedAt)) ? [{ label: "Study import event", value: imported.datasetImportedAt }] : []),
+    { label: "Data version", value: "No immutable content version recorded" },
     { label: "Statistical testing", value: resultInferenceLabel(result) },
   ];
   let explanation: string;

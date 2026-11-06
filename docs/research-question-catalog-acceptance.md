@@ -12,7 +12,7 @@ Acceptance criteria:
 
 Scope: complete local imported-study metadata and the existing EcoFocus sample question set. Remote entries explicitly represent only browser-available metadata; remote topic/concept writes and complete server discovery remain unsupported and belong to goal 7. This is declared metadata search, not AI semantic inference. No live Snowflake claim.
 
-Current status: implemented and tested review candidate; independent original-scope acceptance is pending.
+Current status: independent reviewer accepted original goal 10 at remote `bcd0efe94c88db1c97529226278f0cfcbd984cf6` within local-study and sample-metadata scope. The reviewer independently ran 20 actual-module assertions and synthetic persistence checks. Remote discovery, inferred concepts, sample backend execution and live Snowflake are not implied.
 
 ## Verification
 

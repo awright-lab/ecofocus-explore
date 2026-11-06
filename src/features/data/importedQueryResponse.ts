@@ -19,6 +19,7 @@ function matchesSourceRef(value: unknown, datasetId: string) {
 }
 function matchesSource(value: unknown, config: ImportedDatasetQueryConfig) {
   if (!queryResponseObject(value) || value.kind !== "imported" || value.datasetId !== config.dataset.id || value.primaryFieldId !== config.field.id) return false;
+  if (value.datasetImportedAt !== undefined && value.datasetImportedAt !== config.dataset.importedAt) return false;
   const expected: Record<string, unknown> = {
     measureFieldId: config.measureField?.id, bannerFieldId: config.bannerField?.id,
     filterFieldId: config.filter?.field?.id, filterValue: config.filter?.value, groupingScope: config.groupingScope,

@@ -722,6 +722,7 @@ function slug(value: string, fallback: string) {
 function importedSourceIdentity(config: ImportedDatasetQueryConfig): ImportedAnalyticsSourceIdentity {
   return {
     kind: "imported",
+    datasetImportedAt: config.dataset.importedAt,
     ...(config.audience !== undefined ? { audience: structuredClone(config.audience) } : {}),
     ...(isMeasureMetric(config.metric) ? { measureBaseScope: "cell" as const } : {}),
     queryKind: isMeasureMetric(config.metric) ? "measure" : "categorical",

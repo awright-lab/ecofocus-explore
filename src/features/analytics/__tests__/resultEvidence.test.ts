@@ -13,7 +13,7 @@ async function result(metric: Metric="average", banner=false) {
 function fact(view: ReturnType<typeof buildResultEvidence>,label:string){return view?.facts.find(item=>item.label===label)?.value;}
 it("explains a stored numeric cell with its valid base without inventing a total or data version",async()=>{
  const response=await result();delete response.calculationInputs;const value=tile(response),before=structuredClone(value),row=response.table.find(item=>item.label==="North")!,view=buildResultEvidence(value,row.optionId,response.columns[0].id);
- expect(fact(view,"Stored value")).toBe("10");expect(fact(view,"Valid numeric observations in this cell")).toBe("1");expect(fact(view,"Numeric total")).toBe("Not stored separately");expect(fact(view,"Data version")).toBe("Not recorded with this result");expect(view?.warnings.some(item=>item.includes("Skipped 2 rows"))).toBe(true);expect(value).toEqual(before);
+ expect(fact(view,"Stored value")).toBe("10");expect(fact(view,"Valid numeric observations in this cell")).toBe("1");expect(fact(view,"Numeric total")).toBe("Not stored separately");expect(fact(view,"Data version")).toBe("No immutable content version recorded");expect(fact(view,"Study import event")).toBe(response.query.sourceIdentity?.kind==="imported"?response.query.sourceIdentity.datasetImportedAt:undefined);expect(view?.warnings.some(item=>item.includes("Skipped 2 rows"))).toBe(true);expect(value).toEqual(before);
 });
 it("does not present a zero mean when the selected cell has no valid observations",async()=>{
  const response=await result("average",true),row=response.table.find(item=>item.label==="South")!,column=response.columns.find(item=>item.label==="B")!,view=buildResultEvidence(tile(response),row.optionId,column.id);
