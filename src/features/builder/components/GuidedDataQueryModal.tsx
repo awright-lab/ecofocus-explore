@@ -255,13 +255,13 @@ export function GuidedDataQueryModal({
       id: "responses",
       label: "Show answers for this question",
       disabled: Boolean(groupingScope),
-      helper: `Inspect the answer distribution for ${importedGroupingLabel || "the selected field"}.`
+      helper: `Fits “Which answers are common?” because ${importedGroupingLabel || "the selected field"} groups recorded responses into categories. Percentages describe the distribution; counts describe volume. No breakout is added.`
     },
     {
       id: "compare",
       label: "Compare by a group",
       helper: importedBannerFields.length
-        ? `Compare ${importedGroupingLabel} across ${importedFieldDisplayLabel(importedBannerField ?? importedBannerFields[0])}. You can choose a different group below.`
+        ? `Fits “Do answers differ by group?” because ${importedGroupingLabel} and ${importedFieldDisplayLabel(importedBannerField ?? importedBannerFields[0])} are modeled grouping fields. Separate group bases support percentage comparisons; this does not test significance. Choose the group below.`
         : "This dataset needs another group field before comparison is available.",
       disabled: Boolean(groupingScope) || importedBannerFields.length === 0
     },
@@ -269,7 +269,7 @@ export function GuidedDataQueryModal({
       id: "measure",
       label: "Summarize a number",
       helper: importedMeasureFields.length
-        ? `Summarize ${importedMeasureField ? importedMeasureLabel : importedFieldDisplayLabel(importedMeasureFields[0])} by ${importedGroupingLabel}. Review whether an average or total answers your question.`
+        ? `Fits “How much, on average or in total?” because ${importedMeasureField ? importedMeasureLabel : importedFieldDisplayLabel(importedMeasureFields[0])} is available as a numeric measure. Summarizing it by ${importedGroupingLabel} describes amounts rather than answer frequencies. Confirm units before totaling.`
         : "No numeric fields are modeled as measures yet.",
       disabled: importedMeasureFields.length === 0
     }
@@ -675,6 +675,7 @@ export function GuidedDataQueryModal({
                         </small>
                       </div>
                     )}
+                    <p className="guided-query-purpose-note">Choose the purpose that matches your research question. These options use available modeled fields; they do not infer business meaning or validate measurement units.</p>
                     <div className="guided-query-intent-grid" aria-label="What to show">
                       {importedIntentOptions.map((intent) => (
                         <button

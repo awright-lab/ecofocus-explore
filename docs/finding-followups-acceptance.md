@@ -10,7 +10,7 @@ Required acceptance:
 4. Pending edits, ambiguous/unavailable cells, missing/replaced sources, legacy unversioned imports, unsupported derived/authored results and remote workflows fail visibly without writing anything. Saved audience versions cannot silently rebind. Late previews/creation after cancellation or changed context must not replace work.
 5. Native real-App synthetic checks cover grouping and saved-audience follow-ups through preview, creation, save/cold reopen and preserved source. Automated regression tests cover calculation/source correctness, failures, context ownership and persistence. Independent original-scope review is required before completion.
 
-Status: implemented and tested review candidate. Independent original-scope review is pending; the goal is not yet marked complete.
+Status: independent review accepted goal27 at bd7e2a27 within complete local imported-study grouping/audience and explicit illustrative sample scope. Real cross-wave harmonization, live/remote execution and durable lineage remain outside that acceptance.
 
 ## Verification
 
@@ -50,3 +50,5 @@ Real-App review acceptance in the guarded advice fixture creates an explicitly t
 Regression coverage includes the real builder command with fetch stubbed, identical preview/created matrices, preserved provenance, subsequent follow-up availability, command refresh and no server request. Native generation creation and cold reopen are verified; native Office, sample live backend execution and real wave comparability remain unverified. Goal27 stays open for independent re-review.
 
 Final combined verification: **1,649 tests passed, two skipped**; TypeScript and Vite production build passed. Sixteen new regressions relative to the earlier 1,633-test checkpoint. Existing Builder chunk warning remains (about 796 kB). Frozen acceptance logs are retained outside Git as advice-followup-frozen-tests/build.log and .exit. These results do not establish live Snowflake or native Office correctness.
+
+Independent reviewer accepted both reported corrections using actual component/command probes with no fetch calls. Origin IDs are explanatory result notes and ordinary reruns replace them; they are not durable lineage. This limitation is retained explicitly rather than presenting the notes as an audit history.

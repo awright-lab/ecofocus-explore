@@ -33,6 +33,11 @@ function minimumProps(datasets:ImportedDatasetRecord[],overrides:Partial<Analysi
 
 
 describe('imported analysis creation accuracy',()=>{
+ it('explains each analysis choice using an explicit research purpose and the actual available fields',async()=>{
+  const dataset=await csv('Answer,Region,Spend\nYes,North,10\nNo,South,20\nYes,North,30\n');await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset])} onClose={()=>{}}/>));
+  expect(button('Show answers for this question').textContent).toContain('Which answers are common?');expect(button('Show answers for this question').textContent).toContain('Answer groups recorded responses into categories');expect(button('Compare by a group').textContent).toContain('Answer and Region are modeled grouping fields');expect(button('Compare by a group').textContent).toContain('does not test significance');expect(button('Summarize a number').textContent).toContain('Spend is available as a numeric measure');expect(button('Summarize a number').textContent).toContain('amounts rather than answer frequencies');expect(button('Summarize a number').textContent).toContain('Confirm units');
+  await act(async()=>button('Compare by a group').click());expect(button('Summarize a number').textContent).toContain('Spend is available as a numeric measure');await act(async()=>button('Summarize a number').click());expect(button('Summarize a number').getAttribute('aria-pressed')).toBe('true');expect(host.textContent).toContain('Average Spend by Answer');
+ });
  it('uses a valid single-series view when an imported question inherits a multi-group sample preference',async()=>{
   const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,South\n');const create=vi.fn(async()=> 'tile');await act(async()=>root.render(<GuidedDataQueryModal initialOutputMode="chart" props={minimumProps([dataset],{chartType:'grouped_bar',addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
   expect(select('Chart type').value).toBe('vertical_bar');await act(async()=>button('Create chart').click());expect((create.mock.calls[0] as unknown as Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>)[2]).toBe('vertical_bar');
