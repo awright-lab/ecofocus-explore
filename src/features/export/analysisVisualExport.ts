@@ -35,7 +35,7 @@ function label(tile: DashboardTile, id: string, source: string) { return tile.ap
 function value(tile: DashboardTile, amount: number | null) {
   return formatValue(amount, tile.result.metric.valueFormat, tile.result.metric.id, { percentDecimals: tile.appearance.labelPercentDecimals, percentRounding: tile.appearance.labelPercentRounding });
 }
-function base(tile: DashboardTile, amount: number) { return `${tile.result.weighting.applied ? "W" : "n"}=${amount}`; }
+function base(tile: DashboardTile, amount: number) { return `${tile.result.weighting.applied ? "W" : tile.result.query.weight ? "base (weight unconfirmed)" : "n"}=${amount}`; }
 function contrast(fill: string) {
   const hex = fill.replace("#", "");
   if (!/^[0-9a-f]{6}$/i.test(hex)) return "#fff";
@@ -208,7 +208,7 @@ export function analysisTileSvg(tile: DashboardTile, includeBody = true) {
   layout.title.forEach((line, n) => { svg += text(line, x + 20, y + 20 + n * 19, 16); });
   layout.context.forEach((line, n) => { svg += text(line, x + 20, y + 20 + layout.title.length * 19 + n * 11, 9); });
   const hasValues = tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
-  if (includeBody && !hasValues && tile.visualization !== "table") svg += text("Unavailable: no valid numeric observations.",layout.area.x,layout.area.y+24,12);
+  if (includeBody && !hasValues && tile.visualization !== "table") svg += text(tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no valid numeric observations.",layout.area.x,layout.area.y+24,12);
   else if (includeBody) svg += tile.visualization === "table" ? table(tile) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
   return svg + "</g>";
 }

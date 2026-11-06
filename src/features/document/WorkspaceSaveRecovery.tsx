@@ -1,10 +1,23 @@
+import { createStoredRecoveryDownload, inspectStoredWorkspaceCopies, type StoredRecoveryCopy } from "./storedWorkspaceRecovery";
 import { WorkspaceBackupButton } from "./WorkspaceBackupButton";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { workspaceSaveFailureMessage, workspaceSaveSession } from "./workspaceSaveSession";
 import { readStoredWorkspaceCopy } from "./workspacePersistence";
 
-export function WorkspaceLoadRecovery() {
+export function WorkspaceLoadRecovery({ inspectCopies = inspectStoredWorkspaceCopies }: { inspectCopies?: () => StoredRecoveryCopy[] } = {}) {
   const [error, setError] = useState<string | null>(null);
+  const [copies, setCopies] = useState<StoredRecoveryCopy[] | null>(null);
+  function downloadRecoveryCopy(copy: StoredRecoveryCopy) {
+    try {
+      const url = URL.createObjectURL(new Blob([createStoredRecoveryDownload(copy)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `insightcanvas-${copy.fileStem}-recovery.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setError(null);
+    } catch { setError("The recovery copy could not be downloaded. Keep this browser open and retry."); }
+  }
   function downloadStoredWorkspace() {
     try {
       const raw = readStoredWorkspaceCopy();
@@ -25,6 +38,21 @@ export function WorkspaceLoadRecovery() {
     {error && <p>{error}</p>}
     <button type="button" onClick={downloadStoredWorkspace}>Download saved workspace</button>
     <button type="button" onClick={() => window.location.reload()}>Retry opening</button>
+    <button type="button" onClick={() => { setCopies(inspectCopies()); setError(null); }}>Inspect saved copies</button>
+    {copies && <section className="workspace-recovery-copies" aria-label="Saved browser copies">
+      <h2>Saved browser copies</h2>
+      <p>Inspection leaves every saved copy unchanged. Recovery downloads preserve the original text and its format. Restoring a copy is not yet available.</p>
+      <ul>{copies.map(copy => <li key={copy.key}>
+        <h3>{copy.label}</h3>
+        <p>{copy.status === "readable" ? "Readable copy" : copy.status === "damaged" ? "This copy could not be read safely. Its original text is available for recovery." : copy.status === "missing" ? "No saved copy found." : "Browser storage could not be accessed. Retry inspection when access is available."}</p>
+        {copy.summary && <>
+          <p>Reports: {copy.summary.reports} · Draft pages: {copy.summary.pages} · Snapshots: {copy.summary.snapshots} · Current studies: {copy.summary.currentStudies}</p>
+          {copy.summary.needsSourceData && <p>Some study rows or fields are incomplete in this copy.</p>}
+          {copy.summary.needsRemoteAccess && <p>This copy references remote data or connections. Their availability has not been verified.</p>}
+        </>}
+        {copy.raw !== null && <button type="button" onClick={() => downloadRecoveryCopy(copy)}>Download {copy.label.toLowerCase()} recovery copy</button>}
+      </li>)}</ul>
+    </section>}
   </main>;
 }
 

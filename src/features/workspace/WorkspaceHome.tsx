@@ -1,3 +1,4 @@
+import { WorkspaceBackupInspector } from "./WorkspaceBackupInspector";
 import { WorkspaceStoragePanel } from "./WorkspaceStoragePanel";
 import { WorkspaceBackupButton } from "../document/WorkspaceBackupButton";
 import {
@@ -1093,8 +1094,10 @@ export function WorkspaceHome({
         {backupFeedback && <p className="workspace-backup-feedback" role={backupFeedback.failed ? "alert" : "status"}>{backupFeedback.text}</p>}
         {isSavingNavigation && <p className="workspace-backup-feedback" role="status">Saving workspace before opening...</p>}
         <WorkspaceStoragePanel workspace={workspace} />
+        <WorkspaceBackupInspector workspace={workspace} />
         <input
           ref={fileInputRef}
+          aria-label="Import study file"
           type="file"
           accept=".csv,.xlsx,.sav,text/csv"
           className="visually-hidden"

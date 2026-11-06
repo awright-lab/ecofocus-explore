@@ -1,5 +1,6 @@
+import { AnalysisEditPreview } from "./AnalysisEditPreview";
 import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useInspectorQueryRequest, useInvalidatingQueryOption } from "../hooks/useInspectorQueryRequest";
 import type React from "react";
 import { rangeFill } from "../../design-system/DesignControls";
@@ -8,7 +9,7 @@ import { buildImportedResultProvenance, getImportedDatasetQuerySupport, getImpor
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import { importedQuerySelectionIssue } from "../../data/importedQuerySelection";
-import type { ChartType, ConfidenceLevel, Metric } from "../../../../shared/types/analytics";
+import type { ChartType, ConfidenceLevel, Metric, AnalyticsQueryResponse } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
   buildSettingProvenancePickerView,
@@ -622,6 +623,11 @@ function ImportedTileQueryEditor({
   isLoading: boolean;
   getEditorContextVersion?: () => string | number;
 }) {
+  const previewRegionId = useId();
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const queryEditorRef = useRef<HTMLDivElement | null>(null);
+  const [previewRequest, setPreviewRequest] = useState(false);
+  const [editPreview, setEditPreview] = useState<{ before: AnalyticsQueryResponse; after: AnalyticsQueryResponse; isCurrent: () => boolean } | null>(null);
   const source = tile.result.metadataRefs.source?.kind === "imported" ? tile.result.metadataRefs.source : null;
   const initialDataset = source ? importedDatasets.find((dataset) => dataset.id === source.datasetId) ?? null : null;
   const studies = useRef({value:importedDatasets,version:0});
@@ -695,10 +701,11 @@ function ImportedTileQueryEditor({
     if (nextFieldId === bannerFieldId) setBannerFieldId("none");
   }
 
-  async function applyImportedQuery() {
+  async function applyImportedQuery(previewOnly = false) {
     if (!dataset || !primaryField || !canApply) return;
     const operation=request.begin();
     if(!operation)return;
+    setEditPreview(null); setPreviewRequest(previewOnly);
     try {
       const result = await runImportedDatasetQueryForRuntime({
         dataset,
@@ -711,6 +718,7 @@ function ImportedTileQueryEditor({
         metric: effectiveMetric
       });
       if(!operation.isCurrent())return;
+      if (previewOnly) { setEditPreview({ before: tile.result, after: result, isCurrent: operation.isCurrent }); return; }
       const title = queryMode === "measure" && measureField
         ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${importedFieldDisplayLabel(measureField)} by ${importedFieldDisplayLabel(primaryField)}`
         : importedFieldDisplayLabel(primaryField);
@@ -735,10 +743,17 @@ function ImportedTileQueryEditor({
     }
   }
 
+  function dismissPreview() {
+    setEditPreview(null);
+    const trigger = previewTriggerRef.current;
+    if (trigger?.isConnected && !trigger.disabled) trigger.focus();
+    else queryEditorRef.current?.focus();
+  }
+  const activePreview = editPreview && editPreview.before === tile.result && editPreview.isCurrent() ? editPreview : null;
   if (!source) return null;
 
   return (
-    <div className="imported-query-editor">
+    <div className="imported-query-editor" ref={queryEditorRef} role="group" aria-label="Imported query editor" tabIndex={-1} data-canvas-keyboard-scope="controls">
       {!dataset && <p role="alert">The original study is unavailable. Choose a replacement study explicitly before rerunning this result.</p>}
       {dataset && selectionIssue && <p role="alert">{selectionIssue}</p>}
       <div className="explorer-section-header">
@@ -882,8 +897,13 @@ function ImportedTileQueryEditor({
         <strong>{support.executable ? "Ready to rerun imported result" : "Unsupported imported edit"}</strong>
         <small>{support.reason}</small>
       </div>
-      <button type="button" onClick={applyImportedQuery} disabled={!canApply}>
-        {isLoading || isUpdatingImportedResult ? "Updating..." : "Update imported result"}
+      <button type="button" className="secondary" ref={previewTriggerRef} aria-expanded={Boolean(activePreview)} aria-controls={activePreview ? previewRegionId : undefined} onClick={() => void applyImportedQuery(true)} disabled={!canApply}>{isUpdatingImportedResult && previewRequest ? "Previewing..." : "Preview proposed edit"}</button>
+      <small>Preview runs the selected query and leaves the canvas unchanged.</small>
+      {editPreview && (activePreview
+        ? <AnalysisEditPreview id={previewRegionId} before={activePreview.before} after={activePreview.after} onDismiss={dismissPreview} />
+        : <p role="status">This preview is out of date. Preview the current settings again before comparing results.</p>)}
+      <button type="button" onClick={() => void applyImportedQuery(false)} disabled={!canApply}>
+        {isLoading || isUpdatingImportedResult && !previewRequest ? "Updating..." : "Update imported result"}
       </button>
       {importedUpdateError && <small className="imported-query-error">{importedUpdateError}</small>}
     </div>

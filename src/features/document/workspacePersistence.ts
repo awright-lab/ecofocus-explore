@@ -677,7 +677,21 @@ export function createPublishedSnapshot(
   dashboard: DashboardDraft
 ): { workspace: DashboardWorkspace; dashboard: DashboardDraft; snapshot: PublishedDashboardSnapshot } {
   const publishedAt = nowIso();
-  const publishCount = dashboard.publishMetadata.publishCount + 1;
+  // A newer draft may intentionally keep editing after a snapshot save. Its
+  // metadata can lag acknowledged history, so version numbers use both sources.
+  const counts = [dashboard.publishMetadata.publishCount];
+  const currentReport = workspace.reports.find(report => report.id === dashboard.id);
+  if (currentReport) counts.push(currentReport.draft.publishMetadata.publishCount);
+  for (const snapshot of workspace.publishedSnapshots) {
+    if (snapshot.reportId === dashboard.id) counts.push(snapshot.dashboard.publishMetadata.publishCount);
+  }
+  let latestCount = 0;
+  for (const count of counts) {
+    if (!Number.isSafeInteger(count) || count < 0) throw new Error("Snapshot version history is inconsistent. Preserve a backup before saving another version.");
+    latestCount = Math.max(latestCount, count);
+  }
+  if (latestCount === Number.MAX_SAFE_INTEGER) throw new Error("The snapshot version limit has been reached. Preserve a backup before continuing.");
+  const publishCount = latestCount + 1;
   const versionLabel = `v${publishCount}`;
   const snapshotId = makeId("snapshot");
   const viewerPath = makePublishedViewerPath(dashboard.id, snapshotId);

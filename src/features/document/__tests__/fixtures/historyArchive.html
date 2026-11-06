@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="UTF-8"><title>Synthetic recovery archive acceptance</title></head><body><h1>Synthetic recovery archive acceptance</h1><p>Isolated test journal only. No active workspace writes or restoration.</p><button id="run">Run read-only archive acceptance</button><pre id="out">Not run</pre><div id="recovery"></div><script type="module">
+import {workspaceStorageKey} from '../../workspacePersistence';import React from 'react';import {createRoot} from 'react-dom/client';
+import {createDurableHistoryRepository} from '../../durableHistoryRepository';
+import {createPersistentWorkspaceHistory} from '../../persistentWorkspaceHistory';
+import {DeferredWorkspaceHistoryRecovery} from '../../DeferredWorkspaceHistoryRecovery';
+const requested=decodeURIComponent(location.hash.slice(1));if(requested&&!/^ecofocus-synthetic-history-archive-[0-9]+$/.test(requested))throw Error('Only synthetic archive namespaces are allowed');const out=document.getElementById('out'),name=requested||'ecofocus-synthetic-history-archive-'+Date.now(),before=localStorage.getItem(workspaceStorageKey);
+history.replaceState(null,'','#'+name);const repository=createDurableHistoryRepository(name);let root,store;const cleanup=document.createElement('button');cleanup.textContent='Clean up isolated synthetic journal';cleanup.onclick=async()=>{root?.unmount();if(store)await store.close();else await repository.close();await new Promise((yes,no)=>{const r=indexedDB.deleteDatabase(name);r.onsuccess=yes;r.onerror=()=>no(r.error);r.onblocked=()=>no(Error('Synthetic cleanup blocked'));});cleanup.disabled=true;document.getElementById('run').disabled=true;out.textContent+='\nSynthetic namespace cleaned; active workspace unchanged: '+(localStorage.getItem(workspaceStorageKey)===before);};document.body.append(cleanup);
+const open=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(name,1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+async function raw(work,mode='readonly'){const db=await open();try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['historyCandidates','reconciledHistory'],mode);let result;work(tx,value=>result=value);tx.oncomplete=()=>resolve(result);tx.onabort=()=>reject(tx.error);});}finally{db.close();}}
+document.getElementById('run').onclick=async()=>{try{
+ await repository.inspect();
+ const malformed={id:'damaged',version:999,payload:'opaque'+String.fromCharCode(0xd800),absent:undefined,notNumber:NaN};malformed.self=malformed;
+ await raw(tx=>{tx.objectStore('historyCandidates').add(malformed);tx.objectStore('reconciledHistory').add({id:'orphan-receipt',digest:'broken'});},'readwrite');
+ const scan=await repository.inspect(),text=await repository.exportRecoveryArchive(),archive=JSON.parse(text);
+ const first=await raw((tx,done)=>{const r=tx.objectStore('historyCandidates').get('damaged');r.onsuccess=()=>done(r.result);});
+ const checks={readOnlyArchiveHasBothStores:archive.records.length===2&&new Set(archive.records.map(x=>x.store)).size===2,damagedRecordFlagged:scan.unreadableRecords===1,opaqueTextPreserved:archive.nodes.some(node=>JSON.stringify(node).includes('opaque\\ud800')),specialValuesTagged:JSON.stringify(archive).includes('undefined')&&JSON.stringify(archive).includes('NaN'),originalCycleAndPayloadPreserved:first.self===first&&first.payload===malformed.payload&&Object.hasOwn(first,'absent')&&Number.isNaN(first.notNumber),existingWorkspacePresent:before!==null,activeWorkspaceUnchanged:localStorage.getItem(workspaceStorageKey)===before};
+ await raw(tx=>tx.objectStore('historyCandidates').add({id:'unsupported',payload:new Map([['raw','value']])}),'readwrite');
+ try{await repository.exportRecoveryArchive();checks.unsupportedArchiveFailsCompletely=false;}catch{checks.unsupportedArchiveFailsCompletely=true;}
+ checks.unsupportedRecordStillPresent=await raw((tx,done)=>{const r=tx.objectStore('historyCandidates').get('unsupported');r.onsuccess=()=>done(r.result.payload instanceof Map);});
+ out.textContent=JSON.stringify({namespace:name,checks,allPassed:Object.values(checks).every(Boolean),archiveCodeUnits:text.length},null,2);
+ store=createPersistentWorkspaceHistory(repository);root=createRoot(document.getElementById('recovery'));root.render(React.createElement(DeferredWorkspaceHistoryRecovery,{workspace:null,onWorkspaceChange:()=>{},history:store}));
+ document.getElementById('run').disabled=true;
+
+ }catch(error){out.textContent='FAILED: '+error.message;}};
+</script></body></html>

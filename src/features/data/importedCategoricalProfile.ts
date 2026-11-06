@@ -24,3 +24,13 @@ export function buildImportedCategoricalProfile(dataset: ImportedDatasetRecord, 
       omittedResponses: observed.slice(10).reduce((sum, category) => sum + category.count, 0) };
   } catch (error) { return { status: "unavailable", reason: error instanceof Error ? error.message : "The response categories could not be inspected safely." }; }
 }
+
+// A count-only projection for worker inspection. It cannot be used as a saved
+// source or exported analysis: dataset identity and connection data are omitted.
+export function buildCategoricalProfileFromValues(values: readonly string[], field: ImportedDatasetField): ImportedCategoricalProfile {
+  const dataset: ImportedDatasetRecord = {
+    id: "profile-projection", title: "Selected field values", sourceType: "local_file", fileName: "", fileType: "unknown", importedAt: "",
+    rowCount: values.length, fieldCount: 1, fields: [field], rows: values.map(value => ({ [field.sourceColumn]: value })), previewRows: [], modelingStatus: "initial_model", notes: []
+  };
+  return buildImportedCategoricalProfile(dataset, field);
+}

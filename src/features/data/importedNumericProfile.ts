@@ -43,11 +43,15 @@ export type ImportedNumericProfile =
 export function buildImportedNumericProfile(dataset: ImportedDatasetRecord, field: ImportedDatasetField): ImportedNumericProfile {
   const rows = dataset.rows.length ? dataset.rows : dataset.previewRows;
   if (rows.length < dataset.rowCount) return { status: "unavailable", reason: "Complete respondent rows are unavailable in this browser. A partial preview cannot establish this field's study-wide statistics." };
+  return buildNumericProfileFromValues(rows.map(row => importedRawFieldValue(row, field)));
+}
+
+// Shared by the small synchronous path and the isolated browser worker.
+export function buildNumericProfileFromValues(rawValues: readonly string[]): ImportedNumericProfile {
   const values: number[] = [];
   let blank = 0, invalid = 0, mean = 0;
   const accumulator = new FiniteNumericSum();
-  for (const row of rows) {
-    const raw = importedRawFieldValue(row, field);
+  for (const raw of rawValues) {
     if (!raw.trim()) { blank += 1; continue; }
     const value = parseImportedNumber(raw);
     if (value === null || !Number.isFinite(value)) { invalid += 1; continue; }
@@ -69,7 +73,7 @@ export function buildImportedNumericProfile(dataset: ImportedDatasetRecord, fiel
   const warnings: string[] = [];
   if (valid && total === null) warnings.push("The total could not be represented safely and is unavailable.");
   if (valid && !Number.isFinite(mean)) warnings.push("The mean exceeds the supported numeric range and is unavailable.");
-  return { status: "ready", rows: rows.length, valid, blank, invalid, distinct: new Set(values).size,
+  return { status: "ready", rows: rawValues.length, valid, blank, invalid, distinct: new Set(values).size,
     minimum: valid ? values[0] : null, maximum: valid ? values[valid - 1] : null,
     mean: valid && Number.isFinite(mean) ? mean : null, median,
     total: valid && total !== null ? total : null, distribution: numericDistribution(values), warnings };

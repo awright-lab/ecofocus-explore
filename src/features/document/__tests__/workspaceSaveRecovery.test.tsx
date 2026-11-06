@@ -1,3 +1,4 @@
+import { deferredWorkspaceHistory } from "../deferredWorkspaceHistory";
 import * as importedRuntimeQuery from "../../data/importedDatasetRuntimeQuery";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 // @vitest-environment jsdom
@@ -22,11 +23,13 @@ vi.mock("../../data/importDatasetWorkspaceService", () => ({
 }));
 // Keep real editor/header commands and persistence; canvas geometry is unrelated
 // to storage failure and requires browser layout, which jsdom does not provide.
-vi.mock("../../builder/components/CanvasWorkspace", () => ({ CanvasWorkspace: ({ activePage, onSelectTile, sortedPages, onSetActivePage }: { activePage: DashboardPage; onSelectTile: (id: string) => void; sortedPages: DashboardPage[]; onSetActivePage: (id: string) => void }) => <div>
+vi.mock("../../builder/components/CanvasWorkspace", () => ({ CanvasWorkspace: ({ activePage, onSelectTile, onSelectElement, sortedPages, onSetActivePage }: { activePage: DashboardPage; onSelectTile: (id: string) => void; onSelectElement: (id: string) => void; sortedPages: DashboardPage[]; onSetActivePage: (id: string) => void }) => <div>
   Report canvas
   {sortedPages.length > 1 && <button onClick={() => onSetActivePage(sortedPages[1].id)}>Next page</button>}
   <output data-testid="canvas-state">{JSON.stringify(activePage)}</output>
   <button type="button" onClick={() => onSelectTile(activePage.tiles[0].id)}>Select first test tile</button>
+  {activePage.tiles[1] && <button type="button" onClick={() => onSelectTile(activePage.tiles[1].id)}>Select second test tile</button>}
+  {activePage.elements[0] && <button type="button" onClick={() => onSelectElement(activePage.elements[0].id)}>Select first test element</button>}
 </div> }));
 
 describe("workspace save recovery UI", () => {
@@ -47,6 +50,7 @@ describe("workspace save recovery UI", () => {
     sessionStorage.clear();
     workspaceSaveSession.remember(null);
     deferredWorkspaceImports.clear();
+    deferredWorkspaceHistory.clear();
     window.history.replaceState(null, "", "#/");
     const parsed = await importDatasetBuffer(new TextEncoder().encode("Segment,Spend\n" + Array.from({ length: 30 }, (_, index) => `${index < 20 ? "Core" : "Growth"},${index + 1}`).join("\n")).buffer, "study.csv");
     baseline = normalizeDashboardWorkspace({ reports: [createReportRecord(structuredClone(initialDashboard))], importedDatasets: [parsed.dataset!] });
@@ -65,6 +69,7 @@ describe("workspace save recovery UI", () => {
     host.remove();
     workspaceSaveSession.remember(null);
     deferredWorkspaceImports.clear();
+    deferredWorkspaceHistory.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -482,13 +487,162 @@ describe("workspace save recovery UI", () => {
     expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
   });
 
+  it.each([false, true])("awaits one owned new-report transition and preserves the draft (saved=%s)", async saved => {
+    let acknowledge!: (value: boolean) => void;
+    const save = vi.spyOn(workspaceSaveSession, "saveAsync").mockImplementation(value => {
+      workspaceSaveSession.remember(value);
+      return new Promise<boolean>(resolve => { acknowledge = resolve; });
+    });
+    await editor();
+    const originalPath = window.location.hash;
+    await act(async () => button("New report").click());
+    expect(save).toHaveBeenCalledOnce();
+    expect(window.location.hash).toBe(originalPath);
+    await act(async () => button("New report").click());
+    await act(async () => vi.advanceTimersByTime(5000));
+    expect(save).toHaveBeenCalledOnce();
+    const created = save.mock.calls[0][0].reports.find(report => report.id !== baseline.reports[0].id)!;
+    expect(created).toBeTruthy();
+    await act(async () => acknowledge(saved));
+    expect(window.location.hash).toBe(saved ? `#/reports/${created.id}` : originalPath);
+    if (!saved) expect(workspaceSaveSession.getPending()?.reports.find(report => report.id === baseline.reports[0].id)?.draft.title).toBe(baseline.reports[0].title);
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+  });
+
+  it("cancels a waiting report transition when the analyst edits the current report", async () => {
+    let acknowledge!: (value: boolean) => void;
+    const save = vi.spyOn(workspaceSaveSession, "saveAsync").mockImplementation(value => {
+      workspaceSaveSession.remember(value);
+      return new Promise<boolean>(resolve => { acknowledge = resolve; });
+    });
+    await editor(); const originalPath = window.location.hash;
+    await act(async () => button("New report").click());
+    const firstAck = acknowledge;
+    await act(async () => button(baseline.reports[0].title).click());
+    const input = host.querySelector<HTMLInputElement>('[aria-label="Document title"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Edit while switching");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    await act(async () => firstAck(true));
+    expect(window.location.hash).toBe(originalPath);
+    expect(host.textContent).toContain("Edit while switching");
+    await act(async () => vi.advanceTimersByTime(900));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1][0].reports.find(report => report.id === baseline.reports[0].id)?.draft.title).toBe("Edit while switching");
+  });
+
+  it.each([false, true])("opens a local snapshot only after acknowledged saving (saved=%s)", async saved => {
+    let acknowledge!: (value: boolean) => void;
+    const save = vi.spyOn(workspaceSaveSession, "saveAsync").mockImplementation((value, recovery = value) => {
+      workspaceSaveSession.remember(recovery);
+      return new Promise<boolean>(resolve => { acknowledge = resolve; });
+    });
+    await editor(); const originalPath = window.location.hash;
+    await act(async () => button("Save snapshot").click());
+    expect(save).toHaveBeenCalledOnce();
+    expect(window.location.hash).toBe(originalPath);
+    expect(host.querySelector(".published-shell")).toBeNull();
+    await act(async () => button("Save snapshot").click());
+    await act(async () => vi.advanceTimersByTime(5000));
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0][0].publishedSnapshots).toHaveLength(1);
+    expect(workspaceSaveSession.getPending()?.publishedSnapshots).toHaveLength(0);
+    await act(async () => acknowledge(saved));
+    expect(window.location.hash).toBe(saved ? save.mock.calls[0][0].publishedSnapshots[0].viewerPath : originalPath);
+    expect(Boolean(host.querySelector(".published-shell"))).toBe(saved);
+    if (!saved) expect(workspaceSaveSession.getPending()?.publishedSnapshots).toHaveLength(0);
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+  });
+
+  it("a late snapshot acknowledgement cannot replace edits made while saving", async () => {
+    let acknowledge!: (value: boolean) => void;
+    vi.spyOn(workspaceSaveSession, "saveAsync").mockImplementation((value, recovery = value) => {
+      workspaceSaveSession.remember(recovery);
+      return new Promise<boolean>(resolve => { acknowledge = resolve; });
+    });
+    await editor(); const originalPath = window.location.hash;
+    await act(async () => button("Save snapshot").click()); const snapshotAck = acknowledge;
+    await act(async () => button(baseline.reports[0].title).click());
+    const input = host.querySelector<HTMLInputElement>('[aria-label="Document title"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Newer than snapshot");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    await act(async () => snapshotAck(true));
+    expect(window.location.hash).toBe(originalPath);
+    expect(host.querySelector(".published-shell")).toBeNull();
+    expect(host.textContent).toContain("Newer than snapshot");
+    expect(workspaceSaveSession.getPending()?.reports[0].draft.title).toBe("Newer than snapshot");
+    expect(deferredWorkspaceHistory.getPending()).toHaveLength(1);
+    const captured = JSON.parse(deferredWorkspaceHistory.getPending()[0].payload) as DashboardWorkspace;
+    expect(captured.publishedSnapshots[0].dashboard.title).toBe(baseline.reports[0].title);
+    expect(workspaceSaveSession.getPending()?.publishedSnapshots).toHaveLength(0);
+  });
+
+  it("preserves the draft and reports failure if snapshot numbering cannot safely advance", async () => {
+    writeFailure.mockRestore(); baseline.reports[0].draft.publishMetadata.publishCount = Number.MAX_SAFE_INTEGER;
+    expect(saveDashboardWorkspace(baseline)).toBe(true); lastSaved = localStorage.getItem(workspaceStorageKey)!; workspaceSaveSession.remember(null);
+    const save = vi.spyOn(workspaceSaveSession, "saveAsync");
+    await editor(); const originalPath = window.location.hash;
+    await act(async () => button("Save snapshot").click());
+    expect(save).not.toHaveBeenCalled(); expect(window.location.hash).toBe(originalPath); expect(host.querySelector(".published-shell")).toBeNull();
+    expect(workspaceSaveSession.getPending()?.publishedSnapshots).toHaveLength(0);
+    expect(workspaceSaveSession.getPending()?.reports[0].draft.title).toBe(baseline.reports[0].title);
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(lastSaved);
+    expect(host.querySelector('[aria-label="Workspace not saved"]')).not.toBeNull();
+  });
+
+  it("retains a snapshot acknowledgement after its editor unmounts and reconciles it on Home", async () => {
+    let acknowledge!: (saved: boolean) => void;
+    const save = vi.spyOn(workspaceSaveSession, "saveAsync").mockImplementation((value, recovery = value) => {
+      workspaceSaveSession.remember(recovery);
+      return new Promise<boolean>(resolve => { acknowledge = resolve; });
+    });
+    window.history.replaceState(null, "", `#/reports/${baseline.reports[0].id}`);
+    await act(async () => root.render(<App />));
+    await act(async () => button("Save snapshot").click());
+    await act(async () => { window.history.pushState(null, "", "#/"); window.dispatchEvent(new HashChangeEvent("hashchange")); });
+    expect(host.querySelector(".builder-shell")).toBeNull();
+    await act(async () => acknowledge(true));
+    expect(deferredWorkspaceHistory.getPending()).toHaveLength(1);
+    expect(host.querySelector('[aria-label="Saved history awaiting review"]')).not.toBeNull();
+    save.mockRestore(); writeFailure.mockRestore();
+    const keep = Array.from(host.querySelectorAll("button")).find(node => node.textContent?.startsWith("Keep saved history copy"))!;
+    await act(async () => keep.click());
+    expect(deferredWorkspaceHistory.getPending()).toHaveLength(0);
+    expect(loadDashboardWorkspace().publishedSnapshots).toHaveLength(1);
+    expect(loadDashboardWorkspace().importedDatasets[0].rows).toHaveLength(30);
+    expect(window.location.hash).toBe("#/");
+  });
+
+  it("keeps the Data task while switching analysis tiles and respects an explicit Style choice", async () => {
+    await import("../../builder/components/ResultEvidencePanel");
+    await editor(); const before=JSON.stringify(workspaceSaveSession.getPending()??baseline);
+    await act(async()=>button("Select first test tile").click()); await act(async()=>button("Data").click()); expect(host.querySelector(".result-evidence-panel")).not.toBeNull();
+    await act(async()=>button("Select second test tile").click()); expect(host.querySelector(".result-evidence-panel")).not.toBeNull();
+    expect(host.querySelector(".assistant-object-header strong")?.textContent).toBe(baseline.reports[0].draft.pages[0].tiles[1].title);
+    await act(async()=>button("Style").click()); expect(host.querySelector(".result-evidence-panel")).toBeNull();
+    await act(async()=>button("Select first test tile").click()); expect(host.querySelector(".result-evidence-panel")).toBeNull();
+    expect(JSON.stringify(workspaceSaveSession.getPending()??baseline)).toBe(before);
+  });
+
+  it("separates analysis and element inspector tasks without keeping stale analysis controls", async () => {
+    await editor(); await act(async()=>button("Select first test tile").click()); await act(async()=>button("Data").click());
+    await act(async()=>button("Select first test element").click()); expect(host.querySelector(".result-evidence-panel")).toBeNull();
+    await act(async()=>button("Select second test tile").click()); expect(host.querySelector(".result-evidence-panel")).not.toBeNull();
+    expect(host.querySelector(".assistant-object-header strong")?.textContent).toBe(baseline.reports[0].draft.pages[0].tiles[1].title);
+  });
+
   it("reports import save failure and retains full imported data across route remounts", async () => {
     function Home() {
       const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
       return <><WorkspaceSaveRecovery /><WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} /></>;
     }
     await act(async () => root.render(<Home />));
-    const input = host.querySelector('input[type="file"]')!;
+    const input = host.querySelector('input[aria-label="Import study file"]')!;
     Object.defineProperty(input, "files", { value: [new File(["synthetic"], "study.csv")], configurable: true });
     await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
     expect(host.querySelector(".studio-import-toast.error")?.textContent).toContain("could not be saved");
@@ -542,7 +696,7 @@ describe("workspace save recovery UI", () => {
     importFile.mockReturnValue(new Promise((resolve) => { complete = resolve; }));
     const change = vi.fn();
     await act(async () => root.render(<WorkspaceHome workspace={baseline} onWorkspaceChange={change} />));
-    const input = host.querySelector('input[type="file"]')!;
+    const input = host.querySelector('input[aria-label="Import study file"]')!;
     Object.defineProperty(input, "files", { value: [new File(["synthetic"], "study.csv")], configurable: true });
     await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
     const latest = structuredClone(baseline);
@@ -570,7 +724,7 @@ describe("workspace save recovery UI", () => {
       await act(async () => button("Create analysis").click());
       await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
     }
-    const input = host.querySelector(origin === "builder" ? '[role="dialog"] input[type="file"]' : 'input[type="file"]')!;
+    const input = host.querySelector(origin === "builder" ? '[role="dialog"] input[type="file"]' : 'input[aria-label="Import study file"]')!;
     Object.defineProperty(input, "files", { value: [new File(["synthetic"], "study.csv")], configurable: true });
     await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
     if (origin === "builder") {
@@ -785,4 +939,47 @@ describe("workspace save recovery UI", () => {
     expect(host.querySelector(".analysis-create-error")?.textContent).toContain("could not be created");
     expect(button("Create table on new page").disabled).toBe(false);
   });
+  async function importedEditorPreview() {
+    writeFailure.mockRestore();
+    const dataset = baseline.importedDatasets[0], field = dataset.fields[0];
+    const result = runImportedDatasetQuery({ dataset, field, metric: "count", chartType: "table" });
+    const page = baseline.reports[0].draft.pages[0];
+    page.tiles = [{ ...page.tiles[0], visualization: "table", query: result.query, result }];
+    expect(saveDashboardWorkspace(baseline)).toBe(true);
+    await editor(); await act(async () => button("Select first test tile").click());
+    await act(async () => { await import("../../builder/components/InspectorTileAnalysisSections"); });
+    await act(async () => host.querySelector<HTMLButtonElement>('.assistant-side-rail button[data-tool="data"]')!.click());
+    await act(async () => button("Preview proposed edit").click());
+    expect(host.querySelector('[aria-label="Proposed analysis change preview"]')).not.toBeNull();
+  }
+  it("does not delete selected report content when Delete is pressed on inline preview controls", async () => {
+    await importedEditorPreview(); const before = canvasState();
+    const dismiss = button("Dismiss preview"); dismiss.focus();
+    await act(async () => dismiss.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true })));
+    expect(canvasState()).toEqual(before);
+  });
+
+  it.each(["trigger", "dismiss", "evidence"] as const)("keeps canvas command keys out of focused %s analysis controls", async targetKind => {
+    await importedEditorPreview();
+    const outside = button("Create analysis");
+    await act(async () => outside.dispatchEvent(new KeyboardEvent("keydown", { key: "d", ctrlKey: true, bubbles: true, cancelable: true })));
+    await act(async () => outside.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })));
+    await act(async () => button("Preview proposed edit").click());
+    const before = canvasState();
+    const target = targetKind === "trigger" ? button("Preview proposed edit") : targetKind === "dismiss" ? button("Dismiss preview") : host.querySelector<HTMLElement>(".result-evidence-panel summary")!;
+    for (const shortcut of [{ key: "Delete" }, { key: "Backspace" }, { key: "ArrowLeft" }, { key: "ArrowRight", shiftKey: true }, { key: "ArrowUp" }, { key: "ArrowDown" }, { key: "d", ctrlKey: true }, { key: "d", metaKey: true }, { key: "z", ctrlKey: true }, { key: "z", metaKey: true }, { key: "y", ctrlKey: true }, { key: "z", metaKey: true, shiftKey: true }]) {
+      const event = new KeyboardEvent("keydown", { ...shortcut, bubbles: true, cancelable: true });
+      target.focus(); await act(async () => target.dispatchEvent(event));
+      expect(canvasState(), `${targetKind} ${shortcut.key}`).toEqual(before);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    await act(async () => outside.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true })));
+    expect(canvasState()).not.toEqual(before);
+  });
+  it("keeps the global command palette available from an inline preview", async () => {
+    await importedEditorPreview(); const target = button("Dismiss preview"); target.focus();
+    await act(async () => target.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true })));
+    expect(host.querySelector('dialog[open].studio-command-dialog')).not.toBeNull();
+  });
+
 });

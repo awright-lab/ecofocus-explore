@@ -344,6 +344,13 @@ export interface AnalyticsSignificanceResult {
 }
 
 export interface AnalyticsQueryResponse {
+  calculationInputs?: {
+    version: 1;
+    method: "local_unweighted_v1";
+    query: AnalyticsQueryRequest;
+    columns: Record<string, string>;
+    rows: Record<string, { label: string; cells: Record<string, { numerator: number; denominator: number }> }>;
+  };
   query: AnalyticsQueryRequest;
   labels: string[];
   series: AnalyticsSeries[];

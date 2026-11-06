@@ -157,13 +157,14 @@ export function importedRawFieldValue(row: Record<string, string>, field: Import
 }
 
 function uniqueSampleBases(result: AnalyticsQueryResponse, includeZero = false) {
-  return [...new Set(result.table.flatMap((row) => Object.values(row.bases)).filter((base) => includeZero ? base >= 0 : base > 0))].sort((a, b) => a - b);
+  return [...new Set(result.table.flatMap((row) => result.columns.map(column => row.bases[column.id])).filter((base) => includeZero ? base >= 0 : base > 0))].sort((a, b) => a - b);
 }
 
-function baseRangeLabel(prefix: string, bases: number[]) {
+function baseRangeLabel(prefix: string, bases: number[], sampleSize = true) {
+  const unit = sampleSize ? " n" : "";
   if (bases.length === 0) return `${prefix} n/a`;
-  if (bases.length === 1) return `${prefix} n = ${bases[0].toLocaleString()}`;
-  return `${prefix} n = ${bases[0].toLocaleString()}-${bases[bases.length - 1].toLocaleString()}`;
+  if (bases.length === 1) return `${prefix}${unit} = ${bases[0].toLocaleString()}`;
+  return `${prefix}${unit} = ${bases[0].toLocaleString()}-${bases[bases.length - 1].toLocaleString()}`;
 }
 
 export function importedMetricLabel(metric: Metric) {
@@ -197,19 +198,26 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
   const measureLabel = source.measureFieldLabel ?? null;
   const bannerLabel = source.bannerFieldLabel ?? "No breakout";
   const filterLabel = source.filterFieldLabel && source.filterValue ? `${source.filterFieldLabel} is ${source.filterValue}` : "No filter";
+  const weighted = result.weighting.applied || Boolean(result.query.weight);
+  const recordedBases = result.table.flatMap(row => result.columns.map(column => row.bases[column.id]));
+  const invalidBases = recordedBases.some(base => !Number.isFinite(base) || base < 0 || !weighted && !Number.isSafeInteger(base));
   const baseLabel = importedMeasureBasesNeedRefresh(result)
     ? "Sample bases need refresh; rerun analysis."
-    : baseRangeLabel(isMeasure ? "Valid measure per cell" : "Sample", uniqueSampleBases(result, isMeasure));
+    : invalidBases ? "Recorded bases unavailable; rerun analysis."
+    : weighted ? baseRangeLabel(result.weighting.applied ? "Recorded weighted base total" : "Recorded base (weighting unverified)", uniqueSampleBases(result, true), false)
+    : baseRangeLabel(isMeasure ? "Valid measure per cell" : "Sample", uniqueSampleBases(result, true));
+  const responseAction = result.metric.id === "count" ? "Count responses" : "Show response percentages";
+  const responseKind = result.metric.id === "count" ? "Imported response count" : "Imported response percentages";
   const summaryLabel = isMeasure && measureLabel
     ? `${metricLabel} ${measureLabel} by ${groupingLabel}`
     : source.bannerFieldLabel
-      ? `Count responses for ${groupingLabel}, broken out by ${source.bannerFieldLabel}`
-      : `Count responses for ${groupingLabel}`;
+      ? `${responseAction} for ${groupingLabel}, broken out by ${source.bannerFieldLabel}`
+      : `${responseAction} for ${groupingLabel}`;
 
   return {
     isImported: true,
     isMeasure,
-    queryKindLabel: isMeasure ? "Imported numeric summary" : source.bannerFieldLabel ? "Imported response count by breakout" : "Imported response count",
+    queryKindLabel: isMeasure ? "Imported numeric summary" : source.bannerFieldLabel ? `${responseKind} by breakout` : responseKind,
     summaryLabel,
     datasetLabel: source.datasetLabel,
     groupingLabel,
@@ -927,6 +935,19 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
       emphasis: "detail" as const
     }
   }));
+  const calculationInputs = metric.id === "percent_selected" || metric.id === "average" ? {
+    version: 1 as const, method: "local_unweighted_v1" as const,
+    query: JSON.parse(JSON.stringify(query)) as AnalyticsQueryRequest,
+    columns: Object.fromEntries(columns.map(column => [column.id, column.label])),
+    rows: Object.fromEntries(table.map((row, rowIndex) => [row.optionId, {
+      label: row.label,
+      cells: Object.fromEntries(columns.map((column, columnIndex) => {
+        const cell = entries[rowIndex][1].get(bannerCategories[columnIndex].key);
+        const numerator = metric.id === "average" ? cell?.sum.value() ?? 0 : cell?.count ?? 0;
+        return [column.id, { numerator, denominator: row.bases[column.id] }];
+      }))
+    }]))
+  } : undefined;
   const readiness = buildSignificanceReadiness(query);
   const significanceExecutionPlan = buildSignificanceExecutionPlan(readiness, {
     columnComparison: false,
@@ -935,6 +956,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
   });
 
   return {
+    ...(calculationInputs ? { calculationInputs } : {}),
     query,
     labels: columns.map((column) => column.label),
     series,

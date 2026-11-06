@@ -237,8 +237,8 @@ export function GuidedDataQueryModal({
   const importedQueryLabel = importedQueryMode === "measure" && importedMeasureField
     ? `${effectiveImportedMetric === "sum" ? "Total" : "Average"} ${importedMeasureLabel} by ${importedGroupingLabel}`
     : importedBannerField
-      ? `Count responses for ${importedGroupingLabel}, broken out by ${importedFieldDisplayLabel(importedBannerField)}`
-      : `Count responses for ${importedGroupingLabel}`;
+      ? `${effectiveImportedMetric === "count" ? "Count responses" : "Show response percentages"} for ${importedGroupingLabel}, broken out by ${importedFieldDisplayLabel(importedBannerField)}`
+      : `${effectiveImportedMetric === "count" ? "Count responses" : "Show response percentages"} for ${importedGroupingLabel}`;
   const importedAnalysisIntent: ImportedAnalysisIntent =
     importedQueryMode === "measure" ? "measure" : importedBannerField ? "compare" : "responses";
   const importedIntentOptions: Array<{
@@ -854,7 +854,7 @@ export function GuidedDataQueryModal({
               {resultPreview ? <>
                 <p>{datasetMode === "seeded" ? "Illustrative sample results" : "Calculated from your complete imported study"} · {resultPreview.metric.label}</p>
                 <div className="analysis-preview-scroll"><table><thead><tr><th scope="col">Answer</th>{resultPreview.columns.slice(0, 3).map((column) => <th scope="col" key={column.id}>{column.label}</th>)}</tr></thead>
-                  <tbody>{resultPreview.table.slice(0, 6).map((row) => <tr key={row.optionId}><th scope="row">{row.label}</th>{resultPreview.columns.slice(0, 3).map((column) => <td key={column.id}>{analyticalCell(resultPreview, row, column.id).value === null ? "Unavailable" : resultPreview.metric.valueFormat === "number" ? formatImportedMeasureValue(row.values[column.id], resultPreview.metric.id) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(row.values[column.id])}{resultPreview.metric.valueFormat === "percent" ? "%" : ""}{datasetMode === "imported" && groupingScope && <small> (n={row.bases[column.id] ?? 0} valid values)</small>}</td>)}</tr>)}</tbody></table></div>
+                  <tbody>{resultPreview.table.slice(0, 6).map((row) => <tr key={row.optionId}><th scope="row">{row.label}</th>{resultPreview.columns.slice(0, 3).map((column) => <td key={column.id}>{analyticalCell(resultPreview, row, column.id).value === null ? "Unavailable" : resultPreview.metric.valueFormat === "number" ? formatImportedMeasureValue(row.values[column.id], resultPreview.metric.id) : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(row.values[column.id])}{resultPreview.metric.valueFormat === "percent" && analyticalCell(resultPreview, row, column.id).value !== null ? "%" : ""}{datasetMode === "imported" && groupingScope && <small> (n={row.bases[column.id] ?? 0} valid values)</small>}</td>)}</tr>)}</tbody></table></div>
                 <small>Showing up to 6 answers and 3 groups. The complete result is placed on the page. Numeric results retain calculation precision; displayed values may be rounded.</small>
                 {resultPreview.warnings.length > 0 && <ul aria-label="Analysis data quality notices">{resultPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
               </> : previewFailure ? <p role="alert">{previewFailure}</p> : <p>{importedDataset?.remote?.provider === "netlify" ? "This study is queried securely on the server when you create the analysis." : "Choose a supported question and calculation to preview the results."}</p>}

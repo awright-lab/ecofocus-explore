@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { readOriginStorageEstimate, type OriginStorageEstimate } from "./originStorageEstimate";
 import type { DashboardWorkspace } from "../../../shared/types/dashboard";
 import { measureWorkspaceStorage, readStoredWorkspaceCopy } from "../document/workspacePersistence";
 
 function size(bytes: number) {
+  if (bytes >= 1024 ** 4) return `${(bytes / (1024 ** 4)).toFixed(2)} TiB`;
+  if (bytes >= 1024 ** 3) return `${(bytes / (1024 ** 3)).toFixed(2)} GiB`;
   if (bytes < 1024) return `${bytes.toLocaleString()} B`;
   return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
 }
@@ -10,6 +13,15 @@ function size(bytes: number) {
 export function WorkspaceStoragePanel({ workspace }: { workspace: DashboardWorkspace }) {
   const [result, setResult] = useState<{ workspace: DashboardWorkspace; summary: ReturnType<typeof measureWorkspaceStorage>; savedReadFailed: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [capacity, setCapacity] = useState<OriginStorageEstimate | null>(null), [readingCapacity, setReadingCapacity] = useState(false);
+  const requestOwner = useRef(0);
+  useEffect(() => () => { requestOwner.current += 1; }, []);
+  async function checkCapacity() {
+    const owner = ++requestOwner.current; setCapacity(null); setReadingCapacity(true);
+    const result = await readOriginStorageEstimate();
+    if (owner !== requestOwner.current) return;
+    setCapacity(result); setReadingCapacity(false);
+  }
   function measure() {
     try {
       let saved: string | null = null, savedReadFailed = false;
@@ -22,6 +34,16 @@ export function WorkspaceStoragePanel({ workspace }: { workspace: DashboardWorks
     <summary>Workspace storage</summary>
     <p>See how current studies and historical snapshots contribute to your browser save.</p>
     <button type="button" className="workspace-home-secondary" onClick={measure}>{result ? "Refresh storage details" : "Measure storage details"}</button>
+    <button type="button" className="workspace-home-secondary" onClick={() => void checkCapacity()}>Check browser storage estimate</button>
+    {readingCapacity && <p role="status">Reading browser storage estimate…</p>}
+    {capacity && <div className="workspace-storage-panel__result" aria-label="Browser storage estimate">
+      <p>Browser estimate at the time of this check, shared by storage on this website origin. This is separate from the workspace text estimate.</p>
+      {capacity.status === "unavailable" ? <p role="status">{capacity.reason}</p> : <>
+        <dl><div><dt>Estimated origin usage</dt><dd>{size(capacity.usage)}</dd></div><div><dt>Reported origin quota</dt><dd>{size(capacity.quota)}</dd></div><div><dt>Estimated quota used</dt><dd>{new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 }).format(capacity.fraction)}</dd></div></dl>
+        {capacity.nearQuota && <p role="alert">The origin's estimated managed storage is at least 85% of its reported quota. Download a workspace backup and keep original study files.</p>}
+      </>}
+      <p>The browser may omit or estimate storage. Its managed-storage quota does not establish the separate localStorage limit used by current workspace saves. A low estimate does not guarantee that your next save will succeed. No test data was written and no persistence permission was requested.</p>
+    </div>}
     {error && <p role="alert">{error}</p>}
     {result && summary && <div className="workspace-storage-panel__result">
       {result.workspace !== workspace && <p role="status">The workspace changed. Refresh these details to measure the latest edits.</p>}

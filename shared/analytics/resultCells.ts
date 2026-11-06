@@ -6,10 +6,11 @@ export type AnalyticalCell = { status: "available"; value: number } | { status: 
 // from a zero value. Raw recovery artifacts preserve their original contents.
 export function analyticalCell(result: AnalyticsQueryResponse, row: AnalyticsTableRow, columnId: string): AnalyticalCell {
   const source = result.metadataRefs.source;
-  if (source?.kind === "imported" && result.metric.id === "average") {
-    if (source.measureBaseScope !== "cell") return {status:"rerun_required",value:null};
+  if (source?.kind === "imported" && ["average", "percent_selected", "column_percent"].includes(result.metric.id)) {
+    if (result.metric.id === "average" && source.measureBaseScope !== "cell") return {status:"rerun_required",value:null};
     if (row.bases[columnId] === 0) return {status:"no_observations",value:null};
-    if (!Number.isFinite(row.bases[columnId]) || row.bases[columnId] < 0) return {status:"invalid",value:null};
+    const weighted = result.weighting.applied || Boolean(result.query.weight);
+    if (!Number.isFinite(row.bases[columnId]) || row.bases[columnId] < 0 || !weighted && !Number.isSafeInteger(row.bases[columnId])) return {status:"invalid",value:null};
   }
   const value = row.values[columnId];
   return typeof value === "number" && Number.isFinite(value) ? {status:"available",value} : {status:"invalid",value:null};

@@ -98,6 +98,7 @@ import type {
   SavedLibraryInsertionCue,
   SavedSettingOriginCue,
   SettingsView,
+  InspectorSurface,
 } from "../builderTypes";
 import type {
   DerivedOutputConfig,
@@ -109,6 +110,7 @@ const TileAnalysisQuerySection = lazy(() =>
     default: module.TileAnalysisQuerySection,
   })),
 );
+const ResultEvidencePanel = lazy(() => import("./ResultEvidencePanel"));
 const TileAnalysisResultSection = lazy(() =>
   import("./InspectorTileAnalysisSections").then((module) => ({
     default: module.TileAnalysisResultSection,
@@ -183,6 +185,8 @@ export type BuilderInspectorProps = {
   outcomeLabel: string;
   outcomeHelper: string;
   settingsView: SettingsView;
+  inspectorSurface?: InspectorSurface;
+  onInspectorSurfaceChange?: (surface: InspectorSurface) => void;
   setSettingsView: (view: SettingsView) => void;
   activePage: DashboardPage;
   dashboardPageCount: number;
@@ -353,9 +357,12 @@ export const BuilderInspector = memo(function BuilderInspector(
     isLoading,
     comparisonDatasets,
   } = props;
-  const [inspectorSurface, setInspectorSurface] = useState<
-    "style" | "data" | "insight"
-  >("style");
+  const [localInspectorSurface, setLocalInspectorSurface] = useState<InspectorSurface>("style");
+  const inspectorSurface = props.inspectorSurface ?? localInspectorSurface;
+  function setInspectorSurface(surface: InspectorSurface) {
+    setLocalInspectorSurface(surface);
+    props.onInspectorSurfaceChange?.(surface);
+  }
   const multiSelectionSummary = useMemo(
     () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
     [activePage, multiSelectedObjects],
@@ -1088,6 +1095,7 @@ export const BuilderInspector = memo(function BuilderInspector(
           <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
         </div>
       </div>
+      <Suspense fallback={<p>Loading result explanation...</p>}><ResultEvidencePanel key={selectedTile.id} tile={selectedTile} /></Suspense>
       <AssistantFolder
         title="Edit analysis"
         helper={`${dataContext?.chart} · ${dataContext?.banner}`}

@@ -67,7 +67,8 @@ type UseBuilderDocumentSessionCommandsArgs = {
   setLeftPanelView: (view: LeftPanelView) => void;
   setCanvasZoom: (value: number) => void;
   setViewerMode: (value: boolean) => void;
-  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft | null;
+  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft | null | Promise<DashboardDraft | null>;
+  getDocumentEditVersion?: () => number;
   openPublishedSnapshot?: (dashboard: DashboardDraft) => void;
 };
 
@@ -98,6 +99,7 @@ export function useBuilderDocumentSessionCommands({
   setCanvasZoom,
   setViewerMode,
   createPublishedSnapshot,
+  getDocumentEditVersion,
   openPublishedSnapshot
 }: UseBuilderDocumentSessionCommandsArgs) {
   function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
@@ -729,10 +731,11 @@ export function useBuilderDocumentSessionCommands({
     setCanvasZoom(Math.min(160, Math.max(10, value)));
   }
 
-  function publishDashboard() {
+  async function publishDashboard() {
     if (createPublishedSnapshot) {
-      const published = createPublishedSnapshot(dashboard);
-      if (!published) return;
+      const version = getDocumentEditVersion?.();
+      const published = await createPublishedSnapshot(dashboard);
+      if (!published || getDocumentEditVersion?.() !== version) return;
       setDashboard(published);
     } else {
       const nextPublishCount = dashboard.publishMetadata.publishCount + 1;

@@ -1,3 +1,4 @@
+import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
 import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
 import { supportsDonutResult } from "../../analytics/analyticsDisplay";
 export { getCompatibleChartTypes, supportsDonutResult } from "../../analytics/analyticsDisplay";
@@ -464,7 +465,7 @@ export function sampleSizeLabel(result: AnalyticsQueryResponse) {
     .flatMap((row) => Object.values(row.bases))
     .filter((base) => base > 0);
   const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
-  const prefix = result.weighting.applied || result.query.weight ? "Weighted total" : "Sample n";
+  const prefix = result.weighting.applied ? "Weighted total" : result.query.weight ? "Recorded base (weighting unverified)" : "Sample n";
   if (uniqueBases.length === 0) return `${prefix} unavailable`;
   if (uniqueBases.length === 1)
     return `${prefix}=${uniqueBases[0].toLocaleString()}`;
@@ -559,7 +560,7 @@ export function tilePresentationNotes(tile: DashboardTile) {
     `${resultSourceLabel(tile.result)} (${tileSourceKindLabel(tile.source)})`,
     ...(trendSpanLabel(tile.query) ? [trendSpanLabel(tile.query)!] : []),
     `Comparison: ${comparisonSummaryLabel(tile.query)}`,
-    `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
+    `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${resultWeightingLabel(tile.result)}`,
     resultInferenceLabel(tile.result),
     ...tile.result.notes.slice(0, 2),
   ];
@@ -1700,7 +1701,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 export function ChartView({ tile }: { tile: DashboardTile }) {
   tile = { ...tile, result: withSafeInference(tile.result) };
   if (tile.visualization === "table") return <TableView tile={tile} />;
-  if (!resultColumnValues(tile.result).length) return <p role="status">Unavailable: no verified numeric observations. Rerun the analysis or review its source values.</p>;
+  if (!resultColumnValues(tile.result).length) return <p role="status">{tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no verified numeric observations."} Rerun the analysis or review its source values.</p>;
   if (tile.visualization === "vertical_bar")
     return <VerticalBarChartView tile={tile} />;
   if (tile.visualization === "horizontal_bar")
@@ -1900,9 +1901,7 @@ export const TileRenderer = memo(
                   <span>{sampleSizeLabel(result)}</span>
                 )}
                 <span>
-                  {result.weighting.applied
-                    ? result.weighting.label
-                    : "Unweighted"}
+                  {resultWeightingLabel(result)}
                 </span>
                 <span>{result.metric.label}</span>
                 <span>

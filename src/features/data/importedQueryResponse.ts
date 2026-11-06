@@ -1,5 +1,6 @@
 import type { AnalyticsQueryResponse } from "../../../shared/types/analytics";
 import type { ImportedDatasetQueryConfig } from "./importedDatasetAnalytics";
+import { hasValidRecordedCalculations } from "../../../shared/analytics/recordedCalculation";
 
 export function queryResponseObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -83,4 +84,26 @@ export function assertImportedQueryResponse(value: unknown, config: ImportedData
           base === 0 && amount !== 0) invalidResult();
     }
   }
+  // These imported queries group each valid source row once; authored/weighted
+  // results were excluded above. Categorical bases describe the whole column,
+  // while numeric bases count valid measurements per cell. Missing answers and
+  // filters can reduce totals, so require an upper bound, never equality to N.
+  let representedRows = 0;
+  if (metric === "count" || percent) {
+    for (const id of ids) {
+      const base = (value.table[0] as { bases: Record<string, number> } | undefined)?.bases[id];
+      if (base === undefined) continue;
+      let responses = 0;
+      for (const item of value.table as Array<{ bases: Record<string, number>; values: Record<string, number> }>) {
+        if (item.bases[id] !== base) invalidResult();
+        if (metric === "count") responses += item.values[id];
+      }
+      if (metric === "count" && (!Number.isSafeInteger(responses) || responses !== base)) invalidResult();
+      representedRows += base;
+    }
+  } else {
+    for (const item of value.table as Array<{ bases: Record<string, number> }>) for (const id of ids) representedRows += item.bases[id];
+  }
+  if (!Number.isSafeInteger(config.dataset.rowCount) || config.dataset.rowCount < 0 || !Number.isSafeInteger(representedRows) || representedRows > config.dataset.rowCount) invalidResult();
+  if (!hasValidRecordedCalculations(value as unknown as AnalyticsQueryResponse)) invalidResult();
 }

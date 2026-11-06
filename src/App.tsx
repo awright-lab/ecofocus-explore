@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { DeferredWorkspaceHistoryRecovery } from "./features/document/DeferredWorkspaceHistoryRecovery";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { parseWorkspaceRoute } from "./features/document/workspacePersistence";
 import { workspaceSaveSession } from "./features/document/workspaceSaveSession";
 import { WorkspaceLoadRecovery, WorkspaceSaveRecovery } from "./features/document/WorkspaceSaveRecovery";
@@ -18,13 +19,20 @@ const WorkspaceHome = lazy(() =>
 export default function App() {
   const [route, setRoute] = useState(() => parseWorkspaceRoute());
   const [workspace, setWorkspace] = useState(loadWorkspaceSafely);
+  const workspaceRevision = useRef(0);
+  function commitWorkspace(next: DashboardWorkspace | null) {
+    const revision = ++workspaceRevision.current;
+    setWorkspace(next);
+    return revision;
+  }
+  function getWorkspaceRevision() { return workspaceRevision.current; }
 
   useEffect(() => {
     function handleRouteChange() {
       // Let the editor flush its debounce before reading the next route's data.
       queueMicrotask(() => {
         setRoute(parseWorkspaceRoute());
-        setWorkspace(loadWorkspaceSafely());
+        commitWorkspace(loadWorkspaceSafely());
       });
     }
 
@@ -36,15 +44,19 @@ export default function App() {
     };
   }, []);
 
-  if (!workspace) return <WorkspaceLoadRecovery />;
+  const recoveryDock = <div className="workspace-recovery-dock">
+    <WorkspaceSaveRecovery />
+    <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} />
+    <DeferredWorkspaceHistoryRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
+  </div>;
+  if (!workspace) return <>{recoveryDock}<WorkspaceLoadRecovery /></>;
   const routeIssue = workspaceRouteIssue(route, workspace);
   return (
     <>
-      <WorkspaceSaveRecovery />
-      <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={setWorkspace} />
+      {recoveryDock}
       {routeIssue ? <WorkspaceRouteRecovery reason={routeIssue} /> : route.mode === "home" ? (
         <Suspense fallback={<div className="app-route-loading">Loading workspace...</div>}>
-          <WorkspaceHome workspace={workspace} onWorkspaceChange={setWorkspace} />
+          <WorkspaceHome workspace={workspace} onWorkspaceChange={commitWorkspace} />
         </Suspense>
       ) : (
         <Suspense fallback={<div className="app-route-loading">Loading report...</div>}>

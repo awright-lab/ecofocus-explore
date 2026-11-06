@@ -1,35 +1,17 @@
+import { resultWeightingLabel } from "../../../shared/analytics/weightingLabel";
+import { resultIdentityIssue } from "../../../shared/analytics/resultIdentities";
+import { analysisSettingsMatch } from "../../../shared/analytics/queryFreshness";
 import type { DashboardPage, DashboardTile } from "../../../shared/types/dashboard";
-import type { AnalyticsQueryRequest } from "../../../shared/types/analytics";
 import { getDimensionMetadata, getQuestionMetadata } from "../../../shared/metadata/ecofocus2025";
 import { resultInferenceLabel } from "../../../shared/analytics/inferenceSafety";
 import { buildImportedResultProvenance } from "../data/importedDatasetAnalytics";
 import { resultBannerLabel, resultDatasetLabel, resultFilterLabel, resultSourceLabel, sampleSizeLabel } from "../builder/components/CanvasRenderers";
 
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value).filter(([, item]) => item !== undefined).sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function executedSettings(query: AnalyticsQueryRequest) {
-  const { chartType: _chartType, ...settings } = query;
-  return {
-    ...settings,
-    confidenceLevel: query.confidenceLevel ?? 0.95,
-    comparisonMode: query.comparisonMode ?? "none",
-    // Wave order can define adjacent comparisons, so it is not cosmetic.
-    comparisonDatasets: [...(query.comparisonDatasets ?? [])],
-    filters: query.filters.filter(filter => !filter.values.includes("all"))
-      .map(filter => ({ ...filter, values: [...filter.values].sort() })).sort((a, b) => a.field.localeCompare(b.field))
-  };
-}
-
 export function assertExportResultsCurrent(pages: DashboardPage[]): void {
   for (const page of pages) for (const tile of page.tiles.filter(tile => !tile.hidden)) {
-    if (canonical(executedSettings(tile.query)) !== canonical(executedSettings(tile.result.query))) {
+    const identityIssue = resultIdentityIssue(tile.result);
+    if (identityIssue) throw new Error(`Cannot export "${tile.title || tile.name}": ${identityIssue}`);
+    if (!analysisSettingsMatch(tile.query, tile.result.query)) {
       throw new Error(`Refresh "${tile.title || tile.name}" before exporting: its edited analysis settings do not match the displayed results.`);
     }
     for (const row of tile.result.table) for (const column of tile.result.columns) {
@@ -53,8 +35,8 @@ export function analysisContextRows(tile: DashboardTile): Array<[string, string]
       const metadata = getDimensionMetadata(result.query.dataset, filter.field as Parameters<typeof getDimensionMetadata>[1]) ?? getQuestionMetadata(result.query.dataset, filter.field as Parameters<typeof getQuestionMetadata>[1]);
       return `${metadata?.label ?? filter.field}: ${filter.values.map(value => metadata && "values" in metadata ? metadata.values.find(item => item.id === value)?.label ?? value : metadata && "options" in metadata ? metadata.options.find(item => item.id === value)?.label ?? value : value).join(" or ")}`;
     }).join(" and ") : "No filter")],
-    ["Weighting", result.weighting.applied ? result.weighting.label : "Unweighted"],
-    ["Base scope", result.weighting.applied ? "Weighted base totals per cell; respondent sample size is unavailable" : imported?.baseLabel ?? sampleSizeLabel(result)],
+    ["Weighting", resultWeightingLabel(result)],
+    ["Base scope", `${imported?.baseLabel ?? sampleSizeLabel(result)}${result.weighting.applied || result.query.weight ? "; respondent sample size is unavailable" : ""}`],
     ["Column labels (JSON)", JSON.stringify(result.columns.map(column => ({ id: column.id, sourceLabel: column.label, displayLabel: tile.appearance.axisLabelOverrides[column.id] ?? column.label })))],
     ["Inference", resultInferenceLabel(result)],
     ["Result warnings", result.warnings.join("\n")],

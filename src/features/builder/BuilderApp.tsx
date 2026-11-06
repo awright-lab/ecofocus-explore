@@ -1,8 +1,9 @@
+import { deferredWorkspaceHistory } from "../document/deferredWorkspaceHistory";
 import { scheduleAcknowledgedWorkspaceAutosave } from "../document/acknowledgedWorkspaceAutosave";
 import { resolveAnalysisPage } from "./analysisPlacement";
 import { buildAnalyticalTemplateFromTile } from "./components/libraryReuseModel";
 import { useDocumentCommandState } from "./hooks/useDocumentCommandState";
-import { editorModalOwnsKeyboard } from "./editorModalGuard";
+import { editorModalOwnsKeyboard, editorControlsOwnCanvasKeys } from "./editorModalGuard";
 import { PublishedCanvas } from "./components/PublishedCanvas";
 import {
   Database,
@@ -131,6 +132,7 @@ import type {
   LayerItem,
   LeftPanelView,
   SettingsView,
+  InspectorSurface,
   SourceLibraryView,
 } from "./builderTypes";
 import type {
@@ -147,6 +149,7 @@ import type {
 } from "../../../shared/types/analytics";
 import type {
   DashboardDraft,
+  DashboardWorkspace,
   DashboardCanvasElement,
   DashboardTile,
   GradientStop,
@@ -176,7 +179,9 @@ export default function BuilderApp() {
   const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
   const workspaceRef = useRef(workspace);
   const importOwnerMounted = useRef(true);
-  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; }; }, []);
+  const navigationOwner = useRef<{ token: symbol; editVersion: number } | null>(null);
+  const [isReportTransitionPending, setIsReportTransitionPending] = useState(false);
+  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; navigationOwner.current = null; }; }, []);
   const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const saveDashboardWorkspace = workspaceSaveSession.save;
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
@@ -198,7 +203,7 @@ export default function BuilderApp() {
   );
   const [publishedSnapshot, setPublishedSnapshot] =
     useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
-  const [dashboard, setDashboardState, getDocumentReplacementVersion] = useDocumentCommandState<DashboardDraft>(() =>
+  const [dashboard, setDashboardState, getDocumentReplacementVersion, getDocumentEditVersion] = useDocumentCommandState<DashboardDraft>(() =>
     initialPublishedSnapshot
       ? initialPublishedSnapshot.dashboard
       : normalizeDashboard(initialReport.draft),
@@ -287,6 +292,11 @@ export default function BuilderApp() {
   >(() => initialRoute.mode === "builder" && initialRoute.datasetId ? { outputMode: "table", importedDatasetId: initialRoute.datasetId } : null);
   const [leftOpen, setLeftOpen] = useState(false);
   const [inspectorPinned, setInspectorPinned] = useState(false);
+  const inspectorScope = selectedTileId ? "tile" : selectedElementId ? "element" : multiSelectedObjects.length ? "multi" : "page";
+  const [inspectorSurfaces, setInspectorSurfaces] = useState<Record<"tile" | "element" | "multi" | "page", InspectorSurface>>({ tile: "style", element: "style", multi: "style", page: "style" });
+  const setInspectorSurface = useCallback((surface: InspectorSurface) => {
+    setInspectorSurfaces(current => ({ ...current, [inspectorScope]: surface }));
+  }, [inspectorScope]);
   const [hiddenInspectorSelection, setHiddenInspectorSelection] = useState<
     string | null
   >(null);
@@ -631,16 +641,52 @@ export default function BuilderApp() {
     setSavedLibraryHandoff({ view, ...handoff, createdAt: Date.now() });
   }
 
+  useEffect(() => {
+    const cancel = () => { navigationOwner.current = null; if (importOwnerMounted.current) setIsReportTransitionPending(false); };
+    window.addEventListener("hashchange", cancel);
+    window.addEventListener("popstate", cancel);
+    return () => { window.removeEventListener("hashchange", cancel); window.removeEventListener("popstate", cancel); };
+  }, []);
+
+  async function saveBeforeReportTransition(nextWorkspace: DashboardWorkspace, onSaved: () => void, recoveryWorkspace = nextWorkspace, onLateStored?: () => void) {
+    if (navigationOwner.current) return false;
+    const token = Symbol("report-transition");
+    const version = getDocumentEditVersion();
+    navigationOwner.current = { token, editVersion: version };
+    setIsReportTransitionPending(true);
+    workspaceRef.current = recoveryWorkspace;
+    setWorkspace(recoveryWorkspace);
+    setSaveState("Saving...");
+    const ownsTransition = () => importOwnerMounted.current && navigationOwner.current?.token === token && getDocumentEditVersion() === version && workspaceRef.current === recoveryWorkspace;
+    try {
+      const saved = await workspaceSaveSession.saveAsync(nextWorkspace, recoveryWorkspace);
+      if (!ownsTransition()) {
+        if (saved) onLateStored?.();
+        return false;
+      }
+      if (!saved) { setSaveState("Not saved"); return false; }
+      onSaved();
+      return true;
+    } catch {
+      if (ownsTransition()) { workspaceSaveSession.remember(recoveryWorkspace); setSaveState("Not saved"); }
+      return false;
+    } finally {
+      if (navigationOwner.current?.token === token) { navigationOwner.current = null; if (importOwnerMounted.current) setIsReportTransitionPending(false); }
+    }
+  }
+
   function replaceHash(path: string) {
+    navigationOwner.current = null;
+    if (importOwnerMounted.current) setIsReportTransitionPending(false);
     if (window.location.hash === path) return;
     window.history.pushState(null, "", path);
   }
 
   function openWorkspaceHome() {
     const nextWorkspace = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
-    setWorkspace(nextWorkspace);
-    if (!saveDashboardWorkspace(nextWorkspace)) return;
-    window.location.hash = makeWorkspaceHomePath().replace(/^#/, "");
+    void saveBeforeReportTransition(nextWorkspace, () => {
+      window.location.hash = makeWorkspaceHomePath().replace(/^#/, "");
+    });
   }
 
   function resetEditorForReport(nextDashboard: DashboardDraft) {
@@ -661,28 +707,28 @@ export default function BuilderApp() {
       upsertDraftReport(workspace, dashboard, activeReportId),
       report.id,
     );
-    setWorkspace(nextWorkspace);
-    if (!saveDashboardWorkspace(nextWorkspace)) return;
-    setActiveReportId(report.id);
-    setPublishedSnapshot(null);
-    setDashboardState(normalizeDashboard(report.draft));
-    resetEditorForReport(report.draft);
-    setViewerMode(false);
-    replaceHash(makeBuilderReportPath(report.id));
+    void saveBeforeReportTransition(nextWorkspace, () => {
+      setActiveReportId(report.id);
+      setPublishedSnapshot(null);
+      setDashboardState(normalizeDashboard(report.draft));
+      resetEditorForReport(report.draft);
+      setViewerMode(false);
+      replaceHash(makeBuilderReportPath(report.id));
+    });
   }
 
   function createReport() {
     const next = createNewReportFromSeed(
       upsertDraftReport(workspace, dashboard, activeReportId),
     );
-    setWorkspace(next.workspace);
-    if (!saveDashboardWorkspace(next.workspace)) return;
-    setActiveReportId(next.report.id);
-    setPublishedSnapshot(null);
-    setDashboardState(normalizeDashboard(next.report.draft));
-    resetEditorForReport(next.report.draft);
-    setViewerMode(false);
-    replaceHash(makeBuilderReportPath(next.report.id));
+    void saveBeforeReportTransition(next.workspace, () => {
+      setActiveReportId(next.report.id);
+      setPublishedSnapshot(null);
+      setDashboardState(normalizeDashboard(next.report.draft));
+      resetEditorForReport(next.report.draft);
+      setViewerMode(false);
+      replaceHash(makeBuilderReportPath(next.report.id));
+    });
   }
 
   function duplicateReport() {
@@ -699,31 +745,38 @@ export default function BuilderApp() {
       draft: dashboard,
       title: dashboard.title,
     });
-    setWorkspace(next.workspace);
-    if (!saveDashboardWorkspace(next.workspace)) return;
-    setActiveReportId(next.report.id);
-    setPublishedSnapshot(null);
-    setDashboardState(normalizeDashboard(next.report.draft));
-    resetEditorForReport(next.report.draft);
-    setViewerMode(false);
-    replaceHash(makeBuilderReportPath(next.report.id));
+    void saveBeforeReportTransition(next.workspace, () => {
+      setActiveReportId(next.report.id);
+      setPublishedSnapshot(null);
+      setDashboardState(normalizeDashboard(next.report.draft));
+      resetEditorForReport(next.report.draft);
+      setViewerMode(false);
+      replaceHash(makeBuilderReportPath(next.report.id));
+    });
   }
 
-  function createPublishedDashboardSnapshot(current: DashboardDraft) {
+  async function createPublishedDashboardSnapshot(current: DashboardDraft) {
+    if (navigationOwner.current) return null;
     const draftWorkspace = upsertDraftReport(workspaceRef.current, current, activeReportId);
-    const next = createPublishedSnapshot(
-      draftWorkspace,
-      { ...current, id: activeReportId },
-    );
-    if (!saveDashboardWorkspace(next.workspace, draftWorkspace)) {
+    let next: ReturnType<typeof createPublishedSnapshot>;
+    let acknowledgedPayload: string;
+    try { next = createPublishedSnapshot(draftWorkspace, { ...current, id: activeReportId }); acknowledgedPayload = JSON.stringify(next.workspace); }
+    catch {
+      workspaceRef.current = draftWorkspace;
       setWorkspace(draftWorkspace);
+      workspaceSaveSession.remember(draftWorkspace);
       setSaveState("Not saved");
       return null;
     }
-    setWorkspace(next.workspace);
-    setPublishedSnapshot(next.snapshot);
-    replaceHash(next.snapshot.viewerPath);
-    return next.dashboard;
+    const saved = await saveBeforeReportTransition(next.workspace, () => {
+      workspaceRef.current = next.workspace;
+      setWorkspace(next.workspace);
+      setPublishedSnapshot(next.snapshot);
+      replaceHash(next.snapshot.viewerPath);
+    }, draftWorkspace, () => {
+      deferredWorkspaceHistory.remember({ workspaceId: next.workspace.id, snapshotId: next.snapshot.id, payload: acknowledgedPayload });
+    });
+    return saved ? next.dashboard : null;
   }
 
   function openPublishedDashboardSnapshot(current: DashboardDraft) {
@@ -756,6 +809,13 @@ export default function BuilderApp() {
     if (workspaceSaveSession.hasPending()) {
       workspaceSaveSession.remember(upsertDraftReport(workspaceRef.current, dashboard, activeReportId));
     }
+    if (isReportTransitionPending) {
+      if (navigationOwner.current && navigationOwner.current.editVersion !== getDocumentEditVersion()) {
+        navigationOwner.current = null;
+        setIsReportTransitionPending(false);
+      }
+      return;
+    }
     return scheduleAcknowledgedWorkspaceAutosave({
       capture: () => upsertDraftReport(workspaceRef.current, dashboard, activeReportId),
       onCaptured: setWorkspace,
@@ -763,7 +823,7 @@ export default function BuilderApp() {
       onRejected: (nextWorkspace) => workspaceSaveSession.remember(nextWorkspace),
       onState: setSaveState,
     });
-  }, [dashboard, activeReportId, publishedSnapshot, setSaveState]);
+  }, [dashboard, activeReportId, publishedSnapshot, setSaveState, isReportTransitionPending, getDocumentEditVersion]);
 
   useEffect(() => {
     if (!hasUnsavedWorkspace && saveState === "Not saved") setSaveState("Saved locally");
@@ -922,6 +982,7 @@ export default function BuilderApp() {
     setCanvasZoom,
     setViewerMode,
     createPublishedSnapshot: createPublishedDashboardSnapshot,
+    getDocumentEditVersion,
     openPublishedSnapshot: openPublishedDashboardSnapshot,
   });
 
@@ -1287,19 +1348,22 @@ export default function BuilderApp() {
     window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[aria-label="Create analysis"]')?.focus());
   }, [setActiveProductMode]);
   const openPageDesignPanel = useCallback(() => {
+    setInspectorSurface("style");
     setSettingsView("page");
     setInspectorPinned(true);
-  }, [setSettingsView]);
+  }, [setSettingsView, setInspectorSurface]);
   const openSelectionFormatPanel = useCallback(() => {
+    setInspectorSurface("style");
     setInspectorPinned(true);
     setSettingsView(
       selectedElement ? "element" : selectedTile ? "chart" : "home",
     );
-  }, [selectedElement, selectedTile]);
+  }, [selectedElement, selectedTile, setSettingsView, setInspectorSurface]);
   const openLayoutPanel = useCallback(() => {
+    setInspectorSurface("style");
     setSettingsView("layout");
     setInspectorPinned(true);
-  }, [setSettingsView]);
+  }, [setSettingsView, setInspectorSurface]);
   const openDataQueryPanel = useCallback(
     () => openGuidedDataQuery({ outputMode: "table" }),
     [],
@@ -1367,7 +1431,7 @@ export default function BuilderApp() {
     function handleKeyDown(event: KeyboardEvent) {
       // Inert backgrounds still receive window-level keyboard events. Suspend
       // canvas actions while any dialog owns focus; keep its controls usable.
-      if (viewerMode || guidedDataQuery || event.defaultPrevented || editorModalOwnsKeyboard(event)) return;
+      if (viewerMode || guidedDataQuery || event.defaultPrevented || editorModalOwnsKeyboard(event) || editorControlsOwnCanvasKeys(event)) return;
       const target = event.target as HTMLElement | null;
       const isEditingText =
         target?.tagName === "INPUT" ||
@@ -1978,6 +2042,8 @@ export default function BuilderApp() {
             outcomeLabel={activeOutcomeMode.label}
             outcomeHelper={activeOutcomeMode.helper}
             settingsView={settingsView}
+            inspectorSurface={inspectorSurfaces[inspectorScope]}
+            onInspectorSurfaceChange={setInspectorSurface}
             setSettingsView={setSettingsView}
             activePage={activePage}
             dashboardPageCount={dashboard.pages.length}

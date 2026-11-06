@@ -25,14 +25,14 @@ function document(result: AnalyticsQueryResponse): DashboardDraft {
   page.tiles[0].appearance.axisLabelOverrides = { [result.table[0].optionId]: "DISPLAY-OVERRIDE-SENTINEL" };
   draft.pages = [page]; return draft;
 }
-async function analysis(csv: string, metric: "sum" | "count" | "average") {
+async function analysis(csv: string, metric: "sum" | "count" | "average" | "percent_selected") {
   const bytes = new TextEncoder().encode(csv); const imported = await importDatasetBuffer(bytes.buffer, "synthetic.csv");
   if (!imported.dataset) throw new Error(imported.error ?? "Synthetic import failed");
   const dataset = imported.dataset;
   for (const field of dataset.fields) if (field.sourceColumn !== "Spend") Object.assign(field, { type: "categorical", modelingRole: "candidate_dimension", eligibleForFilter: true, eligibleForBanner: true });
   const field = (name: string) => dataset.fields.find(field => field.sourceColumn === name)!;
   return runImportedDatasetQuery({ dataset, field: field("Answer"), bannerField: field("Banner"), filter: { field: field("Region"), value: selected },
-    measureField: metric === "count" ? null : { ...field("Spend"), type: "numeric", modelingRole: "candidate_measure" }, chartType: "grouped_bar", metric });
+    measureField: metric === "count" || metric === "percent_selected" ? null : { ...field("Spend"), type: "numeric", modelingRole: "candidate_measure" }, chartType: "grouped_bar", metric });
 }
 async function wide() {
   let csv = "Answer,Banner,Region,Spend\n";
@@ -106,6 +106,15 @@ describe("data-preserving export integrity", () => {
     expect(sheet).toContain("weighted base total"); expect(sheet).toContain("Synthetic weighting"); expect(sheet).toContain("Significance unavailable");
     expect(sheet).toContain("respondent sample size is unavailable"); expect(sheet).not.toContain("Valid measure per cell");
     expect(rows(sheet).some(row => row.some(cell => cell.number && Number(cell.value) === 2.75))).toBe(true);
+  });
+  it("writes requested-weight uncertainty into the actual XLSX context cells", async () => {
+    const draft = await measures(), tile = draft.pages[0].tiles[0];
+    tile.result.query.weight = "weightvar"; tile.query = structuredClone(tile.result.query);
+    tile.result.weighting = { applied: false, id: null, label: "Unweighted" };
+    const { parts } = await files(buildXlsxBlob(draft, draft.pages));
+    const parsed = rows(parts.get("xl/worksheets/sheet2.xml")!);
+    expect(parsed.find(row => row[0]?.value === "Weighting")?.[1].value).toBe("Requested weight weightvar; application unconfirmed");
+    expect(parsed.find(row => row[0]?.value === "Base scope")?.[1].value).toContain("weighting unverified");
   });
   it("blocks pending analysis edits for XLSX and JSON without changing the original result", async () => {
     const draft = await wide(), tile = draft.pages[0].tiles[0];
@@ -237,4 +246,11 @@ it("rejects legacy unverified numeric bases in XLSX rather than exporting them a
  const result=await analysis(`Answer,Banner,Region,Spend\nA,Core,${selected},10\nB,Growth,${selected},20\n`,"average");
  if(result.metadataRefs.source?.kind!=="imported")throw Error("Missing imported source");delete result.metadataRefs.source.measureBaseScope;
  const draft=document(result);expect(()=>buildXlsxBlob(draft,draft.pages)).toThrow("cached numeric sample bases are unverified");
+});
+
+it("exports empty percentage denominators as unavailable text and missing PPTX points rather than measured zero",async()=>{
+ const result=await analysis(`Answer,Banner,Region,Spend\nYes,A,${selected},1\nNo,A,${selected},2\nNo,B,EXCLUDED-SOUTH,3\n`,"percent_selected"),draft=document(result),tile=draft.pages[0].tiles[0];tile.layout={x:20,y:20,width:1200,height:680,zIndex:1};
+ const{parts}=await files(buildXlsxBlob(draft,draft.pages)),sheetRows=rows(parts.get("xl/worksheets/sheet2.xml")!);expect(sheetRows.flat().filter(cell=>cell.value==="Unavailable")).toHaveLength(2);
+ const descriptor=buildNativePptxChartDescriptor(tile,1,101,"rId2"),chart=xml(descriptor.chartXml),caches=Array.from(chart.getElementsByTagName("c:val"));expect(caches).toHaveLength(2);expect(caches[0].getElementsByTagName("c:pt")).toHaveLength(2);expect(caches[1].getElementsByTagName("c:pt")).toHaveLength(0);expect(caches[1].getElementsByTagName("c:ptCount")[0].getAttribute("val")).toBe("2");
+ tile.visualization="table";expect(buildPageVisualSvg(draft.pages[0])).toContain("Unavailable");
 });

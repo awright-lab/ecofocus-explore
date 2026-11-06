@@ -4235,3 +4235,44 @@ dialog::backdrop {
 .export-preflight-grid li { margin-bottom: 18px; font-size: 13px; }
 .export-preflight-grid li p { margin: 6px 0 0; }
 @media (max-width: 850px) { .export-preflight-grid { grid-template-columns: 1fr; } .export-preflight-dialog { padding: 18px; } .export-preflight-dialog > header { gap: 12px; } }
+
+.workspace-recovery-copies { margin-top: 28px; padding-top: 20px; border-top: 1px solid #d7dfd9; }
+.workspace-recovery-copies ul { display: grid; gap: 14px; list-style: none; padding: 0; }
+.workspace-recovery-copies li { padding: 18px; border: 1px solid #d7dfd9; border-radius: 12px; background: #f7faf8; }
+.workspace-recovery-copies h3 { margin: 0 0 8px; }
+.workspace-load-recovery button:focus-visible { outline: 3px solid #194e3d; outline-offset: 3px; }
+@media (max-width: 720px) { .workspace-load-recovery { margin: 24px 12px; padding: 22px; } }
+
+.workspace-recovery-dock { position: fixed; z-index: 10000; bottom: 20px; left: 50%; transform: translateX(-50%); width: min(900px, calc(100% - 32px)); max-height: calc(100dvh - 90px); overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.workspace-recovery-dock:empty { display: none; }
+.workspace-recovery-dock > .workspace-save-recovery, .workspace-recovery-dock > .workspace-import-recovery { position: static; transform: none; width: 100%; }
+.workspace-history-recovery { padding: 16px; border: 1px solid #76a489; border-radius: 12px; background: #eff8f1; color: #194e3d; box-shadow: 0 8px 30px #0002; }
+.workspace-history-recovery p { margin: 6px 0 12px; }
+.workspace-history-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; }
+.workspace-history-recovery button, .workspace-history-recovery a { display: inline-block; padding: 9px 12px; border: 1px solid currentColor; border-radius: 8px; color: inherit; background: white; cursor: pointer; }
+.workspace-history-recovery button:disabled { cursor: wait; opacity: .65; }
+.workspace-history-recovery :is(button,a):focus-visible { outline: 3px solid #194e3d; outline-offset: 3px; }
+.retained-history-review { margin-top: 14px; padding-top: 12px; border-top: 1px solid #bfd0c5; }
+.retained-history-review > button { margin: 3px 6px 6px 0; }
+.retained-history-review label { display: grid; gap: 6px; margin: 12px 0; }
+.retained-history-review :is(input,select) { width: 100%; min-width: 0; padding: 9px; color: inherit; background: white; border: 1px solid #76a489; border-radius: 6px; }
+.retained-history-review :is(input,select):focus-visible { outline: 3px solid #194e3d; outline-offset: 3px; }
+.retained-history-review p, .retained-history-review strong { overflow-wrap: anywhere; }
+
+.result-evidence-panel { margin: 12px 0; padding: 14px; background: #f4f8f5; border: 1px solid #ccddd1; border-radius: 10px; }
+.result-evidence-panel > summary { cursor: pointer; color: #194e3d; font-weight: 700; }
+.result-evidence-panel p, .result-evidence-panel li { font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.result-evidence-panel label { display: grid; gap: 5px; margin: 12px 0; }
+.result-evidence-panel :is(input,select) { width: 100%; min-width: 0; padding: 8px; border: 1px solid #bfd0c5; border-radius: 6px; background: white; color: #183b2b; }
+.result-evidence-panel h3 { font-size: 14px; overflow-wrap: anywhere; }
+.result-evidence-panel dl { display: grid; gap: 10px; margin: 14px 0; }
+.result-evidence-panel dt { color: #4a6557; font-size: 11px; font-weight: 600; }
+.result-evidence-panel dd { margin: 3px 0 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.result-evidence-panel :is(summary,input,select):focus-visible { outline: 3px solid #39784d; outline-offset: 3px; }
+.result-evidence-warning { padding: 9px; border-left: 3px solid #a36d19; background: #fff7e8; }
+
+.analysis-edit-preview h4 { margin: 0 0 8px; color: #204c39; font-size: 15px; }
+.analysis-edit-preview h5 { margin: 14px 0 6px; font-size: 13px; }
+.analysis-edit-preview > section { padding: 10px; border: 1px solid #d4e2d9; border-radius: 8px; margin: 12px 0; }
+.analysis-edit-preview ul { padding-left: 18px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.analysis-edit-preview td small { display: block; white-space: normal; }

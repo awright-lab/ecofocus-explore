@@ -1,10 +1,37 @@
 import { NumericDistribution } from "./NumericDistribution";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { numericProfileWorkerThreshold, runNumericProfileJob, type NumericProfileProgress } from "../../data/numericProfileJob";
+import type { ImportedNumericProfile } from "../../data/importedNumericProfile";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 import { buildImportedNumericProfile } from "../../data/importedNumericProfile";
 
 export function NumericFieldProfile({ dataset, field, onSummarize }: { dataset: ImportedDatasetRecord; field: ImportedDatasetField; onSummarize?: () => void }) {
-  const profile = useMemo(() => buildImportedNumericProfile(dataset, field), [dataset, field]);
+  const storedRows = dataset.rows.length ? dataset.rows.length : dataset.previewRows.length;
+  const background = storedRows >= numericProfileWorkerThreshold && storedRows >= dataset.rowCount;
+  const synchronous = useMemo(() => background ? null : buildImportedNumericProfile(dataset, field), [background, dataset, field]);
+  const [attempt, setAttempt] = useState(0);
+  const [job, setJob] = useState<{ dataset: ImportedDatasetRecord; field: ImportedDatasetField; progress?: NumericProfileProgress; profile?: ImportedNumericProfile; error?: string; canceled?: boolean } | null>(null);
+  const owner = useRef<AbortController | null>(null);
+  useEffect(() => {
+    if (!background) return;
+    const controller = new AbortController(); owner.current = controller;
+    setJob({ dataset, field, progress: { phase: "preparing", prepared: 0, total: storedRows } });
+    void runNumericProfileJob(dataset, field, { signal: controller.signal, onProgress: progress => {
+      if (!controller.signal.aborted) setJob({ dataset, field, progress });
+    } }).then(profile => {
+      if (!controller.signal.aborted) setJob({ dataset, field, profile });
+    }, error => {
+      if (!controller.signal.aborted) setJob({ dataset, field, error: error instanceof Error ? error.message : "Numeric summary unavailable." });
+    });
+    return () => { controller.abort(); if (owner.current === controller) owner.current = null; };
+  }, [background, dataset, field, attempt, storedRows]);
+  const current = job?.dataset === dataset && job.field === field ? job : null;
+  const profile = synchronous ?? current?.profile;
+  if (!profile) return <section className="numeric-field-profile" aria-label="Numeric field summary">
+    <strong>Understand this number</strong>
+    {current?.error ? <p role="alert">{current.error}</p> : current?.canceled ? <p role="status">Numeric summary canceled. Your study has not been changed.</p> : <p role="status">{current?.progress?.phase === "calculating" ? `Calculating summary for ${storedRows.toLocaleString()} stored responses in the background…` : `Preparing numeric values: ${(current?.progress?.phase === "preparing" ? current.progress.prepared : 0).toLocaleString()} of ${storedRows.toLocaleString()}…`}</p>}
+    {current?.error || current?.canceled ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry numeric summary</button> : <button type="button" onClick={() => { owner.current?.abort(); setJob({ dataset, field, canceled: true }); }}>Cancel numeric summary</button>}
+  </section>;
   if (profile.status === "unavailable") return <section className="numeric-field-profile" aria-label="Numeric field summary"><strong>Numeric summary unavailable</strong><p>{profile.reason}</p></section>;
   const format = (value: number | null) => value === null ? "Unavailable" : new Intl.NumberFormat("en-US",
     value !== 0 && (Math.abs(value) < 0.0001 || Math.abs(value) >= 1e12)

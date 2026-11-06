@@ -1,3 +1,4 @@
+import { resultWeightingLabel } from "../../../shared/analytics/weightingLabel";
 import { analyticalCellStatuses } from "../../../shared/analytics/resultCells";
 import { resultInferenceLabel, withSafeInference } from "../../../shared/analytics/inferenceSafety";
 import { canvasHeight, canvasWidth } from "./builderConstants";
@@ -95,7 +96,7 @@ export function buildDashboardExportSpec(dashboard: DashboardDraft, sortedPages:
               comparison: comparisonSummaryLabel(tile.query),
               trendSpan: trendSpanLabel(tile.query),
               sampleSize: sampleSizeLabel(tile.result),
-              weighting: tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted",
+              weighting: resultWeightingLabel(tile.result),
               confidence: imported ? "No significance testing for imported data" : resultInferenceLabel(tile.result),
               narrativeNotes: tilePresentationNotes(tile)
             },
