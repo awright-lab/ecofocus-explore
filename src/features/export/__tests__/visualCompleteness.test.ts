@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { TableView } from "../../builder/components/CanvasRenderers";
 import { initialDashboard } from "../../document/documentSeeds";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
@@ -29,7 +32,7 @@ async function page(id: string, rows: number, columns: number, kind: DashboardTi
   if (!imported.dataset) throw new Error(imported.error ?? "Synthetic import failed");
   for (const field of imported.dataset.fields) if (field.sourceColumn !== "Spend") Object.assign(field, { type: "categorical", modelingRole: "candidate_dimension", eligibleForFilter: true, eligibleForBanner: true });
   const field = (name: string) => imported.dataset!.fields.find(field => field.sourceColumn === name)!;
-  const result = runImportedDatasetQuery({ dataset: imported.dataset, field: field("Answer"), bannerField: field("Banner"),
+  const result = runImportedDatasetQuery({ dataset: imported.dataset, field: field("Answer"), bannerField: kind === "donut" ? null : field("Banner"),
     filter: { field: field("Region"), value: selected }, measureField: count ? null : field("Spend"), metric: count ? "count" : "sum", chartType: kind });
   const draft = structuredClone(initialDashboard.pages[0]); draft.id = id; draft.title = id; draft.elements = [];
   draft.tiles = [{ ...draft.tiles[0], title: id, name: id, result, query: result.query, visualization: kind, layout: { x: 20, y: 20, width: 1200, height: 680, zIndex: 1 },
@@ -193,4 +196,29 @@ it.each(["vertical_bar", "line_chart"] as const)("renders finite zero and negati
       expect(heights).toHaveLength(2); if(negative) expect(heights[1]).toBeGreaterThan(100); else expect(heights).toEqual([0,0]);
     } else expect([...svg.matchAll(/<circle data-row=/g)]).toHaveLength(2);
   }
+});
+
+
+it("keeps selected donut typography, label color and chart surface without changing data", async () => {
+ const fixture=await page("donut-brand",4,1,"donut",true),tile=fixture.tiles[0];
+ tile.appearance.axisFontSize=19;tile.appearance.labelFontSize=23;tile.appearance.labelColor="#a02060";tile.appearance.chartBackground="#dceafb";
+ const before=structuredClone(fixture),svg=buildPageVisualSvg(fixture);
+ expect(svg).toContain('font-size="19" text-anchor="start" fill="#a02060"');
+ expect(svg).toContain('font-size="23" text-anchor="end" fill="#a02060"');expect(svg).toContain('fill="#dceafb"');expect(fixture).toEqual(before);
+ tile.appearance.labelFontSize=300;expect(()=>buildPageVisualSvg(fixture)).toThrow(/selected type size/);
+});
+it("sizes multi-row series legends for selected typography and refuses text that cannot fit",async()=>{
+ const fixture=await page("legend-brand",2,20,"grouped_bar",true),tile=fixture.tiles[0];tile.appearance.showValueLabels=false;tile.appearance.axisFontSize=28;
+ const svg=buildPageVisualSvg(fixture),labels=[...svg.matchAll(/<text x="([^"]+)" y="([^"]+)"[^>]*font-size="28"[^>]*>G[0-9]+<\/text>/g)];
+ expect(labels).toHaveLength(20);const y=[...new Set(labels.map(match=>Number(match[2])))].sort((a,b)=>a-b);expect(y.length).toBeGreaterThan(1);expect(y[1]-y[0]).toBeGreaterThanOrEqual(28*1.3-0.001);
+ tile.appearance.axisLabelOverrides[tile.result.columns[0].id]="A long legend label that cannot fit at the selected type size";tile.appearance.axisFontSize=80;
+ expect(()=>buildPageVisualSvg(fixture)).toThrow(/legend label cannot fit/);
+});
+
+it("retains chosen table type and color and native chart surface", async()=>{
+ const fixture=await page("table-brand",3,2,"table"),tile=fixture.tiles[0];tile.appearance.axisFontSize=19;tile.appearance.labelFontSize=23;tile.appearance.labelColor="#a02060";
+ const svg=buildPageVisualSvg(fixture);expect(svg).toContain('font-size="19" text-anchor="start" fill="#a02060"');expect(svg).toContain('font-size="23" text-anchor="start" fill="#a02060"');
+ const html=renderToStaticMarkup(createElement(TableView,{tile}));expect(html).toContain('<th style="font-size:19px;color:#a02060">Answer');expect(html).toContain('style="font-size:23px;color:#a02060"');expect(html).toContain('font-size:22px;color:#a02060');
+ tile.visualization="grouped_bar";tile.appearance.chartBackground="#dceafb";expect(buildNativePptxChartDescriptor(tile,1,3,"rId2").chartXml).toContain('<a:srgbClr val="DCEAFB"/>');
+ tile.visualization="table";tile.appearance.labelFontSize=100;expect(()=>buildPageVisualSvg(fixture)).toThrow(/too many rows|cannot fit/);
 });

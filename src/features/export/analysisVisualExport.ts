@@ -75,23 +75,25 @@ function check(tile: DashboardTile) {
 
 function table(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), columns = tile.result.columns, rows = tile.result.table;
+  const nameSize = tile.appearance.axisFontSize, valueSize = tile.appearance.labelFontSize, sampleSize = Math.max(8,valueSize - 1), nameLine = nameSize * 1.3;
+  const minimumRow = Math.max(nameLine, valueSize * 1.2 + sampleSize * 1.2) + 6;
   const first = area.width * 0.29, cell = (area.width - first) / columns.length;
   if (cell < 70) throw new Error(`"${tile.title}" has too many columns for a readable table. Enlarge it or use Excel/JSON.`);
-  const headers = columns.map(column => completeLines(label(tile, column.id, column.label), Math.max(4, Math.floor(cell / 6)), 3));
-  const headerHeight = Math.max(...headers.map(lines => lines.length), 1) * 12 + 12;
-  const rowHeight = Math.min(32, (area.height - headerHeight) / rows.length);
-  if (rowHeight < 24) throw new Error(`"${tile.title}" has too many rows for this page. Enlarge it or use Excel/JSON; no rows were omitted.`);
-  let svg = `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${headerHeight}" fill="#edf2f5"/>${text("Response", area.x + 6, area.y + 16)}`;
-  headers.forEach((lines, index) => lines.forEach((line, n) => { svg += text(line, area.x + first + index * cell + 6, area.y + 14 + n * 12); }));
+  const headers = columns.map(column => completeLines(label(tile, column.id, column.label), Math.max(1, Math.floor((cell - 12) / Math.max(6,nameSize * 0.65))), 3));
+  const headerHeight = Math.max(...headers.map(lines => lines.length), 1) * nameLine + 12;
+  const rowHeight = Math.min(Math.max(32,minimumRow), (area.height - headerHeight) / rows.length);
+  if (rowHeight < minimumRow) throw new Error(`"${tile.title}" has too many rows for this page. Enlarge it or use Excel/JSON; no rows were omitted.`);
+  let svg = `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${headerHeight}" fill="#edf2f5"/>${text("Response", area.x + 6, area.y + nameSize + 4,nameSize,"start",tile.appearance.labelColor)}`;
+  headers.forEach((lines, index) => lines.forEach((line, n) => { svg += text(line, area.x + first + index * cell + 6, area.y + nameSize + 4 + n * nameLine,nameSize,"start",tile.appearance.labelColor); }));
   rows.forEach((row, rowIndex) => {
     const y = area.y + headerHeight + rowIndex * rowHeight;
-    const lines = completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor(first / 6)), Math.floor(rowHeight / 12));
+    const lines = completeLines(label(tile, row.optionId, row.label), Math.max(1, Math.floor((first - 12) / Math.max(6,nameSize * 0.65))), Math.max(1,1 + Math.floor((rowHeight - nameSize - 4) / nameLine)));
     svg += `<g data-row="${xmlText(row.optionId)}"><rect x="${area.x}" y="${y}" width="${area.width}" height="${rowHeight}" fill="${rowIndex % 2 ? "#fff" : "#f6f9fb"}" stroke="#dce3e9"/>`;
-    lines.forEach((line, n) => { svg += text(line, area.x + 6, y + 12 + n * 12); });
+    lines.forEach((line, n) => { svg += text(line, area.x + 6, y + nameSize + 3 + n * nameLine,nameSize,"start",tile.appearance.labelColor); });
     columns.forEach((column, index) => {
       const formatted = value(tile, analyticalCell(tile.result,row,column.id).value), sample = base(tile, row.bases[column.id]);
       if (Math.max(formatted.length, sample.length) * Math.max(6,tile.appearance.labelFontSize * 0.62) > cell - 10) throw new Error("An export cell label cannot fit. Enlarge the table or use Excel/JSON.");
-      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${analyticalCell(tile.result,row,column.id).value ?? ""}" data-base="${row.bases[column.id]}">${text(formatted, area.x + first + index * cell + 6, y + 11)}${text(sample, area.x + first + index * cell + 6, y + 22, 8)}</g>`;
+      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${analyticalCell(tile.result,row,column.id).value ?? ""}" data-base="${row.bases[column.id]}">${text(formatted, area.x + first + index * cell + 6, y + valueSize + 2,valueSize,"start",tile.appearance.labelColor)}${text(sample, area.x + first + index * cell + 6, y + valueSize + 2 + sampleSize * 1.2, sampleSize,"start",tile.appearance.labelColor)}</g>`;
     });
     svg += "</g>";
   });
@@ -99,11 +101,12 @@ function table(tile: DashboardTile) {
 }
 
 function legend(tile: DashboardTile, area: ReturnType<typeof analysisVisualLayout>["area"]) {
-  const width = Math.max(50, ...tile.result.columns.map(column => label(tile, column.id, column.label).length * 6 + 20));
+  const size = tile.appearance.axisFontSize, lineHeight = Math.max(15, size * 1.3);
+  const width = Math.max(50, ...tile.result.columns.map(column => label(tile, column.id, column.label).length * Math.max(6, size * 0.65) + 24));
   const perRow = Math.max(1, Math.floor(area.width / width));
-  if (width > area.width) throw new Error("A complete legend label cannot fit. Enlarge the chart or shorten its display alias.");
-  return { height: Math.ceil(tile.result.columns.length / perRow) * 15,
-    svg: tile.result.columns.map((column, index) => `<rect x="${area.x + index % perRow * width}" y="${area.y + Math.floor(index / perRow) * 15}" width="8" height="8" fill="${xmlText(tile.visualization === "line_chart" ? color(tile,column.id,index) : barPaintSvg(tile,"columns",column.id,index).fill)}"/>${text(label(tile, column.id, column.label), area.x + index % perRow * width + 12, area.y + Math.floor(index / perRow) * 15 + 8, tile.appearance.axisFontSize, "start", tile.appearance.labelColor)}`).join("") };
+  if (width > area.width) throw new Error("A complete legend label cannot fit at the selected type size. Enlarge the chart or shorten its display alias.");
+  return { height: Math.ceil(tile.result.columns.length / perRow) * lineHeight,
+    svg: tile.result.columns.map((column, index) => `<rect x="${area.x + index % perRow * width}" y="${area.y + Math.floor(index / perRow) * lineHeight}" width="8" height="8" fill="${xmlText(tile.visualization === "line_chart" ? color(tile,column.id,index) : barPaintSvg(tile,"columns",column.id,index).fill)}"/>${text(label(tile, column.id, column.label), area.x + index % perRow * width + 12, area.y + Math.floor(index / perRow) * lineHeight + size, size, "start", tile.appearance.labelColor)}`).join("") };
 }
 
 function numericExtent(amounts: number[]) {
@@ -190,18 +193,26 @@ function donut(tile: DashboardTile) {
   if (!supportsDonutResult(tile.result)) throw new Error("Donut export requires a complete, mutually exclusive whole. Use a bar chart or table.");
   const { area } = analysisVisualLayout(tile), rows = tile.result.table, column = tile.result.columns[0], total = rows.reduce((sum, row) => sum + row.values[column.id], 0);
   const rowHeight = area.height / rows.length;
-  if (rowHeight < 24) throw new Error("All donut legend values/bases cannot fit. Enlarge it or use Excel/JSON.");
+  const nameSize = tile.appearance.axisFontSize, valueSize = tile.appearance.labelFontSize, sampleSize = Math.max(8, valueSize - 1);
+  const lineHeight = nameSize * 1.3, valueHeight = valueSize * 1.3;
+  const valueWidth = Math.max(0, ...rows.flatMap(row => [
+    tile.appearance.showValueLabels ? value(tile,row.values[column.id]).length * valueSize * 0.65 : 0,
+    tile.appearance.showBases ? base(tile,row.bases[column.id]).length * sampleSize * 0.65 : 0
+  ])) + 16;
+  if (valueWidth >= area.width * 0.52 - 24) throw new Error("Donut values cannot fit at the selected type size. Enlarge it or use Excel/JSON.");
+  const minimumHeight = Math.max(lineHeight, tile.appearance.showValueLabels ? valueHeight : 0) + (tile.appearance.showBases ? sampleSize * 1.3 : 0) + 8;
+  if (rowHeight < minimumHeight) throw new Error("All donut legend values/bases cannot fit at the selected type size. Enlarge it or use Excel/JSON.");
   const cx = area.x + area.width * 0.22, cy = area.y + area.height / 2, radius = Math.min(area.width * 0.20, area.height * 0.44);
   let angle = -Math.PI / 2, svg = "";
   rows.forEach((row, index) => {
     const amount = row.values[column.id], next = angle + amount / total * 2 * Math.PI;
     if (amount > 0) svg += amount / total >= 0.999999 ? `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${xmlText(color(tile, row.optionId, index, "rows"))}"/>` : `<path data-row="${xmlText(row.optionId)}" data-value="${amount}" d="M ${cx} ${cy} L ${cx + radius * Math.cos(angle)} ${cy + radius * Math.sin(angle)} A ${radius} ${radius} 0 ${next - angle > Math.PI ? 1 : 0} 1 ${cx + radius * Math.cos(next)} ${cy + radius * Math.sin(next)} Z" fill="${xmlText(color(tile, row.optionId, index, "rows"))}"/>`;
     angle = next;
-    const names = completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor((area.width * 0.52 - 80) / 6)), Math.floor((rowHeight - 10) / 11));
+    const names = completeLines(label(tile, row.optionId, row.label), Math.max(1, Math.floor((area.width * 0.52 - valueWidth - 24) / Math.max(6,nameSize * 0.65))), Math.max(1, 1 + Math.floor((rowHeight - nameSize - 4) / lineHeight)));
     svg += `<rect x="${area.x + area.width * 0.46}" y="${area.y + index * rowHeight + 5}" width="8" height="8" fill="${xmlText(color(tile, row.optionId, index, "rows"))}"/>`;
-    names.forEach((name, line) => { svg += text(name, area.x + area.width * 0.46 + 14, area.y + index * rowHeight + 13 + line * 11, 10); });
-    if (tile.appearance.showValueLabels) svg += text(value(tile, amount), area.x + area.width, area.y + index * rowHeight + 13, 10, "end");
-    if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), area.x + area.width, area.y + index * rowHeight + 24, 8, "end");
+    names.forEach((name, line) => { svg += text(name, area.x + area.width * 0.46 + 14, area.y + index * rowHeight + nameSize + line * lineHeight, nameSize, "start", tile.appearance.labelColor); });
+    if (tile.appearance.showValueLabels) svg += text(value(tile, amount), area.x + area.width, area.y + index * rowHeight + valueSize, valueSize, "end", tile.appearance.labelColor);
+    if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), area.x + area.width, area.y + index * rowHeight + valueSize + sampleSize * 1.3, sampleSize, "end", tile.appearance.labelColor);
   });
   return svg + `<circle cx="${cx}" cy="${cy}" r="${radius * 0.67}" fill="${xmlText(tile.appearance.chartBackground || "#fff")}"/>`;
 }
@@ -221,6 +232,9 @@ export function analysisTileSvg(tile: DashboardTile, includeBody = true) {
   }
   const hasValues = tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
   if (includeBody && !hasValues && tile.visualization !== "table") svg += text(tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no valid numeric observations.",layout.area.x,layout.area.y+24,12);
-  else if (includeBody) svg += tile.visualization === "table" ? table(tile) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
+  else if (includeBody) {
+    svg += `<rect x="${layout.area.x}" y="${layout.area.y}" width="${layout.area.width}" height="${layout.area.height}" fill="${xmlText(tile.appearance.chartBackground || "#fff")}"/>`;
+    svg += tile.visualization === "table" ? table(tile) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
+  }
   return svg + "</g>";
 }

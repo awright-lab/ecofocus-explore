@@ -1475,12 +1475,12 @@ export function TableView({ tile }: { tile: DashboardTile }) {
       aria-label="Query-driven table"
     >
       <div className="table-shell">
-        <table className="analytics-table">
+        <table className="analytics-table" style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>
           <thead>
             <tr>
-              <th>Answer</th>
+              <th style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>Answer</th>
               {visibleColumns.map((column) => (
-                <th key={column.id}>{column.label}</th>
+                <th key={column.id} style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>{column.label}</th>
               ))}
             </tr>
           </thead>
@@ -1496,7 +1496,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                       : "table-row"
                 }
               >
-                <th>
+                <th style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>
                   <div className="table-row-label">
                     <span>
                       {getAxisLabel(appearance, row.optionId, row.label)}
@@ -1526,6 +1526,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                       <div className="table-cell-stack">
                         {appearance.showValueLabels && (
                           <span
+                            style={{ fontSize: appearance.labelFontSize, color: annotation || significanceCell ? undefined : appearance.labelColor }}
                             className={
                               annotation
                                 ? `table-value ${annotation.direction}`
@@ -1557,7 +1558,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                           </span>
                         )}
                         {appearance.showBases && (
-                          <small>
+                          <small style={{ fontSize: Math.max(8, appearance.labelFontSize - 1), color: appearance.labelColor }}>
                             {importedMeasureBasesNeedRefresh(result) ? "Base unavailable; rerun" : `Base ${row.bases[column.id].toLocaleString()}`}
                           </small>
                         )}
