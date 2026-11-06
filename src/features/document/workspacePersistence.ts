@@ -1,5 +1,5 @@
 import { assertSavedAudiences } from "../audiences/audienceModel";
-import { assertNarrativeEvidence } from "../narratives/narrativeEvidence";
+import { assertNarrativeEvidence,assertNarrativeLibraryEvidence } from "../narratives/narrativeEvidence";
 import { storageKey } from "../builder/builderConstants";
 import { normalizeDashboard, normalizeImportedDataset, normalizeImportedDatasetField } from "./documentModel";
 import { initialDashboard } from "./documentSeeds";
@@ -141,6 +141,7 @@ function readSavedDashboard(value: unknown, format: SavedWorkspaceFormat): Dashb
   assertSavedCanvasIdentities(value.pages as Array<Record<string, unknown>>);
   assertSavedAudiences(value.savedAudiences);
   assertNarrativeEvidence(value.pages as DashboardPage[]);
+  assertNarrativeLibraryEvidence(value.designLibrary);
   if (format === "v2" && (typeof value.id !== "string" || typeof value.title !== "string" ||
       !["draft", "published"].includes(value.status as string))) {
     throw new Error("The saved report is incomplete or damaged. Your saved data has not been changed.");

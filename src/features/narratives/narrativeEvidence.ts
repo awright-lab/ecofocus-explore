@@ -34,6 +34,17 @@ export function assertNarrativeEvidence(pages: DashboardPage[]) {
     if (issue) throw new Error(issue);
   }
 }
+export function assertNarrativeLibraryEvidence(library: unknown) {
+  if(!object(library))return;
+  for(const key of ["compositionBlocks","compositionStarters"]){
+    const blocks=library[key];if(!Array.isArray(blocks))continue;
+    for(const block of blocks)if(object(block)&&Array.isArray(block.items))for(const item of block.items){
+      if(!object(item)||item.kind!=="element"||!object(item.element)||item.element.evidence===undefined)continue;
+      const issue=item.element.type!=="text"?"Only text objects can retain evidence links.":narrativeEvidenceIssue(item.element.evidence);
+      if(issue)throw new Error(issue);
+    }
+  }
+}
 export function captureNarrativeCell(pages: DashboardPage[], reference: CellReference): NarrativeEvidenceLink {
   const matches = pages.flatMap(page=>page.tiles.filter(tile=>tile.id===reference.tileId).map(tile=>({page,tile})));
   if (matches.length!==1) throw new Error("The source analysis is missing or ambiguous. Restore it or choose a specific source again.");

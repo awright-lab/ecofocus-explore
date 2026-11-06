@@ -13,6 +13,7 @@ import { buildPageVisualSvg } from "../../export/pageVisualExport";
 import { buildXlsxBlob,buildPptxBlob,buildPdfBlob } from "../../export/coreDocumentExports";
 import { buildEditableSlideReconstruction } from "../../export/pptxEditableReconstruction";
 import type { AnalyticsSourceIdentity } from "../../../../shared/types/analytics";
+import type { SavedCompositionBlock } from "../../../../shared/types/dashboard";
 
 async function fixture(){
  const imported=await importDatasetBuffer(new TextEncoder().encode("Region,Spend\nNorth,10\nSouth,20\nNorth,30\n").buffer,"synthetic-narrative.csv");
@@ -92,4 +93,13 @@ it("retains multiple reviewed cells and flags a change to either linked result",
  const {draft,element,tile,ref}=await fixture(),south=tile.result.table.find(row=>row.label==="South")!;
  element.evidence=reviewNarrative(element,draft.pages,[ref,{...ref,rowId:south.optionId}]);const original=structuredClone(element.evidence);expect(narrativeState(element,draft.pages)?.current).toBe(true);
  south.values[ref.columnId]=2;expect(narrativeState(element,draft.pages)?.current).toBe(false);expect(element.evidence).toEqual(original);expect(narrativeCitation(element)).toContain("South / Total = 1");
+});
+it("retains study rows for linked claims stored only in reusable layouts and rejects damaged library evidence without overwriting recovery",async()=>{
+ const {draft,dataset,element}=await fixture();
+ const block:SavedCompositionBlock={id:"saved-claim",label:"Saved claim",description:"Synthetic saved narrative",category:"narrative",createdAt:1,summary:{objectCount:1,tileCount:0,elementCount:1,width:element.layout.width,height:element.layout.height},items:[{kind:"element",element:structuredClone(element),relativeLayout:element.layout}]};
+ draft.designLibrary.compositionBlocks=[block];draft.pages.forEach(page=>{page.elements=[];page.tiles=[];});draft.importedDatasets=[];
+ expect(draftImportedStudyReferences(draft)).toContainEqual({datasetId:dataset.id,location:"Saved layout: Saved claim"});
+ const workspace=normalizeDashboardWorkspace({reports:[createReportRecord(draft)],importedDatasets:[dataset]});const snapshot=createPublishedSnapshot(workspace,draft).snapshot;expect(snapshot.dashboard.importedDatasets.find(item=>item.id===dataset.id)?.rows).toEqual(dataset.rows);
+ expect(saveDashboardWorkspace(workspace)).toBe(true);const reopened=loadDashboardWorkspace();expect(reopened.reports[0].draft.designLibrary.compositionBlocks[0].items[0]).toMatchObject({kind:"element",element:{evidence:element.evidence}});
+ const raw=JSON.parse(localStorage.getItem(workspaceStorageKey)!);raw.reports[0].draft.designLibrary.compositionBlocks[0].items[0].element.evidence=null;const damaged=JSON.stringify(raw);localStorage.setItem(workspaceStorageKey,damaged);expect(()=>loadDashboardWorkspace()).toThrow(/evidence/);expect(localStorage.getItem(workspaceStorageKey)).toBe(damaged);
 });

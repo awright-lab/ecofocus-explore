@@ -12,6 +12,8 @@ Changing the written claim, linked value/base/labels, source metadata or analyti
 
 Optional evidence metadata is validated before saved-workspace normalization. Damaged metadata leaves raw recovery unchanged. Saving/reopening, report duplication and snapshots retain links and reviewed evidence. Snapshots retain needed study rows even when the remaining reference is an orphaned claim. Source references remain scoped to the report; copied objects do not guess new source bindings.
 
+Reusable composition blocks/starters also validate stored claim evidence and retain its study dependencies. A regression removes all page objects while keeping only a saved layout, then verifies snapshot row retention, save/reopen and damaged-library recovery without overwriting raw data.
+
 ## Export behavior
 
 PDF/SVG and editable PowerPoint text contain the authored claim plus visible recorded citations. Excel adds an evidence sheet containing text, review time, citations and the complete evidence definition. Formatted builders reject stale/orphaned links before rasterization, require source pages in a subset export, and reject linked text outside the page. Linked-text wrapping reserves padding, uses conservative character capacity and line spacing, and refuses text that cannot fit; original unlinked text behavior is retained. JSON/portable recovery retains original text and metadata.

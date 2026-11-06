@@ -33,7 +33,7 @@ export function draftImportedStudyReferences(draft: DashboardDraft): Array<{ dat
   for (const template of draft.analysisLibrary.templates) add(`Saved analysis: ${template.label}`, [...sourceStudyIds(template.source), ...queryStudyIds(template.query)]);
   for (const definition of draft.analysisLibrary.derivedDefinitions) add(`Saved calculation: ${definition.label}`, [...sourceStudyIds(definition.source), ...queryStudyIds(definition.query)]);
   for (const block of [...draft.designLibrary.compositionBlocks, ...draft.designLibrary.compositionStarters]) {
-    add(`Saved layout: ${block.label}`, block.items.flatMap(item => item.kind === "tile" ? tileStudyIds(item.tile) : []));
+    add(`Saved layout: ${block.label}`, block.items.flatMap(item => item.kind === "tile" ? tileStudyIds(item.tile) : item.element.evidence?.links.flatMap(link=>link.snapshot.studyIds)??[]));
   }
   return references;
 }
