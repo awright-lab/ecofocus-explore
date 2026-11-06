@@ -32,6 +32,12 @@ function minimumProps(datasets:ImportedDatasetRecord[],overrides:Partial<Analysi
 
 
 describe('imported analysis creation accuracy',()=>{
+ it('honors an explicit sample catalog launch when an imported study is present',async()=>{
+  const dataset=await csv('Answer,Region\nYes,North\nNo,North\nYes,South\n');const sample=vi.fn(async()=> 'sample-tile'),imported=vi.fn(async()=> 'imported-tile');
+  await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{filteredQuestions:[],addTileFromSourceWithVisualization:sample,addTileFromImportedDatasetField:imported})} launchContext={{sourceMode:'seeded'}} onClose={()=>{}}/>));
+  expect(Array.from(select('Question / variable').options).some(option=>option.value===defaultQuestion.id)).toBe(true);
+  expect(host.querySelector('.guided-query-choice-grid button.active')?.textContent).toContain('sample');await act(async()=>button('Create table').click());expect(sample).toHaveBeenCalledOnce();expect(imported).not.toHaveBeenCalled();
+ });
  it('clears filters and breakouts after importing a new study, then creates from all new rows',async()=>{
   const first=await csv('Response,Region,Spend\nYes,North,10\nNo,North,20\nYes,South,30\n','first.csv');
   const second=await csv('Response,Region,Spend\nYes,South,100\nNo,West,200\n','second.csv');

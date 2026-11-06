@@ -179,6 +179,8 @@ export function normalizeImportedDatasetField(field: Partial<ImportedDatasetFiel
     label,
     sourceColumn: field.sourceColumn ?? label,
     variableLabel: field.variableLabel,
+    researchTopic: field.researchTopic,
+    researchConcepts: field.researchConcepts,
     valueLabels: field.valueLabels,
     sourceFormat: field.sourceFormat,
     type,

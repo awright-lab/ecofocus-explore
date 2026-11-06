@@ -10,13 +10,14 @@ export function useModalAccessibility(ref: RefObject<HTMLElement | null>, onClos
     const overflow = document.body.style.overflow;
     const siblings: Array<{ element: HTMLElement; inert: boolean }> = [];
     let current: HTMLElement | null = modal;
-    while (current && current.parentElement && current.parentElement !== document.body) {
+    while (current && current.parentElement) {
       for (const sibling of Array.from(current.parentElement.children)) {
         if (sibling !== current && sibling instanceof HTMLElement) {
           siblings.push({ element: sibling, inert: sibling.inert });
           sibling.inert = true;
         }
       }
+      if (current.parentElement === document.body) break;
       current = current.parentElement;
     }
     document.body.style.overflow = "hidden";

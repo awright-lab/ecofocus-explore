@@ -38,6 +38,7 @@ const ReportPageTree = lazy(() =>
 );
 
 export type GuidedDataQueryLaunchOptions = {
+  sourceMode?: "seeded" | "imported";
   groupingScope?: "all_respondents";
   outputMode?: "table" | "chart";
   importedDatasetId?: string;
@@ -114,8 +115,8 @@ export type AnalysisAuthoringPanelProps = {
   updateImportedDatasetField: (
     datasetId: string,
     fieldId: string,
-    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
-  ) => void;
+    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner" | "researchTopic" | "researchConcepts">>
+  ) => boolean | void;
   removeImportedDataset: (datasetId: string) => string | null;
   openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];

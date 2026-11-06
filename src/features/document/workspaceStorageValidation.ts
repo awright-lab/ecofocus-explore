@@ -44,6 +44,8 @@ function assertField(value: unknown, format: SavedWorkspaceFormat) {
     if ((format === "v2" || value[key] !== undefined) && typeof value[key] !== "boolean") invalidStudy();
   }
   if (value.valueLabels !== undefined && (!isSavedObject(value.valueLabels) || !Object.values(value.valueLabels).every((label) => typeof label === "string"))) invalidStudy();
+  if (value.researchTopic !== undefined && (typeof value.researchTopic !== "string" || value.researchTopic.length > 120)) invalidStudy();
+  if (value.researchConcepts !== undefined && (!isStrings(value.researchConcepts) || value.researchConcepts.length > 20 || value.researchConcepts.some((concept: string) => concept.length > 80))) invalidStudy();
 }
 
 function readSavedStudy(value: unknown, format: SavedWorkspaceFormat): ImportedDatasetRecord {

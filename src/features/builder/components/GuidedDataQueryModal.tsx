@@ -130,7 +130,7 @@ export function GuidedDataQueryModal({
     ? launchField
     : firstImportedMeasureField(launchDataset);
   const launchQueryMode: ImportedQueryMode = launchContext?.groupingScope === "all_respondents" || (launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure") ? "measure" : "categorical";
-  const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
+  const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.sourceMode ?? (launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded"));
   const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? launchContext?.importedDatasetId ?? "");
   const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchContext?.groupingScope === "all_respondents" ? allRespondentsGroupingId : launchContext?.importedFieldId && launchFieldSuitability?.recommendedQueryMode !== "measure"
     ? launchField?.id ?? launchContext.importedFieldId : launchPrimaryField?.id ?? "");
@@ -184,7 +184,8 @@ export function GuidedDataQueryModal({
       ? importedMetric === "sum" ? "sum" : "average"
       : importedMetric === "count" ? "count" : "percent_selected";
   const matchesResearchSearch = useMemo(() => researchSearchMatcher(fieldSearch), [fieldSearch]);
-  const questionOptions = useMemo(() => filteredQuestions.filter(item => item.id === question || matchesResearchSearch([item.id, item.label, item.shortLabel, item.topic, item.sourceColumn, ...(item.sourceVariables ?? [])])), [filteredQuestions, matchesResearchSearch, question]);
+  const sourceQuestions = launchContext?.sourceMode === "seeded" ? defaultDataset.questions : filteredQuestions;
+  const questionOptions = useMemo(() => sourceQuestions.filter(item => item.id === question || matchesResearchSearch([item.id, item.label, item.shortLabel, item.topic, item.sourceColumn, ...(item.sourceVariables ?? [])])), [sourceQuestions, matchesResearchSearch, question]);
   const selectedChart = outputMode === "table"
     ? "table"
     : (importedBannerField || importedQueryMode === "measure") && chartType === "donut"

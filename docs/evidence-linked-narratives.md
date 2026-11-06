@@ -1,6 +1,6 @@
-# Evidence-linked narratives: goal 28 review candidate
+# Evidence-linked narratives: goal 28 acceptance
 
-Original goal: connect written claims to their source results and flag the text when underlying numbers change. This implementation connects authoring, recorded source cells, document commands, persistence, local snapshots, viewer warnings and formatted exports. Independent original-scope acceptance is required before marking the goal complete.
+Original goal: connect written claims to their source results and flag the text when underlying numbers change. This implementation connects authoring, recorded source cells, document commands, persistence, local snapshots, viewer warnings and formatted exports. Independent re-review accepted the original goal at `a076b1e1df86a645d80485b5980e78f3813183ed` within the recorded-evidence scope described below.
 
 ## Connected workflow and acceptance criteria
 
@@ -48,4 +48,7 @@ Independent review found that altering only a snapshot's cached displayValue cou
 
 Stored studyIds are checked against all imported-study identities and eligible references in the recorded query/metadata context. Missing, unrelated or duplicate convenience references are rejected rather than silently accepted. The dependency collector also reads every readable context reference alongside explicit stored IDs, so a damaged convenience list cannot discard those study dependencies in memory.
 
-Eight added regressions cover altered display strings, changed/unsupported formats, altered study lists, state/rendering/export guards and unchanged raw recovery. The committed workflow fixture has explicit in-memory clone probes. Native browser checks changed a cloned display value to 999999% or cleared its study references: both became stale, PDF/PPTX/XLSX construction rejected them, the false citation was suppressed, the saved workspace stayed byte-equivalent at the document level, and all 1,000 rows remained. Original goal acceptance remains pending independent review of the correction.
+Eight added regressions cover altered display strings, changed/unsupported formats, altered study lists, state/rendering/export guards and unchanged raw recovery. The committed workflow fixture has explicit in-memory clone probes. Native browser checks changed a cloned display value to 999999% or cleared its study references: both became stale, PDF/PPTX/XLSX construction rejected them, the false citation was suppressed, the saved workspace stayed byte-equivalent at the document level, and all 1,000 rows remained. The correction subsequently passed independent original-scope re-review, recorded below.
+## Independent acceptance
+
+Independent re-review accepted original goal 28 at remote commit `a076b1e1df86a645d80485b5980e78f3813183ed`. Seven corruption variants passed validation, rendering, formatted-export refusal and reopen checks; cached display text and inconsistent study references no longer appear current. The goal is complete within recorded-evidence scope. This does not verify live Snowflake, external data changes before refresh, claim truth, native Office rendering or operating-system download completion.

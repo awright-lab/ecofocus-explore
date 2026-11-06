@@ -570,6 +570,9 @@ export interface ImportedDatasetField {
   label: string;
   sourceColumn: string;
   variableLabel?: string;
+  /** User-declared discovery labels; never inferred from respondent values. */
+  researchTopic?: string;
+  researchConcepts?: string[];
   valueLabels?: Record<string, string>;
   sourceFormat?: string;
   type: ImportedDatasetFieldType;

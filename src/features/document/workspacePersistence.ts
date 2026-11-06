@@ -549,8 +549,10 @@ export function updateWorkspaceImportedDatasetField(
   workspace: DashboardWorkspace,
   datasetId: string,
   fieldId: string,
-  updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
+  updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner" | "researchTopic" | "researchConcepts">>
 ): DashboardWorkspace {
+  if (updates.researchTopic !== undefined && (typeof updates.researchTopic !== "string" || updates.researchTopic.length > 120)) throw new Error("Keep the topic within 120 characters.");
+  if (updates.researchConcepts !== undefined && (!Array.isArray(updates.researchConcepts) || updates.researchConcepts.length > 20 || updates.researchConcepts.some(value => typeof value !== "string" || value.length > 80))) throw new Error("Use up to 20 concepts, each within 80 characters.");
   return {
     ...workspace,
     importedDatasets: workspace.importedDatasets.map((dataset) =>

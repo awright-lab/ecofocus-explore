@@ -1215,6 +1215,7 @@ export default function BuilderApp() {
     setWorkspace(nextWorkspace);
     const saved = saveDashboardWorkspace(nextWorkspace);
     setError(saved ? null : workspaceSaveFailureMessage);
+    return saved;
   }
 
   function removeImportedDataset(datasetId: string) {

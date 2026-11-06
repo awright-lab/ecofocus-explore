@@ -1,4 +1,5 @@
 import { researchSearchMatcher } from "../../data/researchSearch";
+import { ResearchQuestionCatalog } from "./ResearchQuestionCatalog";
 import { fieldTreeWindow } from "./fieldTreeWindow";
 import { CategoricalFieldProfile } from "./CategoricalFieldProfile";
 import { ImportedFieldSettings } from "./ImportedFieldSettings";
@@ -112,6 +113,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [variableTreeScrollTop, setVariableTreeScrollTop] = useState(0);
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const [libraryMode, setLibraryMode] = useState<"guided" | "browse">("guided");
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [expandedLibrarySections, setExpandedLibrarySections] = useState<Record<LibrarySectionId, boolean>>({
     connected: true,
     datasets: true,
@@ -150,7 +152,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         field.label,
         field.variableLabel,
         field.sourceColumn,
-        field.sourceFormat
+        field.sourceFormat,
+        field.researchTopic,
+        ...(field.researchConcepts ?? [])
       ]);
     });
   }, [modeledVariables, remoteLoadedFields, usesRemoteFieldPaging, variableSearchTerm, matchesLocalResearch]);
@@ -443,6 +447,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   return (
     <>
+      {catalogOpen && <ResearchQuestionCatalog importedDatasets={importedDatasets} updateImportedDatasetField={props.updateImportedDatasetField} openGuidedDataQuery={openGuidedDataQuery} applyQuestionSelection={props.applyQuestionSelection} onClose={() => setCatalogOpen(false)}/>}
       <div className="panel-title data-library-title">
         <h2>Data Library</h2>
       </div>
@@ -477,6 +482,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           {importFeedback && <small className="dataset-import-feedback">{importFeedback}</small>}
         </div>
         <section className="data-library-start-card" aria-label="Study start">
+          <button type="button" className="data-library-primary-action" onClick={() => setCatalogOpen(true)}>Find a research question</button>
           <div className="data-library-start-card__header">
             <span><DataLibraryIcon icon="dataset" /></span>
             <div>
