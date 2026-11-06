@@ -8,12 +8,12 @@ import { initialDashboard } from "../../document/documentSeeds";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 import * as runtime from "../../data/importedDatasetRuntimeQuery";
-import type { DashboardDraft } from "../../../../shared/types/dashboard";
-let host:HTMLDivElement,root:Root,draft:DashboardDraft,setSelection:(value:string)=>void;
+import type { DashboardDraft, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
+let host:HTMLDivElement,root:Root,draft:DashboardDraft,setSelection:(value:string)=>void,replaceStudy:(value:ImportedDatasetRecord)=>void;
 beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);host=document.createElement("div");document.body.append(host);root=createRoot(host);});
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 async function setup(sharedOnly=false){const {dataset}=await importDatasetBuffer(new TextEncoder().encode("Answer,Region,Spend\nYes,North,10\nNo,South,20\nYes,North,30\n").buffer,"synthetic-audience-ui.csv");const data=dataset!,result=runImportedDatasetQuery({dataset:data,field:data.fields[0],metric:"count",chartType:"table"}),initial=structuredClone(initialDashboard);initial.importedDatasets=sharedOnly?[]:[data];initial.savedAudiences=[];initial.pages[0].tiles=[{...initial.pages[0].tiles[0],id:"target",query:result.query,result,visualization:"table"}];
- function Harness(){const [document,commit]=useDocumentCommandState(initial),[selection,change]=useState("target");draft=document;setSelection=change;return <AudienceControl dashboard={document} importedDatasets={[data]} selectedTileId={selection} onChange={commit}/>;}
+ function Harness(){const [document,commit]=useDocumentCommandState(initial),[selection,change]=useState("target"),[study,setStudy]=useState(data);draft=document;setSelection=change;replaceStudy=setStudy;return <AudienceControl dashboard={document} importedDatasets={[study]} selectedTileId={selection} onChange={commit}/>;}
  await act(async()=>root.render(<Harness/>));return {data,original:structuredClone(initial)};
 }
 function button(text:string){const b=Array.from(host.querySelectorAll("button")).find(b=>b.textContent===text);expect(b,text).toBeTruthy();return b!;}
@@ -41,3 +41,17 @@ it("contains keyboard focus and restores the Audiences trigger on Escape",async(
 it("uses the shared study registry when report datasets have been deduplicated",async()=>{await ready(true);expect(host.textContent).toContain("2 matching responses");await click("Save and apply audience");expect(draft.savedAudiences).toHaveLength(1);expect(draft.pages[0].tiles[0].result.table[0].values.summary).toBe(2);expect(draft.importedDatasets).toEqual([]);});
 
 it("removes a reusable entry without deleting recorded rules or study data",async()=>{const {data}=await ready();await click("Save and apply audience");const before=structuredClone(draft.pages[0].tiles[0]);await click("Remove from library");expect(draft.savedAudiences).toEqual([]);expect(draft.pages[0].tiles[0]).toEqual(before);expect(draft.importedDatasets[0]).toEqual(data);expect(host.textContent).toContain("Existing analyses retain their recorded rules");});
+
+it("does not rebind a saved audience when its study ID is reused by a replacement import",async()=>{
+ const {data}=await ready();await click("Save audience");const saved=structuredClone(draft.savedAudiences![0]);await click("Close audiences");
+ await act(async()=>replaceStudy({...data,importedAt:"replacement-import",rows:data.rows.map(row=>({...row,Region:"North"}))}));
+ await click("Audiences");await choose("Saved audience",saved.id);
+ expect(host.textContent).toContain("different study import");expect(button("Preview audience").disabled).toBe(true);expect(button("Save audience").disabled).toBe(true);expect(button("Save and apply audience").disabled).toBe(true);expect(draft.savedAudiences![0]).toEqual(saved);
+ await choose("Saved audience","new");await choose("Field for rule 1.1",data.fields[1].id);await choose("Values for rule 1.1",["North"]);await click("Preview audience");await act(async()=>{await new Promise(resolve=>setTimeout(resolve,15));});
+ expect(host.textContent).toContain("3 matching responses");expect(draft.savedAudiences![0]).toEqual(saved);
+});
+
+it("invalidates an open audience and its preview when a study version changes",async()=>{
+ const {data,original}=await ready();await act(async()=>replaceStudy({...data,importedAt:"replacement-import"}));
+ expect(host.textContent).toContain("different study import");expect(host.textContent).not.toContain("2 matching responses");expect(button("Preview audience").disabled).toBe(true);expect(button("Save audience").disabled).toBe(true);expect(button("Save and apply audience").disabled).toBe(true);expect(draft).toEqual(original);
+});

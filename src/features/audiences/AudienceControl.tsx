@@ -24,6 +24,7 @@ function AudienceDialog({dashboard,importedDatasets,selectedTileId,onChange,onCl
  const selected=tiles.find(tile=>tile.id===targetId);
  const [datasetId,setDatasetId]=useState(source?.kind==="imported"?source.datasetId:importedDatasets[0]?.id??"");
  const dataset=importedDatasets.find(item=>item.id===datasetId);
+ const [importedAt,setImportedAt]=useState(dataset?.importedAt??"");
  const [id,setId]=useState(newId),[name,setName]=useState("New audience"),[expression,setExpression]=useState<AudienceExpression>(()=>dataset?newExpression(dataset):{kind:"group",match:"all",exclude:false,children:[]});
  const [libraryId,setLibraryId]=useState("new"),[message,setMessage]=useState(""),[busy,setBusy]=useState<"preview"|"apply"|null>(null),[progress,setProgress]=useState(0);
  const [preview,setPreview]=useState<{counts:AudiencePreview;dataset:ImportedDatasetRecord;stamp:string}|null>(null);
@@ -32,17 +33,17 @@ function AudienceDialog({dashboard,importedDatasets,selectedTileId,onChange,onCl
  function invalidate(){operation.current++;controller.current?.abort();setBusy(null);setPreview(null);setMessage("");}
  useEffect(()=>()=>{operation.current++;controller.current?.abort();},[]);
  useEffect(()=>{if(dashboard.id!==reportId.current)onClose();},[dashboard.id,onClose]);
- const definition=useMemo<SavedImportedAudience>(()=>({version:1,id,label:name.trim(),datasetId,importedAt:dataset?.importedAt??"",expression}),[id,name,datasetId,dataset?.importedAt,expression]);
+ const definition=useMemo<SavedImportedAudience>(()=>({version:1,id,label:name.trim(),datasetId,importedAt,expression}),[id,name,datasetId,importedAt,expression]);
  const stamp=JSON.stringify(definition);
  let issue=audienceSourceIssue(dataset)??audienceDefinitionIssue(definition);
  if(!issue&&dataset){try{compileAudience(definition,dataset);}catch(error){issue=error instanceof Error?error.message:"Review this audience.";}}
  const fresh=Boolean(preview&&preview.dataset===dataset&&preview.stamp===stamp&&!issue);
  const canApply=selected?.query.sourceIdentity?.kind==="imported"&&selected.query.sourceIdentity.datasetId===datasetId;
- function resetStudy(nextId:string){invalidate();setDatasetId(nextId);setId(newId());setLibraryId("new");setName("New audience");const next=importedDatasets.find(item=>item.id===nextId);setExpression(next?newExpression(next):{kind:"group",match:"all",exclude:false,children:[]});}
+ function resetStudy(nextId:string){invalidate();setDatasetId(nextId);setId(newId());setLibraryId("new");setName("New audience");const next=importedDatasets.find(item=>item.id===nextId);setImportedAt(next?.importedAt??"");setExpression(next?newExpression(next):{kind:"group",match:"all",exclude:false,children:[]});}
  function loadAudience(nextId:string){
   invalidate();if(nextId==="new"){resetStudy(datasetId);return;}
   const saved=dashboard.savedAudiences?.find(item=>item.id===nextId);if(!saved)return;
-  setLibraryId(saved.id);setId(saved.id);setName(saved.label);setDatasetId(saved.datasetId);setExpression(structuredClone(saved.expression));
+  setLibraryId(saved.id);setId(saved.id);setName(saved.label);setDatasetId(saved.datasetId);setImportedAt(saved.importedAt);setExpression(structuredClone(saved.expression));
  }
  async function runPreview(){
   if(!dataset||issue)return;invalidate();const current=operation.current,study=dataset,report=dashboard.id,abort=new AbortController();controller.current=abort;setBusy("preview");setProgress(0);
