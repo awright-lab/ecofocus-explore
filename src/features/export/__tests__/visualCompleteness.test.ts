@@ -234,3 +234,21 @@ it.each(["vertical_bar","horizontal_bar","line_chart"] as const)("separates sele
  expect(values).toHaveLength(3);expect(bases).toHaveLength(3);for(let i=0;i<3;i++)expect(Number(bases[i][1])-Number(values[i][1])).toBeGreaterThanOrEqual(22*1.3-0.001);
  if(kind==="line_chart") { const points=[...svg.matchAll(/<circle data-row=[^>]* cy="([^"]+)"/g)];expect(points).toHaveLength(3);for(let i=0;i<3;i++)expect(Number(points[i][1])-Number(bases[i][1])).toBeGreaterThanOrEqual(tile.appearance.axisFontSize*1.3+6-0.001); }
 });
+
+it.each(["vertical_bar","horizontal_bar","grouped_bar","stacked_bar","line_chart"] as const)("spaces wrapped 23px category labels by their chosen type size in %s",async kind=>{
+ const fixture=await page("wrapped-category-spacing",2,kind==="grouped_bar"||kind==="stacked_bar"?2:1,kind),tile=fixture.tiles[0];
+ tile.appearance.axisFontSize=23;tile.appearance.showValueLabels=false;tile.appearance.xAxisTextColor="#123456";tile.appearance.yAxisTextColor="#123456";
+ tile.appearance.axisLabelOverrides[tile.result.table[0].optionId]="North\nGrowth";
+ const original=structuredClone(fixture),svg=buildPageVisualSvg(fixture),names=[...svg.matchAll(/<text x="([^"]+)" y="([^"]+)"[^>]*font-size="23"[^>]*fill="#123456">(North|Growth)<\/text>/g)];
+ expect(names).toHaveLength(2);expect(Number(names[1][2])-Number(names[0][2])).toBeCloseTo(23*1.45,8);
+ const area=analysisVisualLayout(tile).area;
+ for(const item of names){expect(Number(item[2])-23).toBeGreaterThanOrEqual(area.y);expect(Number(item[2])+23*0.3).toBeLessThanOrEqual(area.y+area.height);}
+ if(process.env.ECOFOCUS_EXPORT_ARTIFACTS)save(`${kind}-wrapped.svg`,svg);
+ expect(fixture).toEqual(original);
+});
+
+it("refuses horizontal wrapped categories that cannot fit their row at the chosen font",async()=>{
+ const fixture=await page("wrapped-category-no-room",12,1,"horizontal_bar"),tile=fixture.tiles[0];tile.appearance.axisFontSize=23;tile.appearance.showValueLabels=false;
+ tile.appearance.axisLabelOverrides[tile.result.table[0].optionId]="North\nGrowth";
+ expect(()=>buildPageVisualSvg(fixture)).toThrow(/labels cannot fit/);
+});

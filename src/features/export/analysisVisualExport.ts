@@ -126,14 +126,25 @@ function valueLabelLayout(tile: DashboardTile) {
   return { valueSize, baseSize, gap, blockHeight };
 }
 
+function categoryLabelLayout(tile: DashboardTile) {
+  const size = tile.appearance.axisFontSize;
+  if (!Number.isFinite(size) || size <= 0) throw new Error("Category labels have an invalid type size. Review the chart styling before exporting.");
+  return { size, lineHeight: size * 1.45, characterWidth: size * 0.65 };
+}
+
 function bars(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), rows = tile.result.table, columns = tile.result.columns;
   const horizontal = tile.visualization === "horizontal_bar", stacked = tile.visualization === "stacked_bar";
   const labels = valueLabelLayout(tile), topInset = tile.appearance.showValueLabels && !horizontal ? Math.max(25,labels.blockHeight + 10) : 25;
   if ((horizontal || tile.visualization === "vertical_bar") && columns.length !== 1) throw new Error("Use grouped or stacked bars to export multiple columns; no series were omitted.");
   const key = horizontal || tile.visualization === "vertical_bar" ? { height: 0, svg: "" } : legend(tile, area);
+  const category = categoryLabelLayout(tile), plotWidth = horizontal ? area.width * 0.75 - 85 : area.width - 55;
+  const categoryWidth = horizontal ? area.width * 0.25 - 8 : plotWidth / rows.length - 8;
+  if (categoryWidth < category.characterWidth) throw new Error("Category labels cannot fit at the selected type size. Enlarge the chart or shorten their display aliases.");
+  const rowNames = rows.map(row => completeLines(label(tile,row.optionId,row.label), Math.max(1,Math.floor(categoryWidth / category.characterWidth)), horizontal ? 100 : 3));
+  const bottomInset = Math.max(60, horizontal ? category.lineHeight + 16 : 18 + Math.max(...rowNames.map(names=>names.length)) * category.lineHeight);
   const plot = { x: area.x + (horizontal ? area.width * 0.25 : 45), y: area.y + key.height + topInset,
-    width: horizontal ? area.width * 0.75 - 85 : area.width - 55, height: area.height - key.height - topInset - 60 };
+    width: plotWidth, height: area.height - key.height - topInset - bottomInset };
   if (plot.height < 55) throw new Error("Chart/legend cannot fit completely. Enlarge the object or use Excel/JSON.");
   const extents = stacked ? rows.flatMap(row => [columns.reduce((sum, column) => sum + Math.max(0, analyticalCell(tile.result,row,column.id).value ?? 0), 0), columns.reduce((sum, column) => sum + Math.min(0, analyticalCell(tile.result,row,column.id).value ?? 0), 0)]) : rows.flatMap(row => columns.map(column => analyticalCell(tile.result,row,column.id).value).filter((amount): amount is number => amount !== null));
   const { low, high } = numericExtent(extents), span = high - low;
@@ -141,15 +152,17 @@ function bars(tile: DashboardTile) {
   const slot = (horizontal ? plot.height : plot.width) / rows.length;
   const barWidth = slot * 0.82 / (stacked ? 1 : columns.length);
   if (horizontal && slot < Math.max(18,tile.appearance.axisFontSize * 1.3,tile.appearance.showValueLabels ? labels.blockHeight : 0)) throw new Error("All horizontal labels cannot fit. Enlarge the chart or turn off labels.");
+  if (horizontal && rowNames.some(names=>names.length * category.lineHeight + 6 > slot)) throw new Error("Wrapped category labels cannot fit at the selected type size. Enlarge the chart or shorten their display aliases.");
   if (barWidth < (horizontal ? 14 : 10)) throw new Error("All bars cannot fit readably. Enlarge the chart or use a table/Excel/JSON.");
   let svg = key.svg + (horizontal ? `<line x1="${coordinate(0)}" x2="${coordinate(0)}" y1="${plot.y}" y2="${plot.y + plot.height}" stroke="${xmlText(tile.appearance.gridColor)}"/>` : `<line x1="${plot.x}" x2="${plot.x + plot.width}" y1="${coordinate(0)}" y2="${coordinate(0)}" stroke="${xmlText(tile.appearance.gridColor)}"/>`);
   svg += horizontal
-    ? text(value(tile, low), plot.x, plot.y + plot.height + 17, tile.appearance.axisFontSize, "start", tile.appearance.xAxisTextColor) + text(value(tile, high), plot.x + plot.width, plot.y + plot.height + 17, tile.appearance.axisFontSize, "end", tile.appearance.xAxisTextColor)
+    ? text(value(tile, low), plot.x, plot.y + plot.height + category.size + 10, tile.appearance.axisFontSize, "start", tile.appearance.xAxisTextColor) + text(value(tile, high), plot.x + plot.width, plot.y + plot.height + category.size + 10, tile.appearance.axisFontSize, "end", tile.appearance.xAxisTextColor)
     : text(value(tile, high), plot.x - 7, plot.y + 4, tile.appearance.axisFontSize, "end", tile.appearance.yAxisTextColor) + text(value(tile, low), plot.x - 7, plot.y + plot.height + 3, tile.appearance.axisFontSize, "end", tile.appearance.yAxisTextColor);
   rows.forEach((row, rowIndex) => {
     let positive = 0, negative = 0;
-    const names = completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor((horizontal ? area.width * 0.25 - 8 : slot) / 6)), horizontal ? Math.floor(slot / 11) : 3);
-    names.forEach((name, n) => { svg += horizontal ? text(name, area.x, plot.y + rowIndex * slot + 11 + n * 11, tile.appearance.axisFontSize, "start", tile.appearance.yAxisTextColor) : text(name, plot.x + (rowIndex + 0.5) * slot, plot.y + plot.height + 32 + n * 11, tile.appearance.axisFontSize, "middle", tile.appearance.xAxisTextColor); });
+    const names = rowNames[rowIndex];
+    const categoryTop = horizontal ? plot.y + rowIndex * slot + (slot - names.length * category.lineHeight) / 2 : plot.y + plot.height + 10;
+    names.forEach((name, n) => { svg += horizontal ? text(name, area.x, categoryTop + category.size + n * category.lineHeight, category.size, "start", tile.appearance.yAxisTextColor) : text(name, plot.x + (rowIndex + 0.5) * slot, categoryTop + category.size + n * category.lineHeight, category.size, "middle", tile.appearance.xAxisTextColor); });
     columns.forEach((column, columnIndex) => {
       const amount = analyticalCell(tile.result,row,column.id).value;
       if (amount === null) return;
@@ -179,7 +192,12 @@ function lines(tile: DashboardTile) {
   const { area } = analysisVisualLayout(tile), key = legend(tile, area), rows = tile.result.table, columns = tile.result.columns;
   const labels = valueLabelLayout(tile), labelClearance = Math.max(6,tile.appearance.axisFontSize * 1.3 + 6);
   const topInset = tile.appearance.showValueLabels ? Math.max(30,labels.blockHeight + labelClearance + 10) : 30;
-  const top = area.y + key.height + topInset, height = area.height - key.height - topInset - 45, slot = (area.width - 100) / Math.max(1, rows.length - 1);
+  const category = categoryLabelLayout(tile), slot = (area.width - 100) / Math.max(1, rows.length - 1);
+  const categoryWidth = Math.min(slot - 8,100);
+  if (categoryWidth < category.characterWidth) throw new Error("Category labels cannot fit at the selected type size. Enlarge the chart or shorten their display aliases.");
+  const rowNames = rows.map(row=>completeLines(label(tile,row.optionId,row.label),Math.max(1,Math.floor(categoryWidth/category.characterWidth)),3));
+  const bottomInset = Math.max(45,18 + Math.max(...rowNames.map(names=>names.length)) * category.lineHeight);
+  const top = area.y + key.height + topInset, height = area.height - key.height - topInset - bottomInset;
   if (height < 55 || slot < 32) throw new Error("All line points/labels cannot fit. Enlarge the chart or use a table/Excel/JSON.");
   const amounts = rows.flatMap(row => columns.map(column => analyticalCell(tile.result,row,column.id).value).filter((amount): amount is number => amount !== null)), { low, high } = numericExtent(amounts);
   const x = (index: number) => area.x + 50 + index * slot, y = (amount: number) => top + (high - amount) / (high - low) * height;
@@ -197,7 +215,7 @@ function lines(tile: DashboardTile) {
     });
     flush();
   });
-  rows.forEach((row, n) => completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor(Math.min(slot, 80) / 6)), 3).forEach((name, line) => { svg += text(name, x(n), top + height + 15 + line * 11, tile.appearance.axisFontSize, "middle", tile.appearance.xAxisTextColor); }));
+  rowNames.forEach((names,n)=>names.forEach((name,line)=>{svg+=text(name,x(n),top+height+10+category.size+line*category.lineHeight,category.size,"middle",tile.appearance.xAxisTextColor);}));
   return svg;
 }
 
