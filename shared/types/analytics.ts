@@ -365,7 +365,7 @@ export interface AnalyticsQueryResponse {
   columns: AnalyticsTableColumn[];
   table: AnalyticsTableRow[];
   metric: {
-    id: Metric;
+    id: Metric | "calculated";
     label: string;
     valueFormat: "percent" | "number";
   };

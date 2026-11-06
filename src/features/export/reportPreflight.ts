@@ -29,7 +29,7 @@ export function buildReportPreflight(dashboard: DashboardDraft) {
       }
     }
     for (const tile of visibleTiles) {
-      try { assertExportResultsCurrent([{ ...page, elements: [], tiles: [tile] }]); }
+      try { assertExportResultsCurrent([{ ...page, elements: [], tiles: [tile] }], dashboard.pages); }
       catch (error) { issues.push({ check: "Analysis", objectId: tile.id, message: error instanceof Error && !(error instanceof TypeError) ? error.message : `Refresh "${tile.title || tile.name}" to validate its analysis settings.` }); }
     }
     for (const element of page.elements.filter(element => !element.hidden && element.type === "image" && (typeof element.content !== "string" || !element.content.trim()))) {

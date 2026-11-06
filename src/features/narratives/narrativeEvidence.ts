@@ -6,6 +6,7 @@ import { analyticalCell } from "../../../shared/analytics/resultCells";
 import { recordedCalculation } from "../../../shared/analytics/recordedCalculation";
 import { withSafeInference } from "../../../shared/analytics/inferenceSafety";
 import { audienceDefinitionIssue } from "../audiences/audienceModel";
+import { formulaCacheIssue, formulaSourceIssue } from "../metrics/cellFormulaModel";
 
 type CellReference = Pick<NarrativeEvidenceLink,"tileId"|"rowId"|"columnId">;
 function object(value: unknown): value is Record<string,unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
@@ -72,6 +73,8 @@ export function captureNarrativeCell(pages: DashboardPage[], reference: CellRefe
   const matches = pages.flatMap(page=>page.tiles.filter(tile=>tile.id===reference.tileId).map(tile=>({page,tile})));
   if (matches.length!==1) throw new Error("The source analysis is missing or ambiguous. Restore it or choose a specific source again.");
   const {page,tile} = matches[0], result = withSafeInference(tile.result);
+  const cachedFormulaIssue = formulaCacheIssue(tile); if (cachedFormulaIssue) throw new Error(cachedFormulaIssue);
+  if (tile.derivedOutput?.kind === "cell_formula") { const origins = pages.flatMap(item => item.tiles).filter(item => item.id === tile.derivedOutput!.sourceTileId); const issue = formulaSourceIssue(tile.derivedOutput, origins.length === 1 ? origins[0] : undefined); if (issue) throw new Error(issue); }
   const identityIssue = resultIdentityIssue(result);
   if (identityIssue) throw new Error(identityIssue);
   if (!analysisSettingsMatch(tile.query,result.query)) throw new Error("Refresh the source analysis before reviewing its evidence; edited settings have not been applied.");

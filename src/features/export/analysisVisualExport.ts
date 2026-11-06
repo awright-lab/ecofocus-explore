@@ -5,6 +5,7 @@ import type { DashboardTile } from "../../../shared/types/dashboard";
 import { formatValue, supportsDonutResult } from "../builder/components/CanvasRenderers";
 import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
 import { analysisContextRows } from "./exportIntegrity";
+import { formulaCacheIssue } from "../metrics/cellFormulaModel";
 
 export function xmlText(value: unknown) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\r/g, "&#13;");
@@ -52,6 +53,11 @@ export function analysisVisualLayout(tile: DashboardTile) {
   const context = [
     `Dataset: ${rows.get("Dataset")}; Field: ${rows.get("Question or grouping")}`,
     `Metric: ${rows.get("Metric")}; Number: ${rows.get("Numeric measure")}; Breakout: ${rows.get("Breakout")}`,
+    ...(rows.get("Formula expression") ? [
+      `Formula: ${rows.get("Formula expression")}`,
+      `A: ${rows.get("Formula input A")}; B: ${rows.get("Formula input B")}`,
+      `Source response universe: ${rows.get("Formula source response universe")}`,
+    ] : []),
     `Filter: ${rows.get("Filter")}`,
     `Weight: ${rows.get("Weighting")}; ${rows.get("Base scope")}`,
     `Inference: ${rows.get("Inference")}`,
@@ -66,6 +72,7 @@ export function analysisVisualLayout(tile: DashboardTile) {
 }
 
 function check(tile: DashboardTile) {
+  const formulaIssue = formulaCacheIssue(tile); if (formulaIssue) throw Error(`Review calculated metric "${tile.title}" before rendering: ${formulaIssue}`);
   if (importedMeasureBasesNeedRefresh(tile.result)) throw new Error(`Refresh "${tile.title}" before exporting its numeric sample bases.`);
   for (const row of tile.result.table) for (const column of tile.result.columns) {
     if (["invalid", "rerun_required"].includes(analyticalCell(tile.result,row,column.id).status) || !Number.isFinite(row.bases[column.id]) || row.bases[column.id] < 0) throw new Error(`"${tile.title}" has missing or invalid export values/bases.`);

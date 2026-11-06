@@ -182,6 +182,8 @@ function AssistantFolder({
 }
 
 export type BuilderInspectorProps = {
+  reportPages?: DashboardPage[];
+  onEditCalculatedMetric?: () => void;
   outcomeMode: OutcomeWorkspaceMode | null;
   outcomeLabel: string;
   outcomeHelper: string;

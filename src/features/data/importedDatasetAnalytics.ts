@@ -173,9 +173,9 @@ export function importedMetricLabel(metric: Metric) {
   return "% of responses";
 }
 
-export function formatImportedMeasureValue(value: number, metric: Metric) {
+export function formatImportedMeasureValue(value: number, metric: Metric | "calculated") {
   if (!Number.isFinite(value)) return "Unavailable";
-  const isMeasure = metric === "average" || metric === "sum";
+  const isMeasure = metric === "average" || metric === "sum" || metric === "calculated";
   const scientific = isMeasure && value !== 0 && (Math.abs(value) < 0.0001 || Math.abs(value) >= 1e12);
   return new Intl.NumberFormat("en-US", scientific
     ? { notation: "scientific", maximumSignificantDigits: 5 }
@@ -183,6 +183,7 @@ export function formatImportedMeasureValue(value: number, metric: Metric) {
 }
 
 export function importedMeasureBasesNeedRefresh(result: AnalyticsQueryResponse) {
+  if (result.metric.id === "calculated") return false;
   const source = result.metadataRefs.source;
   return source?.kind === "imported" && (source.queryKind === "measure" || isMeasureMetric(result.metric.id)) && source.measureBaseScope !== "cell";
 }
@@ -191,8 +192,8 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
   const source = result.metadataRefs.source;
   if (source?.kind !== "imported") return null;
 
-  const isMeasure = source.queryKind === "measure" || isMeasureMetric(result.metric.id);
-  const metricLabel = importedMetricLabel(result.metric.id);
+  const isMeasure = result.metric.id !== "calculated" && (source.queryKind === "measure" || isMeasureMetric(result.metric.id));
+  const metricLabel = result.metric.id === "calculated" ? result.metric.label : importedMetricLabel(result.metric.id);
   const groupingLabel = source.primaryFieldLabel;
   const measureLabel = source.measureFieldLabel ?? null;
   const bannerLabel = source.bannerFieldLabel ?? "No breakout";
@@ -206,8 +207,8 @@ export function buildImportedResultProvenance(result: AnalyticsQueryResponse): I
     : invalidBases ? "Recorded bases unavailable; rerun analysis."
     : weighted ? baseRangeLabel(result.weighting.applied ? "Recorded weighted base total" : "Recorded base (weighting unverified)", uniqueSampleBases(result, true), false)
     : baseRangeLabel(isMeasure ? "Valid measure per cell" : "Sample", uniqueSampleBases(result, true));
-  const responseAction = result.metric.id === "count" ? "Count responses" : "Show response percentages";
-  const responseKind = result.metric.id === "count" ? "Imported response count" : "Imported response percentages";
+  const responseAction = result.metric.id === "calculated" ? "Calculate arithmetic from recorded response cells" : result.metric.id === "count" ? "Count responses" : "Show response percentages";
+  const responseKind = result.metric.id === "calculated" ? "Calculated metric from imported response cells" : result.metric.id === "count" ? "Imported response count" : "Imported response percentages";
   const summaryLabel = isMeasure && measureLabel
     ? `${metricLabel} ${measureLabel} by ${groupingLabel}`
     : source.bannerFieldLabel

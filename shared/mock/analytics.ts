@@ -335,6 +335,7 @@ function columnComparisonExecutionInput(
   columns: AnalyticsQueryResponse["columns"],
   table: AnalyticsQueryResponse["table"]
 ): AnalyticsColumnComparisonExecutionInput | null {
+  const metricId = metric.id; if (metricId === "calculated") return null;
   if ((query.comparisonMode ?? "none") === "wave" || query.breakBy === "SUMMARY" || columns.length <= 1 || table.length === 0) {
     return null;
   }
@@ -343,7 +344,7 @@ function columnComparisonExecutionInput(
     method: "column_comparison",
     confidenceLevel: query.confidenceLevel,
     metric: {
-      id: metric.id,
+      id: metricId,
       valueFormat: metric.valueFormat
     },
     comparisonScope: {
@@ -373,6 +374,7 @@ function waveComparisonExecutionInput(
   columns: AnalyticsQueryResponse["columns"],
   table: AnalyticsQueryResponse["table"]
 ): AnalyticsWaveComparisonExecutionInput | null {
+  const metricId = metric.id; if (metricId === "calculated") return null;
   const comparisonDatasets = query.comparisonDatasets ?? [];
   if ((query.comparisonMode ?? "none") !== "wave" || comparisonDatasets.length === 0 || columns.length <= 1 || table.length === 0) {
     return null;
@@ -384,7 +386,7 @@ function waveComparisonExecutionInput(
     method: "wave_comparison",
     confidenceLevel: query.confidenceLevel,
     metric: {
-      id: metric.id,
+      id: metricId,
       valueFormat: metric.valueFormat
     },
     comparisonScope: {

@@ -78,6 +78,19 @@ function lifecycleSummary(tile: DashboardTile) {
 }
 
 export function buildInspectorTileSummary(tile: DashboardTile): InspectorTileSummaryView {
+  if (tile.derivedOutput?.kind === "cell_formula") {
+    const output = tile.derivedOutput, formula = output.formula;
+    return {
+      sourceKind: "Calculated formula", sourceLabel: output.sourceTitle,
+      sourceDescription: "Arithmetic from two recorded response cells in the original source analysis.",
+      lifecycleLabel: "Recorded calculated metric",
+      lifecycleDescription: "Inputs stay recorded until you explicitly preview and refresh this formula. Source query editing cannot replace this result.",
+      lifecycleChips: [`Source: ${output.sourceTitle}`, "Role: Recorded-cell calculation"],
+      title: tile.title || tile.name, subtitle: `${getChartTypeLabel(tile.visualization)} from recorded-cell arithmetic`,
+      chips: [formula?.expression ?? "Formula unavailable", output.baseLabel ?? "Source response universe unavailable", "No statistical inference"],
+      editCue: "Use Review and refresh formula to inspect exact inputs, edit the definition or refresh this result."
+    };
+  }
   const imported = buildImportedResultProvenance(tile.result);
   const bannerLabel = tile.result.metadataRefs.source?.kind === "imported"
     ? resultBannerLabel(tile.result)

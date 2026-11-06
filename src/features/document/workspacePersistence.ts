@@ -1,3 +1,4 @@
+import { assertSavedCellFormulas } from "../metrics/cellFormulaModel";
 import { assertSavedAudiences } from "../audiences/audienceModel";
 import { assertNarrativeEvidence,assertNarrativeLibraryEvidence } from "../narratives/narrativeEvidence";
 import { storageKey } from "../builder/builderConstants";
@@ -140,6 +141,7 @@ function readSavedDashboard(value: unknown, format: SavedWorkspaceFormat): Dashb
   }
   assertSavedCanvasIdentities(value.pages as Array<Record<string, unknown>>);
   assertSavedAudiences(value.savedAudiences);
+  assertSavedCellFormulas(value.pages as DashboardPage[], (value.analysisLibrary as DashboardDraft["analysisLibrary"] | undefined)?.derivedDefinitions, value.designLibrary as DashboardDraft["designLibrary"] | undefined);
   assertNarrativeEvidence(value.pages as DashboardPage[]);
   assertNarrativeLibraryEvidence(value.designLibrary);
   if (format === "v2" && (typeof value.id !== "string" || typeof value.title !== "string" ||

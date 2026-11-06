@@ -1,3 +1,4 @@
+import { buildCellFormulaMetadata, buildCellFormulaResponse, formulaSourceIssue, makeCellFormulaSpec, type CellFormulaConfig } from "../../metrics/cellFormulaModel";
 import { analyticalCell } from "../../../../shared/analytics/resultCells";
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../../shared/types/analytics";
 import type { DashboardPage, DashboardTile, SavedDerivedDefinition } from "../../../../shared/types/dashboard";
@@ -6,6 +7,7 @@ import { buildTileQueryStatus } from "./inspectorTileQueryModel";
 
 export type DerivedOutputKind = NonNullable<DashboardTile["derivedOutput"]>["kind"];
 export type DerivedOutputConfig = {
+  formula?: CellFormulaConfig["formula"];
   rowId?: string;
   comparedRowId?: string;
   columnId?: string;
@@ -148,6 +150,7 @@ function formatSummaryValue(value: number, format: AnalyticsQueryResponse["metri
 }
 
 function derivedOutputKindLabel(kind: DerivedOutputKind) {
+  if (kind === "cell_formula") return "Calculated formula metric";
   if (kind === "row_average") return "Row average metric";
   if (kind === "row_difference") return "Row difference metric";
   if (kind === "top_n_extract") return "Top-N extract";
@@ -160,6 +163,7 @@ function derivedOutputKindSentenceLabel(kind: DerivedOutputKind) {
 }
 
 function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>) {
+  if (output.kind === "cell_formula") return output.formula?.label ?? "Calculated metric";
   if (output.kind === "row_difference") {
     return `${output.rowLabel ?? "Row"} vs ${output.comparedRowLabel ?? "comparison"} difference`;
   }
@@ -173,6 +177,7 @@ function derivedOutputTitle(output: NonNullable<DashboardTile["derivedOutput"]>)
 }
 
 function derivedDefinitionStructureLabel(definition: SavedDerivedDefinition) {
+  if (definition.outputKind === "cell_formula") return `${definition.spec.formula?.label ?? definition.label}: ${definition.spec.formula?.expression ?? "Review formula"}; A=${definition.spec.rowLabel}; B=${definition.spec.comparedRowLabel}; ${definition.spec.columnLabel}`;
   if (definition.outputKind === "row_difference" || definition.outputKind === "row_average") {
     if (definition.outputKind === "row_average") {
       return `Average of ${definition.spec.rowLabel ?? "row"} and ${definition.spec.comparedRowLabel ?? "comparison row"} in ${definition.spec.columnLabel}`;
@@ -186,6 +191,7 @@ function derivedDefinitionStructureLabel(definition: SavedDerivedDefinition) {
 }
 
 function derivedDefinitionSourceMatches(definition: SavedDerivedDefinition, sourceTile: DashboardTile) {
+  if (definition.outputKind === "cell_formula") { try { makeCellFormulaSpec(sourceTile, { ...definition.spec, formula: definition.spec.formula }); return true; } catch { return false; } }
   const tileSource = sourceTile.source ?? {
     kind: "question" as const,
     id: sourceTile.query.question,
@@ -508,6 +514,7 @@ function derivedOutputReadiness(
     };
   }
 
+  if (output.kind === "cell_formula") { const issue = formulaSourceIssue(output, sourceTile); return issue ? { readinessStatus: "sourceChanged" as const, readinessLabel: "Formula needs review", readinessHelper: issue, canRecreate: true } : { readinessStatus: "current" as const, readinessLabel: "Matches current recorded input cells", readinessHelper: "The formula's exact inputs, response base and source bindings match the current recorded analysis.", canRecreate: true }; }
   const sourceQueryStatus = buildTileQueryStatus(sourceTile);
   if (sourceQueryStatus.hasPendingChanges) {
     return {
@@ -579,6 +586,7 @@ export function buildDerivedOutputDetailView(tile: DashboardTile, pageTiles: Das
     };
   }
 
+  if (output.kind === "cell_formula") return { label: "Calculated formula metric", sourceLabel: output.sourceTitle, description: `${output.formula?.label}: ${output.formula?.expression}. A=${output.rowLabel}; B=${output.comparedRowLabel}; ${output.columnLabel}.`, managementHelper: "Open Calculated metrics to review exact inputs, edit the reusable formula or refresh this recorded result.", lastRecreatedLabel: lastRecreatedLabel(output), ...relationship, chips: ["Recorded-cell arithmetic", output.baseLabel ?? "Review source base", readiness.readinessLabel] };
   if (output.kind === "row_difference" || output.kind === "row_average") {
     const isAverage = output.kind === "row_average";
     return {
@@ -915,6 +923,7 @@ export function buildDerivedRowAverageMetadata(tile: DashboardTile, config: Deri
 }
 
 export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): AnalyticsQueryResponse | null {
+  if (kind === "cell_formula") { try { return buildCellFormulaResponse(tile, config ?? {}); } catch { return null; } }
   if (kind === "row_average") return buildDerivedRowAverageResponse(tile, config);
   if (kind === "row_difference") return buildDerivedRowDifferenceResponse(tile, config);
   if (kind === "top_n_extract") return buildDerivedTopNResponse(tile);
@@ -923,6 +932,7 @@ export function buildDerivedOutputResponse(tile: DashboardTile, kind: DerivedOut
 }
 
 export function buildDerivedOutputMetadata(tile: DashboardTile, kind: DerivedOutputKind, config?: DerivedOutputConfig): NonNullable<DashboardTile["derivedOutput"]> | null {
+  if (kind === "cell_formula") { try { return { ...buildCellFormulaMetadata(tile, config ?? {}), sourceResultSignature: buildDerivedSourceResultSignature(tile) }; } catch { return null; } }
   if (kind === "row_average") return buildDerivedRowAverageMetadata(tile, config);
   if (kind === "row_difference") return buildDerivedRowDifferenceMetadata(tile, config);
   if (kind === "top_n_extract") return buildDerivedTopNMetadata(tile);
@@ -944,27 +954,29 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
     label: tile.title || tile.name || tile.query.question
   };
   const source =
-    tile.source?.kind === "variableSet"
+    tile.source?.kind === "importedField"
+      ? { kind: "importedField" as const, id: tile.source.id, label: tile.source.label }
+      : tile.source?.kind === "variableSet"
       ? { kind: "variableSet" as const, id: tile.source.id, label: tile.source.label }
       : tile.source?.kind === "question"
         ? { kind: "question" as const, id: tile.source.id, label: tile.source.label }
         : fallbackSource;
   const outputLabel = derivedOutputKindLabel(kind);
-  const structureLabel = kind === "top_n_extract" || kind === "bottom_n_extract"
+  const structureLabel = kind === "cell_formula" ? `${metadata.formula?.label}: ${metadata.formula?.expression}` : kind === "top_n_extract" || kind === "bottom_n_extract"
     ? `${metadata.rowCount ?? 0} rows from ${metadata.columnLabel}`
     : kind === "row_average"
       ? `Average of ${metadata.rowLabel ?? "Row"} and ${metadata.comparedRowLabel ?? "comparison row"} in ${metadata.columnLabel}`
     : kind === "row_difference"
       ? `${metadata.rowLabel ?? "Row"} minus ${metadata.comparedRowLabel ?? "comparison row"} in ${metadata.columnLabel}`
     : `${metadata.rowLabel ?? "Lead row"} from ${metadata.columnLabel}`;
-  const confidenceLabel = `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
+  const confidenceLabel = kind === "cell_formula" ? "No statistical inference" : `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
 
   return {
     id: `derived_definition_${Date.now()}`,
     datasetId: tile.query.dataset,
     label: `${tile.title || tile.name} ${outputLabel.toLowerCase()}`,
     description: `Reusable ${outputLabel.toLowerCase()} definition from ${tile.title || tile.name}.`,
-    definitionType: kind === "row_difference" || kind === "row_average" ? "metric" : "output",
+    definitionType: kind === "row_difference" || kind === "row_average" || kind === "cell_formula" ? "metric" : "output",
     source,
     sourceTileId: tile.id,
     sourceTileTitle: tile.title || tile.name,
@@ -973,8 +985,9 @@ export function buildDerivedDefinitionFromTile(tile: DashboardTile, kind: Derive
       chartType: tile.visualization
     },
     outputKind: kind,
-    metricKind: kind === "row_difference" || kind === "row_average" ? kind : undefined,
+    metricKind: kind === "row_difference" || kind === "row_average" || kind === "cell_formula" ? kind : undefined,
     spec: {
+      formula: metadata.formula,
       columnId: metadata.columnId,
       columnLabel: metadata.columnLabel,
       rowId: metadata.rowId,
@@ -1004,27 +1017,29 @@ export function buildDerivedDefinitionFromDerivedTile(
     label: output.sourceTitle || tile.query.question
   };
   const source =
-    tile.source?.kind === "variableSet"
+    tile.source?.kind === "importedField"
+      ? { kind: "importedField" as const, id: tile.source.id, label: tile.source.label }
+      : tile.source?.kind === "variableSet"
       ? { kind: "variableSet" as const, id: tile.source.id, label: tile.source.label }
       : tile.source?.kind === "question"
         ? { kind: "question" as const, id: tile.source.id, label: tile.source.label }
         : fallbackSource;
   const outputLabel = derivedOutputKindLabel(output.kind);
-  const structureLabel = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
+  const structureLabel = output.kind === "cell_formula" ? `${output.formula?.label}: ${output.formula?.expression}` : output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
     ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
     : output.kind === "row_average"
       ? `Average of ${output.rowLabel ?? "Row"} and ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
     : output.kind === "row_difference"
       ? `${output.rowLabel ?? "Row"} minus ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
     : `${output.rowLabel ?? "Lead row"} from ${output.columnLabel}`;
-  const confidenceLabel = `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
+  const confidenceLabel = output.kind === "cell_formula" ? "No statistical inference" : `${Math.round((tile.query.confidenceLevel ?? 0.95) * 100)}% confidence`;
 
   return {
     id: options?.id ?? `derived_definition_${Date.now()}`,
     datasetId: tile.query.dataset,
     label: options?.label ?? `${output.sourceTitle} ${outputLabel.toLowerCase()}`,
     description: options?.description ?? `Reusable ${outputLabel.toLowerCase()} definition from ${output.sourceTitle}.`,
-    definitionType: output.kind === "row_difference" || output.kind === "row_average" ? "metric" : "output",
+    definitionType: output.kind === "row_difference" || output.kind === "row_average" || output.kind === "cell_formula" ? "metric" : "output",
     source,
     sourceTileId: output.sourceTileId,
     sourceTileTitle: output.sourceTitle,
@@ -1033,8 +1048,9 @@ export function buildDerivedDefinitionFromDerivedTile(
       chartType: tile.visualization
     },
     outputKind: output.kind,
-    metricKind: output.kind === "row_difference" || output.kind === "row_average" ? output.kind : undefined,
+    metricKind: output.kind === "row_difference" || output.kind === "row_average" || output.kind === "cell_formula" ? output.kind : undefined,
     spec: {
+      formula: output.formula,
       columnId: output.columnId,
       columnLabel: output.columnLabel,
       rowId: output.rowId,
@@ -1166,7 +1182,7 @@ export function buildDerivedOutputLibraryItems(pages: DashboardPage[]): DerivedO
     .map((tile) => {
       const detail = buildDerivedOutputDetailView(tile, page.tiles);
       const output = tile.derivedOutput!;
-      const structuralSummary = output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
+      const structuralSummary = output.kind === "cell_formula" ? `${output.formula?.label}: ${output.formula?.expression}` : output.kind === "top_n_extract" || output.kind === "bottom_n_extract"
         ? `${output.rowCount ?? 0} rows from ${output.columnLabel}`
         : output.kind === "row_average"
           ? `Average of ${output.rowLabel ?? "Row"} and ${output.comparedRowLabel ?? "comparison row"} in ${output.columnLabel}`
@@ -1240,7 +1256,8 @@ export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefi
   const definitionConfig: DerivedOutputConfig = {
     rowId: definition.spec.rowId,
     comparedRowId: definition.spec.comparedRowId,
-    columnId: definition.spec.columnId
+    columnId: definition.spec.columnId,
+    formula: definition.spec.formula
   };
   const supportedResult = buildDerivedOutputResponse(sourceTile, definition.outputKind, definitionConfig);
   const supportedMetadata = buildDerivedOutputMetadata(sourceTile, definition.outputKind, definitionConfig);
@@ -1257,7 +1274,7 @@ export function buildDerivedDefinitionReadinessView(definition: SavedDerivedDefi
     };
   }
 
-  if ((definition.outputKind === "row_difference" || definition.outputKind === "row_average") && (
+  if ((definition.outputKind === "row_difference" || definition.outputKind === "row_average" || definition.outputKind === "cell_formula") && (
     supportedMetadata.rowId !== definition.spec.rowId
     || supportedMetadata.comparedRowId !== definition.spec.comparedRowId
     || supportedMetadata.columnId !== definition.spec.columnId

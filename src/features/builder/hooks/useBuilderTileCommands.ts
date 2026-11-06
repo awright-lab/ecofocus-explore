@@ -548,6 +548,10 @@ export function useBuilderTileCommands({
   }
 
   async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
+    if (tile.derivedOutput?.kind === "cell_formula") {
+      setError("Use Calculated metrics to preview and refresh this formula; ordinary query reruns would replace its calculation.");
+      return false;
+    }
     const operation = beginOperation(undefined, tile.id);
     if (!operation) return false;
     setError(null);
@@ -787,7 +791,8 @@ export function useBuilderTileCommands({
       config: {
         rowId: definition.spec.rowId,
         comparedRowId: definition.spec.comparedRowId,
-        columnId: definition.spec.columnId
+        columnId: definition.spec.columnId,
+        formula: definition.spec.formula
       },
       savedDefinition: {
         id: definition.id,
@@ -824,7 +829,8 @@ export function useBuilderTileCommands({
     const config: DerivedOutputConfig = {
       rowId: tile.derivedOutput.rowId,
       comparedRowId: tile.derivedOutput.comparedRowId,
-      columnId: tile.derivedOutput.columnId
+      columnId: tile.derivedOutput.columnId,
+      formula: tile.derivedOutput.formula
     };
     const outputResult = buildDerivedOutputResponse(sourceTile, tile.derivedOutput.kind, config);
     const derivedOutput = buildDerivedOutputMetadata(sourceTile, tile.derivedOutput.kind, config);

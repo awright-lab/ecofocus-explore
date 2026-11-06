@@ -1,12 +1,14 @@
 import type { AnalyticsQueryResponse, SignificanceReasonCode } from "../types/analytics";
 
 export function unsupportedInferenceReason(result: AnalyticsQueryResponse): SignificanceReasonCode | null {
+  if (result.metric.id === "calculated") return "future_method";
   if (result.weighting.applied || result.query.weight) return "weighted_inference_unsupported";
   if (result.metadataRefs.source?.kind === "imported") return "summary_only";
   return result.statistics?.inferenceBasis === "unweighted_full_precision_v1" ? null : "inference_precision_unverified";
 }
 
 export function inferenceSafetyMessage(reason: SignificanceReasonCode): string {
+  if (reason === "future_method") return "No statistical inference is available for calculated arithmetic metrics.";
   if (reason === "summary_only") return "Significance is unavailable for this imported summary. No statistical test was performed.";
   return reason === "weighted_inference_unsupported"
     ? "Weighted significance is unavailable: survey design and variance information are required. Weighted totals are not respondent sample sizes."

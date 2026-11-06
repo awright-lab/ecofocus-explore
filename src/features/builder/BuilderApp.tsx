@@ -180,6 +180,7 @@ const GuidedDataQueryModal = lazy(() =>
 const QuestionJourney = lazy(() => import("../journey/QuestionJourney"));
 const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
 const LinearModelExplorer = lazy(() => import("../models/LinearModelExplorer"));
+const CalculatedMetricBuilder = lazy(() => import("../metrics/CalculatedMetricBuilder"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
 export default function BuilderApp() {
@@ -296,6 +297,7 @@ export default function BuilderApp() {
   const [storyBuilderOpen,setStoryBuilderOpen] = useState(false);
   const [linkedViewsOpen,setLinkedViewsOpen] = useState(false);
   const [linearModelOpen,setLinearModelOpen] = useState(false);
+  const [calculatedMetricOpen,setCalculatedMetricOpen] = useState(false);
   const [questionJourneyOpen,setQuestionJourneyOpen]=useState(false);
   const questionDrafts=useRef(new Map<string,JourneyDraft>());
   const cacheQuestionDraft=useCallback((plan:JourneyDraft)=>{questionDrafts.current.set(plan.setup.reportId,plan);},[]);
@@ -634,6 +636,7 @@ export default function BuilderApp() {
 
   function saveSelectedTileAnalyticalTemplate() {
     if (!selectedTile) return;
+    if (selectedTile.derivedOutput?.kind === "cell_formula") { setCalculatedMetricOpen(true); return; }
     const nextTemplate = buildAnalyticalTemplateFromTile(selectedTile);
 
     setDashboard((current) => ({
@@ -1670,6 +1673,7 @@ export default function BuilderApp() {
     {id:"question-journey",label:"Start with a business question",group:"Create",icon:Presentation,run:()=>setQuestionJourneyOpen(true)},
     {id:"linked-views",label:"Explore linked views",group:"Analyze",icon:Database,run:()=>setLinkedViewsOpen(true)},
     {id:"linear-model",label:"Explore numeric relationships",group:"Analyze",icon:Database,run:()=>setLinearModelOpen(true)},
+    {id:"calculated-metrics",label:"Build a calculated metric",group:"Analyze",icon:Database,run:()=>setCalculatedMetricOpen(true)},
     {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
       id: "analysis",
@@ -2070,6 +2074,8 @@ export default function BuilderApp() {
             <X size={17} />
           </button>
           <BuilderInspector
+            reportPages={dashboard.pages}
+            onEditCalculatedMetric={()=>setCalculatedMetricOpen(true)}
             key={JSON.stringify([activeReportId, activePage.id, selectionKey, settingsView === "page" ? "page" : "object"])}
             getEditorContextVersion={getEditorContextVersion}
             evidencePages={dashboard.pages}
@@ -2226,6 +2232,7 @@ export default function BuilderApp() {
       }}/></Suspense>}
       {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
       {linearModelOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading numeric relationships...</div>}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></Suspense>}
+      {calculatedMetricOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading calculated metrics...</div>}><CalculatedMetricBuilder key={dashboard.id} draft={dashboard} selectedTileId={selectedTile?.id} onClose={()=>setCalculatedMetricOpen(false)} onChange={setDashboard} onNavigate={(pageId,tileId)=>{setActivePageId(pageId);selectTile(tileId);}} onCreateAnalysis={()=>{setCalculatedMetricOpen(false);openGuidedDataQuery({sourceMode:"imported"});}}/></Suspense>}
       {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
         let pages:ReturnType<typeof buildGuidedStoryPages>=[];
         const inserted=setDashboard(current=>{

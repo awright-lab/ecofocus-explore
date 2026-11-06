@@ -1,4 +1,5 @@
 import { audienceDefinitionIssue } from "../audiences/audienceModel";
+import { formulaCacheIssue, formulaSourceIssue } from "../metrics/cellFormulaModel";
 import { narrativeState } from "../narratives/narrativeEvidence";
 import { canvasWidth,canvasHeight } from "../builder/builderConstants";
 import { resultWeightingLabel } from "../../../shared/analytics/weightingLabel";
@@ -10,13 +11,20 @@ import { resultInferenceLabel } from "../../../shared/analytics/inferenceSafety"
 import { buildImportedResultProvenance } from "../data/importedDatasetAnalytics";
 import { resultBannerLabel, resultDatasetLabel, resultFilterLabel, resultSourceLabel, sampleSizeLabel } from "../builder/components/CanvasRenderers";
 
-export function assertExportResultsCurrent(pages: DashboardPage[]): void {
+export function assertExportResultsCurrent(pages: DashboardPage[], sourcePages: DashboardPage[] = pages): void {
   for(const page of pages)for(const element of page.elements.filter(element=>!element.hidden)){
     const state=narrativeState(element,pages);
     if(state&&!state.current)throw new Error(`Review evidence for "${element.name}" before exporting: ${state.reasons.join(" ")} Include its source pages or restore/review its links. JSON keeps the original text and evidence.`);
     if(element.evidence!==undefined){const {x,y,width,height}=element.layout;if(![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>canvasWidth||y+height>canvasHeight)throw new Error(`Keep the complete linked text object "${element.name}" inside the page before exporting; its claim and citations must not be clipped.`);}
   }
   for (const page of pages) for (const tile of page.tiles.filter(tile => !tile.hidden)) {
+    const formulaIssue = formulaCacheIssue(tile);
+    if (formulaIssue) throw Error(`Review calculated metric "${tile.title || tile.name}" before exporting: ${formulaIssue}`);
+    if (tile.derivedOutput?.kind === "cell_formula") {
+      const matches = sourcePages.flatMap(sourcePage => sourcePage.tiles).filter(source => source.id === tile.derivedOutput!.sourceTileId);
+      const issue = formulaCacheIssue(tile) ?? formulaSourceIssue(tile.derivedOutput, matches.length === 1 ? matches[0] : undefined);
+      if (issue) throw Error(`Review calculated metric "${tile.title || tile.name}" before exporting: ${issue}`);
+    }
     if(tile.result.query.sourceIdentity?.kind==="imported"&&tile.result.query.sourceIdentity.intersectionAudience!==undefined || tile.result.metadataRefs.source?.kind==="imported"&&tile.result.metadataRefs.source.intersectionAudience!==undefined) throw new Error("Temporary linked-view results are not an exportable report analysis. Recreate an ordinary analysis with an explicit audience; original report exports are unchanged.");
     const recorded=tile.result.query.sourceIdentity?.kind==="imported"?tile.result.query.sourceIdentity.audience:undefined;
     const metadata=tile.result.metadataRefs.source?.kind==="imported"?tile.result.metadataRefs.source.audience:undefined;
@@ -38,6 +46,12 @@ export function analysisContextRows(tile: DashboardTile): Array<[string, string]
   const result = tile.result;
   const imported = buildImportedResultProvenance(result);
   return [
+    ...(tile.derivedOutput?.kind === "cell_formula" && tile.derivedOutput.formula ? [
+      ["Formula expression", tile.derivedOutput.formula.expression],
+      ["Formula input A", `${tile.derivedOutput.formula.input.a.label}: ${tile.derivedOutput.formula.input.a.value}`],
+      ["Formula input B", `${tile.derivedOutput.formula.input.b.label}: ${tile.derivedOutput.formula.input.b.value}`],
+      ["Formula source response universe", `n=${tile.derivedOutput.formula.input.base}; not a pooled sample or algebraic denominator`],
+    ] as Array<[string, string]> : []),
     ["Dataset", resultDatasetLabel(result)],
     ["Question or grouping", resultSourceLabel(result)],
     ["Metric", `${result.metric.label} (${result.metric.id}; ${result.metric.valueFormat})`],

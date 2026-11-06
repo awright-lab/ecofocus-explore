@@ -231,6 +231,7 @@ export function buildAnalyticalTemplateFromTile(
   tile: DashboardTile,
   options?: { id?: string; label?: string }
 ): SavedAnalyticalTemplate {
+  if (tile.derivedOutput?.kind === "cell_formula") throw Error("Calculated formulas use saved calculation definitions. Open Calculated metrics to preserve their expression and input bindings.");
   const question = defaultDataset.questions.find((item) => item.id === tile.query.question) ?? defaultQuestion;
   const title = tile.title.trim() || tile.name.trim() || question.shortLabel;
   const fallbackSource = {

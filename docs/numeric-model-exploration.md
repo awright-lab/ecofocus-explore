@@ -1,6 +1,6 @@
-# Numeric relationship exploration - original goal 22 review candidate
+# Numeric relationship exploration - original goal 22 accepted local scope
 
-Original goal: examine relationships and build models with clear diagnostics, distinguishing association from causation. This is a bounded temporary local OLS workflow; independent original-goal acceptance is pending. It does not complete complex-survey inference, model persistence, model exports, remote execution or causal analysis.
+Original goal: examine relationships and build models with clear diagnostics, distinguishing association from causation. This is a bounded temporary local OLS workflow; independent original-goal review accepted this bounded local scope at 2324e537. It does not complete complex-survey inference, model persistence, model exports, remote execution or causal analysis.
 
 ## Application workflow
 
@@ -27,11 +27,15 @@ Numeric reference tests compare an independently generated original-unit NumPy S
 
 The original candidate passed 52 focused numerical, real-job and component tests and 1,893 full-suite tests with two existing skips. The numerical-range correction adds seven regressions; final follow-up results and source backup checks are recorded in the private review packet. TypeScript and production build passed, including emitted worker assets. Existing large-chunk warning remains.
 
-Actual App/native browser acceptance imported and saved a fabricated 1,000-row/30-field study, opened the real command, fitted through the real worker, inspected 800/200 training/holdout diagnostics, changed to a saved 500-row audience, invalidated old results and fitted 400/100 rows. Delete/Escape and cold reopen preserved the entire saved study, report pages, audiences and snapshots exactly: 493,267-byte inspection JSON matched before/after/reopen. The temporary model reset as disclosed. Cancellation, worker refusal/retry and in-place source drift are covered by component/job tests; this does not claim native-browser acceptance of every injected failure, all browsers, remote/live Snowflake or Office/download paths. Independent acceptance remains pending.
+Actual App/native browser acceptance imported and saved a fabricated 1,000-row/30-field study, opened the real command, fitted through the real worker, inspected 800/200 training/holdout diagnostics, changed to a saved 500-row audience, invalidated old results and fitted 400/100 rows. Delete/Escape and cold reopen preserved the entire saved study, report pages, audiences and snapshots exactly: 493,267-byte inspection JSON matched before/after/reopen. The temporary model reset as disclosed. Cancellation, worker refusal/retry and in-place source drift are covered by component/job tests; this does not claim native-browser acceptance of every injected failure, all browsers, remote/live Snowflake or Office/download paths. Independent numerical acceptance was subsequently granted at 2324e537 after the range correction below.
 
 
 ## Numerical-range review correction
 
-Independent numerical review reproduced underflow near 1e-162: direct squared residuals could report RMSE zero/R² one, and squared predictor deviations could change VIF and standardized slopes under unit scaling. Training scales below 1e-150 now fail explicitly with a unit-rescaling instruction. Supported centering, RMSE, baseline error and R² use scaled Euclidean norms; raw SSE/SST are not squared at the original tiny scale. Regression tests cover 1e-162/1e-200/1e-300 outcome refusal, tiny predictor refusal, supported 1e-150 predictor VIF/standardized invariance, tiny nonzero representable residuals, and UI refusal without false diagnostics or data mutation. Independent re-review remains required.
+Independent numerical review reproduced underflow near 1e-162: direct squared residuals could report RMSE zero/R² one, and squared predictor deviations could change VIF and standardized slopes under unit scaling. Training scales below 1e-150 now fail explicitly with a unit-rescaling instruction. Supported centering, RMSE, baseline error and R² use scaled Euclidean norms; raw SSE/SST are not squared at the original tiny scale. Regression tests cover 1e-162/1e-200/1e-300 outcome refusal, tiny predictor refusal, supported 1e-150 predictor VIF/standardized invariance, tiny nonzero representable residuals, and UI refusal without false diagnostics or data mutation. Independent numerical re-review accepted the correction at 2324e537.
 
 The range-correction full suite passed **1,900 tests with two existing skips**, and TypeScript/production build passed. Actual module-worker browser probes refused tiny outcomes and predictors without diagnostics, then fitted the supported 1e-150 outcome with holdout RMSE1.6483e-151 and R²0.99963. All three fabricated 180-row inputs remained exactly unchanged. This focused component/worker probe does not imply a repeated App-writer or live-service acceptance.
+
+## Independent acceptance
+
+The independent reviewer repeated scaling checks, compared 72 synthetic designs with NumPy SVD and verified the 25,000-row boundary and absence of holdout leakage. Goal 22 is accepted within temporary unweighted complete-local OLS with one to six predictors and the explicit numeric bounds. Survey inference, causal claims, remote execution, model persistence and model exports are not implied.

@@ -119,11 +119,12 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
   const derivedOutputRecreation = buildDerivedOutputRecreationCueView(derivedOutputRecreationCue, selectedTile);
   const derivedDefinitionRecreation = buildDerivedDefinitionRecreationCueView(derivedDefinitionRecreationCue, selectedTile);
   const derivedOutputLibraryAction = buildDerivedOutputLibraryActionCueView(derivedOutputLibraryActionCue, selectedTile);
-  const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, activePage.tiles);
+  const derivedContextTiles = selectedTile.derivedOutput?.kind === "cell_formula" && props.reportPages ? props.reportPages.flatMap(page => page.tiles) : activePage.tiles;
+  const derivedOutputDetail = buildDerivedOutputDetailView(selectedTile, derivedContextTiles);
   const derivedDefinitionProvenance = buildDerivedDefinitionProvenanceView(selectedTile, props.savedDerivedDefinitions);
   const derivedOutputViews = buildDerivedOutputViews(selectedTile, rowDifferenceConfig);
-  const independentContractCue = buildIndependentDerivedContractView(selectedTile);
-  const freshnessCue = buildDerivedObjectFreshnessView(selectedTile, activePage.tiles);
+  const independentContractCue = selectedTile.derivedOutput?.kind === "cell_formula" ? null : buildIndependentDerivedContractView(selectedTile);
+  const freshnessCue = selectedTile.derivedOutput?.kind === "cell_formula" ? null : buildDerivedObjectFreshnessView(selectedTile, derivedContextTiles);
   const weightDiagnostics = buildAnalysisWeightDiagnostics(selectedTile.query.weight);
   const sourceVariableSet = props.savedVariableSets.find((item) => selectedTile.source?.kind === "variableSet" && item.id === selectedTile.source.id) ?? null;
   const weightMismatch = sourceVariableSet
@@ -198,7 +199,7 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                   <span>{summary.lifecycleLabel}</span>
                   <small>{summary.lifecycleDescription}</small>
                 </div>
-                <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />
+                {selectedTile.derivedOutput?.kind !== "cell_formula" && <AnalysisWeightDiagnosticsCard view={weightDiagnostics} mismatches={contextMismatches} mismatchSummary={contextSummary} />}
                 {savedLibraryCue && <SavedLibraryInsertionCueCard view={savedLibraryCue} />}
                 {segmentProvenance && <SegmentProfileProvenanceCard view={segmentProvenance} />}
                 {derivedOutputCue && <DerivedOutputCreationCueCard view={derivedOutputCue} />}
@@ -215,10 +216,11 @@ export function TileAnalysisResultSection(props: BuilderInspectorProps) {
                 {derivedOutputDetail && (
                   <DerivedOutputDetailCard
                     view={derivedOutputDetail}
-                    onSelectSource={(tileId) => selectTile(tileId)}
-                    onRecreate={() => recreateDerivedOutputTile(selectedTile)}
+                    onSelectSource={(tileId) => selectedTile.derivedOutput?.kind === "cell_formula" && props.onEvidenceNavigate ? props.onEvidenceNavigate(tileId) : selectTile(tileId)}
+                    onRecreate={() => { if (selectedTile.derivedOutput?.kind === "cell_formula" && props.onEditCalculatedMetric) { props.onEditCalculatedMetric(); return true; } return recreateDerivedOutputTile(selectedTile); }}
                     onDuplicate={() => duplicateDerivedOutputTile(selectedTile)}
                     onSaveTemplate={saveSelectedTileAnalyticalTemplate}
+                    isFormula={selectedTile.derivedOutput?.kind === "cell_formula"}
                   />
                 )}
                 {reportTreeCue && <ReportTreeSelectionCueCard view={reportTreeCue} />}
@@ -469,13 +471,15 @@ function DerivedOutputDetailCard({
   onSelectSource,
   onRecreate,
   onDuplicate,
-  onSaveTemplate
+  onSaveTemplate,
+  isFormula = false
 }: {
   view: DerivedOutputDetailView;
   onSelectSource: (tileId: string) => void;
   onRecreate: () => boolean;
   onDuplicate: () => string | null;
   onSaveTemplate: () => void;
+  isFormula?: boolean;
 }) {
   return (
     <div className={`derived-output-detail-card ${view.sourceStatus}`} aria-label="Derived output relationship">
@@ -500,7 +504,7 @@ function DerivedOutputDetailCard({
             Go to source tile
           </button>
           <button type="button" className="secondary" onClick={onRecreate} disabled={!view.canRecreate}>
-            Recreate from source
+            {isFormula ? "Review and refresh formula" : "Recreate from source"}
           </button>
           </>
         )}
@@ -508,7 +512,7 @@ function DerivedOutputDetailCard({
           Duplicate derived output
         </button>
         <button type="button" className="secondary" onClick={onSaveTemplate}>
-          Save as template
+          {isFormula ? "Edit formula definition" : "Save as template"}
         </button>
       </div>
     </div>
@@ -641,7 +645,7 @@ function ImportedTileQueryEditor({
   const [filterFieldId, setFilterFieldId] = useInvalidatingQueryOption(source?.filterFieldId ?? "none",request.invalidate);
   const [filterValue, setFilterValue] = useInvalidatingQueryOption<string | null>(source?.filterValue ?? null,request.invalidate);
   const [audience,setAudience] = useInvalidatingQueryOption<SavedImportedAudience|null>(source?.audience??null,request.invalidate);
-  const [metric, setMetric] = useInvalidatingQueryOption<Metric>(tile.result.metric.id,request.invalidate);
+  const [metric, setMetric] = useInvalidatingQueryOption<Metric>(tile.result.metric.id === "calculated" ? tile.result.query.metric : tile.result.metric.id,request.invalidate);
   const [queryMode, setQueryMode] = useInvalidatingQueryOption<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical",request.invalidate);
   const [measureFieldId, setMeasureFieldId] = useInvalidatingQueryOption(source?.measureFieldId ?? "none",request.invalidate);
   const [chartType, setChartType] = useInvalidatingQueryOption<ChartType>(tile.visualization,request.invalidate);
@@ -938,6 +942,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
     return null;
   }
   const tile = selectedTile;
+  if (tile.derivedOutput?.kind === "cell_formula") return <div className="inspector-summary-card"><strong>Recorded calculated metric</strong><p>{tile.derivedOutput.formula?.label}: {tile.derivedOutput.formula?.expression}</p><p>Edit and refresh this result through Find a tool → Build a calculated metric. Ordinary query editing would replace the formula with its source analysis and is disabled here.</p><small>The original response query remains recorded for provenance; no statistical inference transfers to this calculation.</small></div>;
   const queryStatus = buildTileQueryStatus(tile);
   const actionState = buildTileQueryActionState(queryStatus, isLoading);
   const provenanceRows = buildSettingProvenanceRows(tile, savedBanners, savedFilters, savedWeights);
