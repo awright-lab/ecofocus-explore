@@ -4,7 +4,7 @@ import { initialDashboard } from "../../document/documentSeeds";
 import { createCanvasElement } from "../../builder/builderDocumentCommands";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
-import { captureNarrativeCell, narrativeState, narrativeCitation, narrativeEvidenceIssue, reviewNarrative } from "../narrativeEvidence";
+import { captureNarrativeCell, narrativeState, narrativeCitation, narrativeEvidenceIssue, narrativeStudyIds, reviewNarrative } from "../narrativeEvidence";
 import { createReportRecord,normalizeDashboardWorkspace,saveDashboardWorkspace,loadDashboardWorkspace,workspaceStorageKey,createPublishedSnapshot,duplicateReportRecord } from "../../document/workspacePersistence";
 import { draftImportedStudyReferences } from "../../document/importedStudyUsage";
 import { assertExportResultsCurrent } from "../../export/exportIntegrity";
@@ -14,6 +14,9 @@ import { buildXlsxBlob,buildPptxBlob,buildPdfBlob } from "../../export/coreDocum
 import { buildEditableSlideReconstruction } from "../../export/pptxEditableReconstruction";
 import type { AnalyticsSourceIdentity } from "../../../../shared/types/analytics";
 import type { SavedCompositionBlock } from "../../../../shared/types/dashboard";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { CanvasElementRenderer } from "../../builder/components/CanvasRenderers";
 
 async function fixture(){
  const imported=await importDatasetBuffer(new TextEncoder().encode("Region,Spend\nNorth,10\nSouth,20\nNorth,30\n").buffer,"synthetic-narrative.csv");
@@ -102,4 +105,24 @@ it("retains study rows for linked claims stored only in reusable layouts and rej
  const workspace=normalizeDashboardWorkspace({reports:[createReportRecord(draft)],importedDatasets:[dataset]});const snapshot=createPublishedSnapshot(workspace,draft).snapshot;expect(snapshot.dashboard.importedDatasets.find(item=>item.id===dataset.id)?.rows).toEqual(dataset.rows);
  expect(saveDashboardWorkspace(workspace)).toBe(true);const reopened=loadDashboardWorkspace();expect(reopened.reports[0].draft.designLibrary.compositionBlocks[0].items[0]).toMatchObject({kind:"element",element:{evidence:element.evidence}});
  const raw=JSON.parse(localStorage.getItem(workspaceStorageKey)!);raw.reports[0].draft.designLibrary.compositionBlocks[0].items[0].element.evidence=null;const damaged=JSON.stringify(raw);localStorage.setItem(workspaceStorageKey,damaged);expect(()=>loadDashboardWorkspace()).toThrow(/evidence/);expect(localStorage.getItem(workspaceStorageKey)).toBe(damaged);
+});
+it.each(["999999%","2%"," 2","NaN"])("rejects altered stored citation %s across state, rendering, exports and persisted recovery",async altered=>{
+ const {draft,element,dataset}=await fixture(),original=structuredClone(draft),link=element.evidence!.links[0];link.snapshot.displayValue=altered;
+ expect(narrativeEvidenceIssue(element.evidence)).toMatch(/display value is inconsistent/);const state=narrativeState(element,draft.pages)!;expect(state.current).toBe(false);expect(narrativeCitation(element)).not.toContain(altered);expect(narrativeCitation(element)).toContain("Evidence needs review");
+ const html=renderToStaticMarkup(createElement(CanvasElementRenderer,{element,selected:false,onSelect:()=>{},evidenceWarning:state.reasons.join(" ")}));expect(html).toContain("Evidence needs review");expect(html).not.toContain(`= ${altered} (`);
+ expect(()=>buildXlsxBlob(draft,draft.pages)).toThrow(/display value is inconsistent/);await expect(buildPdfBlob(draft.pages)).rejects.toThrow(/display value is inconsistent/);await expect(buildPptxBlob(draft.pages)).rejects.toThrow(/display value is inconsistent/);
+ const workspace=normalizeDashboardWorkspace({reports:[createReportRecord(original)],importedDatasets:[dataset]});expect(saveDashboardWorkspace(workspace)).toBe(true);const raw=JSON.parse(localStorage.getItem(workspaceStorageKey)!);raw.reports[0].draft.pages[1].elements[0].evidence.links[0].snapshot.displayValue=altered;const damaged=JSON.stringify(raw);localStorage.setItem(workspaceStorageKey,damaged);expect(()=>loadDashboardWorkspace()).toThrow(/display value is inconsistent/);expect(localStorage.getItem(workspaceStorageKey)).toBe(damaged);
+ expect(original.pages[1].elements[0].evidence!.links[0].snapshot.displayValue).toBe("2");
+});
+it("rejects missing or unsupported stored citation formats and detects a coherent but changed format",async()=>{
+ const {draft,element}=await fixture(),snapshot=element.evidence!.links[0].snapshot,context=JSON.parse(snapshot.context);
+ context.metric.valueFormat="unknown";snapshot.context=JSON.stringify(context);expect(narrativeEvidenceIssue(element.evidence)).toContain("invalid metric format");
+ context.metric.valueFormat="percent";snapshot.context=JSON.stringify(context);snapshot.displayValue="2%";expect(narrativeEvidenceIssue(element.evidence)).toBeNull();expect(narrativeState(element,draft.pages)?.current).toBe(false);
+});
+it.each([{stored:[]},{stored:["unrelated-study"]},{stored:["duplicate","duplicate"]}])("rejects inconsistent stored study references $stored while retaining readable source dependencies",async({stored})=>{
+ const {draft,element,dataset}=await fixture();element.evidence!.links[0].snapshot.studyIds=stored;
+ expect(narrativeEvidenceIssue(element.evidence)).toMatch(/study references are inconsistent/);expect(narrativeState(element,draft.pages)?.current).toBe(false);expect(()=>assertExportResultsCurrent(draft.pages)).toThrow(/study references are inconsistent/);
+ draft.pages[0].tiles=[];expect(narrativeStudyIds(element.evidence)).toContain(dataset.id);expect(draftImportedStudyReferences(draft)).toContainEqual({datasetId:dataset.id,location:"Conclusions: evidence for Text"});
+ const valid=await fixture(),workspace=normalizeDashboardWorkspace({reports:[createReportRecord(valid.draft)],importedDatasets:[valid.dataset]});expect(saveDashboardWorkspace(workspace)).toBe(true);
+ const raw=JSON.parse(localStorage.getItem(workspaceStorageKey)!);raw.reports[0].draft.pages[1].elements[0].evidence.links[0].snapshot.studyIds=stored;const damaged=JSON.stringify(raw);localStorage.setItem(workspaceStorageKey,damaged);expect(()=>loadDashboardWorkspace()).toThrow(/study references are inconsistent/);expect(localStorage.getItem(workspaceStorageKey)).toBe(damaged);
 });

@@ -6,7 +6,9 @@ import { createCanvasElement } from "../../../builder/builderDocumentCommands";
 import { storageKey } from "../../../builder/builderConstants";
 import { createReportRecord,normalizeDashboardWorkspace,loadDashboardWorkspace,saveDashboardWorkspace,workspaceStorageKey,legacyWorkspaceStorageKey } from "../../workspacePersistence";
 import { runImportedDatasetQuery } from "../../../data/importedDatasetAnalytics";
-import { narrativeState } from "../../../narratives/narrativeEvidence";
+import { narrativeState,narrativeCitation } from "../../../narratives/narrativeEvidence";
+import { CanvasElementRenderer } from "../../../builder/components/CanvasRenderers";
+import type { DashboardDraft } from "../../../../../shared/types/dashboard";
 import { buildPdfBlob,buildPptxBlob,buildXlsxBlob } from "../../../export/coreDocumentExports";
 import { buildPageVisualSvg } from "../../../export/pageVisualExport";
 import { syntheticStudy } from "./syntheticStudy";
@@ -26,9 +28,18 @@ if(safe&&!existing){
 if(safe&&!window.location.hash.includes("reports"))window.history.replaceState(null,"",`#/reports/${id}`);
 const dataUrl=(blob:Blob)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
 function Harness(){
- const [inspection,setInspection]=useState(""),[files,setFiles]=useState<Array<{name:string;href:string}>>([]);
+ const [inspection,setInspection]=useState(""),[files,setFiles]=useState<Array<{name:string;href:string}>>([]),[probe,setProbe]=useState<DashboardDraft|null>(null);
  function inspect(){const workspace=loadDashboardWorkspace(),draft=workspace.reports[0].draft,note=draft.pages[1].elements[0];setInspection(JSON.stringify({text:note.content,evidence:note.evidence,state:narrativeState(note,draft.pages),rows:workspace.importedDatasets[0].rows.length,snapshots:workspace.publishedSnapshots.length}));}
  async function construct(){try{const draft=loadDashboardWorkspace().reports[0].draft;const entries=await Promise.all([dataUrl(await buildPdfBlob(draft.pages)),dataUrl(await buildPptxBlob(draft.pages)),dataUrl(buildXlsxBlob(draft,draft.pages)),dataUrl(new Blob([buildPageVisualSvg(draft.pages[1])],{type:"image/svg+xml"})),dataUrl(new Blob([JSON.stringify(draft)],{type:"application/json"}))]);setFiles(entries.map((href,i)=>({name:["narrative.pdf","narrative.pptx","narrative.xlsx","narrative.svg","narrative.json"][i],href})));setInspection("Actual frontend files constructed without automatic downloads.");}catch(error){setInspection(error instanceof Error?error.message:"Construction failed");}}
- return safe?<><App/><aside aria-label="Synthetic narrative inspection" style={{position:"fixed",bottom:8,left:8,zIndex:9999,padding:10,background:"white",border:"1px solid #39784d",maxWidth:470,maxHeight:160,overflow:"auto"}}><button onClick={inspect}>Inspect saved narrative</button><button onClick={()=>void construct()}>Construct saved narrative files</button><p>Synthetic only; actual App/storage/commands. No automatic download or service calls.</p><output>{inspection}</output>{files.map(file=><a key={file.name} href={file.href}>{file.name}</a>)}</aside></>:<p>Acceptance stopped: this origin already contains another workspace. No data was changed.</p>;
+ async function checkIntegrity(kind:"display"|"studies"){
+  const workspace=loadDashboardWorkspace(),saved=workspace.reports[0].draft,original=JSON.stringify(saved),cloned=structuredClone(saved),note=cloned.pages[1].elements[0];
+  if(!note.evidence?.links.length){setInspection("Link and review a cell before running this in-memory probe.");return;}
+  if(kind==="display")note.evidence.links[0].snapshot.displayValue="999999%";else note.evidence.links[0].snapshot.studyIds=[];
+  const errors:Array<{format:string;rejected:boolean;message:string}>=[];
+  for(const [format,build] of [["pdf",()=>buildPdfBlob(cloned.pages)],["pptx",()=>buildPptxBlob(cloned.pages)],["xlsx",()=>buildXlsxBlob(cloned,cloned.pages)]] as const){try{await build();errors.push({format,rejected:false,message:"Constructed"});}catch(error){errors.push({format,rejected:true,message:error instanceof Error?error.message:"Rejected"});}}
+  setProbe(cloned);setInspection(JSON.stringify({probe:kind,state:narrativeState(note,cloned.pages),citation:narrativeCitation(note),exports:errors,savedUnchanged:JSON.stringify(loadDashboardWorkspace().reports[0].draft)===original,rows:workspace.importedDatasets[0].rows.length}));
+ }
+ const probeNote=probe?.pages[1].elements[0],probeState=probeNote&&probe?narrativeState(probeNote,probe.pages):null;
+ return safe?<><App/>{probeNote&&<section aria-label="Altered clone only" style={{position:"fixed",top:95,right:20,zIndex:9999,padding:16,background:"white",border:"2px solid #c9953d",maxWidth:460,maxHeight:300,overflow:"auto"}}><h2>Altered clone only — saved workspace unchanged</h2><CanvasElementRenderer element={probeNote} selected={false} onSelect={()=>{}} evidenceWarning={probeState&&!probeState.current?probeState.reasons.join(" "):null}/></section>}<aside aria-label="Synthetic narrative inspection" style={{position:"fixed",bottom:8,left:8,zIndex:9999,padding:10,background:"white",border:"1px solid #39784d",maxWidth:470,maxHeight:160,overflow:"auto"}}><button onClick={inspect}>Inspect saved narrative</button><button onClick={()=>void construct()}>Construct saved narrative files</button><button onClick={()=>void checkIntegrity("display")}>Probe altered citation (memory only)</button><button onClick={()=>void checkIntegrity("studies")}>Probe altered study references (memory only)</button><p>Synthetic only; actual App/storage/commands. No automatic download or service calls.</p><output>{inspection}</output>{files.map(file=><a key={file.name} href={file.href}>{file.name}</a>)}</aside></>:<p>Acceptance stopped: this origin already contains another workspace. No data was changed.</p>;
 }
 createRoot(document.getElementById("root")!).render(<Harness/>);

@@ -41,3 +41,11 @@ Raw browser snapshots, screenshots, generated files and independent inspection a
 - Cached/live-shaped tests do not establish live Snowflake correctness. No approved live dataset or query-cost allowance was used.
 - Native Office application rendering and OS download completion remain unverified. The prior Office COM denial and older uncertain download were not retried or bypassed. Source-based semantic-theme membership and goal 34 remain separate review gates.
 - Transactional saves, mixed-version tabs, cloud identity/ownership, restore and durable recovery remain separate goals. Restore/recovery stay inactive. No merge, production deployment, production data, credentials, permissions or billing changes were made.
+
+## Independent integrity review correction
+
+Independent review found that altering only a snapshot's cached displayValue could leave it marked current and render a false citation. Stored display text is now checked against its finite numeric value and recorded metric format; unsupported/missing formats and inconsistent values are rejected before saved-workspace normalization. Currentness also compares the display field, and citations derive their displayed number from the numeric value and format after validation.
+
+Stored studyIds are checked against all imported-study identities and eligible references in the recorded query/metadata context. Missing, unrelated or duplicate convenience references are rejected rather than silently accepted. The dependency collector also reads every readable context reference alongside explicit stored IDs, so a damaged convenience list cannot discard those study dependencies in memory.
+
+Eight added regressions cover altered display strings, changed/unsupported formats, altered study lists, state/rendering/export guards and unchanged raw recovery. The committed workflow fixture has explicit in-memory clone probes. Native browser checks changed a cloned display value to 999999% or cleared its study references: both became stale, PDF/PPTX/XLSX construction rejected them, the false citation was suppressed, the saved workspace stayed byte-equivalent at the document level, and all 1,000 rows remained. Original goal acceptance remains pending independent review of the correction.
