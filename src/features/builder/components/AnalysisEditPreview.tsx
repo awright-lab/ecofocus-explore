@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { AnalysisChangeDialog } from "./AnalysisChangeExplorer";
 import { resultIdentityIssue } from "../../../../shared/analytics/resultIdentities";
 import type { AnalyticsQueryResponse } from "../../../../shared/types/analytics";
 import { analyticalCell } from "../../../../shared/analytics/resultCells";
@@ -21,11 +23,14 @@ function ResultSample({ result, label }: { result: AnalyticsQueryResponse; label
   </section>;
 }
 export function AnalysisEditPreview({ before, after, onDismiss, id }: { before: AnalyticsQueryResponse; after: AnalyticsQueryResponse; onDismiss: () => void; id?: string }) {
+  const [expanded, setExpanded] = useState(false);
   return <section id={id} className="analysis-result-preview analysis-edit-preview" aria-label="Proposed analysis change preview" data-canvas-keyboard-scope="controls" onKeyDown={event => {
     if (event.key === "Escape" && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); onDismiss(); }
   }}>
     <h4>Review the proposed change</h4><p role="status">Preview loaded. The canvas is unchanged.</p><p>These are two separate query results, not a statistical test of their difference. Update imported result runs a fresh query before replacing the current result.</p>
     <ResultSample label="Current result" result={before}/><ResultSample label="Proposed result (not applied)" result={after}/>
+    <button type="button" className="secondary" aria-expanded={expanded} onClick={event => { event.currentTarget.focus(); setExpanded(true); }}>Review settings and all results</button>
+    {expanded && <AnalysisChangeDialog before={before} after={after} onClose={() => setExpanded(false)} />}
     <button type="button" className="secondary" onClick={onDismiss}>Dismiss preview</button>
   </section>;
 }

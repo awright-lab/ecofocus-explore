@@ -1,6 +1,6 @@
-# Question-to-insight workflow — original goal 9 review candidate
+# Question-to-insight workflow — original goal 9 scoped acceptance
 
-Original goal: guide users from a business question through selecting an audience, reviewing results and creating a deliverable. This candidate connects those steps in one explicit workflow. Independent acceptance remains pending.
+Original goal: guide users from a business question through selecting an audience, reviewing results and creating a deliverable. This workflow connects those steps in one explicit workflow. Independent review accepted remote commit 23e6fe44 for complete local unweighted studies up to 50,000 rows.
 
 ## Product workflow
 
@@ -23,8 +23,10 @@ Closing retains unfinished wording and choices for this report in this tab's mem
 
 35 new model/component regressions cover the complete steps, positive distribution/comparison/numeric deliverables, source and audience drift, data preservation, save/reopen, four evidence links, methodology drift, stale export refusal, cancellation, consent, retry, search and keyboard behavior. Full suite: **1,755 passed, 2 skipped**; TypeScript and production build passed. Existing bundle-size warnings remain.
 
-Actual desktop browser acceptance used the actual App, renderer, command palette and local writer with 1,000 fabricated rows and 30 fields. Growth audience included 500 rows; each region was 25%, cell base 500. The workflow created two pages alongside the exact original page, with four current evidence links. Cancel preserved one original page; creation, Undo, Redo and cold reopen produced respectively 3, 1, 3 and 3 saved pages, preserving every original row and field. Closing and command-based reopening retained wording but required a new preview and consent. Both page previews were visually inspected.
+Actual desktop browser acceptance used the actual App, renderer, command palette and local writer with 1,000 fabricated rows and 30 fields. Growth audience included 500 rows; each region was 25%, cell base 500. The workflow created two pages alongside the exact original page, with four current evidence links. Cancel preserved one original page; creation, Undo, Redo and cold reopen produced respectively 3, 1, 3 and 3 saved pages, preserving the exact original page and unchanged row/field counts. Model tests separately verify source equality. Closing and command-based reopening retained wording but required a new preview and consent. Both page previews were visually inspected.
 
 Actual browser format builders produced a three-page PDF, three-slide PPTX and six-sheet XLSX from the saved report. PDF object offsets/page count and its three fully decoded embedded page rasters were checked; all three rasters were visually inspected for complete text, source context, values and layout. This is inspection of browser-generated PDF raster content, not rendering by an independent PDF interpreter. Office ZIP CRC, XML, relationships and internal targets passed inspection; the native chart retained all four categories and values 25 with labels 25% (n=500). Both packages retained the question, authored text, audience context and methodology. Native PowerPoint/Excel rendering, app-menu OS download and live services remain unverified. Earlier Office automation denial was not retried.
 
 Reproducible synthetic fixture: `src/features/document/__tests__/fixtures/questionJourneyWorkflow.html`. The fixture refuses unrelated workspace data and exposes inspection and format-building controls. It is test-only; it does not enable recovery or restore in the product. Detailed logs, saved-state comparisons, screenshots, actual artifacts and hashes are in the external review packet.
+
+Independent review subsequently rendered the actual PDF and verified the artifacts. Unfinished plans remain memory-only; remote/weighted, live Snowflake, native Office rendering and downloads are outside accepted scope.
