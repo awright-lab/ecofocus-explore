@@ -3,6 +3,32 @@ import reference from "./linear-model-numpy-reference.json";
 import { fitLinearModel, predictLinearModel, evaluateLinearModel, splitModelCases, type NumericModelCase } from "../linearModelMath";
 const cases: NumericModelCase[] = reference.cases;
 
+it.each([1e-162, 1e-200, 1e-300])("fails closed for unsupported outcome scale %s instead of zero-error perfect fit", factor => {
+  const tiny = cases.map(row => ({ ...row, outcome: row.outcome * factor }));
+  expect(() => fitLinearModel(tiny)).toThrow("1e-150 range");
+});
+it("keeps representable tiny residual errors and scale-independent R2 without raw squaring", () => {
+  const factor = 1e-150, data = cases.map(row => ({ ...row, outcome: row.outcome * factor }));
+  const fit = fitLinearModel(data), metrics = evaluateLinearModel(fit, data, true), ordinary = evaluateLinearModel(fitLinearModel(cases), cases, true);
+  expect(metrics.rmse).toBeGreaterThan(0); expect(metrics.baselineRmse).toBeGreaterThan(0);
+  expect(metrics.rmse / factor).toBeCloseTo(ordinary.rmse, 12); expect(metrics.baselineRmse / factor).toBeCloseTo(ordinary.baselineRmse, 12);
+  expect(metrics.rSquared).toBeCloseTo(ordinary.rSquared!, 12);
+  // A deliberately imperfect evaluated prediction has residuals around 1e-165,
+  // whose direct squares are zero even though their RMSE is representable.
+  const exact = cases.map(row => ({ ...row, outcome: (4 + 2 * row.predictors[0]) * factor }));
+  const exactFit = fitLinearModel(exact), shifted = { ...exactFit, centeredIntercept: exactFit.centeredIntercept + 1e-164 };
+  const shiftedMetrics = evaluateLinearModel(shifted, exact);
+  expect(shiftedMetrics.diagnostics.some(row => row.residual !== 0)).toBe(true); expect(shiftedMetrics.rmse).toBeGreaterThan(0);
+});
+it("refuses unsupported predictor resolution and preserves supported tiny predictor units", () => {
+  expect(() => fitLinearModel(cases.map(row => ({ ...row, predictors: [row.predictors[0] * 1e-162, row.predictors[1]] })))).toThrow("1e-150 range");
+  const tiny = cases.map(row => ({ ...row, predictors: [row.predictors[0] * 1e-150, row.predictors[1]] })), fit = fitLinearModel(tiny), ordinary = fitLinearModel(cases);
+  expect(fit.coefficients[0] * 1e-150).toBeCloseTo(ordinary.coefficients[0], 12);
+  fit.vif.forEach((value, index) => expect(value).toBeCloseTo(ordinary.vif[index], 12));
+  fit.standardizedCoefficients.forEach((value, index) => expect(value).toBeCloseTo(ordinary.standardizedCoefficients[index], 12));
+  expect(evaluateLinearModel(fit, tiny).rmse).toBeGreaterThan(0);
+});
+
 it("fits the 25,000-row boundary with six predictors and rejects larger studies", () => {
   const large = Array.from({ length: 25000 }, (_, index) => {
     const predictors = [index % 17 - 8, index * 7 % 23 - 11, index * 11 % 29 - 14, index * 13 % 31 - 15, index * 17 % 37 - 18, index * 19 % 41 - 20];

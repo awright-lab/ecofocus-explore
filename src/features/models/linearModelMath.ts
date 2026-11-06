@@ -28,6 +28,16 @@ function total(values: number[]): number {
   return result;
 }
 const dot = (a: number[], b: number[]) => total(a.map((value, index) => value * b[index]));
+// Scale before squaring: raw squared residuals can underflow even when an
+// individual residual and its RMSE are representable in binary64.
+function stableNorm(values: number[]): number {
+  const scale = Math.max(...values.map(Math.abs));
+  if (scale === 0) return 0;
+  if (!Number.isFinite(scale)) throw Error("A model diagnostic exceeded supported numerical range.");
+  const norm = scale * Math.sqrt(total(values.map(value => (value / scale) ** 2)));
+  if (!Number.isFinite(norm)) throw Error("A model diagnostic exceeded supported numerical range.");
+  return norm;
+}
 function checkCases(cases: NumericModelCase[], predictors?: number) {
   const p = predictors ?? cases[0]?.predictors.length;
   if (!Number.isSafeInteger(p) || p < 1 || p > maximumModelPredictors || !cases.length || cases.length > maximumModelRows) throw Error("Choose one to six numeric predictors and at most 25,000 complete rows.");
@@ -40,9 +50,10 @@ function checkCases(cases: NumericModelCase[], predictors?: number) {
 }
 function center(values: number[], label: string) {
   const mean = total(values) / values.length;
-  const scale = Math.sqrt(total(values.map(value => (value - mean) ** 2)) / (values.length - 1));
+  const scale = stableNorm(values.map(value => value - mean)) / Math.sqrt(values.length - 1);
   const largest = Math.max(...values.map(Math.abs));
   if (!Number.isFinite(scale) || scale === 0 || scale / Math.max(largest, Number.MIN_VALUE) < 1e-12) throw Error(`${label} is constant or too close to numerical resolution in the training rows. Choose a different field or units.`);
+  if (scale < 1e-150) throw Error(`${label} has a training standard deviation below the supported 1e-150 range. Rescale its units before fitting; no reliable model diagnostics were produced.`);
   return { mean, scale };
 }
 
@@ -96,12 +107,12 @@ export function evaluateLinearModel(fit: LinearTrainingFit, cases: NumericModelC
     if (!Number.isFinite(residual) || leverage !== null && (!Number.isFinite(leverage) || leverage < -1e-10 || leverage > 1 + 1e-8)) throw Error("A diagnostic exceeded supported numerical range.");
     return { row: row.row, actual: row.outcome, predicted, residual, leverage: leverage === null ? null : Math.max(0, Math.min(1, leverage)), outsideTrainingRange: row.predictors.some((value, index) => value < fit.predictorRanges[index].min || value > fit.predictorRanges[index].max) };
   });
-  const sse = total(diagnostics.map(row => row.residual ** 2)), mean = total(cases.map(row => row.outcome)) / cases.length;
-  const sst = total(cases.map(row => (row.outcome - mean) ** 2));
-  const rawRSquared = sst > 0 ? 1 - sse / sst : null;
+  const residualNorm = stableNorm(diagnostics.map(row => row.residual)), mean = total(cases.map(row => row.outcome)) / cases.length;
+  const outcomeNorm = stableNorm(cases.map(row => row.outcome - mean));
+  const rawRSquared = outcomeNorm > 0 ? 1 - (residualNorm / outcomeNorm) ** 2 : null;
   const rSquared = rawRSquared !== null && Number.isFinite(rawRSquared) ? rawRSquared : null;
   const adjustedRSquared = training && rSquared !== null && cases.length > dimensions ? 1 - (1 - rSquared) * (cases.length - 1) / (cases.length - dimensions) : null;
-  return { rows: cases.length, rmse: Math.sqrt(sse / cases.length), mae: total(diagnostics.map(row => Math.abs(row.residual))) / cases.length, baselineRmse: Math.sqrt(total(cases.map(row => (row.outcome - fit.outcomeMean) ** 2)) / cases.length), rSquared, adjustedRSquared, residualMean: total(diagnostics.map(row => row.residual)) / cases.length, diagnostics };
+  return { rows: cases.length, rmse: residualNorm / Math.sqrt(cases.length), mae: total(diagnostics.map(row => Math.abs(row.residual))) / cases.length, baselineRmse: stableNorm(cases.map(row => row.outcome - fit.outcomeMean)) / Math.sqrt(cases.length), rSquared, adjustedRSquared, residualMean: total(diagnostics.map(row => row.residual)) / cases.length, diagnostics };
 }
 
 export function splitModelCases(cases: NumericModelCase[], seed: number) {

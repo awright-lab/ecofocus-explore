@@ -75,3 +75,14 @@ it("keeps keyboard focus inside and closes with Escape without sending keys to r
   const props = await fixture(), modal = document.querySelector('[role="dialog"]')!; expect(document.activeElement).toBe(modal); expect(host.inert).toBe(true);
   await act(async () => modal.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); expect(props.onClose).toHaveBeenCalledOnce();
 });
+
+it.each(["outcome", "predictor"])("refuses tiny %s units through the real computation instead of displaying misleading diagnostics", async kind => {
+  const props = await fixture(), column = kind === "outcome" ? "Outcome" : "PredictorA";
+  props.studies[0].rows.forEach(row => { row[column] = String(Number(row[column]) * 1e-162); });
+  const before = structuredClone(props.studies);
+  await setup(props); await fit();
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("1e-150 range");
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain("Rescale its units");
+  expect(document.querySelector('[aria-label="Linear model results"]')).toBeNull(); expect(props.studies).toEqual(before);
+  expect(fetch).not.toHaveBeenCalled();
+});
