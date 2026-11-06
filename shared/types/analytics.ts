@@ -112,6 +112,7 @@ export interface AnalyticsSeries {
 }
 
 export interface AnalyticsTableRow {
+  sourceCategoryKey?: string;
   optionId: string;
   label: string;
   values: Record<string, number>;
@@ -123,6 +124,7 @@ export interface AnalyticsTableRow {
 }
 
 export interface AnalyticsTableColumn {
+  sourceCategoryKey?: string;
   id: string;
   label: string;
 }

@@ -1,3 +1,4 @@
+import { applyReportColorTheme } from "../../../design-system/reportColors";
 // @vitest-environment jsdom
 import { act, StrictMode, useCallback, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -50,4 +51,15 @@ it("drops the old redo branch only when a new edit actually changes the document
 it("keeps the document and history intact if command calculation throws",async()=>{
  const initial=await setup();await act(async()=>{expect(()=>commands.setDashboard(()=>{throw new Error("Synthetic command failure");})).toThrow("Synthetic command failure");});
  expect(current).toEqual(initial);expect(past).toHaveLength(0);expect(saveCalls).toHaveLength(0);await act(async()=>commands.renameDashboard("Recovery"));expect(past[0]).toEqual(initial);
+});
+
+it("reconciles report colors in the real edit command and keeps enable/Undo/Redo atomic", async () => {
+ await setup(); const before = current;
+ await act(async () => commands.setDashboard(value => applyReportColorTheme(value, ["#112233", "#445566", "#778899"])));
+ const themed = current, slots = structuredClone(current.reportColorTheme!.slots); expect(past.at(-1)).toBe(before);
+ await act(async () => commands.setDashboard(value => ({ ...value, pages: value.pages.map(page => ({ ...page, tiles: page.tiles.map(tile => ({ ...tile, result: { ...tile.result, table: [...tile.result.table].reverse() } })) })) })));
+ expect(current.reportColorTheme!.slots).toEqual(slots);
+ await act(async () => commands.undo()); expect(current).toEqual(themed);
+ await act(async () => commands.undo()); expect(current).toBe(before); expect(current.reportColorTheme).toBeUndefined();
+ await act(async () => commands.redo()); expect(current.reportColorTheme!.slots).toEqual(slots);
 });

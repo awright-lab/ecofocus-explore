@@ -982,4 +982,20 @@ describe("workspace save recovery UI", () => {
     expect(host.querySelector('dialog[open].studio-command-dialog')).not.toBeNull();
   });
 
+  it("applies report colors through real editor UI, autosaves, undoes/redoes and reopens without changing data", async () => {
+    writeFailure.mockRestore(); await editor(); const before = baseline.reports[0].draft.pages.map(page => page.tiles.map(tile => tile.result.table));
+    await act(async () => button("Report colors").click());
+    await act(async () => button("Cancel colors").click()); expect(loadDashboardWorkspace().reports[0].draft.reportColorTheme).toBeUndefined();
+    await act(async () => button("Report colors").click()); await act(async () => button("Apply colors across report").click());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const saved = loadDashboardWorkspace().reports[0].draft; expect(saved.reportColorTheme?.slots.length).toBeGreaterThan(0);
+    expect(saved.pages.map(page => page.tiles.map(tile => tile.result.table))).toEqual(before);
+    const expected = structuredClone(saved.reportColorTheme);
+    await act(async () => button("Undo").click()); await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(loadDashboardWorkspace().reports[0].draft.reportColorTheme).toBeUndefined();
+    await act(async () => button("Redo").click()); await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(loadDashboardWorkspace().reports[0].draft.reportColorTheme).toEqual(expected);
+    await act(async () => root.render(<p>Closed editor</p>)); workspaceSaveSession.remember(null); await editor();
+    expect(JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!).tiles[0].appearance.reportColorsEnabled).toBe(true);
+    expect(loadDashboardWorkspace().reports[0].draft.pages.map(page => page.tiles.map(tile => tile.result.table))).toEqual(before);
+  });
+
 });

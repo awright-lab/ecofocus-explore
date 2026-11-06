@@ -1,3 +1,4 @@
+import { reconcileReportColors } from "../../design-system/reportColors";
 import type React from "react";
 import type { DocumentCommandCommit } from "./useDocumentCommandState";
 import { canvasHeight, canvasWidth, historyLimit } from "../builderConstants";
@@ -103,7 +104,7 @@ export function useBuilderDocumentSessionCommands({
   openPublishedSnapshot
 }: UseBuilderDocumentSessionCommandsArgs) {
   function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
-    return commitDashboardChange(updater, trackHistory ? (current) => {
+    return commitDashboardChange(typeof updater === "function" ? current => { const next = updater(current); return next === current ? current : reconcileReportColors(next); } : reconcileReportColors(updater), trackHistory ? (current) => {
         setHistory((items) => [...items.slice(-historyLimit + 1), current]);
         setFuture([]);
         setSaveState("Saving...");

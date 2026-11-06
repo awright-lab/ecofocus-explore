@@ -1,3 +1,4 @@
+import { ReportThemeControl } from "./ReportThemeControl";
 import { ExportPreflightDialog } from "../../export/ExportPreflightDialog";
 import {
   memo,
@@ -193,6 +194,7 @@ export const BuilderHeader = memo(function BuilderHeader({
   onHome,
   onSearch,
   onHelp,
+  onReportThemeChange,
 }: {
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
@@ -213,6 +215,7 @@ export const BuilderHeader = memo(function BuilderHeader({
   onHome: () => void;
   onSearch: () => void;
   onHelp: () => void;
+  onReportThemeChange?: (update: (current: DashboardDraft) => DashboardDraft) => void;
 }) {
   const readiness = useMemo(
     () => buildPublishReadinessView(dashboard),
@@ -307,6 +310,7 @@ export const BuilderHeader = memo(function BuilderHeader({
         {activeProductMode !== "story" && <button type="button" onClick={() => setActiveProductMode("story")}>Back to page</button>}
       </nav>
       <div className="publish-controls">
+        {onReportThemeChange && <ReportThemeControl dashboard={dashboard} onChange={onReportThemeChange} />}
         <button
           type="button"
           className="studio-search-trigger"

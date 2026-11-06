@@ -1,3 +1,4 @@
+import { chartColor } from "../design-system/reportColors";
 import { analyticalCell } from "../../../shared/analytics/resultCells";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import type { DashboardTile } from "../../../shared/types/dashboard";
@@ -63,11 +64,10 @@ function valueCache(values: Array<number | null>) {
 
 function seriesXml(tile: DashboardTile, categories: string[]) {
   const columns = tile.result.columns;
-  const palette = tile.appearance.palette.length ? tile.appearance.palette : [tile.appearance.primaryColor, "#4F7FE8", "#6557C8", "#FF6B60"];
 
   return columns.map((column, index) => {
     const values = tile.result.table.map((row) => analyticalCell(tile.result,row,column.id).value);
-    return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>${escapeXml(tile.appearance.axisLabelOverrides[column.id] ?? column.label)}</c:v></c:tx><c:spPr><a:solidFill><a:srgbClr val="${hexColor(palette[index % palette.length])}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>${nativeLabels(tile, column.id)}<c:cat>${categoryCache(categories)}</c:cat><c:val>${valueCache(values)}</c:val></c:ser>`;
+    return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>${escapeXml(tile.appearance.axisLabelOverrides[column.id] ?? column.label)}</c:v></c:tx><c:spPr><a:solidFill><a:srgbClr val="${hexColor(chartColor(tile, "columns", column.id, index))}"/></a:solidFill><a:ln><a:noFill/></a:ln></c:spPr>${tile.visualization === "vertical_bar" ? tile.result.table.map((row, rowIndex) => `<c:dPt><c:idx val="${rowIndex}"/><c:spPr><a:solidFill><a:srgbClr val="${hexColor(chartColor(tile, "rows", row.optionId, rowIndex))}"/></a:solidFill></c:spPr></c:dPt>`).join("") : ""}${nativeLabels(tile, column.id)}<c:cat>${categoryCache(categories)}</c:cat><c:val>${valueCache(values)}</c:val></c:ser>`;
   }).join("");
 }
 

@@ -1773,6 +1773,7 @@ export default function BuilderApp() {
         onUnpublish={unpublishDashboard}
         onHome={openWorkspaceHome}
         onSearch={() => setCommandOpen(true)}
+        onReportThemeChange={next => setDashboard(next)}
         onHelp={() => setHelpOpen(true)}
       />
 

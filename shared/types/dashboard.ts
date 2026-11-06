@@ -14,7 +14,14 @@ export interface GradientStop {
 
 export type GradientType = "linear" | "radial" | "conic";
 
+export interface ReportColorTheme {
+  version: 1;
+  palette: string[];
+  slots: Array<{ key: string; label: string; index: number }>;
+}
 export interface TileAppearance {
+  reportColorsEnabled?: boolean;
+  reportColorSlots?: { rows: Record<string, number>; columns: Record<string, number>; originalPalette: string[] };
   primaryColor: string;
   palette: string[];
   background: string;
@@ -610,6 +617,7 @@ export interface ImportedDatasetRecord {
 }
 
 export interface DashboardDraft {
+  reportColorTheme?: ReportColorTheme;
   id: string;
   title: string;
   status: DashboardStatus;

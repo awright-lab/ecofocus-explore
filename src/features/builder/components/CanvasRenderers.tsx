@@ -1,3 +1,4 @@
+import { paletteColor } from "../../design-system/reportColors";
 import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
 import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
 import { supportsDonutResult } from "../../analytics/analyticsDisplay";
@@ -64,7 +65,7 @@ export function getBarStyle(
   fallbackColor: string,
 ) {
   const defaultGradientColor =
-    appearance.barFillMode === "gradient"
+    appearance.barFillMode === "gradient" && !appearance.reportColorsEnabled
       ? appearance.primaryColor
       : fallbackColor;
   return {
@@ -767,9 +768,7 @@ function SeriesLegend({ tile }: { tile: DashboardTile }) {
               background: getBarStyle(
                 tile.appearance,
                 column.id,
-                tile.appearance.palette[
-                  index % tile.appearance.palette.length
-                ] ?? tile.appearance.primaryColor,
+                paletteColor(tile.appearance, "columns", column.id, index),
               ).color,
             }}
           />
@@ -816,8 +815,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
           <defs>
             {chartData.map((item, index) => {
               const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
+                paletteColor(appearance, "rows", item.optionId, index);
               const style = getBarStyle(appearance, item.optionId, fallback);
               return (
                 <SvgBarGradientDef
@@ -882,15 +880,13 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
                   getBarStyle(
                     appearance,
                     item.optionId,
-                    appearance.palette[index % appearance.palette.length] ??
-                      appearance.primaryColor,
+                    paletteColor(appearance, "rows", item.optionId, index),
                   ).fillMode === "gradient"
                     ? `url(#${gradientId(tile.id, item.optionId)})`
                     : getBarStyle(
                         appearance,
                         item.optionId,
-                        appearance.palette[index % appearance.palette.length] ??
-                          appearance.primaryColor,
+                        paletteColor(appearance, "rows", item.optionId, index),
                       ).color
                 }
                 {...({
@@ -958,8 +954,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
           <defs>
             {result.columns.map((column, index) => {
               const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
+                paletteColor(appearance, "columns", column.id, index);
               const style = getBarStyle(appearance, column.id, fallback);
               return (
                 <SvgBarGradientDef
@@ -1026,15 +1021,13 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
                 getBarStyle(
                   appearance,
                   column.id,
-                  appearance.palette[index % appearance.palette.length] ??
-                    appearance.primaryColor,
+                  paletteColor(appearance, "columns", column.id, index),
                 ).fillMode === "gradient"
                   ? `url(#${gradientId(tile.id, column.id)})`
                   : getBarStyle(
                       appearance,
                       column.id,
-                      appearance.palette[index % appearance.palette.length] ??
-                        appearance.primaryColor,
+                      paletteColor(appearance, "columns", column.id, index),
                     ).color
               }
               radius={[
@@ -1112,8 +1105,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
           <defs>
             {chartData.map((item, index) => {
               const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
+                paletteColor(appearance, "rows", item.optionId, index);
               const style = getBarStyle(appearance, item.optionId, fallback);
               return (
                 <SvgBarGradientDef
@@ -1196,15 +1188,13 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
                   getBarStyle(
                     appearance,
                     item.optionId,
-                    appearance.palette[index % appearance.palette.length] ??
-                      appearance.primaryColor,
+                    paletteColor(appearance, "rows", item.optionId, index),
                   ).fillMode === "gradient"
                     ? `url(#${gradientId(tile.id, item.optionId)})`
                     : getBarStyle(
                         appearance,
                         item.optionId,
-                        appearance.palette[index % appearance.palette.length] ??
-                          appearance.primaryColor,
+                        paletteColor(appearance, "rows", item.optionId, index),
                       ).color
                 }
               />
@@ -1255,8 +1245,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
           <defs>
             {result.columns.map((column, index) => {
               const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
+                paletteColor(appearance, "columns", column.id, index);
               const style = getBarStyle(appearance, column.id, fallback);
               return (
                 <SvgBarGradientDef
@@ -1324,15 +1313,13 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
                 getBarStyle(
                   appearance,
                   column.id,
-                  appearance.palette[index % appearance.palette.length] ??
-                    appearance.primaryColor,
+                  paletteColor(appearance, "columns", column.id, index),
                 ).fillMode === "gradient"
                   ? `url(#${gradientId(tile.id, column.id)})`
                   : getBarStyle(
                       appearance,
                       column.id,
-                      appearance.palette[index % appearance.palette.length] ??
-                        appearance.primaryColor,
+                      paletteColor(appearance, "columns", column.id, index),
                     ).color
               }
               radius={
@@ -1431,8 +1418,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
                 getBarStyle(
                   appearance,
                   column.id,
-                  appearance.palette[index % appearance.palette.length] ??
-                    appearance.primaryColor,
+                  paletteColor(appearance, "columns", column.id, index),
                 ).color
               }
               strokeWidth={3}
@@ -1457,8 +1443,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
     fill: getBarStyle(
       appearance,
       row.optionId,
-      appearance.palette[index % appearance.palette.length] ??
-        appearance.primaryColor,
+      paletteColor(appearance, "rows", row.optionId, index),
     ).color,
   }));
   return (

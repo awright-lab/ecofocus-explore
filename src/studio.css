@@ -4276,3 +4276,13 @@ dialog::backdrop {
 .analysis-edit-preview > section { padding: 10px; border: 1px solid #d4e2d9; border-radius: 8px; margin: 12px 0; }
 .analysis-edit-preview ul { padding-left: 18px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .analysis-edit-preview td small { display: block; white-space: normal; }
+
+.report-theme-dialog { max-width: 760px; }
+.report-theme-dialog p { line-height: 1.55; }
+.report-theme-dialog label { display: grid; gap: 8px; margin: 18px 0; }
+.report-theme-dialog select { padding: 10px; background: white; color: #183b2b; border: 1px solid #bfd0c5; border-radius: 6px; }
+.report-theme-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.report-theme-swatches > span { width: 34px; height: 34px; border: 1px solid #0003; border-radius: 6px; }
+.report-theme-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.report-theme-dialog button { min-height: 40px; padding: 8px 14px; border-radius: 7px; border: 1px solid #bfd0c5; color: #194e3d; background: white; }
+.report-theme-dialog button:focus-visible, .report-theme-dialog select:focus-visible { outline: 3px solid #39784d; outline-offset: 3px; }

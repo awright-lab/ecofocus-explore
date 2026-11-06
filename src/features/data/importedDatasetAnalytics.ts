@@ -903,7 +903,8 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
         : { id: "percent_selected" as const, label: "% of responses", valueFormat: "percent" as const };
   const sourceIdentity = importedSourceIdentity(config);
   const query = importedQuery(config.chartType, metric.id, sourceIdentity);
-  const columns = bannerCategories.map(({ label }, index) => ({
+  const columns = bannerCategories.map(({ key, label }, index) => ({
+    sourceCategoryKey: JSON.stringify(key),
     id: config.bannerField ? `${slug(label, "banner")}_${index + 1}` : "summary",
     label
   }));
@@ -925,7 +926,8 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig): Ana
       bases: bannerCategories.map(({ key }) => isMeasureMetric(config.metric) ? rowCounts.get(key)?.count ?? 0 : columnBases.get(key) ?? 0)
     };
   });
-  const table = series.map((item) => ({
+  const table = series.map((item, index) => ({
+    sourceCategoryKey: JSON.stringify(entries[index][0]),
     optionId: item.id,
     label: item.label,
     values: Object.fromEntries(columns.map((column, index) => [column.id, item.values[index] ?? 0])),

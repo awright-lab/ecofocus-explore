@@ -1,3 +1,4 @@
+import { chartColor } from "../design-system/reportColors";
 import { analyticalCell } from "../../../shared/analytics/resultCells";
 import type { DashboardTile } from "../../../shared/types/dashboard";
 import { formatValue, supportsDonutResult } from "../builder/components/CanvasRenderers";
@@ -41,7 +42,7 @@ function contrast(fill: string) {
   if (!/^[0-9a-f]{6}$/i.test(hex)) return "#fff";
   return 0.299 * parseInt(hex.slice(0, 2), 16) + 0.587 * parseInt(hex.slice(2, 4), 16) + 0.114 * parseInt(hex.slice(4, 6), 16) > 160 ? "#243343" : "#fff";
 }
-function color(tile: DashboardTile, id: string, index: number) { return tile.appearance.barStyles[id]?.color ?? tile.appearance.palette[index % Math.max(1, tile.appearance.palette.length)] ?? tile.appearance.primaryColor; }
+function color(tile: DashboardTile, id: string, index: number, role: "rows" | "columns" = "columns") { return chartColor(tile, role, id, index); }
 
 export function analysisVisualLayout(tile: DashboardTile) {
   const { x, y, width, height } = tile.layout;
@@ -138,18 +139,19 @@ function bars(tile: DashboardTile) {
     columns.forEach((column, columnIndex) => {
       const amount = analyticalCell(tile.result,row,column.id).value;
       if (amount === null) return;
+      const barColor = horizontal || tile.visualization === "vertical_bar" ? color(tile, row.optionId, rowIndex, "rows") : color(tile, column.id, columnIndex);
       const start = stacked ? amount >= 0 ? positive : negative : 0, end = start + amount;
       if (stacked) { if (amount >= 0) positive = end; else negative = end; }
       const a = coordinate(start), b = coordinate(end), position = (horizontal ? plot.y : plot.x) + rowIndex * slot + slot * 0.09 + (stacked ? 0 : columnIndex * barWidth);
-      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${amount}" data-base="${row.bases[column.id]}"><rect x="${horizontal ? Math.min(a, b) : position}" y="${horizontal ? position : Math.min(a, b)}" width="${horizontal ? Math.abs(b - a) : barWidth - 2}" height="${horizontal ? barWidth - 2 : Math.abs(b - a)}" fill="${xmlText(color(tile, column.id, columnIndex))}"/>`;
+      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${amount}" data-base="${row.bases[column.id]}"><rect x="${horizontal ? Math.min(a, b) : position}" y="${horizontal ? position : Math.min(a, b)}" width="${horizontal ? Math.abs(b - a) : barWidth - 2}" height="${horizontal ? barWidth - 2 : Math.abs(b - a)}" fill="${xmlText(barColor)}"/>`;
       if (tile.appearance.showValueLabels) {
         if (stacked && amount !== 0 && Math.abs(b - a) < 24) throw new Error("Stacked value/base labels cannot fit. Enlarge the chart or turn off value labels; no values were omitted.");
         if (!horizontal && Math.max(value(tile, amount).length, tile.appearance.showBases ? base(tile, row.bases[column.id]).length : 0) * 5.8 > barWidth) throw new Error("All value/base labels cannot fit across the bars. Enlarge the chart or turn off value labels.");
         const x = horizontal ? plot.x + plot.width + 8 : position + barWidth / 2;
         const y = horizontal ? position + barWidth / 2 : stacked ? (a + b) / 2 : amount >= 0 ? b - 15 : b + 12;
         const anchor = horizontal ? "start" : "middle";
-        svg += text(value(tile, amount), x, y, 9, anchor, stacked ? contrast(color(tile, column.id, columnIndex)) : "#243343");
-        if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), x, y + 10, 8, anchor, stacked ? contrast(color(tile, column.id, columnIndex)) : "#243343");
+        svg += text(value(tile, amount), x, y, 9, anchor, stacked ? contrast(barColor) : "#243343");
+        if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), x, y + 10, 8, anchor, stacked ? contrast(barColor) : "#243343");
       }
       svg += "</g>";
     });
@@ -190,10 +192,10 @@ function donut(tile: DashboardTile) {
   let angle = -Math.PI / 2, svg = "";
   rows.forEach((row, index) => {
     const amount = row.values[column.id], next = angle + amount / total * 2 * Math.PI;
-    if (amount > 0) svg += amount / total >= 0.999999 ? `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${xmlText(color(tile, row.optionId, index))}"/>` : `<path data-row="${xmlText(row.optionId)}" data-value="${amount}" d="M ${cx} ${cy} L ${cx + radius * Math.cos(angle)} ${cy + radius * Math.sin(angle)} A ${radius} ${radius} 0 ${next - angle > Math.PI ? 1 : 0} 1 ${cx + radius * Math.cos(next)} ${cy + radius * Math.sin(next)} Z" fill="${xmlText(color(tile, row.optionId, index))}"/>`;
+    if (amount > 0) svg += amount / total >= 0.999999 ? `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${xmlText(color(tile, row.optionId, index, "rows"))}"/>` : `<path data-row="${xmlText(row.optionId)}" data-value="${amount}" d="M ${cx} ${cy} L ${cx + radius * Math.cos(angle)} ${cy + radius * Math.sin(angle)} A ${radius} ${radius} 0 ${next - angle > Math.PI ? 1 : 0} 1 ${cx + radius * Math.cos(next)} ${cy + radius * Math.sin(next)} Z" fill="${xmlText(color(tile, row.optionId, index, "rows"))}"/>`;
     angle = next;
     const names = completeLines(label(tile, row.optionId, row.label), Math.max(4, Math.floor((area.width * 0.52 - 80) / 6)), Math.floor((rowHeight - 10) / 11));
-    svg += `<rect x="${area.x + area.width * 0.46}" y="${area.y + index * rowHeight + 5}" width="8" height="8" fill="${xmlText(color(tile, row.optionId, index))}"/>`;
+    svg += `<rect x="${area.x + area.width * 0.46}" y="${area.y + index * rowHeight + 5}" width="8" height="8" fill="${xmlText(color(tile, row.optionId, index, "rows"))}"/>`;
     names.forEach((name, line) => { svg += text(name, area.x + area.width * 0.46 + 14, area.y + index * rowHeight + 13 + line * 11, 10); });
     if (tile.appearance.showValueLabels) svg += text(value(tile, amount), area.x + area.width, area.y + index * rowHeight + 13, 10, "end");
     if (tile.appearance.showBases) svg += text(base(tile, row.bases[column.id]), area.x + area.width, area.y + index * rowHeight + 24, 8, "end");
