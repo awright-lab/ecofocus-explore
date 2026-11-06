@@ -1,4 +1,5 @@
 import { researchSearchMatcher } from "../../data/researchSearch";
+import { analysisViewRecommendations } from "../../analytics/analysisViewRecommendations";
 import { analyticalCell } from "../../../../shared/analytics/resultCells";
 import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
 import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
@@ -22,7 +23,6 @@ import { importedSurveyQuestionPrompt } from "../../data/importedSurveyLabelMode
 import {
   buildImportedFieldSuitability,
   formatImportedMeasureValue,
-  buildImportedQueryRecommendations,
   firstImportedDimensionField,
   firstImportedMeasureField,
   getImportedDatasetQuerySupport as getImportedExecutionSupport,
@@ -116,6 +116,7 @@ export function GuidedDataQueryModal({
     addTileFromImportedDatasetField,
     isLoading
   } = props;
+  const [importedChartType, setImportedChartType] = useState<ChartType>(chartType === "table" ? "vertical_bar" : chartType);
   const launchDatasetBase = launchContext?.importedDatasetId
     ? importedDatasets.find((dataset) => dataset.id === launchContext.importedDatasetId) ?? null
     : importedDatasets[0] ?? null;
@@ -174,11 +175,6 @@ export function GuidedDataQueryModal({
       : null;
   const importedMeasureField = importedMeasureFields.find((field) => field.id === selectedImportedMeasureFieldId) ?? null;
   const importedFieldSuitability = importedField ? buildImportedFieldSuitability(importedField) : null;
-  const importedRecommendations = groupingScope ? [] : buildImportedQueryRecommendations(importedDataset, importedField, {
-    selectedQueryMode: importedQueryMode,
-    measureField: importedMeasureField,
-    bannerFields: importedBannerFields
-  });
   const effectiveImportedMetric: Metric =
     importedQueryMode === "measure"
       ? importedMetric === "sum" ? "sum" : "average"
@@ -186,13 +182,16 @@ export function GuidedDataQueryModal({
   const matchesResearchSearch = useMemo(() => researchSearchMatcher(fieldSearch), [fieldSearch]);
   const sourceQuestions = launchContext?.sourceMode === "seeded" ? defaultDataset.questions : filteredQuestions;
   const questionOptions = useMemo(() => sourceQuestions.filter(item => item.id === question || matchesResearchSearch([item.id, item.label, item.shortLabel, item.topic, item.sourceColumn, ...(item.sourceVariables ?? [])])), [sourceQuestions, matchesResearchSearch, question]);
+  const requestedChart = datasetMode === "imported" ? importedChartType : chartType;
   const selectedChart = outputMode === "table"
     ? "table"
-    : (importedBannerField || importedQueryMode === "measure") && chartType === "donut"
+    : datasetMode === "imported" && (importedBannerField || importedQueryMode === "measure") && requestedChart === "donut"
       ? "vertical_bar"
-      : chartType === "table"
+      : datasetMode === "imported" && !importedBannerField && ["grouped_bar", "stacked_bar", "line_chart"].includes(requestedChart)
+        ? "vertical_bar"
+      : requestedChart === "table"
         ? supportedChartType(selectedChartTypes)
-        : chartType;
+        : requestedChart;
   const filterChoiceSupport = getImportedFilterChoiceSupport(importedDataset);
   const selectionIssue = importedQuerySelectionIssue({
     grouping: { id: selectedImportedFieldId, fields: [...importedPrimaryFields, allRespondents] },
@@ -225,6 +224,10 @@ export function GuidedDataQueryModal({
   }, [datasetMode, props.query, selectedChart, importedDataset, importedField, importedSupport.executable, importedQueryMode, importedMeasureField, importedBannerField, importedFilter, effectiveImportedMetric, groupingScope]);
   const resultPreview = previewState.result;
   const previewFailure = previewState.error;
+  // Remote previews and illustrative sample queries are not evidence about the
+  // complete local study. Never derive matrix-specific advice from those rows.
+  const viewRecommendations = datasetMode === "imported" && !importedDataset?.remote
+    ? analysisViewRecommendations(resultPreview) : [];
   const canCreate = (datasetMode === "seeded" || importedSupport.executable) && !previewFailure;
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
@@ -252,13 +255,13 @@ export function GuidedDataQueryModal({
       id: "responses",
       label: "Show answers for this question",
       disabled: Boolean(groupingScope),
-      helper: `Count how respondents answered ${importedGroupingLabel || "the selected field"}.`
+      helper: `Inspect the answer distribution for ${importedGroupingLabel || "the selected field"}.`
     },
     {
       id: "compare",
       label: "Compare by a group",
       helper: importedBannerFields.length
-        ? "Break the answers out by gender, segment, status, or another grouping field."
+        ? `Compare ${importedGroupingLabel} across ${importedFieldDisplayLabel(importedBannerField ?? importedBannerFields[0])}. You can choose a different group below.`
         : "This dataset needs another group field before comparison is available.",
       disabled: Boolean(groupingScope) || importedBannerFields.length === 0
     },
@@ -266,7 +269,7 @@ export function GuidedDataQueryModal({
       id: "measure",
       label: "Summarize a number",
       helper: importedMeasureFields.length
-        ? "Average or total a numeric field across groups."
+        ? `Summarize ${importedMeasureField ? importedMeasureLabel : importedFieldDisplayLabel(importedMeasureFields[0])} by ${importedGroupingLabel}. Review whether an average or total answers your question.`
         : "No numeric fields are modeled as measures yet.",
       disabled: importedMeasureFields.length === 0
     }
@@ -364,15 +367,6 @@ export function GuidedDataQueryModal({
     if (nextQuestion) applyQuestionSelection(nextQuestion);
   }
 
-  function applyImportedRecommendation(recommendation: typeof importedRecommendations[number]) {
-    setImportedQueryMode(recommendation.id === "measure" ? "measure" : "categorical");
-    setImportedMetric(recommendation.metric);
-    setSelectedImportedBannerFieldId(recommendation.bannerFieldId ?? "none");
-    setSelectedImportedMeasureFieldId(recommendation.measureFieldId ?? "none");
-    setOutputMode("chart");
-    setChartType(recommendation.chartType);
-  }
-
   function chooseImportedGrouping(fieldId: string) {
     setSelectedImportedFieldId(fieldId);
     if (fieldId === allRespondentsGroupingId) {
@@ -388,7 +382,7 @@ export function GuidedDataQueryModal({
       setImportedMetric("percent_selected");
       setSelectedImportedBannerFieldId("none");
       setSelectedImportedMeasureFieldId("none");
-      if (chartType === "table") setChartType("vertical_bar");
+      if (importedChartType === "table") setImportedChartType("vertical_bar");
       return;
     }
 
@@ -397,7 +391,7 @@ export function GuidedDataQueryModal({
       setImportedMetric("percent_selected");
       setSelectedImportedBannerFieldId(importedBannerField?.id ?? importedBannerFields[0]?.id ?? "none");
       setSelectedImportedMeasureFieldId("none");
-      if (chartType === "donut" || chartType === "table") setChartType("grouped_bar");
+      if (importedChartType === "donut" || importedChartType === "table") setImportedChartType("grouped_bar");
       return;
     }
 
@@ -405,7 +399,7 @@ export function GuidedDataQueryModal({
     setImportedMetric("average");
     setSelectedImportedMeasureFieldId(importedMeasureField?.id ?? importedMeasureFields[0]?.id ?? "none");
     setSelectedImportedBannerFieldId(importedBannerField?.id ?? "none");
-    if (chartType === "donut" || chartType === "table") setChartType("vertical_bar");
+    if (importedChartType === "donut" || importedChartType === "table") setImportedChartType("vertical_bar");
   }
 
   return (
@@ -687,6 +681,7 @@ export function GuidedDataQueryModal({
                           type="button"
                           key={intent.id}
                           className={importedAnalysisIntent === intent.id ? "active" : ""}
+                          aria-pressed={importedAnalysisIntent === intent.id}
                           disabled={intent.disabled}
                           onClick={() => applyImportedAnalysisIntent(intent.id)}
                         >
@@ -754,7 +749,7 @@ export function GuidedDataQueryModal({
                         {outputMode === "chart" && (
                           <label>
                             Chart type
-                            <select value={selectedChart} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                            <select value={selectedChart} onChange={(event) => setImportedChartType(event.target.value as ChartType)}>
                               <option value="vertical_bar">Column</option>
                               <option value="horizontal_bar">Horizontal bar</option>
                               {!importedBannerField && importedQueryMode === "categorical" && <option value="donut">Donut</option>}
@@ -794,27 +789,23 @@ export function GuidedDataQueryModal({
                         )}
                       </div>
                     </details>
-                    {importedRecommendations.length > 0 && (
-                      <details className="guided-query-analysis-details">
-                        <summary>Suggested setups</summary>
-                        <div className="guided-query-recommendations" aria-label="Imported query recommendations">
-                          {importedRecommendations.map((recommendation) => (
-                            <button
-                              type="button"
-                              className={recommendation.recommended && (recommendation.id === importedQueryMode || (recommendation.id === "categorical_breakout" && importedQueryMode === "categorical")) ? "guided-query-recommendation active" : "guided-query-recommendation"}
-                              key={recommendation.id}
-                              onClick={() => applyImportedRecommendation(recommendation)}
-                            >
-                              <div>
-                                <strong>{recommendation.label}</strong>
-                                <small>{recommendation.description}</small>
-                              </div>
-                              <span>{recommendation.actionLabel}</span>
-                            </button>
-                          ))}
+                    <section className="guided-query-view-advice" aria-label="Advice for your analysis">
+                      <h3>Choose a view for your question</h3>
+                      <p>{importedQueryLabel}</p>
+                      {viewRecommendations.length ? <>
+                        <small>Based on this study's calculated result. These choices change only the view; your question, measure, groups and filter stay fixed.</small>
+                        <div className="guided-query-recommendations" aria-label="Recommended views">
+                          {viewRecommendations.map((recommendation, index) => <button type="button" key={recommendation.chartType}
+                            aria-pressed={selectedChart === recommendation.chartType}
+                            className={selectedChart === recommendation.chartType ? "guided-query-recommendation active" : "guided-query-recommendation"}
+                            onClick={() => { setOutputMode(recommendation.chartType === "table" ? "table" : "chart"); setImportedChartType(recommendation.chartType); }}>
+                            <div><strong>{recommendation.label}</strong><small>{recommendation.rationale}</small></div>
+                            <span>{index === 0 ? "Suggested: " : "Alternative: "}{getChartTypeLabel(recommendation.chartType)}</span>
+                          </button>)}
                         </div>
-                      </details>
-                    )}
+                        <small>Choose the research purpose above to change the analysis itself. No trend, cause or significance is inferred; part-to-whole and time-series views require separate checks.</small>
+                      </> : <small>{importedDataset?.remote ? "Result-based view advice needs a complete local study; remote preview rows do not establish the full shape." : previewFailure ?? importedSupport.reason}</small>}
+                    </section>
                     <div className={canCreate ? "guided-query-supported" : "guided-query-unsupported"}>
                       <strong>{canCreate ? "Ready to create" : previewFailure ?? importedSupport.reason}</strong>
                       <small>{canCreate ? `This will create a normal editable table or chart on ${destination === "new_page" ? "a new page" : "the current page"}.` : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
@@ -834,7 +825,7 @@ export function GuidedDataQueryModal({
             )}
           </section>
 
-          <aside className="guided-query-summary">
+          <aside className="guided-query-summary" aria-label="Analysis plan and result preview" tabIndex={0}>
             <span>YOUR ANALYSIS</span>
             <strong>{querySummary}</strong>
             <ul>

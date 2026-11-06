@@ -8,6 +8,7 @@ import { GuidedDataQueryModal } from '../GuidedDataQueryModal';
 import type { AnalysisAuthoringPanelProps } from '../AnalysisAuthoringPanel';
 import type { ImportedDatasetRecord } from '../../../../../shared/types/dashboard';
 import { defaultDataset, defaultQuestion } from '../../builderConstants';
+import type { ChartType } from '../../../../../shared/types/analytics';
 
 async function csv(text:string,name='synthetic.csv') {
  const parsed=await importDatasetBuffer(new TextEncoder().encode(text).buffer,name);expect(parsed.error).toBeUndefined();return parsed.dataset!;
@@ -32,6 +33,39 @@ function minimumProps(datasets:ImportedDatasetRecord[],overrides:Partial<Analysi
 
 
 describe('imported analysis creation accuracy',()=>{
+ it('uses a valid single-series view when an imported question inherits a multi-group sample preference',async()=>{
+  const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,South\n');const create=vi.fn(async()=> 'tile');await act(async()=>root.render(<GuidedDataQueryModal initialOutputMode="chart" props={minimumProps([dataset],{chartType:'grouped_bar',addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+  expect(select('Chart type').value).toBe('vertical_bar');await act(async()=>button('Create chart').click());expect((create.mock.calls[0] as unknown as Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>)[2]).toBe('vertical_bar');
+ });
+ it('keeps imported chart choices independent of the sample-study chart contract',async()=>{
+  const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,South\n');const create=vi.fn(async()=> 'tile'),sampleChart=vi.fn();
+  await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{chartType:'vertical_bar',selectedChartTypes:['table','vertical_bar'],setChartType:sampleChart,addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+  await act(async()=>button('Compare by a group').click());await act(async()=>button('Compare groups side by side').click());expect(select('Chart type').value).toBe('grouped_bar');expect(sampleChart).not.toHaveBeenCalled();
+  await change('Chart type','line_chart');expect(select('Chart type').value).toBe('line_chart');await act(async()=>button('Compare groups side by side').click());expect(select('Chart type').value).toBe('grouped_bar');await act(async()=>button('Create chart').click());expect((create.mock.calls[0] as unknown as Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>)[2]).toBe('grouped_bar');expect(sampleChart).not.toHaveBeenCalled();
+ });
+ it('grounds view advice in a filtered comparison and preserves the full analysis when applying it',async()=>{
+  const dataset=await csv('Answer,Region,Spend\nYes,North,10\nNo,South,20\nYes,North,30\n');const create=vi.fn(async()=> 'tile');
+  function Harness(){const[chartType,setChartType]=useState<ChartType>('vertical_bar');return <GuidedDataQueryModal props={minimumProps([dataset],{chartType,setChartType,addTileFromImportedDatasetField:create})} onClose={()=>{}}/>;}
+  await act(async()=>root.render(<Harness/>));await act(async()=>button('Compare by a group').click());await change('Compare by',dataset.fields[1].id);await change('Limit to',dataset.fields[1].id);await change('Keep responses where','North');await change('Result values','count');
+  expect(host.querySelector('[aria-label="Advice for your analysis"]')?.textContent).toContain('Count responses for Answer, broken out by Region');
+  await act(async()=>button('Compare groups side by side').click());expect(host.textContent).toContain('Filter: Region is North');await act(async()=>button('Create chart').click());
+  const args=create.mock.calls[0] as unknown as Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>;
+  expect(args[2]).toBe('grouped_bar');expect(args[3]).toBe('count');expect(args[4]?.bannerField?.id).toBe(dataset.fields[1].id);expect(args[4]?.filter?.value).toBe('North');
+  const result=runImportedDatasetQuery({dataset:args[0],field:args[1],chartType:args[2]!,metric:args[3]!,...args[4]});expect(result.table.find(row=>row.label==='Yes')?.values).toEqual({north_1:2,south_2:0});
+ });
+ it('explains numeric analysis and switches view without resetting the chosen measure or sum',async()=>{
+  const dataset=await csv('Region,Spend\nNorth,10\nSouth,20\nNorth,30\n');const create=vi.fn(async()=> 'tile');
+  function Harness(){const[chartType,setChartType]=useState<ChartType>('vertical_bar');return <GuidedDataQueryModal props={minimumProps([dataset],{chartType,setChartType,addTileFromImportedDatasetField:create})} onClose={()=>{}}/>;}
+  await act(async()=>root.render(<Harness/>));await act(async()=>button('Summarize a number').click());await change('Result values','sum');
+  expect(host.textContent).toContain('Total Spend by Region');expect(host.querySelector('[aria-label="Recommended views"]')?.textContent).not.toContain('Donut');await act(async()=>button('Compare answer values').click());await act(async()=>button('Inspect exact values').click());await act(async()=>button('Create table').click());
+  const args=create.mock.calls[0] as unknown as Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>;expect(args[2]).toBe('table');expect(args[3]).toBe('sum');expect(args[4]?.measureField?.id).toBe(dataset.fields[1].id);
+  const result=runImportedDatasetQuery({dataset:args[0],field:args[1],chartType:args[2]!,metric:args[3]!,...args[4]});expect(result.table.map(row=>row.values.summary)).toEqual([40,20]);
+ });
+ it('does not infer complete-result advice from remote preview rows or mutate selections on cancellation',async()=>{
+  const dataset=await csv('Answer\nYes\nNo\n');const remote={...dataset,rows:[],rowCount:10000,previewRows:dataset.rows,remote:{provider:'netlify' as const,projectUrl:'',bucket:'',objectPath:'synthetic.csv',uploadedAt:dataset.importedAt}};const close=vi.fn(),create=vi.fn();
+  await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([remote],{addTileFromImportedDatasetField:create})} onClose={close}/>));expect(host.textContent).toContain('remote preview rows do not establish the full shape');expect(host.querySelector('[aria-label="Recommended views"]')).toBeNull();
+  await act(async()=>host.querySelector<HTMLButtonElement>('[aria-label="Close guided data query"]')!.click());expect(create).not.toHaveBeenCalled();expect(close).toHaveBeenCalledOnce();expect(fetch).not.toHaveBeenCalled();
+ });
  it('honors an explicit sample catalog launch when an imported study is present',async()=>{
   const dataset=await csv('Answer,Region\nYes,North\nNo,North\nYes,South\n');const sample=vi.fn(async()=> 'sample-tile'),imported=vi.fn(async()=> 'imported-tile');
   await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{filteredQuestions:[],addTileFromSourceWithVisualization:sample,addTileFromImportedDatasetField:imported})} launchContext={{sourceMode:'seeded'}} onClose={()=>{}}/>));

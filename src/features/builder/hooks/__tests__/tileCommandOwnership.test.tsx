@@ -10,6 +10,8 @@ import { importDatasetBuffer } from "../../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../../data/importedDatasetAnalytics";
 import type { DashboardDraft, DashboardTile } from "../../../../../shared/types/dashboard";
 import type { AnalyticsQueryResponse } from "../../../../../shared/types/analytics";
+import { runIllustrativeFollowUpQuery } from "../../../analytics/illustrativeFollowUpQuery";
+import { findingFollowUps } from "../../../analytics/findingFollowUps";
 
 type Kind="create"|"imported"|"starter"|"refresh"|"imported refresh";
 let host:HTMLDivElement,root:Root,commands:ReturnType<typeof useBuilderTileCommands>,current:DashboardDraft,loading:boolean,error:string|null;
@@ -150,4 +152,15 @@ it("retains reviewed follow-up context in a separate result without changing the
 it("drops a cancelled follow-up creation and its context without adding a page",async()=>{
  const fixture=await setup("create"),before=structuredClone(current);let owner=true,pending!:Promise<string|null>;
  await act(async()=>{pending=commands.createTileFromSource(fixture.response.query,"Follow-up",undefined,undefined,{destination:"new_page",isCurrent:()=>owner,contextNotes:["Cancelled context"]});});owner=false;await finish(fixture.response);expect(await pending).toBeNull();expect(current).toEqual(before);expect(select).not.toHaveBeenCalled();
+});
+it("creates a sample follow-up from exactly its illustrative preview without selecting a server provider",async()=>{
+ const fixture=await setup("create"),before=structuredClone(current);
+ const source={kind:"seeded" as const,sourceRef:{id:"seeded:ecofocus_2025",kind:"seeded_demo" as const,provider:"ecofocus_demo" as const,label:"Illustrative sample",datasetId:"ecofocus_2025" as const},datasetId:"ecofocus_2025" as const,questionId:"Q_PACKAGING_TRUST" as const};
+ const query={dataset:"ecofocus_2025" as const,question:"Q_PACKAGING_TRUST" as const,breakBy:"GENERATION" as const,filters:[],weight:null,confidenceLevel:0.95 as const,metric:"column_percent" as const,chartType:"table" as const,sourceRef:source.sourceRef,sourceIdentity:source};
+ const preview=runIllustrativeFollowUpQuery(query);let id:string|null=null;
+ await act(async()=>{id=await commands.createTileFromSource(query,"Illustrative follow-up",undefined,{kind:"question",id:query.question,label:"Packaging trust"},{destination:"new_page",executionMode:"illustrative_sample",contextNotes:["Origin reference: analysis sample-origin; answer trust_a_lot; group summary."]});});
+ expect(id).toBeTruthy();expect(fetch).not.toHaveBeenCalled();expect(current.pages.slice(0,2)).toEqual(before.pages);
+ const tile=current.pages[2].tiles[0];expect(tile.result.table).toEqual(preview.table);expect(tile.result.metadataRefs.source).toEqual(source);expect(tile.result.notes).toContain("Origin reference: analysis sample-origin; answer trust_a_lot; group summary.");
+ expect(findingFollowUps(tile,tile.result.table[0].optionId,tile.result.columns[0].id,[]).unavailable).toBeNull();
+ await act(async()=>{expect(await commands.rerunTileAnalysis(tile,query)).toBe(true);});expect(fetch).not.toHaveBeenCalled();expect(current.pages[2].tiles[0].result.table).toEqual(preview.table);expect(current.pages[2].tiles[0].result.metadataRefs.source).toEqual(source);
 });

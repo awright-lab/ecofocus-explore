@@ -3,6 +3,7 @@ import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlac
 import { buildPageFromTemplate } from "../builderDocumentCommands";
 import { useAnalysisOperationOwnership } from "./useAnalysisOperationOwnership";
 import { runAnalyticsQuery } from "../../../lib/api";
+import { runIllustrativeFollowUpQuery } from "../../analytics/illustrativeFollowUpQuery";
 import { applyVariableSetRows } from "../../../../shared/analytics/variableSets";
 import { canvasHeight, canvasWidth, defaultAppearance, defaultDataset } from "../builderConstants";
 import { defaultVariableSetRows } from "../../document/documentSeeds";
@@ -195,6 +196,9 @@ export function useBuilderTileCommands({
       throw new Error("This saved analysis is missing its imported study context. Recreate it from the original result.");
     }
     assertSavedImportedTileSource(nextQuery, source);
+    if (nextQuery.sourceIdentity?.kind === "seeded" && nextQuery.sourceIdentity.sourceRef?.kind === "seeded_demo") {
+      return runIllustrativeFollowUpQuery(nextQuery);
+    }
     return nextQuery.sourceIdentity?.kind === "imported" ? runSavedImportedQuery(nextQuery, importedDatasets) : runAnalyticsQuery(nextQuery);
   }
   async function createTileFromSource(
@@ -202,14 +206,14 @@ export function useBuilderTileCommands({
     sourceLabel: string,
     position?: { x: number; y: number },
     source?: DashboardTile["source"],
-    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean; destination?: AnalysisDestination; contextNotes?: string[] }
+    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean; destination?: AnalysisDestination; contextNotes?: string[]; executionMode?: "illustrative_sample" }
   ) {
     const operation = beginOperation(options?.isCurrent);
     if (!operation) return null;
     setError(null);
 
     try {
-      const response = await executeQuery(tileQuery, source);
+      const response = options?.executionMode === "illustrative_sample" ? runIllustrativeFollowUpQuery(tileQuery) : await executeQuery(tileQuery, source);
       if (!operation.isCurrent()) return null;
       const resolvedResponse = tileQuery.sourceIdentity?.kind === "imported" ? response : resolveVariableSetResult(response, tileQuery, source, savedVariableSets);
       const tileId = makeTileId();

@@ -2059,7 +2059,7 @@ export default function BuilderApp() {
               if(matches.length!==1)throw new Error("The original analysis is unavailable or ambiguous. No follow-up was created.");
               const source=matches[0],model=findingFollowUps(source,rowId,columnId,workspaceImportedDatasets,dashboard.savedAudiences),plan=model.options.find(option=>option.id===optionId);
               if(!plan)throw new Error(model.unavailable??"This follow-up is no longer available. Review the source again.");
-              return createTileFromSource(plan.query,plan.title,undefined,source.source,{isCurrent,destination:"new_page",contextNotes:[`Follow-up question: ${plan.question}`,`Original recorded finding: ${model.finding}. Source analysis: ${source.title}.`,`Origin reference: analysis ${source.id}; answer ${rowId}; group ${columnId}.`,`${plan.change}. The original analysis was preserved.`]});
+              return createTileFromSource(plan.query,plan.title,undefined,source.source,{isCurrent,destination:"new_page",executionMode:plan.query.sourceIdentity?.kind==="seeded"?"illustrative_sample":undefined,contextNotes:[`Follow-up question: ${plan.question}`,`Original recorded finding: ${model.finding}. Source analysis: ${source.title}.`,`Origin reference: analysis ${source.id}; answer ${rowId}; group ${columnId}.`,`${plan.change}. The original analysis was preserved.`]});
             }}
             onEvidenceNavigate={tileId=>{const page=dashboard.pages.find(page=>page.tiles.some(tile=>tile.id===tileId));if(page){setActivePageId(page.id);selectTile(tileId);}}}
             outcomeMode={activeOutcomeMode.mode}
