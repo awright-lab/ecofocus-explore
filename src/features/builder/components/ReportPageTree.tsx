@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
@@ -96,12 +96,22 @@ export function ReportPageTree({
   const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [expandedPageIds, setExpandedPageIds] = useState<string[]>([]);
+  const searchInput = useRef<HTMLInputElement | null>(null);
+  const pageButtons = useRef(new Map<string, HTMLButtonElement>());
+  const pendingPageFocus = useRef<string | null>(null);
+  const outlineId = useId();
+  useEffect(() => {
+    if (!pendingPageFocus.current) return;
+    const target = pageButtons.current.get(pendingPageFocus.current) ?? searchInput.current;
+    pendingPageFocus.current = null;
+    target?.focus();
+  });
   const normalizedSearch = pageSearch.trim().toLowerCase();
   const visiblePages = useMemo(
     () =>
       normalizedSearch
         ? sortedPages.filter((page) => {
-            const pageText = `${page.title} ${page.order} ${page.tiles.map((tile) => tile.title).join(" ")} ${page.elements.map((element) => element.name).join(" ")}`;
+            const pageText = `${page.title} ${page.order} ${page.tiles.map((tile) => `${tile.title} ${tile.name}`).join(" ")} ${page.elements.map((element) => element.name).join(" ")}`;
             return pageText.toLowerCase().includes(normalizedSearch);
           })
         : sortedPages,
@@ -116,23 +126,46 @@ export function ReportPageTree({
   }
 
   function saveRename(page: DashboardPage) {
+    pendingPageFocus.current = page.id;
     renamePage(page.id, renameDraft || page.title);
     setRenamingPageId(null);
     setRenameDraft("");
   }
 
   function cancelRename() {
+    pendingPageFocus.current = renamingPageId;
     setRenamingPageId(null);
     setRenameDraft("");
   }
 
+  function deleteOutlinePage(page: DashboardPage, currentPageAction = false) {
+    if (sortedPages.length <= 1) return;
+    const index = sortedPages.findIndex(item => item.id === page.id);
+    if (index < 0) return;
+    const remaining = sortedPages.filter(item => item.id !== page.id);
+    if (!remaining.length) return;
+    pendingPageFocus.current = currentPageAction ? remaining[0].id : remaining[Math.min(index, remaining.length - 1)].id;
+    if (currentPageAction) deleteActivePage(); else deletePageById(page.id);
+  }
+
+  function moveOutlinePage(page: DashboardPage, direction: "up" | "down") {
+    const index = sortedPages.findIndex(item => item.id === page.id);
+    const next = index + (direction === "up" ? -1 : 1);
+    if (index < 0 || next < 0 || next >= sortedPages.length) return;
+    pendingPageFocus.current = page.id;
+    movePage(page.id, direction);
+  }
+
   function handleRenameKeyDown(event: React.KeyboardEvent<HTMLInputElement>, page: DashboardPage) {
+    if (event.nativeEvent.isComposing) return;
     if (event.key === "Enter") {
       event.preventDefault();
+      event.stopPropagation();
       saveRename(page);
     }
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       cancelRename();
     }
   }
@@ -216,15 +249,17 @@ export function ReportPageTree({
       </div>
       <label>
         Search pages
-        <input value={pageSearch} onChange={(event) => setPageSearch(event.target.value)} placeholder="Page title, number, or object" />
+        <input ref={searchInput} value={pageSearch} aria-describedby={`${outlineId}-status`} onChange={(event) => setPageSearch(event.target.value)} placeholder="Page title, number, or object" />
       </label>
-      <div className="page-list report-page-tree">
+      <p id={`${outlineId}-status`} role="status">{visiblePages.length} of {sortedPages.length} pages. Open a page before changing its objects.</p>
+      <nav className="page-list report-page-tree" aria-label="Report pages and objects">
         {visiblePages.map((page) => {
           const pageIndex = sortedPages.findIndex((item) => item.id === page.id);
           const isFirstPage = pageIndex <= 0;
           const isLastPage = pageIndex === sortedPages.length - 1;
           const isRenaming = renamingPageId === page.id;
           const isExpanded = expandedPageIds.includes(page.id);
+          const objectListId = `${outlineId}-objects-${pageIndex}`;
           const pageObjects = [...page.tiles, ...page.elements].sort((first, second) => first.layout.zIndex - second.layout.zIndex);
 
           return (
@@ -235,18 +270,22 @@ export function ReportPageTree({
                     <span>{page.order}</span>
                     <div className="report-page-node__body">
                       <input
-                        aria-label={`Rename ${page.title}`}
+                        aria-label={`Rename page ${page.order}: ${page.title}`}
+                        aria-describedby={`${objectListId}-rename-help`}
                         value={renameDraft}
                         onChange={(event) => setRenameDraft(event.target.value)}
                         onKeyDown={(event) => handleRenameKeyDown(event, page)}
                         autoFocus
                       />
-                      <small>Press Enter to save, Escape to cancel</small>
+                      <small id={`${objectListId}-rename-help`}>Press Enter to save, Escape to cancel</small>
                     </div>
                   </div>
                 ) : (
                   <button
+                    ref={node => { if (node) pageButtons.current.set(page.id, node); else pageButtons.current.delete(page.id); }}
                     type="button"
+                    aria-current={page.id === activePage.id ? "page" : undefined}
+                    aria-label={`Open page ${page.order}: ${page.title}`}
                     className={page.id === activePage.id ? "page-tab report-page-node active" : "page-tab report-page-node"}
                     onClick={() => {
                       setActivePageId(page.id);
@@ -268,20 +307,20 @@ export function ReportPageTree({
                 <div className="report-page-node-actions" aria-label={`Page actions for ${page.title}`}>
                   {isRenaming ? (
                     <>
-                      <button type="button" className="mini-button" onClick={() => saveRename(page)}>
+                      <button type="button" className="mini-button" aria-label={`Save name for page ${page.order}: ${page.title}`} onClick={() => saveRename(page)}>
                         Save
                       </button>
-                      <button type="button" className="mini-button" onClick={cancelRename}>
+                      <button type="button" className="mini-button" aria-label={`Cancel renaming page ${page.order}: ${page.title}`} onClick={cancelRename}>
                         Cancel
                       </button>
                     </>
                   ) : (
                     <>
-                      <button type="button" className="mini-button" onClick={() => toggleExpandedPage(page.id)}>
+                      <button type="button" className="mini-button" aria-expanded={isExpanded} aria-controls={isExpanded ? objectListId : undefined} aria-label={`${isExpanded ? "Hide" : "Show"} objects on page ${page.order}: ${page.title}`} onClick={() => toggleExpandedPage(page.id)}>
                         {isExpanded ? "Hide" : "Objects"}
                       </button>
                       <details className="page-action-menu">
-                        <summary aria-label={`More actions for ${page.title}`}>•••</summary>
+                        <summary aria-label={`More actions for page ${page.order}: ${page.title}`}>•••</summary>
                         <div>
                           <button type="button" onClick={() => startRename(page)}>
                             Rename
@@ -289,13 +328,13 @@ export function ReportPageTree({
                           <button type="button" onClick={() => duplicatePageById(page.id)}>
                             Duplicate
                           </button>
-                          <button type="button" disabled={isFirstPage} onClick={() => movePage(page.id, "up")}>
+                          <button type="button" disabled={isFirstPage} onClick={() => moveOutlinePage(page, "up")}>
                             Move up
                           </button>
-                          <button type="button" disabled={isLastPage} onClick={() => movePage(page.id, "down")}>
+                          <button type="button" disabled={isLastPage} onClick={() => moveOutlinePage(page, "down")}>
                             Move down
                           </button>
-                          <button type="button" className="danger" disabled={sortedPages.length <= 1} onClick={() => deletePageById(page.id)}>
+                          <button type="button" className="danger" disabled={sortedPages.length <= 1} onClick={() => deleteOutlinePage(page)}>
                             Delete
                           </button>
                         </div>
@@ -305,33 +344,35 @@ export function ReportPageTree({
                 </div>
               </div>
               {isExpanded && (
-                <div className="report-page-object-list">
+                <div id={objectListId} className="report-page-object-list" role="group" aria-label={`Objects on page ${page.order}: ${page.title}`}>
                   {pageObjects.length === 0 ? (
                     <small className="report-page-object-empty">No objects on this page yet.</small>
                   ) : (
-                    pageObjects.map((item) => {
+                    pageObjects.map((item, objectIndex) => {
+                      const context = `object ${objectIndex + 1} on page ${page.order}: ${page.title}`;
                       if ("visualization" in item) {
                         const multiSelected = isMultiSelected({ id: item.id, type: "tile" });
                         const canMultiSelect = page.id === activePage.id;
                         return (
-                          <div className={selectedTileId === item.id ? "report-page-object-row active" : multiSelected ? "report-page-object-row multi-selected" : "report-page-object-row"} key={item.id}>
+                          <div className={page.id === activePage.id && selectedTileId === item.id ? "report-page-object-row active" : multiSelected && canMultiSelect ? "report-page-object-row multi-selected" : "report-page-object-row"} key={item.id}>
                             <label className="report-page-object-check" title={canMultiSelect ? "Add to multi-selection" : "Switch to this page before multi-selecting"}>
                               <input
                                 type="checkbox"
-                                checked={multiSelected}
+                                aria-label={`Include analysis ${item.title || item.name}, ${context}, in selection`}
+                                checked={canMultiSelect && multiSelected}
                                 disabled={!canMultiSelect}
                                 onChange={(event) => toggleTreeMultiSelect(event, page, { id: item.id, type: "tile" })}
                               />
                             </label>
-                            <button type="button" className="report-page-object-select" onClick={() => selectPageTile(page, item)}>
+                            <button type="button" className="report-page-object-select" aria-label={`Select analysis ${item.title || item.name}, ${context}. ${objectStatus(item)}.`} aria-pressed={page.id === activePage.id && selectedTileId === item.id} onClick={() => selectPageTile(page, item)}>
                               <span>{item.title || item.name}</span>
                               <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
                             </button>
-                            <div className="report-page-object-actions" aria-label={`Object actions for ${item.title || item.name}`}>
-                              <button type="button" className="mini-button" onClick={(event) => toggleTileHidden(event, item)}>
+                            <div className="report-page-object-actions" role="group" aria-label={`Actions for analysis ${item.title || item.name}, ${context}`}>
+                              <button type="button" className="mini-button" disabled={!canMultiSelect} aria-label={`${item.hidden ? "Show" : "Hide"} analysis ${item.title || item.name}, ${context}`} onClick={(event) => toggleTileHidden(event, item)}>
                                 {item.hidden ? "Show" : "Hide"}
                               </button>
-                              <button type="button" className="mini-button" onClick={(event) => toggleTileLocked(event, item)}>
+                              <button type="button" className="mini-button" disabled={!canMultiSelect} aria-label={`${item.locked ? "Unlock" : "Lock"} analysis ${item.title || item.name}, ${context}`} onClick={(event) => toggleTileLocked(event, item)}>
                                 {item.locked ? "Unlock" : "Lock"}
                               </button>
                             </div>
@@ -342,24 +383,25 @@ export function ReportPageTree({
                       const multiSelected = isMultiSelected({ id: item.id, type: "element" });
                       const canMultiSelect = page.id === activePage.id;
                       return (
-                        <div className={selectedElementId === item.id ? "report-page-object-row active" : multiSelected ? "report-page-object-row multi-selected" : "report-page-object-row"} key={item.id}>
+                        <div className={page.id === activePage.id && selectedElementId === item.id ? "report-page-object-row active" : multiSelected && canMultiSelect ? "report-page-object-row multi-selected" : "report-page-object-row"} key={item.id}>
                           <label className="report-page-object-check" title={canMultiSelect ? "Add to multi-selection" : "Switch to this page before multi-selecting"}>
                             <input
                               type="checkbox"
-                              checked={multiSelected}
+                              aria-label={`Include ${elementTypeLabel(item)} ${item.name}, ${context}, in selection`}
+                              checked={canMultiSelect && multiSelected}
                               disabled={!canMultiSelect}
                               onChange={(event) => toggleTreeMultiSelect(event, page, { id: item.id, type: "element" })}
                             />
                           </label>
-                          <button type="button" className="report-page-object-select" onClick={() => selectPageElement(page, item)}>
+                          <button type="button" className="report-page-object-select" aria-label={`Select ${elementTypeLabel(item)} ${item.name}, ${context}. ${objectStatus(item)}.`} aria-pressed={page.id === activePage.id && selectedElementId === item.id} onClick={() => selectPageElement(page, item)}>
                             <span>{item.name}</span>
                             <small>{elementTypeLabel(item)} · {objectStatus(item)}</small>
                           </button>
-                          <div className="report-page-object-actions" aria-label={`Object actions for ${item.name}`}>
-                            <button type="button" className="mini-button" onClick={(event) => toggleElementHidden(event, item)}>
+                          <div className="report-page-object-actions" role="group" aria-label={`Actions for ${elementTypeLabel(item)} ${item.name}, ${context}`}>
+                            <button type="button" className="mini-button" disabled={!canMultiSelect} aria-label={`${item.hidden ? "Show" : "Hide"} ${elementTypeLabel(item)} ${item.name}, ${context}`} onClick={(event) => toggleElementHidden(event, item)}>
                               {item.hidden ? "Show" : "Hide"}
                             </button>
-                            <button type="button" className="mini-button" onClick={(event) => toggleElementLocked(event, item)}>
+                            <button type="button" className="mini-button" disabled={!canMultiSelect} aria-label={`${item.locked ? "Unlock" : "Lock"} ${elementTypeLabel(item)} ${item.name}, ${context}`} onClick={(event) => toggleElementLocked(event, item)}>
                               {item.locked ? "Unlock" : "Lock"}
                             </button>
                           </div>
@@ -373,7 +415,7 @@ export function ReportPageTree({
           );
         })}
         {visiblePages.length === 0 && <div className="empty-state compact">No pages match that search.</div>}
-      </div>
+      </nav>
       <div className="brand-card-actions">
         <button type="button" className="secondary" onClick={() => addPage()}>
           New page
@@ -382,7 +424,7 @@ export function ReportPageTree({
           Duplicate page
         </button>
       </div>
-      <button type="button" className="secondary" onClick={deleteActivePage} disabled={sortedPages.length <= 1}>
+      <button type="button" className="secondary" onClick={() => deleteOutlinePage(activePage, true)} disabled={sortedPages.length <= 1}>
         Delete current page
       </button>
       <div className="explorer-section-card">

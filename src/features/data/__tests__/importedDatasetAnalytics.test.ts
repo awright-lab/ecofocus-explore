@@ -178,7 +178,7 @@ describe("imported dataset measure analytics", () => {
       primaryFieldLabel: "Q10: Lifestyle approach",
       primaryFieldPrompt: "Which one best describes your current behavior?"
     });
-    expect(result.table.map((row) => row.values.summary)).toEqual([66.7, 33.3, 0]);
+    expect(result.table.map((row) => row.values.summary)).toEqual([200/3, 100/3, 0]);
   });
 
   it("does not inflate bases with rows that are blank for the selected survey field", () => {
@@ -282,7 +282,7 @@ describe("imported dataset measure analytics", () => {
       metric: "percent_selected"
     });
 
-    expect(result.table.map((row) => row.values.summary)).toEqual([33.3, 66.7]);
+    expect(result.table.map((row) => row.values.summary)).toEqual([100/3, 200/3]);
   });
 
   it("builds grounded imported query recommendations from modeled field roles", () => {

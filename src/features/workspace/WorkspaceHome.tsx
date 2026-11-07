@@ -1,4 +1,5 @@
 import { WorkspaceBackupInspector } from "./WorkspaceBackupInspector";
+import { LocalCsvImportDialog } from "./LocalCsvImportDialog";
 import { WorkspaceStoragePanel } from "./WorkspaceStoragePanel";
 import { WorkspaceBackupButton } from "../document/WorkspaceBackupButton";
 import {
@@ -331,6 +332,25 @@ export function WorkspaceHome({
   const [showHelp, setShowHelp] = useState(false);
   const [backupFeedback, setBackupFeedback] = useState<{text: string; failed: boolean} | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [showLocalCsvImport, setShowLocalCsvImport] = useState(false);
+  const reuseStudyFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (showLocalCsvImport || !reuseStudyFocus.current) return;
+    const id = reuseStudyFocus.current; reuseStudyFocus.current = null;
+    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+    const control = Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-local-study-id]')).find(node => node.dataset.localStudyId === id);
+    control?.focus(); control?.scrollIntoView?.({block: "nearest"});
+  }, [showLocalCsvImport, homeSection, studySearch, workspace]);
+  function showExistingLocalStudy(id: string) {
+    const study = workspace.importedDatasets.find(item => item.id === id);
+    if (!study) return false;
+    reuseStudyFocus.current = id;
+    setHomeSection("data"); setStudySearch(study.title); setStudyFilter("all");
+    setImportFeedback({tone: "success", label: "Showing the existing study. No additional study was added."});
+    setShowLocalCsvImport(false);
+    return true;
+  }
+
   const workspaceRef = useRef(workspace);
   useEffect(() => {
     workspaceRef.current = workspace;
@@ -553,6 +573,21 @@ export function WorkspaceHome({
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     }
+  }
+
+  async function addLocalCsvStudy(dataset: ImportedDatasetRecord) {
+    if (!importOwnerMounted.current) throw new Error("The workspace was closed. Reopen local import to add this study.");
+    if (workspaceRef.current.importedDatasets.some(study => study.id === dataset.id)) throw new Error("This study ID is already in the workspace. Import the source file again to create a separate study.");
+    const next = upsertWorkspaceImportedDataset(workspaceRef.current, dataset);
+    // Keep the additive candidate in the real session on quota/conflict failure.
+    workspaceRef.current = next;
+    onWorkspaceChange(next);
+    const saved = await saveDashboardWorkspaceAsync(next);
+    if (importOwnerMounted.current) setImportFeedback({
+      tone: saved ? "success" : "error", requiresSave: !saved,
+      label: saved ? `${dataset.title} was imported locally and saved.` : `${dataset.title} was added locally, but saving failed. Keep this session open and retry saving.`,
+    });
+    return saved;
   }
 
   function planConnection(
@@ -1066,6 +1101,7 @@ export function WorkspaceHome({
             </strong>
           </div>
           <div className="workspace-home-header__actions">
+            <button type="button" className="workspace-home-secondary" disabled={isImporting} onClick={() => setShowLocalCsvImport(true)}>Import local CSV</button>
             <WorkspaceBackupButton getWorkspace={() => workspaceRef.current} className="workspace-home-secondary" onFeedback={(text, failed) => setBackupFeedback({text, failed})} />
             <button
               type="button"
@@ -1095,6 +1131,7 @@ export function WorkspaceHome({
         {isSavingNavigation && <p className="workspace-backup-feedback" role="status">Saving workspace before opening...</p>}
         <WorkspaceStoragePanel workspace={workspace} />
         <WorkspaceBackupInspector workspace={workspace} />
+        {showLocalCsvImport && <LocalCsvImportDialog studies={workspace.importedDatasets} onShowExisting={showExistingLocalStudy} onAdd={addLocalCsvStudy} onClose={() => setShowLocalCsvImport(false)} />}
         <input
           ref={fileInputRef}
           aria-label="Import study file"
@@ -2201,7 +2238,7 @@ export function WorkspaceHome({
                           </dd>
                         </div>
                       </dl>
-                      <button type="button" className="workspace-study-analyze" onClick={() => analyzeStudy(dataset)} disabled={!importedDatasetHasQueryableRows(dataset)}>Analyze this study <ArrowRight size={16} /></button>
+                      <button data-local-study-id={dataset.id} type="button" className="workspace-study-analyze" onClick={() => analyzeStudy(dataset)} disabled={!importedDatasetHasQueryableRows(dataset)}>Analyze this study <ArrowRight size={16} /></button>
                       <div className="workspace-dataset-structures">
                         <span>
                           {dataset.importMetadata?.metadataQuality ===

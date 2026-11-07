@@ -1,3 +1,4 @@
+import { useRemovedControlFocus } from "../hooks/useRemovedControlFocus";
 import { NumericDistribution } from "./NumericDistribution";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { numericProfileWorkerThreshold, runNumericProfileJob, type NumericProfileProgress } from "../../data/numericProfileJob";
@@ -6,6 +7,7 @@ import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../sh
 import { buildImportedNumericProfile } from "../../data/importedNumericProfile";
 
 export function NumericFieldProfile({ dataset, field, onSummarize }: { dataset: ImportedDatasetRecord; field: ImportedDatasetField; onSummarize?: () => void }) {
+  const { targetRef, controlRef } = useRemovedControlFocus();
   const storedRows = dataset.rows.length ? dataset.rows.length : dataset.previewRows.length;
   const background = storedRows >= numericProfileWorkerThreshold && storedRows >= dataset.rowCount;
   const synchronous = useMemo(() => background ? null : buildImportedNumericProfile(dataset, field), [background, dataset, field]);
@@ -27,18 +29,18 @@ export function NumericFieldProfile({ dataset, field, onSummarize }: { dataset: 
   }, [background, dataset, field, attempt, storedRows]);
   const current = job?.dataset === dataset && job.field === field ? job : null;
   const profile = synchronous ?? current?.profile;
-  if (!profile) return <section className="numeric-field-profile" aria-label="Numeric field summary">
+  if (!profile) return <section ref={targetRef} tabIndex={-1} className="numeric-field-profile" aria-label="Numeric field summary">
     <strong>Understand this number</strong>
     {current?.error ? <p role="alert">{current.error}</p> : current?.canceled ? <p role="status">Numeric summary canceled. Your study has not been changed.</p> : <p role="status">{current?.progress?.phase === "calculating" ? `Calculating summary for ${storedRows.toLocaleString()} stored responses in the background…` : `Preparing numeric values: ${(current?.progress?.phase === "preparing" ? current.progress.prepared : 0).toLocaleString()} of ${storedRows.toLocaleString()}…`}</p>}
-    {current?.error || current?.canceled ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry numeric summary</button> : <button type="button" onClick={() => { owner.current?.abort(); setJob({ dataset, field, canceled: true }); }}>Cancel numeric summary</button>}
+    {current?.error || current?.canceled ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry numeric summary</button> : <button ref={controlRef} type="button" onClick={() => { owner.current?.abort(); setJob({ dataset, field, canceled: true }); }}>Cancel numeric summary</button>}
   </section>;
-  if (profile.status === "unavailable") return <section className="numeric-field-profile" aria-label="Numeric field summary"><strong>Numeric summary unavailable</strong><p>{profile.reason}</p></section>;
+  if (profile.status === "unavailable") return <section ref={targetRef} tabIndex={-1} className="numeric-field-profile" aria-label="Numeric field summary"><strong>Numeric summary unavailable</strong><p>{profile.reason}</p></section>;
   const format = (value: number | null) => value === null ? "Unavailable" : new Intl.NumberFormat("en-US",
     value !== 0 && (Math.abs(value) < 0.0001 || Math.abs(value) >= 1e12)
       ? { notation: "scientific", maximumSignificantDigits: 5 } : { maximumFractionDigits: 4 }).format(value);
   const entries: Array<[string, number | null]> = [["Valid numeric values", profile.valid], ["Blank values", profile.blank], ["Invalid numeric values", profile.invalid], ["Distinct numeric values", profile.distinct],
     ["Minimum", profile.minimum], ["Maximum", profile.maximum], ["Mean", profile.mean], ["Median", profile.median], ["Total", profile.total]];
-  return <section className="numeric-field-profile" aria-label="Numeric field summary">
+  return <section ref={targetRef} tabIndex={-1} className="numeric-field-profile" aria-label="Numeric field summary">
     <strong>Understand this number</strong>
     <p>{profile.rows.toLocaleString()} stored responses; unweighted. Blank and invalid values are excluded from statistics.</p>
     {!profile.valid && <p role="status">No valid numeric values. Statistics are unavailable.</p>}

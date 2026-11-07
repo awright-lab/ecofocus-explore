@@ -38,7 +38,7 @@ describe("imported sample and filter context",()=>{
   it("keeps categorical percentage denominators at the full column sample",async()=>{
     const dataset=await csv('Segment,Region\nCore,North\nCore,North\nGrowth,North\nGrowth,North\nGrowth,North\nGrowth,North\n');
     const result=runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:"percent_selected",chartType:"table"});
-    expect(Object.fromEntries(result.table.map(row=>[row.label,row.values.summary]))).toEqual({Core:33.3,Growth:66.7});expect(result.table.every(row=>row.bases.summary===6)).toBe(true);expect(buildImportedResultProvenance(result)?.baseLabel).toBe("Sample n = 6");
+    expect(Object.fromEntries(result.table.map(row=>[row.label,row.values.summary]))).toEqual({Core:200/6,Growth:400/6});expect(result.table.every(row=>row.bases.summary===6)).toBe(true);expect(buildImportedResultProvenance(result)?.baseLabel).toBe("Sample n = 6");
   });
   it("does not advertise preview categories as complete remote filter choices",async()=>{
     const dataset=await csv('Answer,Region\nYes,North\nNo,South\nYes,West\n');const compact=remote(dataset);

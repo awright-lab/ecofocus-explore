@@ -1,15 +1,15 @@
 import type { SavedImportedAudience } from "../../../../shared/types/audience";
 import { AnalysisEditPreview } from "./AnalysisEditPreview";
-import { allRespondentsGroupingField, allRespondentsGroupingId } from "../../data/numericSummaryScope";
-import { useId, useRef, useState } from "react";
+import { allRespondentsGroupingField, allRespondentsGroupingId, allRespondentsGroupingOption } from "../../data/numericSummaryScope";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { useInspectorQueryRequest, useInvalidatingQueryOption } from "../hooks/useInspectorQueryRequest";
 import type React from "react";
 import { rangeFill } from "../../design-system/DesignControls";
 import { getChartTypeLabel, getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
-import { buildImportedResultProvenance, getImportedDatasetQuerySupport, getImportedFilterChoiceSupport, importedFieldValues } from "../../data/importedDatasetAnalytics";
+import { buildImportedResultProvenance, getImportedDatasetQuerySupport, getImportedFilterChoiceSupport, importedFieldChoiceResult } from "../../data/importedDatasetAnalytics";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
-import { importedQuerySelectionIssue } from "../../data/importedQuerySelection";
+import { importedQuerySelectionIssue, importedEmptyFieldOption } from "../../data/importedQuerySelection";
 import type { ChartType, ConfidenceLevel, Metric, AnalyticsQueryResponse } from "../../../../shared/types/analytics";
 import type { BuilderInspectorProps } from "./BuilderInspector";
 import {
@@ -621,17 +621,31 @@ function ImportedTileQueryEditor({
   updateSelectedTile,
   isLoading,
   getEditorContextVersion,
+  onBeforeApply,
 }: {
   tile: DashboardTile;
   importedDatasets: ImportedDatasetRecord[];
   updateSelectedTile: (updates: Partial<DashboardTile>) => void;
   isLoading: boolean;
   getEditorContextVersion?: () => string | number;
+  onBeforeApply?: (owner:HTMLElement) => void;
 }) {
   const previewRegionId = useId();
   const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const updateTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const cancelControl = useRef<HTMLButtonElement | null>(null), startingRequestOwner = useRef<Element | null>(null), displacedRequestOwner = useRef<HTMLElement | null>(null);
+  const bindCancelControl = useCallback((node:HTMLButtonElement|null)=>{if(!node&&cancelControl.current===document.activeElement)displacedRequestOwner.current=cancelControl.current;cancelControl.current=node;},[]);
   const queryEditorRef = useRef<HTMLDivElement | null>(null);
   const [previewRequest, setPreviewRequest] = useState(false);
+  const [canceledTileId,setCanceledTileId] = useState<string|null>(null);
+  useLayoutEffect(()=>{
+    const starter=startingRequestOwner.current,displaced=displacedRequestOwner.current;startingRequestOwner.current=null;displacedRequestOwner.current=null;
+    if(starter&&cancelControl.current&&document.activeElement===starter)cancelControl.current.focus();
+    if(displaced&&!displaced.isConnected&&(!document.activeElement||document.activeElement===document.body||document.activeElement===displaced)){
+      const target=previewRequest?previewTriggerRef.current:updateTriggerRef.current;
+      (target?.isConnected&&!target.disabled?target:queryEditorRef.current)?.focus();
+    }
+  });
   const [editPreview, setEditPreview] = useState<{ before: AnalyticsQueryResponse; after: AnalyticsQueryResponse; isCurrent: () => boolean } | null>(null);
   const source = tile.result.metadataRefs.source?.kind === "imported" ? tile.result.metadataRefs.source : null;
   const initialDataset = source ? importedDatasets.find((dataset) => dataset.id === source.datasetId) ?? null : null;
@@ -641,26 +655,32 @@ function ImportedTileQueryEditor({
   const [datasetId, setDatasetId] = useInvalidatingQueryOption(source?.datasetId ?? initialDataset?.id ?? "",request.invalidate);
   const dataset = importedDatasets.find((item) => item.id === datasetId) ?? null;
   const [primaryFieldId, setPrimaryFieldId] = useInvalidatingQueryOption(source?.groupingScope === "all_respondents" ? allRespondentsGroupingId : source?.primaryFieldId ?? "",request.invalidate);
-  const [bannerFieldId, setBannerFieldId] = useInvalidatingQueryOption(source?.bannerFieldId ?? "none",request.invalidate);
-  const [filterFieldId, setFilterFieldId] = useInvalidatingQueryOption(source?.filterFieldId ?? "none",request.invalidate);
+  const [overallSummarySelected, setOverallSummarySelected] = useInvalidatingQueryOption(source?.groupingScope === "all_respondents",request.invalidate);
+  const [bannerFieldId, setBannerFieldId] = useInvalidatingQueryOption<string | null>(source?.bannerFieldId ?? null,request.invalidate);
+  const [filterFieldId, setFilterFieldId] = useInvalidatingQueryOption<string | null>(source?.filterFieldId ?? null,request.invalidate);
   const [filterValue, setFilterValue] = useInvalidatingQueryOption<string | null>(source?.filterValue ?? null,request.invalidate);
   const [audience,setAudience] = useInvalidatingQueryOption<SavedImportedAudience|null>(source?.audience??null,request.invalidate);
   const [metric, setMetric] = useInvalidatingQueryOption<Metric>(tile.result.metric.id === "calculated" ? tile.result.query.metric : tile.result.metric.id,request.invalidate);
   const [queryMode, setQueryMode] = useInvalidatingQueryOption<"categorical" | "measure">(source?.queryKind === "measure" || tile.result.metric.id === "average" || tile.result.metric.id === "sum" ? "measure" : "categorical",request.invalidate);
-  const [measureFieldId, setMeasureFieldId] = useInvalidatingQueryOption(source?.measureFieldId ?? "none",request.invalidate);
+  const [measureFieldId, setMeasureFieldId] = useInvalidatingQueryOption<string | null>(source?.measureFieldId ?? null,request.invalidate);
   const [chartType, setChartType] = useInvalidatingQueryOption<ChartType>(tile.visualization,request.invalidate);
   const isUpdatingImportedResult=request.busy,importedUpdateError=request.error;
   const primaryFields = importedExecutableFields(dataset);
-  const groupingScope = primaryFieldId === allRespondentsGroupingId ? "all_respondents" as const : undefined;
+  const groupingScope = overallSummarySelected ? "all_respondents" as const : undefined;
+  const overallSummaryOption = allRespondentsGroupingOption(dataset?.fields ?? [], overallSummarySelected ? null : primaryFieldId);
   const allRespondents = allRespondentsGroupingField(dataset);
   const primaryField = groupingScope ? allRespondents : primaryFields.find((field) => field.id === primaryFieldId) ?? null;
   const measureOptions = importedMeasureFields(dataset);
   const measureField = measureOptions.find((field) => field.id === measureFieldId) ?? null;
-  const bannerOptions = importedBannerFields(dataset, primaryField?.id ?? "");
+  const bannerOptions = importedBannerFields(dataset, groupingScope ? "" : primaryField?.id ?? "");
   const bannerField = bannerOptions.find((field) => field.id === bannerFieldId) ?? null;
   const filterOptions = importedFilterFields(dataset);
   const filterField = filterOptions.find((field) => field.id === filterFieldId) ?? null;
-  const values = importedFieldValues(dataset, filterField);
+  const emptyBannerOption = importedEmptyFieldOption(bannerOptions, bannerFieldId);
+  const emptyFilterOption = importedEmptyFieldOption(filterOptions, filterFieldId);
+  const emptyMeasureOption = importedEmptyFieldOption(measureOptions, measureFieldId);
+  const filterChoices = importedFieldChoiceResult(dataset, filterField);
+  const values = filterChoices.values;
   const filter = filterField && filterValue !== null ? { field: filterField, value: filterValue } : null;
   const effectiveMetric: Metric =
     queryMode === "measure"
@@ -669,13 +689,13 @@ function ImportedTileQueryEditor({
   const selectedChartType = (bannerField || queryMode === "measure") && chartType === "donut" ? "vertical_bar" : chartType;
   const filterChoiceSupport = getImportedFilterChoiceSupport(dataset);
   const selectionIssue = importedQuerySelectionIssue({
-    grouping: { id: primaryFieldId, fields: [...primaryFields, allRespondents] },
+    grouping: { id: primaryFieldId, fields: groupingScope ? [allRespondents] : primaryFields },
     comparison: { id: bannerFieldId, fields: bannerOptions },
     filter: { id: filterFieldId, fields: filterOptions },
     ...(queryMode === "measure" ? { measure: { id: measureFieldId, fields: measureOptions } } : {}),
     filterValue, filterValues: values, completeFilterValues: filterChoiceSupport.executable
   });
-  const support = selectionIssue ? { executable: false, reason: selectionIssue }
+  const support = filterChoices.issue ? {executable:false,reason:filterChoices.issue} : selectionIssue ? { executable: false, reason: selectionIssue }
     : filterField && !filterChoiceSupport.executable
     ? filterChoiceSupport
     : filterField && filterValue === null
@@ -695,23 +715,29 @@ function ImportedTileQueryEditor({
   function changeDataset(nextDatasetId: string) {
     const nextDataset = importedDatasets.find((item) => item.id === nextDatasetId) ?? null;
     setDatasetId(nextDatasetId);
+    setOverallSummarySelected(false);
     setPrimaryFieldId(nextDataset?.fields.find((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension")?.id ?? "");
-    setMeasureFieldId(nextDataset?.fields.find((field) => field.type === "numeric" || field.modelingRole === "candidate_measure")?.id ?? "none");
-    setBannerFieldId("none");
-    setFilterFieldId("none");
+    setMeasureFieldId(nextDataset?.fields.find((field) => field.type === "numeric" || field.modelingRole === "candidate_measure")?.id ?? null);
+    setBannerFieldId(null);
+    setFilterFieldId(null);
     setFilterValue(null);
   }
 
   function changePrimaryField(nextFieldId: string) {
-    setPrimaryFieldId(nextFieldId);
-    if (nextFieldId === allRespondentsGroupingId) { setQueryMode("measure"); setMetric("average"); }
-    if (nextFieldId === bannerFieldId) setBannerFieldId("none");
+    const overall = nextFieldId === overallSummaryOption;
+    setOverallSummarySelected(overall);
+    setPrimaryFieldId(overall ? allRespondentsGroupingId : nextFieldId);
+    if (overall) { setQueryMode("measure"); setMetric("average"); }
+    if (nextFieldId === bannerFieldId) setBannerFieldId(null);
   }
 
   async function applyImportedQuery(previewOnly = false) {
     if (!dataset || !primaryField || !canApply) return;
     const operation=request.begin();
     if(!operation)return;
+    const owner=previewOnly?previewTriggerRef.current:updateTriggerRef.current;
+    startingRequestOwner.current=document.activeElement===owner?owner:null;
+    setCanceledTileId(null);
     setEditPreview(null); setPreviewRequest(previewOnly);
     try {
       const result = await runImportedDatasetQueryForRuntime({
@@ -724,12 +750,14 @@ function ImportedTileQueryEditor({
         audience:audience??undefined,
         chartType: selectedChartType,
         metric: effectiveMetric
-      });
+      },{signal:operation.signal});
       if(!operation.isCurrent())return;
       if (previewOnly) { setEditPreview({ before: tile.result, after: result, isCurrent: operation.isCurrent }); return; }
       const title = queryMode === "measure" && measureField
         ? `${effectiveMetric === "sum" ? "Sum of" : "Average"} ${importedFieldDisplayLabel(measureField)} by ${importedFieldDisplayLabel(primaryField)}`
         : importedFieldDisplayLabel(primaryField);
+      const owner=document.activeElement;
+      if(owner&&(owner===cancelControl.current||owner===updateTriggerRef.current))onBeforeApply?.(owner as HTMLElement);
       updateSelectedTile({
         name: title,
         title,
@@ -792,9 +820,9 @@ function ImportedTileQueryEditor({
         </label>
         <label>
           Group responses by
-          <select value={primaryField?.id ?? ""} onChange={(event) => changePrimaryField(event.target.value)}>
+          <select value={groupingScope ? overallSummaryOption : primaryField?.id ?? ""} onChange={(event) => changePrimaryField(event.target.value)}>
             {!primaryField && <option value="" disabled>Choose an available grouping field...</option>}
-            <option value={allRespondentsGroupingId}>All respondents (numeric summary)</option>
+            <option value={overallSummaryOption}>All respondents (numeric summary)</option>
             {primaryFields.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -810,7 +838,7 @@ function ImportedTileQueryEditor({
               const nextMode = event.target.value as "categorical" | "measure";
               setQueryMode(nextMode);
               setMetric(nextMode === "measure" ? "average" : "percent_selected");
-              if (nextMode === "measure") setMeasureFieldId(measureOptions[0]?.id ?? "none");
+              if (nextMode === "measure") setMeasureFieldId(measureOptions[0]?.id ?? null);
             }}
           >
             <option value="categorical">Responses for this field</option>
@@ -820,9 +848,9 @@ function ImportedTileQueryEditor({
         {queryMode === "measure" && (
           <label>
             Number to average or sum
-            <select value={measureFieldId} onChange={(event) => setMeasureFieldId(event.target.value)}>
-              <option value="none">Choose a number...</option>
-              {measureFieldId !== "none" && !measureField && <option value={measureFieldId} disabled>Unavailable numeric field</option>}
+            <select value={measureFieldId ?? emptyMeasureOption} onChange={(event) => setMeasureFieldId(event.target.value === emptyMeasureOption ? null : event.target.value)}>
+              <option value={emptyMeasureOption}>Choose a number...</option>
+              {measureFieldId !== null && !measureField && <option value={measureFieldId} disabled>Unavailable numeric field</option>}
               {measureOptions.map((field) => (
                 <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
               ))}
@@ -833,9 +861,9 @@ function ImportedTileQueryEditor({
       <div className="guided-query-field-grid">
         <label>
           Optional breakout
-          <select value={bannerFieldId} onChange={(event) => setBannerFieldId(event.target.value)}>
-            <option value="none">No breakout - all respondents</option>
-            {bannerFieldId !== "none" && !bannerField && <option value={bannerFieldId} disabled>Unavailable comparison field</option>}
+          <select value={bannerFieldId ?? emptyBannerOption} onChange={(event) => setBannerFieldId(event.target.value === emptyBannerOption ? null : event.target.value)}>
+            <option value={emptyBannerOption}>No breakout - all respondents</option>
+            {bannerFieldId !== null && !bannerField && <option value={bannerFieldId} disabled>Unavailable comparison field</option>}
             {bannerOptions.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -862,14 +890,14 @@ function ImportedTileQueryEditor({
         <label>
           Limit to
           <select
-            value={filterFieldId}
+            value={filterFieldId ?? emptyFilterOption}
             onChange={(event) => {
-              setFilterFieldId(event.target.value);
+              setFilterFieldId(event.target.value === emptyFilterOption ? null : event.target.value);
               setFilterValue(null);
             }}
           >
-            <option value="none">No filter</option>
-            {filterFieldId !== "none" && !filterField && <option value={filterFieldId} disabled>Unavailable filter field</option>}
+            <option value={emptyFilterOption}>No filter</option>
+            {filterFieldId !== null && !filterField && <option value={filterFieldId} disabled>Unavailable filter field</option>}
             {filterOptions.map((field) => (
               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
             ))}
@@ -895,6 +923,8 @@ function ImportedTileQueryEditor({
             <option value="table">Table</option>
             <option value="vertical_bar">Column</option>
             <option value="horizontal_bar">Horizontal bar</option>
+                              <option value="heatmap">Heatmap — shared cell colors</option>
+                              <option value="dot_plot">Dot plot — shared numeric scale (up to 30 rows / six series)</option>
             {!bannerField && queryMode === "categorical" && <option value="donut">Donut</option>}
             {bannerField && <option value="grouped_bar">Grouped bar</option>}
             {bannerField && <option value="stacked_bar">Stacked bar</option>}
@@ -911,9 +941,11 @@ function ImportedTileQueryEditor({
       {editPreview && (activePreview
         ? <AnalysisEditPreview id={previewRegionId} before={activePreview.before} after={activePreview.after} onDismiss={dismissPreview} />
         : <p role="status">This preview is out of date. Preview the current settings again before comparing results.</p>)}
-      <button type="button" onClick={() => void applyImportedQuery(false)} disabled={!canApply}>
+      <button type="button" ref={updateTriggerRef} data-imported-update-trigger onClick={() => void applyImportedQuery(false)} disabled={!canApply}>
         {isLoading || isUpdatingImportedResult && !previewRequest ? "Updating..." : "Update imported result"}
       </button>
+      {isUpdatingImportedResult && <><button type="button" className="secondary" ref={bindCancelControl} onClick={()=>{request.invalidate();setEditPreview(null);setCanceledTileId(tile.id);}}>Cancel imported request</button><small>Cancel stops waiting in this editor and discards its pending result. The server may continue working.</small></>}
+      {canceledTileId===tile.id && <p role="status">The pending request was canceled in this editor. No result from it was applied; server work may continue.</p>}
       {importedUpdateError && <small className="imported-query-error">{importedUpdateError}</small>}
     </div>
   );
@@ -937,6 +969,14 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
   } = props;
   const [saveConfirmation, setSaveConfirmation] = useState<(SavedTileSettingConfirmation & { tileId: string }) | null>(null);
   const [recentlySavedSetting, setRecentlySavedSetting] = useState<{ tileId: string; kind: Exclude<SavedTileSettingKind, "set" | "template"> } | null>(null);
+  const queryHost=useRef<HTMLDivElement|null>(null),resultFocus=useRef<{owner:HTMLElement;tileId:string}|null>(null);
+  useLayoutEffect(()=>{
+    const pending=resultFocus.current;resultFocus.current=null;
+    if(pending&&selectedTile?.id===pending.tileId&&!pending.owner.isConnected&&(!document.activeElement||document.activeElement===document.body||document.activeElement===pending.owner)){
+      const target=queryHost.current?.querySelector<HTMLButtonElement>('[data-imported-update-trigger]');
+      (target&&!target.disabled?target:queryHost.current)?.focus();
+    }
+  });
 
   if (!selectedTile || !selectedTileQuestion) {
     return null;
@@ -1116,7 +1156,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
           </button>
         </div>
       )}
-      <div className="tile-query-group primary">
+      <div className="tile-query-group primary" ref={queryHost} tabIndex={-1} role="group" aria-label="Current analysis query" data-canvas-keyboard-scope="controls" onBlurCapture={event=>{if(resultFocus.current?.owner===event.target)resultFocus.current=null;}}>
         <div className="explorer-section-header">
           <strong>Current query</strong>
           <small>{queryStatus.sourceLabel}</small>
@@ -1134,6 +1174,7 @@ export function TileAnalysisQuerySection(props: BuilderInspectorProps) {
             updateSelectedTile={updateSelectedTile}
             isLoading={isLoading}
             getEditorContextVersion={props.getEditorContextVersion}
+            onBeforeApply={owner=>{resultFocus.current={owner,tileId:tile.id};}}
           />
         ) : (
           <TileQuestionConfigSection {...props} />
@@ -1552,6 +1593,15 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
                 </button>
               </div>
               <div className="toggle-list">
+                {selectedTile.visualization === "dot_plot" && <label>
+                  Dot layout
+                  <select aria-label="Dot layout" value={[undefined,"separate","paired"].includes(selectedTile.appearance.dotPlotLayout) ? selectedTile.appearance.dotPlotLayout ?? "separate" : "invalid"} onChange={event => { const layout=event.target.value; if(layout==="separate"||layout==="paired")updateSelectedAppearance({dotPlotLayout:layout}); }}>
+                    {![undefined,"separate","paired"].includes(selectedTile.appearance.dotPlotLayout) && <option value="invalid" disabled>Choose a supported layout</option>}
+                    <option value="separate">Separate series</option>
+                    <option value="paired" disabled={selectedTile.result.columns.length !== 2}>Pair two groups</option>
+                  </select>
+                  <small>Paired dots require exactly two groups. Connectors compare recorded values within an answer; they do not imply trends or significance.</small>
+                </label>}
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> {selectedTile.visualization === "table" ? "Table guides" : "Chart grid"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> {selectedTile.visualization === "table" ? "Cell values" : "Value labels"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>

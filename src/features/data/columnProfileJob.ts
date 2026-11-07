@@ -1,3 +1,4 @@
+import { ImportedSourceColumnAmbiguityError } from "./importedRawValue";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 import { importedRawFieldValue } from "./importedDatasetAnalytics";
 export const fieldProfileWorkerThreshold = 5_000;
@@ -16,9 +17,11 @@ export function runColumnProfileJob<Profile, Request>(dataset: ImportedDatasetRe
   return new Promise((resolve, reject) => {
     const rows = dataset.rows.length ? dataset.rows : dataset.previewRows;
     let worker: ColumnProfileWorker<Request> | null = null, timer: ReturnType<typeof setTimeout> | undefined, finished = false;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
     function finish(error?: Error, profile?: Profile) {
       if (finished) return; finished = true;
       if (timer !== undefined) clearTimeout(timer);
+      if (deadline !== undefined) clearTimeout(deadline);
       options.signal.removeEventListener("abort", cancel); worker?.terminate();
       if (error) reject(error); else resolve(profile!);
     }
@@ -47,9 +50,10 @@ export function runColumnProfileJob<Profile, Request>(dataset: ImportedDatasetRe
         worker.onerror = worker.onmessageerror = () => finish(new Error(`Background ${options.title} is unavailable in this browser. Your study has not been changed.`));
         options.onProgress?.({ phase: "calculating", total: rows.length });
         if (!finished) worker.postMessage(options.request(values));
-      } catch { finish(new Error(`Background ${options.title} could not start. Your study has not been changed.`)); }
+      } catch(error) { finish(error instanceof ImportedSourceColumnAmbiguityError ? error : new Error(`Background ${options.title} could not start. Your study has not been changed.`)); }
     }
     // Yield before copying selected values; never clone the entire study into a worker.
+    deadline = setTimeout(() => finish(new Error(`Background ${options.title} stopped responding after 30 seconds. Your study has not been changed. Retry the summary.`)), 30_000);
     timer = setTimeout(prepare, 0);
   });
 }

@@ -1,0 +1,11 @@
+# SAV continuation layout safety
+
+The classic SAV parser now verifies that each numeric variable consumes one eight-byte record and each string variable has the number of records required by its declared width. An incomplete or extra continuation raises the existing import-integrity error before values or value labels are materialized. The server's existing integrity-error handling prevents fallback or supplied metadata from accepting that source.
+
+Synthetic malformed files reproduce an actual shift: a numeric slot containing 5 was previously read from the preceding string bytes and reported as approximately 3.9 × 10²³³. The original-module capture preserves both cases, cached engine results and source bytes. An independent Python struct/Fraction check verifies the physical bytes and wrong offset. The files have missing string continuation records or an extra continuation attached to a numeric variable; no claim is made that they are valid SAV files.
+
+The [GNU PSPP format guide](https://www.gnu.org/software/pspp/pspp-dev/pspp-dev.html#Variable-Record) describes one record per numeric variable and one per eight bytes of a string, rounded up. It also documents labelled dummy records found in real files. Tests retain that compatibility, strings of widths 1, 8, 9, 16, 17 and 255, uncompressed and bytecode streams, and unknown case counts. No new comparison against nominal header case size is imposed; the guide warns that field can be unreliable. Existing header handling is unchanged.
+
+This does not repair old studies or redefine missing values. Original malformed-import rows, cached analyses, reports and published snapshots survive load/resave exactly; a repaired file imports as a separate version. Actual App/Home jsdom tests verify failure without writes, repaired import and cold reopen. Handler orchestration tests use mocked blob/database/fallback dependencies and inspect every row payload and uploaded bytes.
+
+This is bounded continuation-layout validation, not complete SAV support. Nominal header size handling, full dictionary grammar and ordering, very-long-string extension assembly, user-defined missing rules, encoding and unsupported compression remain separate work. Native browser/SPSS/Office, downloads, accessibility hardware, live backend and Snowflake acceptance remain unverified. No original forty-goal completion is added.

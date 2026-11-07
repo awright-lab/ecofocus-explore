@@ -8,7 +8,7 @@ async function result() {
 }
 describe("result-compatible visualizations",()=>{
  it("offers a donut only for a complete exclusive nonnegative summary",async()=>{
-  const response=await result();expect(getCompatibleChartTypes(response)).toEqual(["table","vertical_bar","horizontal_bar","donut"]);
+  const response=await result();expect(getCompatibleChartTypes(response)).toEqual(["table","vertical_bar","horizontal_bar","donut","heatmap","dot_plot"]);
   response.table[0].values.summary=-1;expect(supportsDonutResult(response)).toBe(false);expect(getCompatibleChartTypes(response)).not.toContain("donut");
  });
  it("does not offer a donut for overlapping or incomplete percentages",async()=>{
@@ -17,6 +17,6 @@ describe("result-compatible visualizations",()=>{
   response.table.forEach(row=>{row.values.summary=10;});expect(getCompatibleChartTypes(response)).not.toContain("donut");
  });
  it("offers measure-safe single-column charts for averages and sums",async()=>{
-  for(const metric of ["average","sum"] as const) {const response=await result();response.metric={id:metric,label:metric,valueFormat:"number"};expect(getCompatibleChartTypes(response)).toEqual(["table","vertical_bar","horizontal_bar"]);}
+  for(const metric of ["average","sum"] as const) {const response=await result();response.metric={id:metric,label:metric,valueFormat:"number"};expect(getCompatibleChartTypes(response)).toEqual(metric==="average"?["table","vertical_bar","horizontal_bar"]:["table","vertical_bar","horizontal_bar","heatmap","dot_plot"]);}
  });
 });

@@ -1,11 +1,12 @@
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../types/analytics";
+import { percentageValueMode, unroundedPercentage } from "./percentagePrecision";
 import { analysisSettingsMatch } from "./queryFreshness";
 
 // Read-only evidence for newly executed, unweighted imported percentages and
 // means. Never derive integer counts or totals from rounded/cached values.
 function compatibleContext(result: AnalyticsQueryResponse) {
   const inputs = result.calculationInputs, source = result.metadataRefs.source;
-  return inputs?.version === 1 && inputs.method === "local_unweighted_v1" && source?.kind === "imported" &&
+  return (inputs?.percentageValueMode === undefined || inputs.percentageValueMode === percentageValueMode && result.metric.id === "percent_selected") && inputs?.version === 1 && inputs.method === "local_unweighted_v1" && source?.kind === "imported" &&
     (result.metric.id === "percent_selected" || result.metric.id === "average" && source.measureBaseScope === "cell") &&
     result.query.metric === result.metric.id && !result.weighting.applied && result.weighting.id === null && result.query.weight === null &&
     !result.query.authoredVariableSet && !result.metadataRefs.authoredVariableSet?.applied &&
@@ -20,9 +21,9 @@ function compatibleCell(result: AnalyticsQueryResponse, row: AnalyticsTableRow, 
     const cell = captured.cells[columnId], { numerator, denominator } = cell;
     if (!Number.isFinite(numerator) || !Number.isSafeInteger(denominator) || denominator < 0 || denominator !== row.bases[columnId]) return null;
     if (result.metric.id === "percent_selected" && (!Number.isSafeInteger(numerator) || numerator < 0 || numerator > denominator)) return null;
-    const expected = denominator === 0 ? 0 : result.metric.id === "average" ? numerator / denominator : Math.round(numerator / denominator * 1000) / 10;
+    const expected = denominator === 0 ? 0 : result.metric.id === "average" ? numerator / denominator : inputs.percentageValueMode === percentageValueMode ? unroundedPercentage(numerator, denominator) : Math.round(numerator / denominator * 1000) / 10;
     if (!Number.isFinite(row.values[columnId]) || expected !== row.values[columnId] || denominator === 0 && numerator !== 0) return null;
-    return { numerator, denominator, hasObservations: denominator > 0, metric: result.metric.id };
+    return { numerator, denominator, hasObservations: denominator > 0, metric: result.metric.id, ...(inputs.percentageValueMode ? { percentageValueMode: inputs.percentageValueMode } : {}) };
 }
 function consistentPercentageColumn(result: AnalyticsQueryResponse, columnId: string) {
   let denominator: number | undefined, responses = 0;
@@ -54,4 +55,12 @@ export function hasValidRecordedCalculations(result: AnalyticsQueryResponse) {
       result.table.every(row => Object.keys(inputs.rows[row.optionId]?.cells ?? {}).length === result.columns.length && result.columns.every(column => compatibleCell(result, row, column.id) !== null)) &&
       (result.metric.id !== "percent_selected" || result.columns.every(column => consistentPercentageColumn(result, column.id)));
   } catch { return false; }
+}
+
+// Only the newly declared precision contract adds an output gate. Historical
+// caches without a marker retain their existing availability and raw values.
+export function percentagePrecisionIssue(result: AnalyticsQueryResponse): string | null {
+  return result.calculationInputs?.percentageValueMode !== undefined && !hasValidRecordedCalculations(result)
+    ? "Refresh this result: its recorded percentage precision does not match its counts, denominator or values. The saved result was retained."
+    : null;
 }

@@ -6,6 +6,7 @@ export function useImportedFieldPages(datasetId: string | null, search: string, 
   const context = useMemo(() => ({
     datasetId, search, pages: {} as Record<number, ImportedDatasetField[]>, total: null as number | null,
     pending: new Map<number, symbol>(), errors: new Map<number, string>(), start: 0, end: 0,
+    catalogInvalid: false, awaitingRetry: false,
   }), [datasetId, search, pageSize]);
   const latest = useRef(context);
   useLayoutEffect(() => { latest.current = context; }, [context]);
@@ -19,6 +20,7 @@ export function useImportedFieldPages(datasetId: string | null, search: string, 
   const load = useCallback((start: number, end: number) => {
     if (!datasetId || !mounted.current || latest.current !== context) return;
     context.start = start; context.end = end;
+    if (context.awaitingRetry) return;
     const first = Math.floor(start / pageSize);
     const last = Math.floor(Math.max(end - 1, start) / pageSize);
     for (let page = first; page <= last; page += 1) {
@@ -28,7 +30,21 @@ export function useImportedFieldPages(datasetId: string | null, search: string, 
       void Promise.resolve().then(() => listImportedDatasetFieldsFromNetlify({ datasetId, search, offset: page * pageSize, limit: pageSize }))
         .then(result => {
           if (!current()) return;
+          const ids = new Set(Object.values(context.pages).flat().map(field => field.id));
+          const columns = new Set(Object.values(context.pages).flat().map(field => field.sourceColumn));
+          if ((context.total !== null && context.total !== result.total)
+            || result.fields.some(field => ids.has(field.id) || columns.has(field.sourceColumn))) {
+            // Pages have no shared server revision token. Discard detectable mixtures,
+            // including requests already in flight, and require an explicit fresh load.
+            context.catalogInvalid = true;
+            context.awaitingRetry = true;
+            context.pages = {}; context.total = null; context.pending.clear(); context.errors.clear();
+            context.errors.set(page, "The field catalog changed while loading. Retry loading fields to start a fresh catalog.");
+            render();
+            return;
+          }
           context.pages = { ...context.pages, [page]: result.fields }; context.total = result.total;
+          context.catalogInvalid = false;
           context.errors.delete(page);
         }).catch(error => {
           if (current()) context.errors.set(page, error instanceof Error ? error.message : "Unable to load imported fields.");
@@ -40,7 +56,8 @@ export function useImportedFieldPages(datasetId: string | null, search: string, 
   }, [context, datasetId, search, pageSize]);
   const retry = useCallback(() => {
     if (latest.current !== context) return;
+    context.awaitingRetry = false;
     context.errors.clear(); load(context.start, context.end); render();
   }, [context, load]);
-  return { pages: context.pages, total: context.total, error: context.errors.values().next().value ?? null, load, retry };
+  return { pages: context.pages, total: context.total, catalogInvalid: context.catalogInvalid, error: context.errors.values().next().value ?? null, load, retry };
 }

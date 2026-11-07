@@ -2,6 +2,7 @@ import type { AudienceExpression, SavedImportedAudience } from "../../../shared/
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 import { importedRawFieldValue } from "../data/importedRawValue";
 import { parseImportedNumber } from "../data/importedNumericValue";
+import { importedCategoryCode } from "../data/importedCategoryCode";
 type Match = boolean|null;
 function object(value:unknown):value is Record<string,unknown>{return !!value && typeof value==="object" && !Array.isArray(value);}
 export function audienceDefinitionIssue(value:unknown):string|null {
@@ -31,8 +32,7 @@ export function audienceSourceIssue(dataset:ImportedDatasetRecord|null|undefined
  return null;
 }
 export function audienceCategoryKey(field:ImportedDatasetField,raw:string):string {
- const value=raw.trim();if(!value||Object.hasOwn(field.valueLabels??{},value))return value;
- const numeric=Number(value),key=String(numeric);return Number.isFinite(numeric)&&Object.hasOwn(field.valueLabels??{},key)?key:value;
+ return importedCategoryCode(field,raw)??"";
 }
 export function audienceCategoryChoices(dataset:ImportedDatasetRecord,field:ImportedDatasetField) {
  const values=new Set(dataset.rows.map(row=>audienceCategoryKey(field,importedRawFieldValue(row,field))).filter(Boolean));

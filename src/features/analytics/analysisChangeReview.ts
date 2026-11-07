@@ -1,6 +1,6 @@
 import type { AnalyticsQueryResponse, AnalyticsTableColumn, AnalyticsTableRow } from "../../../shared/types/analytics";
 import { resultIdentityIssue } from "../../../shared/analytics/resultIdentities";
-import { analyticalCell } from "../../../shared/analytics/resultCells";
+import { analyticalBase, analyticalCell } from "../../../shared/analytics/resultCells";
 import { analysisSettingsMatch } from "../../../shared/analytics/queryFreshness";
 import { audienceSummary } from "../audiences/audienceModel";
 
@@ -72,6 +72,7 @@ export function analysisChangeReview(before: AnalyticsQueryResponse, after: Anal
   const supported = [before, after].every(result => !result.query.authoredVariableSet && !result.metadataRefs.authoredVariableSet?.applied && !result.query.weight && !result.weighting.applied && !(result.query.sourceIdentity?.kind === "imported" && result.query.sourceIdentity.intersectionAudience) && result.query.sourceRef?.provider === "local_file" && (!["percent_selected", "average"].includes(result.metric.id) || result.calculationInputs?.method === "local_unweighted_v1" && analysisSettingsMatch(result.calculationInputs.query,result.query)) && result.metric.id === result.query.metric);
   const sameCalculation = a?.kind === "imported" && b?.kind === "imported" && a.measureFieldId === b.measureFieldId && before.metric.id === after.metric.id && before.metric.valueFormat === after.metric.valueFormat;
   if (!sameGrouping || !contextsAgree || !hasRawAxes || !supported || !sameCalculation) model.deltaUnavailable = "Arithmetic differences require matching recorded study/import, grouping, breakout, measure and metric with unweighted, ordinary local results. Inspect the separate values when these differ. This does not validate a weighted method or a live source.";
+  if (!model.deltaUnavailable && before.metric.valueFormat === "percent" && before.calculationInputs?.percentageValueMode !== after.calculationInputs?.percentageValueMode) model.deltaUnavailable = "The results use different recorded percentage precision. Inspect the separate values and recorded counts; a precision change alone does not establish a population change.";
   return model;
 }
 
@@ -79,7 +80,7 @@ export function changeReviewCell(result: AnalyticsQueryResponse, rowId?: string,
   if (!rowId || !columnId) return { value: null, base: null, status: "Not present in this result" };
   const row = result.table.find(item => item.optionId === rowId);
   if (!row) return { value: null, base: null, status: "Not present in this result" };
-  const cell = analyticalCell(result, row, columnId), base = row.bases[columnId];
-  const validBase = Number.isFinite(base) && base >= 0 && (result.weighting.applied || result.query.weight || Number.isSafeInteger(base));
-  return { value: validBase ? cell.value : null, base: validBase && cell.status !== "rerun_required" ? base : null, status: cell.value === null ? "Unavailable" : "Available" };
+  const cell = analyticalCell(result, row, columnId), base = analyticalBase(result, row, columnId);
+  const value = base !== null ? cell.value : null;
+  return { value, base: cell.status !== "rerun_required" ? base : null, status: value === null ? "Unavailable" : "Available" };
 }

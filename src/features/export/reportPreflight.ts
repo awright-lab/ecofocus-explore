@@ -1,10 +1,11 @@
+import { planPptxLayers } from "./pptxLayerPlan";
 import type { DashboardDraft } from "../../../shared/types/dashboard";
 import { narrativeState } from "../narratives/narrativeEvidence";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { assertExportResultsCurrent } from "./exportIntegrity";
-import { buildPageVisualSvg } from "./pageVisualExport";
+import { inspectPageVisualSvg } from "./pageVisualExport";
 
-export interface PreflightIssue { check: "Page boundary" | "Layout overlap" | "Analysis" | "Image" | "PDF layout" | "Narrative evidence"; message: string; objectId?: string }
+export interface PreflightIssue { check: "Page boundary" | "Layout overlap" | "Analysis" | "Image" | "PDF layout" | "Narrative evidence" | "PowerPoint layers"; message: string; objectId?: string }
 export function buildReportPreflight(dashboard: DashboardDraft) {
   return [...dashboard.pages].sort((a, b) => a.order - b.order).map(page => {
     const issues: PreflightIssue[] = [];
@@ -36,9 +37,10 @@ export function buildReportPreflight(dashboard: DashboardDraft) {
       issues.push({ check: "Image", objectId: element.id, message: `"${element.name}" has no image content.` });
     }
     if (page.backgroundMode === "image" && (typeof page.backgroundImage !== "string" || !page.backgroundImage.trim())) issues.push({ check: "Image", message: "The page background image is missing." });
-    let pdfSvg: string | null = null;
-    try { pdfSvg = buildPageVisualSvg(page); }
-    catch (error) { issues.push({ check: "PDF layout", message: error instanceof Error && !(error instanceof TypeError) ? error.message : "This page could not be reconstructed for PDF. Review its objects and analysis results." }); }
+    const powerpoint = planPptxLayers(page);
+    if (powerpoint.mode === "complete_visual") issues.push({check: "PowerPoint layers", objectId: powerpoint.objectId, message: powerpoint.reason});
+    const visual=inspectPageVisualSvg(page),pdfSvg=visual.svg;
+    for(const failure of visual.failures)issues.push({check:"PDF layout",objectId:failure.objectId,message:failure.objectName?`"${failure.objectName}": ${failure.message}`:failure.message});
     return { pageId: page.id, title: page.title, issues, pdfSvg };
   });
 }

@@ -145,10 +145,22 @@ function pageBackgroundSvg(page: DashboardPage) {
   return `${defs}<rect width="${canvasWidth}" height="${canvasHeight}" fill="${escapeXml(baseFill)}"/>${backgroundImage}`;
 }
 
-export function buildPageVisualSvg(
+export interface PageVisualFailure { objectId?: string; objectName?: string; message: string }
+
+function pageVisualSvg(
   page: DashboardPage,
   options: PageVisualRenderOptions = {},
+  onFailure?: (failure: PageVisualFailure) => void,
 ) {
+  function render<T>(object: DashboardCanvasElement | DashboardTile | undefined, draw: () => T): T | null {
+    try { return draw(); }
+    catch (error) {
+      if (!onFailure) throw error;
+      const objectName=object&&"title"in object?object.title||object.name:object?.name;
+      onFailure({ objectId:object?.id, objectName, message: error instanceof Error && !(error instanceof TypeError) ? error.message : "This object could not be reconstructed for PDF. Review its properties and recorded analysis." });
+      return null;
+    }
+  }
   const objects = [
     ...page.elements
       .filter(
@@ -156,20 +168,30 @@ export function buildPageVisualSvg(
           !element.hidden &&
           (options.includeElement ? options.includeElement(element) : true),
       )
-      .map((element) => ({
-        z: element.layout.zIndex,
-        svg: elementSvg(element),
-      })),
+      .map((element) => render(element,()=>({z:element.layout.zIndex,svg:elementSvg(element)}))),
     ...page.tiles
       .filter(
         (tile) =>
           !tile.hidden &&
           (options.includeTile ? options.includeTile(tile) : true),
       )
-      .map((tile) => ({ z: tile.layout.zIndex, svg: analysisTileSvg(tile, options.includeTileBody ? options.includeTileBody(tile) : true) })),
-  ].sort((a, b) => a.z - b.z);
+      .map((tile) => render(tile,()=>({z:tile.layout.zIndex,svg:analysisTileSvg(tile,options.includeTileBody?options.includeTileBody(tile):true)}))),
+  ].filter((object): object is {z:number;svg:string}=>object!==null).sort((a, b) => a.z - b.z);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">${pageBackgroundSvg(page)}${objects.map((object) => object.svg).join("")}</svg>`;
+  const background=render(undefined,()=>pageBackgroundSvg(page));
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">${background??''}${objects.map((object) => object.svg).join("")}</svg>`;
+}
+
+export function buildPageVisualSvg(page: DashboardPage, options: PageVisualRenderOptions = {}) {
+  return pageVisualSvg(page,options);
+}
+
+/** Read-only diagnostic pass using the actual renderers once per object. A page
+ * with any rendering failure never exposes its partial drawing as a preview. */
+export function inspectPageVisualSvg(page: DashboardPage): { svg: string | null; failures: PageVisualFailure[] } {
+  const failures: PageVisualFailure[]=[];
+  try { const svg=pageVisualSvg(page,{},failure=>failures.push(failure));return {svg:failures.length?null:svg,failures}; }
+  catch (error) { failures.push({message:error instanceof Error&&!(error instanceof TypeError)?error.message:"This page could not be reconstructed for PDF. Review its objects and analysis results."});return {svg:null,failures}; }
 }
 
 export async function renderPageVisualImages(

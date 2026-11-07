@@ -221,6 +221,16 @@ describe("workspace save recovery UI", () => {
     return JSON.parse(host.querySelector('[data-testid="canvas-state"]')!.textContent!);
   }
 
+  // Canvas editing setup must leave the protected Studio rail first.
+  async function canvasKey(shortcut: KeyboardEventInit) {
+    await act(async () => {
+      const previous = document.body.getAttribute("tabindex"); document.body.tabIndex = -1; document.body.focus();
+      expect(document.activeElement).toBe(document.body);
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...shortcut }));
+      if (previous === null) document.body.removeAttribute("tabindex"); else document.body.setAttribute("tabindex", previous);
+    });
+  }
+
   async function selectedEditorWithHistory() {
     writeFailure.mockRestore();
     await editor();
@@ -230,12 +240,12 @@ describe("workspace save recovery UI", () => {
     // Leave both undo and redo available, so suppression tests cannot pass merely
     // because the editor has no history to act on.
     const tileCount = canvasState().tiles.length;
-    await act(async () => trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "d", ctrlKey: true, bubbles: true })));
+    await canvasKey({ key: "d", ctrlKey: true });
     expect(canvasState().tiles).toHaveLength(tileCount + 1);
     const duplicatedX = canvasState().tiles.at(-1)!.layout.x;
-    await act(async () => trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    await canvasKey({ key: "ArrowRight" });
     expect(canvasState().tiles.at(-1)!.layout.x).toBeGreaterThan(duplicatedX);
-    await act(async () => trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true })));
+    await canvasKey({ key: "z", ctrlKey: true });
     expect(canvasState().tiles.at(-1)!.layout.x).toBe(duplicatedX);
     trigger.focus();
     return trigger;
@@ -243,7 +253,7 @@ describe("workspace save recovery UI", () => {
 
   it("reverses one editor duplication with one Undo and restores it with one Redo under StrictMode",async()=>{
     writeFailure.mockRestore();await editor();await act(async()=>button("Select first test tile").click());const before=canvasState().tiles.length;
-    await act(async()=>button("Create analysis").dispatchEvent(new KeyboardEvent("keydown",{key:"d",ctrlKey:true,bubbles:true})));
+    await canvasKey({key:"d",ctrlKey:true});
     expect(canvasState().tiles).toHaveLength(before+1);expect(button("Undo").disabled).toBe(false);
     await act(async()=>button("Undo").click());expect(canvasState().tiles).toHaveLength(before);expect(button("Undo").disabled).toBe(true);expect(button("Redo").disabled).toBe(false);
     await act(async()=>button("Redo").click());expect(canvasState().tiles).toHaveLength(before+1);expect(button("Redo").disabled).toBe(true);
@@ -313,7 +323,7 @@ describe("workspace save recovery UI", () => {
     expect(document.activeElement).toBe(trigger);
     expect(Boolean(host.querySelector<HTMLElement>(".builder-header")?.inert)).toBe(false);
     async function shortcut(key: string, modifiers: KeyboardEventInit = {}) {
-      await act(async () => trigger.dispatchEvent(new KeyboardEvent("keydown", { key, ...modifiers, bubbles: true, cancelable: true })));
+      await canvasKey({ key, ...modifiers });
     }
     await shortcut("d", { ctrlKey: true });
     expect(canvasState().tiles).toHaveLength(before.tiles.length + 1);
@@ -336,7 +346,7 @@ describe("workspace save recovery UI", () => {
     await act(async () => button(label).click());
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
-    await act(async () => trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true, cancelable: true })));
+    await canvasKey({ key: "Backspace" });
     expect(canvasState().tiles).toHaveLength(before.tiles.length - 1);
   });
 
@@ -822,7 +832,7 @@ describe("workspace save recovery UI", () => {
     expect(saveDashboardWorkspace(baseline)).toBe(true); await editor();
     await act(async () => button("Select first test tile").click());
     const picker = Array.from(host.querySelectorAll("label")).find(label=>label.firstChild?.textContent?.trim()==="Chart type")!.querySelector("select")!;
-    expect(Array.from(picker.options).map(option=>option.value)).toEqual(breakout ? ["table","grouped_bar","stacked_bar","line_chart"] : ["table","vertical_bar","horizontal_bar"]);
+    expect(Array.from(picker.options).map(option=>option.value)).toEqual(breakout ? ["table","grouped_bar","stacked_bar","line_chart","heatmap","dot_plot"] : ["table","vertical_bar","horizontal_bar","heatmap","dot_plot"]);
     await act(async()=>{ picker.value = breakout ? "grouped_bar" : "horizontal_bar"; picker.dispatchEvent(new Event("change",{bubbles:true})); });
     expect(canvasState().tiles[0].visualization).toBe(breakout ? "grouped_bar" : "horizontal_bar");
     expect(canvasState().tiles[0].result.table).toEqual(result.table); expect(canvasState().tiles[0].result.series).toEqual(result.series);
@@ -961,9 +971,9 @@ describe("workspace save recovery UI", () => {
 
   it.each(["trigger", "dismiss", "evidence"] as const)("keeps canvas command keys out of focused %s analysis controls", async targetKind => {
     await importedEditorPreview();
-    const outside = button("Create analysis");
-    await act(async () => outside.dispatchEvent(new KeyboardEvent("keydown", { key: "d", ctrlKey: true, bubbles: true, cancelable: true })));
-    await act(async () => outside.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })));
+    // Leave preview controls for intentional canvas editing.
+    await canvasKey({ key: "d", ctrlKey: true });
+    await canvasKey({ key: "ArrowRight" });
     await act(async () => button("Preview proposed edit").click());
     const before = canvasState();
     const target = targetKind === "trigger" ? button("Preview proposed edit") : targetKind === "dismiss" ? button("Dismiss preview") : host.querySelector<HTMLElement>(".result-evidence-panel summary")!;
@@ -973,7 +983,7 @@ describe("workspace save recovery UI", () => {
       expect(canvasState(), `${targetKind} ${shortcut.key}`).toEqual(before);
       expect(event.defaultPrevented).toBe(false);
     }
-    await act(async () => outside.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true })));
+    await canvasKey({ key: "z", ctrlKey: true });
     expect(canvasState()).not.toEqual(before);
   });
   it("keeps the global command palette available from an inline preview", async () => {

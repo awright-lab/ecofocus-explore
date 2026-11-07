@@ -25,6 +25,7 @@ it("builds a reusable ratio/index on a shared response universe and preserves ex
 });
 it("uses full-precision percentages instead of dividing rounded table percentages", async () => {
   const { draft, plan, source } = await formulaFixture(17, 13, true); plan.expression = "A / B";
+  delete source.result.calculationInputs!.percentageValueMode; for (const row of source.result.table) row.values.summary = Math.round(row.values.summary * 10) / 10; for (const series of source.result.series) series.values[0] = Math.round(series.values[0] * 10) / 10;
   expect(source.result.table[0].values.summary).toBe(76.5); const preview = previewCellFormula(draft, plan);
   expect(preview.metadata.formula!.input.a.value).toBe(13 / 17 * 100); expect(preview.response.table[0].values.summary).toBeCloseTo(13 / 4, 14);
   expect(preview.response.table[0].values.summary).not.toBe(76.5 / 23.5);
@@ -51,7 +52,7 @@ it.each(["unequal bases", "zero base", "missing cell", "missing column", "same r
 });
 it("requires current percentage inputs and refuses inconsistent rounded cells", async () => {
   const { source, plan } = await formulaFixture(17, 13, true); const config = { ...plan, formula: { expression: plan.expression, label: plan.label } };
-  source.result.table[0].values.summary = 77; expect(() => makeCellFormulaSpec(source, config)).toThrow("disagree"); source.result.table[0].values.summary = 76.5;
+  const originalValue = source.result.table[0].values.summary; source.result.table[0].values.summary = 77; expect(() => makeCellFormulaSpec(source, config)).toThrow("disagree"); source.result.table[0].values.summary = originalValue;
   source.result.calculationInputs = undefined; expect(() => buildCellFormulaResponse(source, config)).toThrow("full-precision");
 });
 it("protects preview ownership and loaded saved bindings, then permits explicit rebinding", async () => {

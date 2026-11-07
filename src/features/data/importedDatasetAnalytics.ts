@@ -1,10 +1,13 @@
+import { unroundedPercentage, percentageValueMode } from "../../../shared/analytics/percentagePrecision";
 import type { SavedImportedAudience } from "../../../shared/types/audience";
+import type { LocalExecutionCoverage } from "../../../shared/types/localExecution";
 import { compileAudience, audienceSummary } from "../audiences/audienceModel";
-import { importedRawFieldValue } from "./importedRawValue";
+import { importedRawFieldValue, ImportedSourceColumnAmbiguityError } from "./importedRawValue";
 export { importedRawFieldValue } from "./importedRawValue";
 import { FiniteNumericSum } from "./finiteNumericSum";
 import { allRespondentsGroupingId } from "./numericSummaryScope";
 import { parseImportedNumber } from "./importedNumericValue";
+import { importedCategoryCode as importedCategoryKey } from "./importedCategoryCode";
 import { buildSignificanceExecutionPlan, buildSignificanceReadiness } from "../../../shared/analytics/queryPlan";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType, ImportedAnalyticsSourceIdentity, Metric } from "../../../shared/types/analytics";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
@@ -625,11 +628,15 @@ export function getImportedDatasetQuerySupport(
     chartType?: ChartType;
   }
 ): ImportedDatasetQuerySupport {
+  try {
   if (!dataset) return { executable: false, reason: "Choose an imported dataset." };
   if (!field) return { executable: false, reason: "Choose an imported field." };
   if(options?.audience !== undefined) { try { compileAudience(options.audience,dataset); } catch(error) { return { executable:false,reason:error instanceof Error?error.message:"The audience cannot be applied." }; } }
   if (field.id === allRespondentsGroupingId && options?.groupingScope !== "all_respondents") {
-    return { executable: false, reason: "Select an explicit all-respondent numeric summary scope." };
+    const physical = dataset.fields.filter(candidate => candidate.id === field.id);
+    if (!field.sourceColumn || physical.length !== 1 || physical[0].sourceColumn !== field.sourceColumn) {
+      return { executable: false, reason: "Select an explicit all-respondent numeric summary scope." };
+    }
   }
   if (options?.groupingScope === "all_respondents") {
     if (!isMeasureMetric(options.metric) || field.id !== allRespondentsGroupingId) return { executable: false, reason: "All respondents is available only for an explicit numeric sum or average." };
@@ -658,7 +665,7 @@ export function getImportedDatasetQuerySupport(
     if (options.measureField.nonEmptyCount <= 0 && !hasLocalMeasureValues && !hasRemoteRows) {
       return { executable: false, reason: `${importedFieldDisplayLabel(options.measureField) ?? "The selected number"} has no imported values to summarize.` };
     }
-    if (options.measureField.id === field.id || options.measureField.id === options.bannerField?.id || options.measureField.id === options.filter?.field?.id) {
+    if ((options.measureField.id === field.id && options.groupingScope !== "all_respondents") || options.measureField.id === options.bannerField?.id || options.measureField.id === options.filter?.field?.id) {
       return { executable: false, reason: "Choose a different numeric field for the imported measure." };
     }
     if (options.chartType === "donut") {
@@ -666,7 +673,7 @@ export function getImportedDatasetQuerySupport(
     }
   }
   if (options?.bannerField) {
-    if (options.bannerField.id === field.id) {
+    if (options.bannerField.id === field.id && options.groupingScope !== "all_respondents") {
       return { executable: false, reason: "Choose a different field for the imported banner." };
     }
     if (!options.bannerField.eligibleForBanner || !isExecutableDimension(options.bannerField)) {
@@ -713,6 +720,10 @@ export function getImportedDatasetQuerySupport(
   if (options?.bannerField) return { executable: true, reason: "Ready: count responses by one field and one breakout." };
   if (options?.filter?.field) return { executable: true, reason: "Ready: count responses for the selected filter." };
   return { executable: true, reason: "Ready: count responses by this field." };
+  } catch(error) {
+    if(error instanceof ImportedSourceColumnAmbiguityError)return {executable:false,reason:error.message};
+    throw error;
+  }
 }
 
 function slug(value: string, fallback: string) {
@@ -763,15 +774,6 @@ function importedQuery(chartType: ChartType, metric: Metric, sourceIdentity: Imp
 }
 
 type ImportedCategoryKey = string | null;
-
-function importedCategoryKey(field: ImportedDatasetField, rawValue: string | undefined): ImportedCategoryKey {
-  const value = (rawValue ?? "").trim();
-  if (!value) return null;
-  if (Object.hasOwn(field.valueLabels ?? {}, value)) return value;
-  const numeric = Number(value);
-  const numericKey = String(numeric);
-  return Number.isFinite(numeric) && Object.hasOwn(field.valueLabels ?? {}, numericKey) ? numericKey : value;
-}
 
 function declaredCategoryKeys(field: ImportedDatasetField) {
   return Object.keys(field.valueLabels ?? {}).sort((a, b) => {
@@ -834,7 +836,17 @@ export function importedFieldValues(dataset: ImportedDatasetRecord | null | unde
   return importedFieldCategories(dataset, field).map((category) => category.label);
 }
 
-export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, intersectionAudience?: SavedImportedAudience): AnalyticsQueryResponse {
+// Rendering may inspect choices without executing an analysis. Preserve the
+// selected constraint and expose ambiguity, rather than treating it as empty.
+export function importedFieldChoiceResult(dataset: ImportedDatasetRecord | null | undefined, field: ImportedDatasetField | null | undefined): { values: string[]; issue: string | null } {
+  try { return { values: importedFieldValues(dataset, field), issue: null }; }
+  catch(error) {
+    if(error instanceof ImportedSourceColumnAmbiguityError)return {values:[],issue:error.message};
+    throw error;
+  }
+}
+
+export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, intersectionAudience?: SavedImportedAudience, onCoverage?: (coverage:LocalExecutionCoverage)=>void): AnalyticsQueryResponse {
   if(intersectionAudience && config.dataset.remote) throw new Error("Temporary audience intersections require a complete local study.");
   const support = getImportedDatasetQuerySupport(config.dataset, config.field, {
     groupingScope: config.groupingScope,
@@ -855,7 +867,8 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, inte
   const audiencePredicate = config.audience !== undefined ? compileAudience(config.audience,config.dataset) : null;
   // Compile each independently: a valid saved audience retains its entire depth/node budget.
   const intersectionPredicate = intersectionAudience !== undefined ? compileAudience(intersectionAudience,config.dataset) : null;
-  const audienceRows = audiencePredicate || intersectionPredicate ? sourceRows.filter(row=>(!audiencePredicate || audiencePredicate(row)===true) && (!intersectionPredicate || intersectionPredicate(row)===true)) : sourceRows;
+  let audienceExcluded=0,audienceUnknown=0;
+  const audienceRows = audiencePredicate || intersectionPredicate ? sourceRows.filter(row=>{const a=audiencePredicate?audiencePredicate(row):true,b=intersectionPredicate?intersectionPredicate(row):true;if(a===false||b===false){audienceExcluded++;return false;}if(a===null||b===null){audienceUnknown++;return false;}return true;}) : sourceRows;
   const rows = config.filter?.field
     ? audienceRows.filter((row) => filterLabels!.get(importedCategoryKey(config.filter!.field, importedRawFieldValue(row, config.filter!.field))) === config.filter!.value)
     : audienceRows;
@@ -930,9 +943,12 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, inte
         if (metric.id === "average" || metric.id === "sum") {
           const total = cell.sum.value();
           if (total === null) throw new Error("This numeric summary exceeds the supported number range. Rescale the source values before summarizing; no result was created.");
-          return metric.id === "sum" ? total : cell.count > 0 ? total / cell.count : 0;
+          if (metric.id === "sum") return total;
+          const average = cell.count > 0 ? total / cell.count : 0;
+          if (cell.count > 0 && total !== 0 && average === 0) throw new Error("This average is below the supported numeric range. Rescale the source values before summarizing; no result was created.");
+          return average;
         }
-        return metric.id === "count" ? cell.count : base > 0 ? Math.round((cell.count / base) * 1000) / 10 : 0;
+        return metric.id === "count" ? cell.count : base > 0 ? unroundedPercentage(cell.count, base) : 0;
       }),
       bases: bannerCategories.map(({ key }) => isMeasureMetric(config.metric) ? rowCounts.get(key)?.count ?? 0 : columnBases.get(key) ?? 0)
     };
@@ -950,6 +966,7 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, inte
   }));
   const calculationInputs = metric.id === "percent_selected" || metric.id === "average" ? {
     version: 1 as const, method: "local_unweighted_v1" as const,
+    ...(metric.id === "percent_selected" ? { percentageValueMode } : {}),
     query: JSON.parse(JSON.stringify(query)) as AnalyticsQueryRequest,
     columns: Object.fromEntries(columns.map(column => [column.id, column.label])),
     rows: Object.fromEntries(table.map((row, rowIndex) => [row.optionId, {
@@ -967,6 +984,8 @@ export function runImportedDatasetQuery(config: ImportedDatasetQueryConfig, inte
     waveComparison: false,
     statisticalEngine: false
   });
+
+  onCoverage?.({sourceRows:sourceRows.length,audienceExcluded,audienceUnknown,filterExcluded:audienceRows.length-rows.length,missingGrouping:skippedBlankPrimaryResponses,invalidNumeric:skippedInvalidMeasures,includedRows:rows.length-skippedBlankPrimaryResponses-skippedInvalidMeasures});
 
   return {
     ...(calculationInputs ? { calculationInputs } : {}),

@@ -1,4 +1,6 @@
+import { percentagePrecisionIssue } from "../../../shared/analytics/recordedCalculation";
 import { audienceDefinitionIssue } from "../audiences/audienceModel";
+import { ownAxisLabel } from "../design-system/axisLabels";
 import { formulaCacheIssue, formulaSourceIssue } from "../metrics/cellFormulaModel";
 import { narrativeState } from "../narratives/narrativeEvidence";
 import { canvasWidth,canvasHeight } from "../builder/builderConstants";
@@ -18,6 +20,8 @@ export function assertExportResultsCurrent(pages: DashboardPage[], sourcePages: 
     if(element.evidence!==undefined){const {x,y,width,height}=element.layout;if(![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>canvasWidth||y+height>canvasHeight)throw new Error(`Keep the complete linked text object "${element.name}" inside the page before exporting; its claim and citations must not be clipped.`);}
   }
   for (const page of pages) for (const tile of page.tiles.filter(tile => !tile.hidden)) {
+    const precisionIssue = percentagePrecisionIssue(tile.result);
+    if (precisionIssue) throw Error(precisionIssue);
     const formulaIssue = formulaCacheIssue(tile);
     if (formulaIssue) throw Error(`Review calculated metric "${tile.title || tile.name}" before exporting: ${formulaIssue}`);
     if (tile.derivedOutput?.kind === "cell_formula") {
@@ -63,7 +67,7 @@ export function analysisContextRows(tile: DashboardTile): Array<[string, string]
     }).join(" and ") : "No filter")],
     ["Weighting", resultWeightingLabel(result)],
     ["Base scope", `${imported?.baseLabel ?? sampleSizeLabel(result)}${result.weighting.applied || result.query.weight ? "; respondent sample size is unavailable" : ""}`],
-    ["Column labels (JSON)", JSON.stringify(result.columns.map(column => ({ id: column.id, sourceLabel: column.label, displayLabel: tile.appearance.axisLabelOverrides[column.id] ?? column.label })))],
+    ["Column labels (JSON)", JSON.stringify(result.columns.map(column => ({ id: column.id, sourceLabel: column.label, displayLabel: ownAxisLabel(tile.appearance,column.id) ?? column.label })))],
     ["Inference", resultInferenceLabel(result)],
     ["Result warnings", result.warnings.join("\n")],
     ["Executed query (JSON)", JSON.stringify(result.query)]

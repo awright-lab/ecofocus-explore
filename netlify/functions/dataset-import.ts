@@ -391,6 +391,10 @@ async function buildDatasetForUpload(request: DatasetImportRequest, fileBuffer: 
       )
     : { dataset: request.dataset };
 
+  // Recognized case or dictionary integrity failures must not be accepted by
+  // a fallback parser or replaced with supplied browser metadata.
+  if (parseResult.errorCode === "sav_case_integrity") throw new Error(parseResult.error);
+
   if (fileType === "sav" && (!parseResult.dataset || parseResult.dataset.rowCount === 0)) {
     try {
       const fallbackDataset = await parseSavWithSavReader(fileBuffer, request.fileName);

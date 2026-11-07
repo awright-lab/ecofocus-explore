@@ -140,7 +140,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const modeledVariables = activeImportedDataset?.fields ?? [];
   const usesRemoteFieldPaging = activeImportedDataset?.remote?.provider === "netlify";
   const variableSearchTerm = sourceSearch.trim().toLowerCase();
-  const { pages: remoteFieldPages, total: remoteFieldTotal, error: remoteFieldError, load: loadRemoteFields, retry: retryRemoteFields } = useImportedFieldPages(usesRemoteFieldPaging ? activeImportedDataset!.id : null, variableSearchTerm, REMOTE_FIELD_PAGE_SIZE);
+  const { pages: remoteFieldPages, total: remoteFieldTotal, catalogInvalid: remoteCatalogInvalid, error: remoteFieldError, load: loadRemoteFields, retry: retryRemoteFields } = useImportedFieldPages(usesRemoteFieldPaging ? activeImportedDataset!.id : null, variableSearchTerm, REMOTE_FIELD_PAGE_SIZE);
   const remoteLoadedFields = useMemo(() => Object.values(remoteFieldPages).flat(), [remoteFieldPages]);
   const matchesLocalResearch = useMemo(() => researchSearchMatcher(sourceSearch), [sourceSearch]);
   const filteredModeledVariables = useMemo(() => {
@@ -187,8 +187,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       return field ? { type: "field", id: field.id, field } : { type: "loading", id: `loading:${index}`, index };
     }) : variableTreeEntries.slice(variableTreeStartIndex, variableTreeEndIndex);
   const importedStructureSummary = useMemo(() => buildImportedDatasetStructureSummary(activeImportedDataset), [activeImportedDataset]);
+  const currentImportedFields = usesRemoteFieldPaging ? remoteLoadedFields : modeledVariables;
   const activeImportedField =
-    [...remoteLoadedFields, ...modeledVariables].find((field) => field.id === selectedImportedFieldId) ?? remoteLoadedFields[0] ?? modeledVariables[0] ?? null;
+    remoteCatalogInvalid ? null : (currentImportedFields.find((field) => field.id === selectedImportedFieldId) ?? currentImportedFields[0] ?? null);
   const activeImportedFieldSuitability = useMemo(
     () => activeImportedField ? buildImportedFieldSuitability(activeImportedField) : null,
     [activeImportedField]

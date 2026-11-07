@@ -1,3 +1,5 @@
+import { ImportedSourceColumnAmbiguityError } from "./importedRawValue";
+import { exactFiniteMean, type ExactMean } from "./exactFiniteMean";
 import { FiniteNumericSum } from "./finiteNumericSum";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
 import { importedRawFieldValue } from "./importedDatasetAnalytics";
@@ -43,22 +45,23 @@ export type ImportedNumericProfile =
 export function buildImportedNumericProfile(dataset: ImportedDatasetRecord, field: ImportedDatasetField): ImportedNumericProfile {
   const rows = dataset.rows.length ? dataset.rows : dataset.previewRows;
   if (rows.length < dataset.rowCount) return { status: "unavailable", reason: "Complete respondent rows are unavailable in this browser. A partial preview cannot establish this field's study-wide statistics." };
-  return buildNumericProfileFromValues(rows.map(row => importedRawFieldValue(row, field)));
+  try { return buildNumericProfileFromValues(rows.map(row => importedRawFieldValue(row, field))); }
+  catch(error) {
+    if(error instanceof ImportedSourceColumnAmbiguityError)return {status:"unavailable",reason:error.message};
+    throw error;
+  }
 }
 
 // Shared by the small synchronous path and the isolated browser worker.
 export function buildNumericProfileFromValues(rawValues: readonly string[]): ImportedNumericProfile {
   const values: number[] = [];
-  let blank = 0, invalid = 0, mean = 0;
+  let blank = 0, invalid = 0;
   const accumulator = new FiniteNumericSum();
   for (const raw of rawValues) {
     if (!raw.trim()) { blank += 1; continue; }
     const value = parseImportedNumber(raw);
     if (value === null || !Number.isFinite(value)) { invalid += 1; continue; }
     values.push(value);
-    const difference = value - mean;
-    mean = Number.isFinite(difference) ? mean + difference / values.length
-      : mean * ((values.length - 1) / values.length) + value / values.length;
     accumulator.add(value);
   }
   values.sort((a, b) => a - b);
@@ -66,15 +69,28 @@ export function buildNumericProfileFromValues(rawValues: readonly string[]): Imp
   const total = accumulator.value();
   const middle = Math.floor(valid / 2);
   const middleSum = valid && valid % 2 === 0 ? values[middle - 1] + values[middle] : 0;
-  const median = valid ? valid % 2 ? values[middle] : Number.isFinite(middleSum) ? middleSum / 2 : values[middle - 1] / 2 + values[middle] / 2 : null;
-  // Prefer a finite total for subnormal precision; keep the online estimate when
-  // an intermediate total overflowed but the mean itself remains representable.
-  if (valid && total !== null) mean = total / valid;
+  let median = valid ? valid % 2 ? values[middle] : Number.isFinite(middleSum) ? middleSum / 2 : values[middle - 1] / 2 + values[middle] / 2 : null;
+  // Avoid approximate online cancellation after total overflow. Keep the cheap
+  // exact cases, then recover only a bounded exact binary64-input mean.
+  let mean: number | null = valid && total !== null ? total / valid : null;
+  let recovered: ExactMean | undefined;
+  if (valid && total === null) {
+    if (values[0] === values[valid - 1]) mean = values[0];
+    else if (values.every((value, index) => value === -values[valid - 1 - index])) mean = 0;
+    else { recovered = exactFiniteMean(values); mean = recovered.value; }
+  }
+  const meanUnderflow = valid > 0 && total !== null && total !== 0 && mean === 0 || recovered?.reason === "underflow";
+  const unverifiedOverflowMean = valid > 0 && total === null && mean === null && !meanUnderflow;
+  const medianUnderflow = valid > 0 && valid % 2 === 0 && Number.isFinite(middleSum) && middleSum !== 0 && median === 0;
+  if (medianUnderflow) median = null;
   const warnings: string[] = [];
   if (valid && total === null) warnings.push("The total could not be represented safely and is unavailable.");
-  if (valid && !Number.isFinite(mean)) warnings.push("The mean exceeds the supported numeric range and is unavailable.");
+  if (mean !== null && !Number.isFinite(mean)) warnings.push("The mean exceeds the supported numeric range and is unavailable.");
+  if (meanUnderflow) warnings.push("The nonzero mean is below the supported numeric range and is unavailable.");
+  if (unverifiedOverflowMean) warnings.push("The mean cannot be verified after total overflow and is unavailable. Rescale the source values before interpreting this mean.");
+  if (medianUnderflow) warnings.push("The nonzero midpoint median is below the supported numeric range and is unavailable.");
   return { status: "ready", rows: rawValues.length, valid, blank, invalid, distinct: new Set(values).size,
     minimum: valid ? values[0] : null, maximum: valid ? values[valid - 1] : null,
-    mean: valid && Number.isFinite(mean) ? mean : null, median,
+    mean: mean !== null && Number.isFinite(mean) && !meanUnderflow ? mean : null, median,
     total: valid && total !== null ? total : null, distribution: numericDistribution(values), warnings };
 }

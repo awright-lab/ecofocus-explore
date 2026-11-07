@@ -1,0 +1,6 @@
+.proportion-uncertainty{border:1px solid #cbded2;border-radius:12px;padding:16px;margin:20px 0;background:#f8faf8}
+.proportion-uncertainty>ul{list-style:none;padding:0;display:grid;gap:14px}
+.proportion-uncertainty>ul>li{border:1px solid #d7e3da;background:white;border-radius:8px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,1fr);align-items:center;gap:18px;overflow-wrap:anywhere}
+.proportion-uncertainty h4{margin:0;font-size:16px}
+.proportion-interval-plot{width:100%;height:auto;display:block;min-width:0}
+@media(max-width:800px){.proportion-uncertainty>ul>li{grid-template-columns:minmax(0,1fr);gap:6px}.proportion-uncertainty{padding:12px}}

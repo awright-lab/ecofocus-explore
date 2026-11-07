@@ -1,3 +1,6 @@
+import { useClosingPanelFocus } from "./hooks/useClosingPanelFocus";
+import { resolveExportIssueTarget, type ExportIssueTarget } from "../export/exportIssueTarget";
+import { useReportInsightQueue } from "../significance-review/useReportInsightQueue";
 import { buildJourneyPages,type JourneyDraft } from "../journey/questionJourneyModel";
 import { deferredWorkspaceHistory } from "../document/deferredWorkspaceHistory";
 import { findingFollowUps } from "../analytics/findingFollowUps";
@@ -182,10 +185,19 @@ const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
 const LinearModelExplorer = lazy(() => import("../models/LinearModelExplorer"));
 const MultiResponseExplorer = lazy(() => import("../multi-response/MultiResponseExplorer"));
 const DataPreparation = lazy(() => import("../data-preparation/DataPreparation"));
+const WaveReview = lazy(() => import("../wave-review/WaveReview"));
+const ResponseCoding = lazy(() => import("../response-coding/ResponseCoding"));
+const ComparisonReview = lazy(() => import("../significance-review/ComparisonReview"));
+const ReportInsights = lazy(() => import("../significance-review/ReportInsights"));
+const AudienceDiscovery = lazy(() => import("../audience-discovery/AudienceDiscovery"));
+const VersionedResultReview = lazy(() => import("../analytics/VersionedResultReview"));
 const CalculatedMetricBuilder = lazy(() => import("../metrics/CalculatedMetricBuilder"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
 export default function BuilderApp() {
+  const closingPanelFocus = useClosingPanelFocus();
+  const inspectorCloseRef = useRef<HTMLButtonElement>(null);
+  const [exportIssueFocus, setExportIssueFocus] = useState<{ target: ExportIssueTarget; trigger: Element | null; canMoveFocus: () => boolean } | null>(null);
   const designModalRef = useRef<HTMLDivElement | null>(null);
   const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
   const workspaceRef = useRef(workspace);
@@ -301,6 +313,12 @@ export default function BuilderApp() {
   const [linearModelOpen,setLinearModelOpen] = useState(false);
   const [multiResponseOpen,setMultiResponseOpen] = useState(false);
   const [dataPreparationOpen,setDataPreparationOpen] = useState(false);
+  const [waveReviewOpen,setWaveReviewOpen] = useState(false);
+  const [responseCodingOpen,setResponseCodingOpen] = useState(false);
+  const [comparisonReviewOpen,setComparisonReviewOpen] = useState(false);
+  const [reportInsightsOpen,setReportInsightsOpen] = useState(false);
+  const [audienceDiscoveryOpen,setAudienceDiscoveryOpen] = useState(false);
+  const [versionedResultOpen,setVersionedResultOpen] = useState(false);
   const [calculatedMetricOpen,setCalculatedMetricOpen] = useState(false);
   const [questionJourneyOpen,setQuestionJourneyOpen]=useState(false);
   const questionDrafts=useRef(new Map<string,JourneyDraft>());
@@ -395,6 +413,7 @@ export default function BuilderApp() {
         new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime(),
     );
   }, [dashboard.importedDatasets, workspace.importedDatasets]);
+  const reportInsightQueue = useReportInsightQueue({draft:dashboard,studies:workspaceImportedDatasets});
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -467,9 +486,9 @@ export default function BuilderApp() {
   const chartStyleTargets = useMemo(
     () =>
       selectedTile &&
-      ["vertical_bar", "horizontal_bar", "donut"].includes(
+      (["vertical_bar", "horizontal_bar", "donut"].includes(
         selectedTile.visualization,
-      )
+      ) || (selectedTile.visualization === "dot_plot" && selectedTile.result.columns.length === 1))
         ? selectedTile.result.table.map((row) => ({
             id: row.optionId,
             label: row.label,
@@ -1389,6 +1408,28 @@ export default function BuilderApp() {
     setSettingsView("layout");
     setInspectorPinned(true);
   }, [setSettingsView, setInspectorSurface]);
+  function showExportIssue(target: ExportIssueTarget, canMoveFocus: () => boolean) {
+    const resolved = resolveExportIssueTarget(dashboard, target);
+    if (!resolved || publishedSnapshot) return false;
+    setActivePageId(resolved.pageId);
+    if (resolved.kind === "tile") selectTile(resolved.objectId!);
+    else if (resolved.kind === "element") selectElement(resolved.objectId!);
+    else selectPage();
+    setActiveProductMode("story");
+    setLeftOpen(false);
+    setInspectorPinned(true);
+    setHiddenInspectorSelection(null);
+    setInspectorSurfaces(current => ({ ...current, [resolved.kind === "tile" ? "tile" : resolved.kind === "element" ? "element" : "page"]: "style" }));
+    setExportIssueFocus({ target, canMoveFocus, trigger: document.querySelector("[data-export-review-trigger]") });
+    return true;
+  }
+  useEffect(() => {
+    if (!exportIssueFocus) return;
+    setExportIssueFocus(null);
+    // Modal cleanup restores the review trigger first. Do not override a newer focus choice.
+    const resolved = resolveExportIssueTarget(dashboard, exportIssueFocus.target);
+    if (resolved && exportIssueFocus.canMoveFocus() && resolved.pageId === activePageId && document.activeElement === exportIssueFocus.trigger && inspectorCloseRef.current?.isConnected) inspectorCloseRef.current.focus();
+  }, [exportIssueFocus, dashboard, activePageId]);
   const openDataQueryPanel = useCallback(
     () => openGuidedDataQuery({ outputMode: "table" }),
     [],
@@ -1679,6 +1720,12 @@ export default function BuilderApp() {
     {id:"linear-model",label:"Explore numeric relationships",group:"Analyze",icon:Database,run:()=>setLinearModelOpen(true)},
     {id:"multiple-response",label:"Analyze multiple-response overlaps",group:"Analyze",icon:Database,run:()=>setMultiResponseOpen(true)},
     {id:"data-preparation",label:"Clean and recode a study copy",group:"Analyze",icon:Database,run:()=>setDataPreparationOpen(true)},
+    {id:"wave-review",label:"Check a comparison across years",group:"Analyze",icon:Database,run:()=>setWaveReviewOpen(true)},
+    {id:"response-coding",label:"Code open-ended responses",group:"Analyze",icon:Database,run:()=>setResponseCodingOpen(true)},
+    {id:"comparison-review",label:"Review event-rate significance",group:"Analyze",icon:Database,run:()=>setComparisonReviewOpen(true)},
+    {id:"report-insights",label:"Explore reviewed report insights",group:"Analyze",icon:Database,run:()=>setReportInsightsOpen(true)},
+    {id:"audience-discovery",label:"Discover audience segments",group:"Analyze",icon:Database,run:()=>setAudienceDiscoveryOpen(true)},
+    {id:"versioned-result",label:"Explain a number from source",group:"Analyze",icon:Database,run:()=>setVersionedResultOpen(true)},
     {id:"calculated-metrics",label:"Build a calculated metric",group:"Analyze",icon:Database,run:()=>setCalculatedMetricOpen(true)},
     {id:"guided-story",label:"Build an evidence-linked story",group:"Create",icon:Presentation,run:()=>setStoryBuilderOpen(true)},
     {
@@ -1805,6 +1852,8 @@ export default function BuilderApp() {
         canRedo={future.length > 0}
         onUndo={undo}
         onRedo={redo}
+        activePageId={activePageId}
+        onShowExportIssue={showExportIssue}
         onExport={exportDashboardSpec}
         onOpenPublished={openPublishedReport}
         onPublish={publishDashboard}
@@ -1852,12 +1901,12 @@ export default function BuilderApp() {
           onToggleInspector={toggleInspector}
           onFit={() => setFitRequest((value) => value + 1)}
         />
-        <div className="studio-library-slot" hidden={!leftOpen}>
+        <div className="studio-library-slot" data-canvas-keyboard-scope="controls" hidden={!leftOpen} onBlurCapture={event => closingPanelFocus.forget(event.target)}>
           <button
             type="button"
             className="studio-panel-close"
             aria-label="Close tool panel"
-            onClick={() => { setLeftOpen(false); setActiveProductMode("story"); }}
+            onClick={event => { closingPanelFocus.capture(event.currentTarget, event.currentTarget.closest(".builder-workspace")?.querySelector<HTMLButtonElement>(`.studio-rail [data-tool="${leftPanelView}"]`) ?? null); setLeftOpen(false); setActiveProductMode("story"); }}
           >
             <X size={17} />
           </button>
@@ -2070,12 +2119,13 @@ export default function BuilderApp() {
           renderElement={renderCanvasElement}
         />
 
-        <div className="studio-inspector-slot" hidden={!inspectorOpen}>
+        <div className="studio-inspector-slot" data-canvas-keyboard-scope="controls" hidden={!inspectorOpen} onBlurCapture={event => closingPanelFocus.forget(event.target)}>
           <button
             type="button"
             className="studio-panel-close"
+            ref={inspectorCloseRef}
             aria-label="Close properties"
-            onClick={toggleInspector}
+            onClick={event => { closingPanelFocus.capture(event.currentTarget, event.currentTarget.closest(".builder-workspace")?.querySelector<HTMLButtonElement>('[aria-label="Toggle properties"]') ?? null); toggleInspector(); }}
           >
             <X size={17} />
           </button>
@@ -2239,6 +2289,12 @@ export default function BuilderApp() {
       {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
       {linearModelOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading numeric relationships...</div>}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></Suspense>}
       {multiResponseOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response overlaps...</div>}><MultiResponseExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setMultiResponseOpen(false)}/></Suspense>}
+      {waveReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading year comparison...</div>}><WaveReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setWaveReviewOpen(false)}/></Suspense>}
+      {responseCodingOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response coding...</div>}><ResponseCoding key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={setDashboard} onClose={()=>setResponseCodingOpen(false)}/></Suspense>}
+      {reportInsightsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading report insights...</div>}><ReportInsights key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} entries={reportInsightQueue.entries} onRemove={reportInsightQueue.remove} onClear={reportInsightQueue.clear} onClose={()=>setReportInsightsOpen(false)} onReviewAnother={()=>{setReportInsightsOpen(false);setComparisonReviewOpen(true);}}/></Suspense>}
+      {comparisonReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading exact group review...</div>}><ComparisonReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onQueueReview={reportInsightQueue.addReviewed} onOpenReportInsights={()=>{setComparisonReviewOpen(false);setReportInsightsOpen(true);}} onClose={()=>setComparisonReviewOpen(false)}/></Suspense>}
+      {audienceDiscoveryOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading audience discovery...</div>}><AudienceDiscovery key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={update=>setDashboard(update)} onClose={()=>setAudienceDiscoveryOpen(false)}/></Suspense>}
+      {versionedResultOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading source evidence...</div>}><VersionedResultReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialTileId={selectedTile?.id} onChange={setDashboard} onClose={()=>setVersionedResultOpen(false)}/></Suspense>}
       {dataPreparationOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading data preparation...</div>}><DataPreparation key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setDataPreparationOpen(false)} onSave={async(preview,signal)=>{
         const snapshot=workspaceRef.current, editVersion=getDocumentEditVersion(), route=window.location.hash;
         const currentWorkspace=upsertDraftReport(snapshot,dashboard,activeReportId);

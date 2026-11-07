@@ -1,8 +1,9 @@
 import { useEffect, useRef, type RefObject } from "react";
 
-export function useModalAccessibility(ref: RefObject<HTMLElement | null>, onClose: () => void) {
+export function useModalAccessibility(ref: RefObject<HTMLElement | null>, onClose: () => void, shouldRestoreFocus?: () => boolean) {
   const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  const shouldRestoreFocusRef = useRef(shouldRestoreFocus);
+  useEffect(() => { onCloseRef.current = onClose; shouldRestoreFocusRef.current = shouldRestoreFocus; }, [onClose, shouldRestoreFocus]);
   useEffect(() => {
     const modal = ref.current;
     if (!modal) return;
@@ -47,7 +48,7 @@ export function useModalAccessibility(ref: RefObject<HTMLElement | null>, onClos
       document.removeEventListener("keydown", onKeyDown, true);
       siblings.forEach(({ element, inert }) => { element.inert = inert; });
       document.body.style.overflow = overflow;
-      if (previous?.isConnected) previous.focus();
+      if (previous?.isConnected && shouldRestoreFocusRef.current?.() !== false) previous.focus();
     };
   }, [ref]);
 }

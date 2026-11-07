@@ -14,7 +14,7 @@ describe("result-grounded view advice", () => {
     const before = structuredClone(result), advice = analysisViewRecommendations(result);
     expect(advice.map(item => item.chartType)).toEqual(["vertical_bar", "table"]);
     expect(advice[0].rationale).toContain("2 answers"); expect(result).toEqual(before);
-    expect(result.table.map(row => row.values.summary)).toEqual([66.7, 33.3]);
+    expect(result.table.map(row => row.values.summary)).toEqual([200/3, 100/3]);
   });
   it("uses actual label length rather than field names to suggest readable horizontal bars", async () => {
     const dataset = await data("Choice\nThis answer contains a long but useful research statement\nShort\n");

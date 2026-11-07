@@ -19,6 +19,25 @@ afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreA
 function select(label:string) {const node=Array.from(host.querySelectorAll('label')).find(node=>node.textContent!.trim().startsWith(label))?.querySelector('select');expect(node,label).toBeTruthy();return node!;}
 function button(text:string){const node=Array.from(host.querySelectorAll('button')).find(node=>node.textContent!.trim()===text||node.querySelector('strong')?.textContent===text);expect(node,text).toBeTruthy();return node!;}
 async function change(label:string,value:string){const node=select(label);await act(async()=>{node.value=value;node.dispatchEvent(new Event('change',{bubbles:true}));});}
+it('separates a real grouping ID from the overall-summary DOM choice',async()=>{
+ const dataset=await csv('Answer,Spend\nNorth,10\nSouth,20\nNorth,30\n');dataset.fields[0].id='__ecofocus_all_respondents__';const original=structuredClone(dataset),create=vi.fn(async(..._args:Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>)=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ const group=select('Group responses by'),summary=Array.from(group.options).find(option=>option.textContent==='All respondents (numeric summary)')!;
+ expect(summary.value).not.toBe(dataset.fields[0].id);expect(group.selectedOptions[0].textContent).toContain('Answer');expect(button('Create table').disabled).toBe(false);
+ await act(async()=>button('Create table').click());expect(create).toHaveBeenCalledOnce();expect(create.mock.calls[0][1].id).toBe(dataset.fields[0].id);expect(create.mock.calls[0][4]).not.toHaveProperty('groupingScope','all_respondents');expect(dataset).toEqual(original);
+});
+it('creates an explicit overall mean when the numeric measure ID matches the historical synthetic ID',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n');dataset.fields[0].id='__ecofocus_all_respondents__';const create=vi.fn(async(..._args:Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>)=> 'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));
+ const summary=Array.from(select('Group responses by').options).find(option=>option.textContent==='All respondents (numeric summary)')!;await change('Group responses by',summary.value);
+ expect(button('Create table').disabled).toBe(false);expect(host.textContent).toContain('n=3 valid values');await act(async()=>button('Create table').click());expect(create.mock.calls[0][4]).toMatchObject({groupingScope:'all_respondents',measureField:{id:dataset.fields[0].id}});
+});
+it('keeps a real reserved-ID filter separate from explicitly chosen overall grouping',async()=>{
+ const dataset=await csv('Spend,Region\n10,North\n20,South\n30,North\n');dataset.fields[1].id='__ecofocus_all_respondents__';const before=structuredClone(dataset),create=vi.fn(async(..._args:Parameters<AnalysisAuthoringPanelProps['addTileFromImportedDatasetField']>)=>'tile');
+ await act(async()=>root.render(<GuidedDataQueryModal props={minimumProps([dataset],{addTileFromImportedDatasetField:create})} onClose={()=>{}}/>));const summary=Array.from(select('Group responses by').options).find(option=>option.textContent==='All respondents (numeric summary)')!;
+ await change('Group responses by',summary.value);await change('Limit to',dataset.fields[1].id);await change('Keep responses where','North');expect(button('Create table').disabled).toBe(false);expect(host.textContent).toContain('n=2 valid values');await act(async()=>button('Create table').click());
+ expect(create.mock.calls[0][4]).toMatchObject({groupingScope:'all_respondents',filter:{field:{id:dataset.fields[1].id},value:'North'}});expect(dataset).toEqual(before);
+});
 function minimumProps(datasets:ImportedDatasetRecord[],overrides:Partial<AnalysisAuthoringPanelProps>={}):AnalysisAuthoringPanelProps {
  const noop=()=>{};
  return {
@@ -118,6 +137,22 @@ function inspectorProps(tile:ReturnType<typeof inspectorTile>,datasets:ImportedD
  const noop=()=>{};
  return {selectedTile:tile,selectedTileQuestion:defaultDataset.questions.find(q=>q.id===tile.query.question),savedVariableSets:[],savedBanners:[],savedFilters:[],savedWeights:[],importedDatasets:datasets,updateSelectedTile:update,isLoading:false,recordSavedSettingOriginCue:noop,saveSelectedTileBanner:noop,saveSelectedTileFilter:noop,saveSelectedTileWeight:noop,onViewSavedSettingInLibrary:noop} as unknown as BuilderInspectorProps;
 }
+it('reopens a real historical reserved-ID grouping as an ordinary field, not virtual scope',async()=>{
+ const dataset=await csv('Answer,Spend\nNorth,10\nSouth,20\nNorth,30\n');const result=runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:'count',chartType:'table'});dataset.fields[0].id=allRespondentsGroupingId;
+ if(result.query.sourceIdentity?.kind==='imported')result.query.sourceIdentity.primaryFieldId=allRespondentsGroupingId;if(result.metadataRefs.source?.kind==='imported')result.metadataRefs.source.primaryFieldId=allRespondentsGroupingId;
+ const tile=inspectorTile(dataset,result),before=structuredClone(tile),update=vi.fn();await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[dataset],update)}/>));
+ expect(select('Group responses by').selectedOptions[0].textContent).toContain('Answer');expect(button('Update imported result').disabled).toBe(false);await act(async()=>button('Update imported result').click());
+ expect(update.mock.calls[0][0].result.table.map((row:{values:{summary:number}})=>row.values.summary)).toEqual([2,1]);expect(update.mock.calls[0][0].result.query.sourceIdentity.groupingScope).toBeUndefined();expect(tile).toEqual(before);
+});
+it('reopens an overall summary whose physical measure shares the synthetic ID and preserves explicit scope',async()=>{
+ const dataset=await csv('Spend\n10\n20\n30\n');dataset.fields[0].id=allRespondentsGroupingId;const result=runImportedDatasetQuery({dataset,field:allRespondentsGroupingField(dataset),measureField:dataset.fields[0],groupingScope:'all_respondents',metric:'average',chartType:'table'}),tile=inspectorTile(dataset,result),before=structuredClone(tile),update=vi.fn();
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[dataset],update)}/>));expect(select('Group responses by').selectedOptions[0].textContent).toBe('All respondents (numeric summary)');expect(select('Group responses by').value).not.toBe(allRespondentsGroupingId);await change('Result values','sum');await act(async()=>button('Update imported result').click());
+ expect(update.mock.calls[0][0].result.table[0].values.summary).toBe(60);expect(update.mock.calls[0][0].result.query.sourceIdentity).toMatchObject({primaryFieldId:allRespondentsGroupingId,measureFieldId:allRespondentsGroupingId,groupingScope:'all_respondents'});expect(tile).toEqual(before);
+});
+it('keeps a removed real reserved-ID grouping unavailable instead of silently choosing overall scope',async()=>{
+ const dataset=await csv('Answer,Spend\nNorth,10\nSouth,20\n');dataset.fields[0].id=allRespondentsGroupingId;const result=runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:'count',chartType:'table'}),tile=inspectorTile(dataset,result),before=structuredClone(tile),update=vi.fn();
+ await act(async()=>root.render(<TileAnalysisQuerySection {...inspectorProps(tile,[{...dataset,fields:dataset.fields.slice(1)}],update)}/>));expect(button('Update imported result').disabled).toBe(true);expect(host.textContent).toContain('grouping field is no longer available');expect(select('Group responses by').selectedOptions[0].textContent).not.toBe('All respondents (numeric summary)');expect(tile).toEqual(before);expect(update).not.toHaveBeenCalled();
+});
 function compactRemote(dataset:ImportedDatasetRecord):ImportedDatasetRecord {
  return {...dataset,rows:[],previewRows:dataset.rows.slice(0,1),remote:{provider:'netlify',projectUrl:'',bucket:'',objectPath:'synthetic.csv',uploadedAt:dataset.importedAt}};
 }

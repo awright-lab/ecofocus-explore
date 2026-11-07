@@ -1,0 +1,14 @@
+.excel-workbook-review{border:1px solid #cbded2;border-radius:10px;padding:16px;margin:18px 0;background:#f8faf8;overflow-wrap:anywhere}
+.excel-workbook-review label{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.excel-workbook-review select,.excel-workbook-review input,.excel-workbook-review textarea{font:inherit;max-width:100%;padding:8px;border:1px solid #b8ccbf;border-radius:6px;background:white;color:#294537}
+.excel-workbook-review textarea{width:100%;min-height:130px;resize:vertical;white-space:pre-wrap}
+.excel-plan-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.excel-plan-controls button[aria-disabled=true]{opacity:.6;cursor:default}
+.excel-plan-table{max-width:100%;overflow:auto;max-height:460px;border:1px solid #cddfd2;margin:16px 0}
+.excel-plan-table table{border-collapse:collapse;min-width:650px;width:100%;font-size:13px}
+.excel-plan-table caption{text-align:left;padding:10px;font-weight:600}
+.excel-plan-table th,.excel-plan-table td{border:1px solid #d7e3da;padding:8px;vertical-align:top;text-align:left;min-width:90px;max-width:230px}
+.excel-plan-table th{background:#edf4ef}
+.excel-plan-table td button{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.excel-workbook-review :focus-visible{outline:3px solid #277b56;outline-offset:2px}
+@media(max-width:700px){.excel-workbook-review{padding:12px}.excel-plan-controls{align-items:stretch;flex-direction:column}}

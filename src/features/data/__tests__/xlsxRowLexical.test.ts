@@ -1,0 +1,12 @@
+// @vitest-environment jsdom
+import {expect,it,vi} from 'vitest';
+import {Blob as NodeBlob} from 'node:buffer';
+import {DecompressionStream as NodeDecompressionStream} from 'node:stream/web';
+import {importDatasetFile} from '../datasetImportModel';
+import {simpleWorksheet,xlsxFixture} from './xlsxIntegrityFixture';
+import {xlsxRowLexicalFixtures} from './xlsxRowLexicalFixtures';
+it.each(['2',' 2 ','\t\n2\r\n','00000002','0'.repeat(1000)+'2'])('preserves supported stored-ZIP row number %j',async value=>{const file=xlsxFixture(simpleWorksheet.replace('row r="2"',`row r="${value}"`)),before=new Uint8Array(await file.arrayBuffer()).slice(),result=await importDatasetFile(file);expect(result.error).toBeUndefined();expect(result.dataset?.rows).toEqual([{Region:'North',Score:'10'}]);expect(new Uint8Array(await file.arrayBuffer())).toEqual(before);});
+it.each(xlsxRowLexicalFixtures)('preserves the same content from deflated $label input using the Node inflater',async fixture=>{vi.stubGlobal('Blob',NodeBlob);vi.stubGlobal('DecompressionStream',NodeDecompressionStream);try{const bytes=Uint8Array.from(atob(fixture.data),char=>char.charCodeAt(0));const result=await importDatasetFile({name:'deflated-row.xlsx',arrayBuffer:async()=>bytes.buffer}as File);expect(result.error).toBeUndefined();expect(result.dataset?.rows).toEqual([{Region:'North',Score:'10'}]);}finally{vi.unstubAllGlobals();}});
+it.each(['+2','0','1048577','Infinity','2e0','2.0','-2','2 0','\u00a02\u00a0','','\t\n'])('rejects unsupported/out-of-bounds row number %j without creating a study',async value=>{const result=await importDatasetFile(xlsxFixture(simpleWorksheet.replace('row r="2"',`row r="${value}"`)));expect(result.dataset).toBeUndefined();expect(result.error).toContain('row address');});
+it('enforces the numeric upper bound after removing leading zeros without creating missing respondents',async()=>{const sheet=simpleWorksheet.replace('row r="2"','row r="000001048576"').replace('r="A2"','r="A1048576"').replace('r="B2"','r="B1048576"'),result=await importDatasetFile(xlsxFixture(sheet));expect(result.error).toBeUndefined();expect(result.dataset?.rowCount).toBe(1);expect(result.dataset?.rows).toEqual([{Region:'North',Score:'10'}]);});
+it('compares normalized row identities to reject differently spelled duplicates',async()=>{const result=await importDatasetFile(xlsxFixture(simpleWorksheet.replace('</sheetData>','<row r="00000002"><c r="C2"><v>99</v></c></row></sheetData>')));expect(result.dataset).toBeUndefined();expect(result.error).toContain('duplicate');});

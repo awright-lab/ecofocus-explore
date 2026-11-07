@@ -23,6 +23,7 @@ export interface ReportColorTheme {
   slots: Array<{ key: string; label: string; index: number }>;
 }
 export interface TileAppearance {
+  dotPlotLayout?: "separate" | "paired";
   reportColorsEnabled?: boolean;
   reportColorSlots?: { rows: Record<string, number>; columns: Record<string, number>; originalPalette: string[]; styles?: Record<string, TileAppearance["barStyles"][string]> };
   primaryColor: string;
@@ -627,6 +628,7 @@ export interface ImportedDatasetRecord {
 }
 
 export interface DashboardDraft {
+  responseCodebooks?: import('./responseCoding').ResponseCodebook[];
   savedAudiences?: SavedImportedAudience[];
   reportColorTheme?: ReportColorTheme;
   id: string;

@@ -1,3 +1,4 @@
+import { assertResponseCodebooks } from "../../../shared/types/responseCoding";
 import { assertSavedCellFormulas } from "../metrics/cellFormulaModel";
 import { assertSavedAudiences } from "../audiences/audienceModel";
 import { assertNarrativeEvidence,assertNarrativeLibraryEvidence } from "../narratives/narrativeEvidence";
@@ -141,6 +142,7 @@ function readSavedDashboard(value: unknown, format: SavedWorkspaceFormat): Dashb
   }
   assertSavedCanvasIdentities(value.pages as Array<Record<string, unknown>>);
   assertSavedAudiences(value.savedAudiences);
+  assertResponseCodebooks(value.responseCodebooks);
   assertSavedCellFormulas(value.pages as DashboardPage[], (value.analysisLibrary as DashboardDraft["analysisLibrary"] | undefined)?.derivedDefinitions, value.designLibrary as DashboardDraft["designLibrary"] | undefined);
   assertNarrativeEvidence(value.pages as DashboardPage[]);
   assertNarrativeLibraryEvidence(value.designLibrary);
@@ -322,19 +324,57 @@ export function measureWorkspaceStorage(workspace: DashboardWorkspace, savedText
   const compact = compactWorkspaceForStorage(workspace);
   const studies: Array<{ key: string; title: string; scope: string; textBytes: number; storedRows: number; declaredRows: number; storedFields: number; declaredFields: number }> = [];
   function add(scopeId: string, scope: string, datasets: ImportedDatasetRecord[]) {
+    let total = 0;
     datasets.forEach(dataset => {
       const encoded = dataset as ImportedDatasetRecord & { rowStorage?: { values?: unknown[] } };
       const storedRows = Array.isArray(encoded.rowStorage?.values) ? encoded.rowStorage.values.length : dataset.rows.length;
+      const textBytes = JSON.stringify(dataset).length * 2;
+      total += textBytes;
       studies.push({ key: JSON.stringify([scopeId, dataset.id]), title: dataset.title, scope,
-        textBytes: JSON.stringify(dataset).length * 2, storedRows: Math.max(storedRows, dataset.previewRows.length), declaredRows: dataset.rowCount,
+        textBytes, storedRows: Math.max(storedRows, dataset.previewRows.length), declaredRows: dataset.rowCount,
         storedFields: dataset.fields.length, declaredFields: dataset.fieldCount });
     });
+    return total;
   }
-  add("workspace", "Current study library", compact.importedDatasets);
-  compact.publishedSnapshots.forEach(snapshot => add(`snapshot:${snapshot.id}`, `Snapshot ${snapshot.versionLabel} · ${snapshot.dashboard.title}`, snapshot.dashboard.importedDatasets));
-  const projectedTextBytes = JSON.stringify(compact).length * 2;
+  const currentStudyTextBytes = add("workspace", "Current study library", compact.importedDatasets);
+  const identities = new Map<string, number>(), savedIdentities = new Map<string, number>(), savedSnapshots = new Map<string, Record<string, unknown>>();
+  let savedSnapshotInspectionFailed = false;
+  if (savedText !== null) {
+    try {
+      const saved: unknown = JSON.parse(savedText);
+      if (!isSavedObject(saved)) throw new Error("Saved workspace unavailable.");
+      const versions = saved.publishedSnapshots === undefined ? [] : saved.publishedSnapshots;
+      if (!Array.isArray(versions)) throw new Error("Saved snapshot list unavailable.");
+      for (const snapshot of versions as unknown[]) {
+        if (isSavedObject(snapshot) && typeof snapshot.id === "string" && snapshot.id && typeof snapshot.reportId === "string" && snapshot.reportId) {
+          const key = JSON.stringify([snapshot.reportId, snapshot.id]); savedIdentities.set(key, (savedIdentities.get(key) ?? 0) + 1); savedSnapshots.set(key, snapshot);
+        }
+      }
+    } catch { savedSnapshotInspectionFailed = true; }
+  }
+  compact.publishedSnapshots.forEach(snapshot => { const key = JSON.stringify([snapshot.reportId, snapshot.id]); identities.set(key, (identities.get(key) ?? 0) + 1); });
+  const snapshots = compact.publishedSnapshots.map((snapshot, index) => {
+    const studyTextBytes = add(`snapshot:${index}:${snapshot.id}`, `Snapshot ${typeof snapshot.versionLabel === "string" ? snapshot.versionLabel : "label unavailable"}: ${typeof snapshot.dashboard.title === "string" ? snapshot.dashboard.title : "title unavailable"}`, snapshot.dashboard.importedDatasets);
+    const snapshotText = JSON.stringify(snapshot);
+    const textBytes = snapshotText.length * 2;
+    if (studyTextBytes > textBytes) throw new Error("Snapshot storage attribution could not be measured consistently.");
+    let localPath: string | null = null;
+    try {
+      if (typeof snapshot.id === "string" && snapshot.id && typeof snapshot.reportId === "string" && snapshot.reportId && typeof snapshot.dashboard.title === "string" && typeof snapshot.versionLabel === "string" && snapshot.versionLabel && typeof snapshot.publishedAt === "string" && Number.isFinite(Date.parse(snapshot.publishedAt))) localPath = makePublishedViewerPath(snapshot.reportId, snapshot.id);
+    } catch { /* Keep malformed saved identities inspectable without a broken link. */ }
+    return { key: JSON.stringify([index, snapshot.reportId, snapshot.id]), snapshotId: snapshot.id, reportId: snapshot.reportId,
+      title: typeof snapshot.dashboard.title === "string" ? snapshot.dashboard.title : "Report title unavailable",
+      versionLabel: typeof snapshot.versionLabel === "string" ? snapshot.versionLabel : "Version label unavailable", publishedAt: typeof snapshot.publishedAt === "string" ? snapshot.publishedAt : "",
+      textBytes, studyTextBytes, localPath, studyCount: snapshot.dashboard.importedDatasets.length, pageCount: snapshot.dashboard.pages.length,
+      canOpen: localPath !== null && identities.get(JSON.stringify([snapshot.reportId, snapshot.id])) === 1 && savedIdentities.get(JSON.stringify([snapshot.reportId, snapshot.id])) === 1 && JSON.stringify(savedSnapshots.get(JSON.stringify([snapshot.reportId, snapshot.id]))) === snapshotText };
+  });
+  const snapshotTextBytes = snapshots.reduce((sum, snapshot) => sum + snapshot.textBytes, 0);
+  const serializedText = JSON.stringify(compact);
+  const projectedTextBytes = serializedText.length * 2;
+  const workspaceTextBytes = projectedTextBytes - currentStudyTextBytes - snapshotTextBytes;
+  if (workspaceTextBytes < 0) throw new Error("Workspace storage attribution could not be measured consistently.");
   return { projectedTextBytes, otherTextBytes: Math.max(0, projectedTextBytes - studies.reduce((sum, study) => sum + study.textBytes, 0)), savedTextBytes: savedText === null ? null : savedText.length * 2,
-    snapshotCount: compact.publishedSnapshots.length, studies };
+    snapshotCount: compact.publishedSnapshots.length, studies, snapshots, currentStudyTextBytes, snapshotTextBytes, workspaceTextBytes, matchesSavedCopy: savedText !== null && savedText === serializedText, savedSnapshotInspectionFailed };
 }
 
 function isStorageQuotaError(error: unknown) {

@@ -1,0 +1,10 @@
+import {concat,numeric,sav} from "./savCaseFixture";
+export function spanInteger(value:number){const bytes=new Uint8Array(4);new DataView(bytes.buffer).setInt32(0,value,true);return bytes;}
+export function spanVariable(type:number,name:string,label=""){const bytes=new Uint8Array(32),view=new DataView(bytes.buffer);view.setInt32(0,2,true);view.setInt32(4,type,true);view.setInt32(8,label?1:0,true);view.setInt32(16,5,true);view.setInt32(20,5,true);bytes.fill(32,24);bytes.set(new TextEncoder().encode(name),24);if(!label)return bytes;const text=new TextEncoder().encode(label),padded=new Uint8Array(Math.ceil(text.length/4)*4);padded.set(text);return concat(bytes,spanInteger(text.length),padded);}
+export function spanSav({compression=0,width=16,continuations=1,firstType=width,continuationLabel="",count=1}:{compression?:number;width?:number;continuations?:number;firstType?:number;continuationLabel?:string;count?:number}={}){
+ const slots=Math.max(1,Math.ceil(width/8)),header=new Uint8Array(sav()).slice(0,176),view=new DataView(header.buffer);view.setInt32(68,slots+1,true);view.setInt32(72,compression,true);view.setInt32(80,count,true);
+ const text=new Uint8Array(slots*8).fill(32);text.set(new TextEncoder().encode("abcdefghijklmnop".slice(0,width)));const chunks=[...Array.from({length:slots},(_,i)=>text.slice(i*8,i*8+8)),numeric(5)];
+ const allChunks=Array.from({length:Math.max(1,count)},()=>chunks).flat(),encoded:Uint8Array[]=[];
+ if(compression){const commands:Array<Uint8Array|null>=[...allChunks,null];for(let offset=0;offset<commands.length;offset+=8){const group=commands.slice(offset,offset+8),controls=new Uint8Array(8);group.forEach((chunk,index)=>controls[index]=chunk?253:252);encoded.push(controls,...group.filter((chunk):chunk is Uint8Array=>chunk!==null));}}else encoded.push(...allChunks);
+ return concat(header,spanVariable(firstType,"TEXT"),...Array.from({length:continuations},()=>spanVariable(-1,"",continuationLabel)),spanVariable(0,"AMOUNT"),spanInteger(999),spanInteger(0),...encoded).buffer;
+}

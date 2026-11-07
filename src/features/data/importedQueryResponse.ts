@@ -37,6 +37,7 @@ function matchesSource(value: unknown, config: ImportedDatasetQueryConfig) {
 // Reject inconsistent transport data before it can replace an existing result.
 // Do not repair numbers, infer missing cells or borrow a different study.
 export function assertImportedQueryResponse(value: unknown, config: ImportedDatasetQueryConfig): asserts value is AnalyticsQueryResponse {
+  if (queryResponseObject(value) && value.localExecution !== undefined) invalidResult(); // Local source receipts are never accepted from a remote service.
   if (!queryResponseObject(value) || !queryResponseObject(value.query) || !queryResponseObject(value.metric) ||
       !queryResponseObject(value.metadataRefs) || !queryResponseObject(value.weighting) || !queryResponseObject(value.statistics) ||
       !Array.isArray(value.columns) || !Array.isArray(value.table) || !Array.isArray(value.series) ||

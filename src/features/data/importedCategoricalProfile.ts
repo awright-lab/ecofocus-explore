@@ -11,9 +11,9 @@ export function buildImportedCategoricalProfile(dataset: ImportedDatasetRecord, 
   if (field.type !== "categorical" && field.modelingRole !== "candidate_dimension") return { status: "unavailable", reason: "Choose a categorical field to inspect its response categories." };
   const rows = dataset.rows.length ? dataset.rows : dataset.previewRows;
   if (rows.length < dataset.rowCount) return { status: "unavailable", reason: "Complete respondent rows are unavailable in this browser. A partial preview cannot establish category counts for the study." };
+  try {
   const valid = rows.reduce((count, row) => count + (importedRawFieldValue(row, field).trim() ? 1 : 0), 0);
   if (!valid) return { status: "ready", rows: rows.length, valid: 0, blank: rows.length, observedCategories: 0, unusedLabels: Object.keys(field.valueLabels ?? {}).length, categories: [], omittedCategories: 0, omittedResponses: 0 };
-  try {
     // Use the same code/label interpretation as a created response table.
     const result = runImportedDatasetQuery({ dataset, field, metric: "count", chartType: "table" });
     const all = result.table.map((row, index) => ({ id: `category_${index}`, label: row.label, count: row.values.summary, share: row.values.summary / valid * 100 }));

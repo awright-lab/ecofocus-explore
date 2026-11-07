@@ -1,5 +1,4 @@
-import { analyticalCell } from "../../../shared/analytics/resultCells";
-import { narrativeCitation } from "../narratives/narrativeEvidence";
+import { planPptxLayers } from "./pptxLayerPlan";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
 import { buildPageVisualSvg, dataUrlToBytes, renderPageVisualImages, type PageVisualImage, type SvgRasterizer } from "./pageVisualExport";
@@ -7,8 +6,10 @@ import { buildEditableSlideReconstruction, canReconstructElementInPptx } from ".
 import { buildNativePptxChartDescriptor, canReconstructTileAsNativePptxChart, type PptxNativeChartDescriptor } from "./pptxNativeCharts";
 import { buildZip } from "./zip";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
-import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
-import { analysisContextRows, assertExportResultsCurrent, assertSpreadsheetText, spreadsheetColumnName } from "./exportIntegrity";
+import { assertExportResultsCurrent, assertSpreadsheetText, spreadsheetColumnName } from "./exportIntegrity";
+import { buildXlsxWorkbookPlan } from "./xlsxWorkbookPlan";
+export { buildXlsxWorkbookPlan } from "./xlsxWorkbookPlan";
+export type { XlsxWorkbookSheet } from "./xlsxWorkbookPlan";
 
 export type CoreExportTarget = "pptx" | "pdf" | "xlsx" | "json";
 
@@ -66,19 +67,21 @@ export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRa
   const sortedPages = visiblePages(pages);
   // Validate complete raster bodies as well as native data before any rendering.
   sortedPages.forEach(page => buildPageVisualSvg(page));
-  const pageImages = await renderPageVisualImages(sortedPages, {
-    rasterizeSvg,
-    // Hybrid PPTX strategy: keep a visual fallback for charts, image assets,
-    // and complex content, then layer cleanly reconstructable elements as
-    // editable Office objects.
-    includeElement: (element) => !canReconstructElementInPptx(element),
-    includeTileBody: (tile) => !canReconstructTileAsNativePptxChart(tile)
-  });
+  const layerPlans = sortedPages.map(planPptxLayers);
+  // Keep the authored render together when splitting the slide into image,
+  // native-chart and editable-object layers would reverse overlapping content.
+  const pageImages = await Promise.all(sortedPages.map(async (page, index) => (
+    await renderPageVisualImages([page], {
+      rasterizeSvg,
+      includeElement: (element) => layerPlans[index].mode === "complete_visual" || !canReconstructElementInPptx(element),
+      includeTileBody: (tile) => layerPlans[index].mode === "complete_visual" || !canReconstructTileAsNativePptxChart(tile)
+    })
+  )[0]));
   const slideIds = pageImages.map((_, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join("");
   const rels = pageImages.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("");
   let nextChartId = 1;
-  const chartDescriptorsBySlide = sortedPages.map((page) => (
-    visibleTiles(page)
+  const chartDescriptorsBySlide = sortedPages.map((page, pageIndex) => (
+    layerPlans[pageIndex].mode === "complete_visual" ? [] : visibleTiles(page)
       .filter(canReconstructTileAsNativePptxChart)
       .map((tile, tileIndex) => {
         const chartId = nextChartId;
@@ -120,7 +123,7 @@ export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRa
   ];
 
   pageImages.forEach((image, index) => {
-    const editable = buildEditableSlideReconstruction(sortedPages[index], 3);
+    const editable = layerPlans[index].mode === "complete_visual" ? { editableXml: "" } : buildEditableSlideReconstruction(sortedPages[index], 3);
     const nativeCharts = chartDescriptorsBySlide[index];
     files.push({ path: `ppt/slides/slide${index + 1}.xml`, content: visualSlideXml(image, index + 1, editable.editableXml, nativeCharts.map((chart) => chart.graphicFrameXml).join("")) });
     files.push({ path: `ppt/slides/_rels/slide${index + 1}.xml.rels`, content: visualSlideRels(index + 1, nativeCharts) });
@@ -234,91 +237,9 @@ function worksheetXml(rows: Array<Array<string | number>>) {
   return `${xmlHeader}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
 }
 
-function safeSheetName(value: string, fallback: string, used: Set<string>) {
-  const base = (value || fallback).replace(/[\][*?/\\:\r\n\t]/g, " ").trim().slice(0, 28).replace(/^'+|'+$/g, "") || fallback;
-  let name = base;
-  let index = 2;
-  while (used.has(name.toLowerCase())) {
-    const suffix = ` ${index}`;
-    name = `${base.slice(0, 31 - suffix.length)}${suffix}`;
-    index += 1;
-  }
-  used.add(name.toLowerCase());
-  return name;
-}
 
 export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[]) {
-  assertExportResultsCurrent(pages);
-  const sortedPages = visiblePages(pages);
-  const usedSheetNames = new Set<string>();
-  const sheets: Array<{ name: string; rows: Array<Array<string | number>> }> = [
-    {
-      name: safeSheetName("Report", "Report", usedSheetNames),
-      rows: [
-        ["Report", dashboard.title],
-        ["Status", dashboard.status],
-        ["Version", dashboard.publishMetadata.versionLabel],
-        ["Pages", sortedPages.length],
-        ["Generated", new Date().toISOString()]
-      ]
-    }
-  ];
-
-  sortedPages.forEach((page) => {
-    const narratives=page.elements.filter(element=>!element.hidden&&element.evidence!==undefined);
-    if(narratives.length)sheets.push({name:safeSheetName(`${page.order}-Evidence`,"Evidence",usedSheetNames),rows:[
-      ["Page",page.title],["Scope","Recorded links track selected result cells; they do not validate the written conclusion or authenticate source data."],
-      ...narratives.flatMap(element=>[["Text object",element.name],["Written claim",element.content],["Reviewed at",element.evidence!.reviewedAt],["Recorded citations",narrativeCitation(element)],["Evidence definition (JSON)",JSON.stringify(element.evidence)],[]])
-    ]});
-    visibleTiles(page).forEach((tile) => {
-      if (importedMeasureBasesNeedRefresh(tile.result)) throw new Error(`Refresh "${tile.title || tile.name}" before exporting: its cached numeric sample bases are unverified. JSON preserves the original result.`);
-      for (const row of tile.result.table) for (const column of tile.result.columns) {
-        if (!Object.hasOwn(row.bases, column.id) || !Number.isFinite(row.bases[column.id]) || row.bases[column.id] < 0) {
-          throw new Error(`Cannot export "${tile.title || tile.name}": a cell base is missing or invalid. Refresh the analysis or use JSON to preserve it.`);
-        }
-      }
-      sheets.push({
-        name: safeSheetName(`${page.order}-${tile.title || tile.name}`, `Tile ${sheets.length}`, usedSheetNames),
-        rows: [
-          ["Page", page.title],
-          ["Tile", tile.title || tile.name],
-          ["Visualization", tile.visualization],
-          ...analysisContextRows(tile),
-          [],
-          ["Source row label", "Display row label", ...tile.result.columns.flatMap((column) => {
-            const alias = tile.appearance.axisLabelOverrides[column.id];
-            const label = alias && alias !== column.label ? `${column.label} (display: ${alias})` : column.label;
-            return [`${label} — value`, `${label} — ${tile.result.weighting.applied ? "weighted base total" : "base"}`];
-          })],
-          ...tile.result.table.map((row) => [
-            row.label,
-            tile.appearance.axisLabelOverrides[row.optionId] ?? row.label,
-            ...tile.result.columns.flatMap((column) => [analyticalCell(tile.result,row,column.id).value ?? "Unavailable", row.bases[column.id]])
-          ])
-        ]
-      });
-    });
-  });
-
-  // Keep the authored story, including unlinked headings and methodology,
-  // alongside the existing analytical tables and evidence definitions.
-  const narrativeTextRows: Array<Array<string | number>> = [];
-  for(const page of sortedPages.filter(page=>page.elements.some(element=>!element.hidden&&element.evidence!==undefined))){
-    for(const element of page.elements.filter(element=>!element.hidden&&element.type==="text")){
-      const parts:string[]=[];let part="",lineFeeds=0;
-      for(const char of element.content){
-        if(part.length+char.length>32000||char==="\n"&&lineFeeds>=250){parts.push(part);part="";lineFeeds=0;}
-        part+=char;if(char==="\n")lineFeeds+=1;
-      }
-      parts.push(part);
-      parts.forEach((content,index)=>narrativeTextRows.push([page.title,element.name,index+1,parts.length,content]));
-    }
-  }
-  if(narrativeTextRows.length)sheets.push({name:safeSheetName("Narrative text","Narrative text",usedSheetNames),rows:[
-    ["Scope","Authored text from pages with recorded evidence links. Layout is not reproduced; see each page's Evidence worksheet for citations and recorded analytical context."],
-    ["Page","Text object","Part","Parts","Authored content"],...narrativeTextRows
-  ]});
-
+  const sheets = buildXlsxWorkbookPlan(dashboard, pages);
   const workbookSheets = sheets.map((sheet, index) => `<sheet name="${escapeXml(sheet.name || `Sheet ${index + 1}`)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
   const workbookRels = sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
   const overrides = sheets.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");

@@ -42,3 +42,40 @@ describe("portable workspace backup artifact",()=>{
   expect(createWorkspaceBackup(workspace).inventory.requiresRemoteAccess).toBe(true);
  });
 });
+
+describe('aggregate raw backup amplification guard', () => {
+ it('refuses a theoretical 600M-character repeated-key payload before calling JSON.stringify', async () => {
+  const {workspace,dataset}=await fixture(), key='H'.repeat(100_000);
+  const rows=Array.from({length:6_000},()=>({[key]:'x'}));
+  dataset.rows=rows;dataset.previewRows=[];dataset.rowCount=rows.length;workspace.importedDatasets=[dataset];
+  const serialize=vi.spyOn(JSON,'stringify').mockImplementation(()=>{throw Error('Unsafe serialization attempted');});
+  try {
+   expect(()=>createWorkspaceBackup(workspace)).toThrow('No backup was generated');
+   expect(serialize).not.toHaveBeenCalled();expect(dataset.rows).toBe(rows);expect(rows).toHaveLength(6_000);expect(rows[0][key]).toBe('x');
+  } finally {serialize.mockRestore();}
+ });
+ it.each(['report','snapshot','pending','preview'] as const)('counts %s copies and aliases against the same total budget', async scope=>{
+  const {workspace,dataset}=await fixture(),key='H'.repeat(100_000);
+  // One repeated-key collection is roughly 10M characters; two exceed the
+  // policy. Objects and their existing key strings are small; no big JSON runs.
+  dataset.rows=Array.from({length:100},()=>({[key]:'x'}));dataset.previewRows=[];dataset.rowCount=100;workspace.importedDatasets=[dataset];
+  let pending:typeof dataset[]=[];
+  if(scope==='report')workspace.reports[0].draft.importedDatasets=[dataset];
+  if(scope==='snapshot')workspace.publishedSnapshots=[{id:'synthetic',reportId:workspace.reports[0].id,title:'Synthetic',versionLabel:'Test',publishedAt:'2026-11-07T00:00:00Z',viewerPath:'/synthetic',dashboard:{...workspace.reports[0].draft,importedDatasets:[dataset]}}];
+  if(scope==='pending')pending=[dataset];
+  if(scope==='preview')dataset.previewRows=dataset.rows;
+  const serialize=vi.spyOn(JSON,'stringify').mockImplementation(()=>{throw Error('Unsafe serialization attempted');});
+  try {expect(()=>createWorkspaceBackup(workspace,pending)).toThrow('supported serialization limits');expect(serialize).not.toHaveBeenCalled();expect(dataset.rows).toHaveLength(100);}
+  finally {serialize.mockRestore();}
+ });
+ it('also bounds inventory scope amplification before the final envelope can be stringified', async()=>{
+  const {workspace,dataset}=await fixture();workspace.importedDatasets=[];
+  workspace.reports[0].id='R'.repeat(100_000);workspace.reports[0].draft.importedDatasets=Array.from({length:1_000},()=>dataset);
+  // Keep this regression allocation-safe even if a guard later regresses.
+  // Raw serialization is replaced with a tiny token; inventory alone exceeds
+  // its limit by repeating the long report identity, and must be rejected.
+  const serialize=vi.spyOn(JSON,'stringify').mockReturnValue('"bounded test payload"');
+  try {expect(()=>createWorkspaceBackup(workspace)).toThrow('No backup was generated');expect(serialize).toHaveBeenCalledTimes(2);}
+  finally {serialize.mockRestore();}
+ });
+});

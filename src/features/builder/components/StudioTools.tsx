@@ -49,7 +49,7 @@ export function StudioRail({
   onExplore?: () => void;
 }) {
   return (
-    <nav className="studio-rail" aria-label="Studio tools">
+    <nav className="studio-rail" aria-label="Studio tools" data-canvas-keyboard-scope="controls">
       <button
         className="studio-rail-create"
         type="button"

@@ -629,7 +629,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
         .join(" ")}
       aria-label="Dashboard canvas"
     >
-      <div className="page-header">
+      <div className="page-header" data-canvas-keyboard-scope="controls">
         <div className="page-header__identity">
           <p className="eyebrow">Story canvas · Slide {activePage.order}</p>
           <h2>{activePage.title}</h2>
@@ -684,6 +684,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
             : "floating-format-bar"
         }
         aria-label="Quick actions"
+        data-canvas-keyboard-scope="controls"
       >
         <div className="floating-format-bar__context">
           <span>{hasSelection ? "Editing" : "Canvas"}</span>
@@ -861,7 +862,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
         </div>
       </div>
       {storyHintVisible && (
-        <div className="story-arc-pill" role="status">
+        <div className="story-arc-pill" role="status" data-canvas-keyboard-scope="controls">
           <span className="story-arc-pill__icon" aria-hidden="true">
             <Sparkles className="story-arc-icon" strokeWidth={1.9} />
           </span>
@@ -880,7 +881,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
           </button>
         </div>
       )}
-      <div className="canvas-bottom-bar" aria-label="Story page actions">
+      <div className="canvas-bottom-bar" aria-label="Story page actions" data-canvas-keyboard-scope="controls">
         <div className="slide-nav-controls">
           <button
             type="button"

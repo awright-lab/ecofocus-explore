@@ -1,4 +1,5 @@
 import type { SavedImportedAudience } from "./audience";
+import type { LocalExecutionEvidence } from "./localExecution";
 import type { DatasetSourceRef } from "./dataSource";
 
 export type DatasetId = "ecofocus_2023" | "ecofocus_2024" | "ecofocus_2025";
@@ -13,7 +14,7 @@ export type DimensionId = FilterFieldId;
 
 export type Metric = "column_percent" | "percent_selected" | "count" | "average" | "sum";
 
-export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "stacked_bar" | "line_chart" | "donut" | "table";
+export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "stacked_bar" | "line_chart" | "donut" | "table" | "heatmap" | "dot_plot";
 
 export type WeightId = "weightvar";
 
@@ -352,9 +353,11 @@ export interface AnalyticsSignificanceResult {
 }
 
 export interface AnalyticsQueryResponse {
+  localExecution?: LocalExecutionEvidence;
   calculationInputs?: {
     version: 1;
     method: "local_unweighted_v1";
+    percentageValueMode?: "unrounded_ratio_v1";
     query: AnalyticsQueryRequest;
     columns: Record<string, string>;
     rows: Record<string, { label: string; cells: Record<string, { numerator: number; denominator: number }> }>;

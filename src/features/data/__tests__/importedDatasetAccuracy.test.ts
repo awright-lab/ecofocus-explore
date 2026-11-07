@@ -48,7 +48,7 @@ describe("imported numeric and categorical accuracy", () => {
     expect(count.table.reduce((n,row) => n + row.values.summary,0)).toBe(dataset.rowCount);
     expect(count.table.every(row => row.bases.summary === 3)).toBe(true);
     const percent = runImportedDatasetQuery({ dataset, field, metric:"percent_selected", chartType:"table" });
-    expect(percent.table.map(row => row.values.summary)).toEqual([33.3,33.3,0,33.3]);
+    expect(percent.table.map(row => row.values.summary)).toEqual([100/3,100/3,0,100/3]);
   });
   it("counts distinct codes with duplicate label text once each and visibly identifies their codes", async () => {
     const dataset = await csv('Answer,Region\n1,North\n2,North\n2,North\n');

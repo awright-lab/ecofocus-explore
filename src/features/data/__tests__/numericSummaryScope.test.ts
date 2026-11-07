@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { importDatasetBuffer } from "../datasetImportModel";
 import { getImportedDatasetQuerySupport, runImportedDatasetQuery } from "../importedDatasetAnalytics";
 import { runImportedDatasetQueryForRuntime } from "../importedDatasetRuntimeQuery";
-import { allRespondentsGroupingField } from "../numericSummaryScope";
+import { allRespondentsGroupingField, allRespondentsGroupingId, allRespondentsGroupingOption } from "../numericSummaryScope";
 import { createPublishedSnapshot, createReportRecord, loadDashboardWorkspace, normalizeDashboardWorkspace, saveDashboardWorkspace } from "../../document/workspacePersistence";
 import { initialDashboard } from "../../document/documentSeeds";
 async function study(text = 'Spend\n10\n20\n30\n') {
@@ -10,6 +10,38 @@ async function study(text = 'Spend\n10\n20\n30\n') {
  if (!parsed.dataset) throw Error(parsed.error); return parsed.dataset;
 }
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
+it.each([
+ [[],null,allRespondentsGroupingId],
+ [[allRespondentsGroupingId],null,'__ecofocus_all_respondents_option_0__'],
+ [[allRespondentsGroupingId,'__ecofocus_all_respondents_option_0__'],null,'__ecofocus_all_respondents_option_1__'],
+ [[],allRespondentsGroupingId,'__ecofocus_all_respondents_option_0__'],
+ [[allRespondentsGroupingId],'__ecofocus_all_respondents_option_0__','__ecofocus_all_respondents_option_1__'],
+ [['__proto__','constructor','none'],null,allRespondentsGroupingId]
+] as Array<[string[],string|null,string]>)('keeps overall DOM choice disjoint from fields %j and retained %s',(ids,retained,expected)=>{
+ const fields=ids.map(id=>({id})),before=structuredClone(fields);expect(allRespondentsGroupingOption(fields,retained)).toBe(expected);expect(fields).toEqual(before);
+});
+it('still refuses an unregistered virtual grouping without explicit scope',async()=>{
+ const dataset=await study();expect(getImportedDatasetQuerySupport(dataset,{...allRespondentsGroupingField(dataset),sourceColumn:'unregistered'}, {metric:'average',measureField:dataset.fields[0]}).executable).toBe(false);
+});
+it('refuses ambiguous duplicate real IDs instead of choosing one physical source by matching column',async()=>{
+ const dataset=await study('Answer,Other\nNorth,A\nSouth,B\n');dataset.fields.forEach(field=>field.id=allRespondentsGroupingId);const before=structuredClone(dataset);
+ expect(getImportedDatasetQuerySupport(dataset,dataset.fields[0],{metric:'count',chartType:'table'}).executable).toBe(false);expect(()=>runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:'count',chartType:'table'})).toThrow('explicit');expect(dataset).toEqual(before);
+});
+it('allows a registered real grouping field to use the historical overall-summary ID',async()=>{
+ const dataset=await study('Answer,Spend\nNorth,10\nSouth,20\nNorth,30\n');dataset.fields[0].id='__ecofocus_all_respondents__';const before=structuredClone(dataset);
+ const result=runImportedDatasetQuery({dataset,field:dataset.fields[0],metric:'count',chartType:'table'});
+ expect(result.table.map(row=>[row.label,row.values.summary]).sort()).toEqual([['North',2],['South',1]]);expect(result.metadataRefs.source).toMatchObject({primaryFieldId:dataset.fields[0].id});expect(result.metadataRefs.source).not.toHaveProperty('groupingScope','all_respondents');expect(dataset).toEqual(before);
+});
+it('allows an explicit overall summary of a real numeric field with that same ID',async()=>{
+ const dataset=await study();dataset.fields[0].id='__ecofocus_all_respondents__';const before=structuredClone(dataset);
+ const result=runImportedDatasetQuery({dataset,field:allRespondentsGroupingField(dataset),measureField:dataset.fields[0],groupingScope:'all_respondents',metric:'average',chartType:'table'});
+ expect(result.table[0].values.summary).toBe(20);expect(result.table[0].bases.summary).toBe(3);expect(dataset).toEqual(before);
+});
+it('allows a real breakout to share the synthetic ID when overall scope is explicit',async()=>{
+ const dataset=await study('Spend,Group\n10,A\n20,B\n30,A\n');dataset.fields[1].id='__ecofocus_all_respondents__';Object.assign(dataset.fields[1],{type:'categorical',modelingRole:'candidate_dimension',eligibleForBanner:true});const before=structuredClone(dataset);
+ const result=runImportedDatasetQuery({dataset,field:allRespondentsGroupingField(dataset),measureField:dataset.fields[0],bannerField:dataset.fields[1],groupingScope:'all_respondents',metric:'sum',chartType:'table'});
+ expect(result.columns.map(column=>[column.label,result.table[0].values[column.id]])).toEqual([['A',40],['B',20]]);expect(dataset).toEqual(before);
+});
 describe('explicit overall numeric summaries',()=>{
  it.each([['average',20],['sum',60]] as const)('calculates %s without inventing respondent columns',async(metric,expected)=>{
   const dataset=await study(),before=structuredClone(dataset),field=allRespondentsGroupingField(dataset);

@@ -1,13 +1,19 @@
+import { formatPercentageNumber } from "../../../../shared/analytics/percentagePrecision";
 import { getBarStyle, chartGradientId, chartPaint, chartHasConicFill } from "../../design-system/chartPaint";
 import { narrativeDisplayText } from "../../narratives/narrativeEvidence";
 import "../../narratives/narrativeEvidence.css";
 import { paletteColor } from "../../design-system/reportColors";
+import { ownAxisLabel } from "../../design-system/axisLabels";
 import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
-import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
+import { analyticalBase, analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
 import { supportsDonutResult } from "../../analytics/analyticsDisplay";
 export { getCompatibleChartTypes, supportsDonutResult } from "../../analytics/analyticsDisplay";
 import { resultInferenceLabel, withSafeInference } from "../../../../shared/analytics/inferenceSafety";
-import { memo, type CSSProperties } from "react";
+import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
+import { CompleteTableDialog } from "./CompleteTableDialog";
+import { DotPlotView } from "./DotPlotView";
+import { HeatmapView } from "./HeatmapView";
+import { needsTableExplorer, tablePreviewLimits } from "./tableExplorerModel";
 import { Rnd } from "react-rnd";
 import {
   Bar,
@@ -143,13 +149,7 @@ export function formatValue(
 ) {
   if (value === null || !Number.isFinite(value)) return "Unavailable";
   if (format === "percent") {
-    const decimals = options.percentDecimals ?? 0;
-    const factor = 10 ** decimals;
-    const rounded =
-      options.percentRounding === "ceil"
-        ? Math.ceil(value * factor) / factor
-        : Math.round(value * factor) / factor;
-    return `${rounded.toFixed(decimals)}%`;
+    return `${formatPercentageNumber(value, options.percentDecimals ?? 0, options.percentRounding === "ceil")}%`;
   }
   return formatImportedMeasureValue(value, metricId ?? "count");
 }
@@ -229,7 +229,7 @@ export function getAxisLabel(
   id: string,
   fallback: string,
 ) {
-  return appearance.axisLabelOverrides[id] ?? fallback;
+  return ownAxisLabel(appearance,id) ?? fallback;
 }
 
 export function getChartTypeLabel(chartType: ChartType) {
@@ -441,8 +441,8 @@ export function sampleSizeLabel(result: AnalyticsQueryResponse) {
   const imported = buildImportedResultProvenance(result);
   if (imported) return imported.baseLabel;
   const bases = result.table
-    .flatMap((row) => Object.values(row.bases))
-    .filter((base) => base > 0);
+    .flatMap((row) => result.columns.map(column=>analyticalBase(result,row,column.id)))
+    .filter((base): base is number => base !== null && base > 0);
   const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
   const prefix = result.weighting.applied ? "Weighted total" : result.query.weight ? "Recorded base (weighting unverified)" : "Sample n";
   if (uniqueBases.length === 0) return `${prefix} unavailable`;
@@ -761,7 +761,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: analyticalCell(result,row,column.id).value,
-    base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
+    base: importedMeasureBasesNeedRefresh(result) ? undefined : analyticalBase(result,row,column.id) ?? undefined,
   }));
   const yAxisProps = chartYAxisProps(
     result,
@@ -1031,7 +1031,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
     value: analyticalCell(result,row,column.id).value,
-    base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
+    base: importedMeasureBasesNeedRefresh(result) ? undefined : analyticalBase(result,row,column.id) ?? undefined,
   }));
   const xAxisProps = chartYAxisProps(
     result,
@@ -1454,9 +1454,15 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
 }
 
 export function TableView({ tile }: { tile: DashboardTile }) {
+  const [exploring,setExploring]=useState(false);
+  const tableCard=useRef<HTMLDivElement|null>(null),exploreTrigger=useRef<HTMLButtonElement|null>(null),restoreTableFocus=useRef(false);
+  useEffect(()=>{if(!exploring&&restoreTableFocus.current){restoreTableFocus.current=false;tableCard.current?.focus();}},[exploring]);
+  function closeExplorer(){restoreTableFocus.current=!exploreTrigger.current?.isConnected;setExploring(false);}
   tile = { ...tile, result: withSafeInference(tile.result) };
   const { result, appearance } = tile;
-  const visibleColumns = result.columns;
+  const bounded=needsTableExplorer(result);
+  const visibleColumns = bounded?result.columns.slice(0,tablePreviewLimits.columns):result.columns;
+  const visibleRows = bounded?result.table.slice(0,tablePreviewLimits.rows):result.table;
   const executedSignificance =
     buildExecutedColumnComparisonPresentation(result);
 
@@ -1473,9 +1479,12 @@ export function TableView({ tile }: { tile: DashboardTile }) {
   return (
     <div
       className="chart-card table-card"
+      ref={tableCard} tabIndex={-1} role="group" data-canvas-keyboard-scope="controls"
       style={{ background: appearance.chartBackground }}
       aria-label="Query-driven table"
     >
+      {bounded&&<div className="table-browser-controls" data-canvas-keyboard-scope="controls" onPointerDown={event=>event.stopPropagation()} onMouseDown={event=>event.stopPropagation()} onClick={event=>event.stopPropagation()}><p>Canvas preview: {visibleRows.length} of {result.table.length} answers; {visibleColumns.length} of {result.columns.length} columns. The complete recorded table remains in the report and exports.</p><button ref={exploreTrigger} type="button" aria-label={`Explore complete table for ${tile.title||tile.name}`} onClick={()=>setExploring(true)}>Explore complete table</button></div>}
+      {exploring&&<CompleteTableDialog tile={tile} onClose={closeExplorer}/>}
       <div className="table-shell">
         <table className="analytics-table" style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>
           <thead>
@@ -1487,7 +1496,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
             </tr>
           </thead>
           <tbody>
-            {result.table.map((row) => (
+            {visibleRows.map((row) => (
               <tr
                 key={row.optionId}
                 className={
@@ -1515,14 +1524,15 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                   </div>
                 </th>
                 {visibleColumns.map((column) => {
-                  const annotation = tableCellAnnotation(
+                  const cell = analyticalCell(result,row,column.id), base = analyticalBase(result,row,column.id);
+                  const annotation = cell.status === "available" ? tableCellAnnotation(
                     row.optionId,
                     column.id,
-                  );
-                  const significanceCell = tableCellSignificance(
+                  ) : null;
+                  const significanceCell = cell.status === "available" ? tableCellSignificance(
                     row.optionId,
                     column.id,
-                  );
+                  ) : null;
                   return (
                     <td key={column.id}>
                       <div className="table-cell-stack">
@@ -1538,7 +1548,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                             }
                           >
                             {formatValue(
-                              analyticalCell(result,row,column.id).value,
+                              cell.value,
                               result.metric.valueFormat,
                               result.metric.id,
                             )}
@@ -1561,7 +1571,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                         )}
                         {appearance.showBases && (
                           <small style={{ fontSize: Math.max(8, appearance.labelFontSize - 1), color: appearance.labelColor }}>
-                            {importedMeasureBasesNeedRefresh(result) ? "Base unavailable; rerun" : `Base ${row.bases[column.id].toLocaleString()}`}
+                            {importedMeasureBasesNeedRefresh(result) ? "Base unavailable; rerun" : base === null ? "Base unavailable" : `Base ${base.toLocaleString()}`}
                           </small>
                         )}
                       </div>
@@ -1614,6 +1624,8 @@ export function ChartView({ tile }: { tile: DashboardTile }) {
   tile = { ...tile, result: withSafeInference(tile.result) };
   if (chartHasConicFill(tile)) return <p role="status">Conic fills cannot yet be rendered faithfully. Choose a solid, linear or radial fill to view or export this chart. Your analysis and styling are retained.</p>;
   if (tile.visualization === "table") return <TableView tile={tile} />;
+  if (tile.visualization === "dot_plot") return <DotPlotView tile={tile} format={value => formatValue(value, tile.result.metric.valueFormat, tile.result.metric.id, { percentDecimals: tile.appearance.labelPercentDecimals, percentRounding: tile.appearance.labelPercentRounding })} />;
+  if (tile.visualization === "heatmap") return <HeatmapView tile={tile} format={value => formatValue(value, tile.result.metric.valueFormat, tile.result.metric.id, { percentDecimals: tile.appearance.labelPercentDecimals, percentRounding: tile.appearance.labelPercentRounding })} />;
   if (!resultColumnValues(tile.result).length) return <p role="status">{tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no verified numeric observations."} Rerun the analysis or review its source values.</p>;
   if (tile.visualization === "vertical_bar")
     return <VerticalBarChartView tile={tile} />;

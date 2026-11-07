@@ -1,3 +1,5 @@
+import { hasValidRecordedCalculations } from "../../../shared/analytics/recordedCalculation";
+import { unroundedPercentage } from "../../../shared/analytics/percentagePrecision";
 import type { CellFormulaSpec, CellFormulaOperand } from "../../../shared/types/calculatedMetric";
 import type { AnalyticsQueryResponse, AnalyticsTableRow } from "../../../shared/types/analytics";
 import type { DashboardDraft, DashboardPage, DashboardTile, SavedDerivedDefinition } from "../../../shared/types/dashboard";
@@ -59,7 +61,8 @@ export function makeCellFormulaSpec(tile: DashboardTile, config: CellFormulaConf
       const recorded = result.calculationInputs, raw = recorded?.rows[row.optionId];
       const pair = raw?.cells[column!.id];
       if (recorded?.version !== 1 || recorded.method !== "local_unweighted_v1" || !analysisSettingsMatch(recorded.query, result.query) || recorded.columns[column!.id] !== column!.label || raw?.label !== row.label || !pair || pair.denominator !== base || !Number.isSafeInteger(pair.numerator) || pair.numerator < 0 || pair.numerator > base) throw Error("Refresh this percentage source to record compatible full-precision numerator/denominator inputs.");
-      value = pair.numerator / pair.denominator * 100;
+      if (recorded.percentageValueMode !== undefined && !hasValidRecordedCalculations(result)) throw Error("The recorded percentage precision and counts disagree. Refresh the source.");
+      value = recorded.percentageValueMode ? unroundedPercentage(pair.numerator, pair.denominator) : pair.numerator / pair.denominator * 100;
       const tolerance = 1e-10 * Math.max(1, Math.abs(value));
       if (Math.abs(value - cell.value) > tolerance && Math.abs(Math.round(value * 10) / 10 - cell.value) > tolerance) throw Error("The recorded percentage and its numerator/denominator disagree. Refresh the source.");
     }

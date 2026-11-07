@@ -487,7 +487,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
   const showWorkbench = dataWorkbenchOpen || exploreView !== "source";
 
   return (
-<BuilderPanel className="panel controls" label="Data controls">
+<BuilderPanel className="panel controls" label={leftPanelView === "pages" ? "Report outline" : leftPanelView === "layers" ? "Object layers" : leftPanelView === "insert" ? "Insert tools" : leftPanelView === "brand" ? "Brand styles" : "Data controls"}>
           {leftPanelView === "layers" ? (
             <>
               <div className="panel-title with-action">

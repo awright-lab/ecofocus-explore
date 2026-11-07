@@ -1,5 +1,8 @@
+import { dotPlotDrawing } from "../analytics/dotPlotSvg";
 import { useId } from "react";
+import { ownAxisLabel } from "../design-system/axisLabels";
 import { analyticalCell } from "../../../shared/analytics/resultCells";
+import { buildHeatmapModel } from "../analytics/heatmapModel";
 import { getCompatibleChartTypes, getChartTypeLabel } from "../analytics/analyticsDisplay";
 import { formatImportedMeasureValue } from "../data/importedDatasetAnalytics";
 import type { DashboardPage, DashboardTile } from "../../../shared/types/dashboard";
@@ -24,10 +27,10 @@ function TablePreview({ tile, area }: { tile: DashboardTile; area: Area }) {
   return <g fill="#263e34" fontSize="12">
     <rect x={area.x} y={area.y} width={area.width} height={22} fill="#edf2ee"/>
     <text x={area.x+6} y={area.y+15}>Answer</text>
-    {columns.map((column,index)=><text key={column.id} x={area.x+labelWidth+index*cell+6} y={area.y+15}>{short(tile.appearance.axisLabelOverrides[column.id]||column.label,Math.max(4,Math.floor(cell/7)))}</text>)}
+    {columns.map((column,index)=><text key={column.id} x={area.x+labelWidth+index*cell+6} y={area.y+15}>{short(ownAxisLabel(tile.appearance,column.id)||column.label,Math.max(4,Math.floor(cell/7)))}</text>)}
     {rows.map((row,index)=>{const top=area.y+22+index*rowHeight;return <g key={row.optionId} data-preview-row={row.optionId}>
       <rect x={area.x} y={top} width={area.width} height={rowHeight} fill={index%2?"#fff":"#f6f9f7"} stroke="#e1e9e3"/>
-      <text x={area.x+6} y={top+rowHeight*0.68}>{short(tile.appearance.axisLabelOverrides[row.optionId]||row.label,Math.max(4,Math.floor(labelWidth/7)))}</text>
+      <text x={area.x+6} y={top+rowHeight*0.68}>{short(ownAxisLabel(tile.appearance,row.optionId)||row.label,Math.max(4,Math.floor(labelWidth/7)))}</text>
       {columns.map((column,n)=>{const label=valueLabel(tile,analyticalCell(tile.result,row,column.id).value), clipId=`${instance}-cell-${index}-${n}`;return <g key={column.id}>
         <defs><clipPath id={clipId}><rect x={area.x+labelWidth+n*cell+4} y={top} width={Math.max(0,cell-8)} height={rowHeight}/></clipPath></defs>
         <text clipPath={`url(#${clipId})`} x={area.x+labelWidth+n*cell+6} y={top+rowHeight*0.68}><title>{label}</title>{short(label,Math.max(4,Math.floor((cell-12)/7)))}</text>
@@ -39,6 +42,15 @@ function TablePreview({ tile, area }: { tile: DashboardTile; area: Area }) {
 function ChartPreview({ tile, area }: { tile: DashboardTile; area: Area }) {
   const rows=tile.result.table.slice(0,6), columns=tile.result.columns.slice(0,3);
   if(!getCompatibleChartTypes(tile.result).includes(tile.visualization)) return <text x={area.x} y={area.y+18} fontSize="12">Chart preview unavailable</text>;
+  if(tile.visualization === "dot_plot") {
+    const width=Math.max(640,tile.layout.width-32),height=Math.max(220,tile.layout.height-110);
+    try { const drawing=dotPlotDrawing(tile,width,height,amount=>valueLabel(tile,amount)),scale=Math.min(area.width/drawing.width,area.height/drawing.height);return <g transform={`translate(${area.x} ${area.y}) scale(${scale})`} dangerouslySetInnerHTML={{__html:drawing.svg}}/>; } catch { return <text x={area.x} y={area.y+16} fontSize="11">Dot plot unavailable; open for details</text>; }
+  }
+  if(tile.visualization === "heatmap") {
+    const model=buildHeatmapModel(tile.result);if(model.status!=="ready")return <text x={area.x} y={area.y+18} fontSize="12">Heatmap preview unavailable</text>;
+    const first=area.width*.35,cell=(area.width-first)/columns.length,height=Math.max(1,(area.height-24)/rows.length);
+    return <g fill="#0f172a"><text x={area.x} y={area.y+10} fontSize="9">Shared scale; open for values and bases</text>{columns.map((column,c)=><text key={column.id} x={area.x+first+c*cell+3} y={area.y+23} fontSize="9">{short(ownAxisLabel(tile.appearance,column.id)??column.label,Math.max(1,Math.floor((cell-6)/6)))}</text>)}{rows.map((row,r)=><g key={row.optionId}><text x={area.x} y={area.y+24+(r+.6)*height} fontSize="9">{short(ownAxisLabel(tile.appearance,row.optionId)??row.label,Math.max(1,Math.floor((first-6)/6)))}</text>{columns.map((column,c)=>{const entry=model.cells[r][c];return <rect data-preview-heatmap-cell="true" key={column.id} x={area.x+first+c*cell} y={area.y+24+r*height} width={Math.max(0,cell-1)} height={Math.max(0,height-1)} fill={entry.fill}><title>{`${row.label} / ${column.label}: ${valueLabel(tile,entry.value)}; ${entry.base===null?"base unavailable":`base ${entry.base}`}`}</title></rect>;})}</g>)}</g>;
+  }
   const values=rows.map(row=>columns.map(column=>analyticalCell(tile.result,row,column.id).value));
   if(!values.some(row=>row.some(value=>value!==null))) return <text x={area.x} y={area.y+18} fontSize="12">Unavailable</text>;
   if(tile.visualization==="donut") {

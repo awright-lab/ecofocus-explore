@@ -1,0 +1,19 @@
+# XLSX shared-string and cell-address integrity
+
+The browser XLSX import path now refuses unresolved shared-string references and duplicate cell addresses before creating a study. Previously a missing index could become a literal numeric response, and a later cell with the same address could overwrite the first value. The original input file is retained; failures return an actionable error and do not save a partial dataset.
+
+Shared-string cells require exactly one nonempty, supported unsigned decimal index that resolves into the actual string table. Empty string entries remain empty strings; valid zero/leading-zero/plus-prefixed indexes and surrounding whitespace are resolved as text. Missing tables, out-of-range/negative/fractional/exponent/hex/nonfinite indexes, ambiguous values and malformed XML fail explicitly. Ordinary numeric cells remain numeric source text.
+
+Cell references are checked as supported A1-style positions within worksheet format bounds, with case-insensitive duplicate detection. An explicit cell row must agree with its enclosing row. Repeated row identities are rejected rather than split into multiple respondents. Omitted cell references advance sequentially; sparse columns retain their positions and missing cells, and absent worksheet row numbers do not manufacture respondent rows. Existing duplicate-header normalization remains covered by regression tests.
+
+These rules follow the distinction between stored values and shared-string indexes described in [Microsoft's worksheet documentation](https://learn.microsoft.com/en-us/office/open-xml/spreadsheet/working-with-sheets). Address bounds use [Excel's documented worksheet limits](https://support.microsoft.com/en-us/excel/excel-specifications-and-limits?re=true). This implementation is not a complete OOXML/schema validator.
+
+Enclosing worksheet row numbers preserve surrounding XML whitespace (space, tab, carriage return and newline) and arbitrary leading zeros. Validation applies to the normalized numeric value within rows 1–1,048,576, rather than rejecting a valid value because its spelling exceeds seven characters. Normalized duplicate identities still fail; sparse rows still do not create missing respondents. Plus-prefixed row numbers remain unsupported; the review confirmed whitespace and leading-zero compatibility, not plus-prefix compatibility. This rule concerns the row `r` attribute, separately from cell A1 references and shared-string indexes.
+
+## Verification and limits
+
+Thirty parser cases plus three real App/Home cases cover rejected files, unchanged input bytes, exact prior workspace/pending preservation, positive sparse/implicit/rich-text/empty-string behavior, valid1000×30 shared-string import, real analysis and cold reopen. The large fixture produces North average499 and South average500 with500valid rows each. Test import storage is explicitly local; no live request is made. File selection and XML parsing use jsdom/synthetic file objects rather than an OS chooser or native browser acceptance.
+
+Final suite/type/build results and verified backups are in the separate checkpoint packet. ZIP/CRC/schema completeness, decompression resource bounds, namespace/general relationship support, formula recalculation, source authenticity, native Excel compatibility and broad XLSX performance are not established by this fix. It preserves the current first-worksheet scope and source-value conventions. No upload, merge or deployment is included.
+
+The row-spelling correction adds 23 cases: five valid spellings each in stored and deflated synthetic ZIPs, eleven rejected spellings/bounds, the numeric upper bound and normalized duplicate detection. Deflated cases exercise the actual Node inflater with jsdom XML parsing, not native browser decompression. Input bytes are checked unchanged for stored fixtures. No broader schema certification or native Excel/browser acceptance is implied.

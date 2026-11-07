@@ -1,11 +1,17 @@
+import { percentagePrecisionIssue } from "../../../shared/analytics/recordedCalculation";
+import { dotPlotSvg } from "../analytics/dotPlotSvg";
+import { buildDotPlotModel } from "../analytics/dotPlotModel";
+import { canvasWidth, canvasHeight } from "../builder/builderConstants";
 import { barPaintSvg } from "./chartPaintExport";
+import { ownAxisLabel } from "../design-system/axisLabels";
 import { chartColor } from "../design-system/reportColors";
-import { analyticalCell } from "../../../shared/analytics/resultCells";
+import { analyticalBase, analyticalCell } from "../../../shared/analytics/resultCells";
 import type { DashboardTile } from "../../../shared/types/dashboard";
 import { formatValue, supportsDonutResult } from "../builder/components/CanvasRenderers";
 import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
 import { analysisContextRows } from "./exportIntegrity";
 import { formulaCacheIssue } from "../metrics/cellFormulaModel";
+import { buildHeatmapModel, heatmapMetricIssue } from "../analytics/heatmapModel";
 
 export function xmlText(value: unknown) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\r/g, "&#13;");
@@ -34,7 +40,7 @@ export function completeLines(text: string, chars: number, maximum: number): str
 function text(value: string, x: number, y: number, size = 10, anchor = "start", color = "#243343") {
   return `<text x="${x}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="${size}" text-anchor="${anchor}" fill="${xmlText(color)}">${xmlText(value)}</text>`;
 }
-function label(tile: DashboardTile, id: string, source: string) { return tile.appearance.axisLabelOverrides[id] ?? source; }
+function label(tile: DashboardTile, id: string, source: string) { return ownAxisLabel(tile.appearance,id) ?? source; }
 function value(tile: DashboardTile, amount: number | null) {
   return formatValue(amount, tile.result.metric.valueFormat, tile.result.metric.id, { percentDecimals: tile.appearance.labelPercentDecimals, percentRounding: tile.appearance.labelPercentRounding });
 }
@@ -61,7 +67,7 @@ export function analysisVisualLayout(tile: DashboardTile) {
     `Filter: ${rows.get("Filter")}`,
     `Weight: ${rows.get("Weighting")}; ${rows.get("Base scope")}`,
     `Inference: ${rows.get("Inference")}`,
-    `Rendering: reconstructed analytical view${tile.visualization === "line_chart" ? "; straight line segments" : ""}`,
+    `Rendering: reconstructed analytical view${tile.visualization === "line_chart" ? "; straight line segments" : tile.visualization === "dot_plot" ? tile.appearance.dotPlotLayout === "paired" ? "; paired dots on one shared zero-based scale; within-answer connectors; no intervals, time trend or significance implied" : "; dots on one shared zero-based scale; no intervals or connecting trends" : ""}`,
     ...(rows.get("Result warnings") ? [`Warnings: ${rows.get("Result warnings")}`] : [])
   ].flatMap(line => completeLines(line, Math.max(12, Math.floor((width - 40) / 5.8)), 12));
   const contextTop = titleBottom + 10;
@@ -72,16 +78,34 @@ export function analysisVisualLayout(tile: DashboardTile) {
 }
 
 function check(tile: DashboardTile) {
+  const precisionIssue = percentagePrecisionIssue(tile.result);
+  if (precisionIssue) throw Error(precisionIssue);
+  if (tile.visualization === "dot_plot") {
+    const model = buildDotPlotModel(tile.result); if (model.status !== "ready") throw Error(model.reason);
+    const {x,y,width,height}=tile.layout;
+    if(![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>canvasWidth||y+height>canvasHeight)throw Error('Move or resize the complete dot plot inside the page before exporting. Its source and layout were retained.');
+  }
+  if (tile.visualization === "heatmap") { const issue = heatmapMetricIssue(tile.result); if (issue) throw Error(issue); }
   const formulaIssue = formulaCacheIssue(tile); if (formulaIssue) throw Error(`Review calculated metric "${tile.title}" before rendering: ${formulaIssue}`);
   if (importedMeasureBasesNeedRefresh(tile.result)) throw new Error(`Refresh "${tile.title}" before exporting its numeric sample bases.`);
   for (const row of tile.result.table) for (const column of tile.result.columns) {
-    if (["invalid", "rerun_required"].includes(analyticalCell(tile.result,row,column.id).status) || !Number.isFinite(row.bases[column.id]) || row.bases[column.id] < 0) throw new Error(`"${tile.title}" has missing or invalid export values/bases.`);
+    if (["invalid", "rerun_required"].includes(analyticalCell(tile.result,row,column.id).status) || analyticalBase(tile.result,row,column.id) === null) throw new Error(`"${tile.title}" has missing or invalid export values/bases.`);
   }
   if (!tile.result.table.length || !tile.result.columns.length) throw new Error(`"${tile.title}" has no analytical cells to export.`);
 }
 
-function table(tile: DashboardTile) {
-  const { area } = analysisVisualLayout(tile), columns = tile.result.columns, rows = tile.result.table;
+function table(tile: DashboardTile, heatmap = false) {
+  let { area } = analysisVisualLayout(tile);
+  const columns = tile.result.columns, rows = tile.result.table;
+  const model = heatmap ? buildHeatmapModel(tile.result) : null;
+  if (model?.status === "unavailable") throw Error(model.reason);
+  let prefix = "";
+  if (model?.status === "ready") {
+    const notes = completeLines(`Shared heatmap scale: ${value(tile,model.minimum)} to ${value(tile,model.maximum)}. White = zero; blue = positive; orange = negative; gray = unavailable. Color does not indicate significance.`, Math.max(1,Math.floor(area.width/7)), 3);
+    const height = notes.length * 15 + 8;
+    prefix = `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${height}" fill="#ffffff"/>` + notes.map((line,n)=>text(line,area.x+4,area.y+12+n*15,11)).join("");
+    area = { ...area, y: area.y + height, height: area.height - height };
+  }
   const nameSize = tile.appearance.axisFontSize, valueSize = tile.appearance.labelFontSize, sampleSize = Math.max(8,valueSize - 1), nameLine = nameSize * 1.3;
   const minimumRow = Math.max(nameLine, valueSize * 1.2 + sampleSize * 1.2) + 6;
   const first = area.width * 0.29, cell = (area.width - first) / columns.length;
@@ -90,7 +114,7 @@ function table(tile: DashboardTile) {
   const headerHeight = Math.max(...headers.map(lines => lines.length), 1) * nameLine + 12;
   const rowHeight = Math.min(Math.max(32,minimumRow), (area.height - headerHeight) / rows.length);
   if (rowHeight < minimumRow) throw new Error(`"${tile.title}" has too many rows for this page. Enlarge it or use Excel/JSON; no rows were omitted.`);
-  let svg = `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${headerHeight}" fill="#edf2f5"/>${text("Response", area.x + 6, area.y + nameSize + 4,nameSize,"start",tile.appearance.labelColor)}`;
+  let svg = prefix + `<rect x="${area.x}" y="${area.y}" width="${area.width}" height="${headerHeight}" fill="#edf2f5"/>${text("Response", area.x + 6, area.y + nameSize + 4,nameSize,"start",tile.appearance.labelColor)}`;
   headers.forEach((lines, index) => lines.forEach((line, n) => { svg += text(line, area.x + first + index * cell + 6, area.y + nameSize + 4 + n * nameLine,nameSize,"start",tile.appearance.labelColor); }));
   rows.forEach((row, rowIndex) => {
     const y = area.y + headerHeight + rowIndex * rowHeight;
@@ -100,7 +124,8 @@ function table(tile: DashboardTile) {
     columns.forEach((column, index) => {
       const formatted = value(tile, analyticalCell(tile.result,row,column.id).value), sample = base(tile, row.bases[column.id]);
       if (Math.max(formatted.length, sample.length) * Math.max(6,tile.appearance.labelFontSize * 0.62) > cell - 10) throw new Error("An export cell label cannot fit. Enlarge the table or use Excel/JSON.");
-      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${analyticalCell(tile.result,row,column.id).value ?? ""}" data-base="${row.bases[column.id]}">${text(formatted, area.x + first + index * cell + 6, y + valueSize + 2,valueSize,"start",tile.appearance.labelColor)}${text(sample, area.x + first + index * cell + 6, y + valueSize + 2 + sampleSize * 1.2, sampleSize,"start",tile.appearance.labelColor)}</g>`;
+      const heat = model?.status === "ready" ? model.cells[rowIndex][index] : null, ink = heat?.ink ?? tile.appearance.labelColor;
+      svg += `<g data-row="${xmlText(row.optionId)}" data-column="${xmlText(column.id)}" data-value="${analyticalCell(tile.result,row,column.id).value ?? ""}" data-base="${row.bases[column.id]}">${heat ? `<rect data-heatmap-cell="true" x="${area.x + first + index * cell}" y="${y}" width="${cell}" height="${rowHeight}" fill="${heat.fill}"/>` : ""}${text(formatted, area.x + first + index * cell + 6, y + valueSize + 2,valueSize,"start",ink)}${text(sample, area.x + first + index * cell + 6, y + valueSize + 2 + sampleSize * 1.2, sampleSize,"start",ink)}</g>`;
     });
     svg += "</g>";
   });
@@ -268,10 +293,10 @@ export function analysisTileSvg(tile: DashboardTile, includeBody = true) {
     svg += `<defs>${[...new Set(paints.map(paint => paint.definition))].join("")}</defs>`;
   }
   const hasValues = tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
-  if (includeBody && !hasValues && tile.visualization !== "table") svg += text(tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no valid numeric observations.",layout.area.x,layout.area.y+24,12);
+  if (includeBody && !hasValues && tile.visualization !== "table" && tile.visualization !== "heatmap") svg += text(tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no valid numeric observations.",layout.area.x,layout.area.y+24,12);
   else if (includeBody) {
     svg += `<rect x="${layout.area.x}" y="${layout.area.y}" width="${layout.area.width}" height="${layout.area.height}" fill="${xmlText(tile.appearance.chartBackground || "#fff")}"/>`;
-    svg += tile.visualization === "table" ? table(tile) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
+    svg += tile.visualization === "table" || tile.visualization === "heatmap" ? table(tile, tile.visualization === "heatmap") : tile.visualization === "dot_plot" ? dotPlotSvg(tile, layout.area, amount => value(tile,amount)) : tile.visualization === "donut" ? donut(tile) : tile.visualization === "line_chart" ? lines(tile) : bars(tile);
   }
   return svg + "</g>";
 }

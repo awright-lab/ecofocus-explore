@@ -1,13 +1,17 @@
 import { resultIdentityIssue } from "../../../../shared/analytics/resultIdentities";
-import { useId, useMemo, useState } from "react";
+import { useEffect,useId, useMemo, useState } from "react";
+import {localExecutionSignature,verifyLocalExecution} from "../../../../shared/analytics/localExecutionEvidence";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 import { buildResultEvidence, resultRowLabelOverride } from "../../analytics/resultEvidence";
-export default function ResultEvidencePanel({ tile }: { tile: DashboardTile }) {
+export default function ResultEvidencePanel({ tile,startOpen=false }: { tile: DashboardTile;startOpen?:boolean }) {
   const issue = resultIdentityIssue(tile.result);
   if (issue) return <details className="result-evidence-panel" data-canvas-keyboard-scope="controls"><summary>Explain a result</summary><p role="alert">{issue}</p></details>;
-  return <ValidResultEvidencePanel tile={tile} />;
+  return <ValidResultEvidencePanel tile={tile} startOpen={startOpen}/>;
 }
-function ValidResultEvidencePanel({ tile }: { tile: DashboardTile }) {
+function ValidResultEvidencePanel({ tile,startOpen }: { tile: DashboardTile;startOpen:boolean }) {
+  const receiptSignature=localExecutionSignature(tile.result),[checkedReceipt,setCheckedReceipt]=useState<{signature:string;valid:boolean}|null>(null);
+  useEffect(()=>{if(!tile.result.localExecution)return;let canceled=false;verifyLocalExecution(tile.result).then(valid=>{if(!canceled)setCheckedReceipt({signature:receiptSignature,valid});});return()=>{canceled=true;};},[receiptSignature]);
+  const receiptVerified=!!tile.result.localExecution&&checkedReceipt?.signature===receiptSignature&&checkedReceipt.valid;
   const prefix = useId();
   const owner = useMemo(() => ({}), [tile.id, tile.result]);
   const empty = { owner, rowId: "", columnId: "", search: "", columnSearch: "" };
@@ -35,8 +39,8 @@ function ValidResultEvidencePanel({ tile }: { tile: DashboardTile }) {
   columns.forEach(item => columnLabels.set(item.label, (columnLabels.get(item.label) ?? 0) + 1));
   const columnPositions = new Map(columns.map((item, index) => [item.id, index + 1]));
   if (column && !visibleColumns.some(item => item.id === column.id)) visibleColumns.push(column);
-  const evidence = useMemo(() => row && column ? buildResultEvidence(tile, row.optionId, column.id) : null, [tile, row?.optionId, column?.id]);
-  return <details className="result-evidence-panel" data-canvas-keyboard-scope="controls">
+  const evidence = useMemo(() => row && column ? buildResultEvidence(tile, row.optionId, column.id,receiptVerified) : null, [tile, row?.optionId, column?.id,receiptVerified,receiptSignature]);
+  return <details open={startOpen} className="result-evidence-panel" data-canvas-keyboard-scope="controls">
     <summary>Explain a result</summary>
     <p>Choose a row and column to inspect the recorded value and its context.</p>
     {!evidence ? <p>No result cells are available to explain.</p> : <>
@@ -49,6 +53,7 @@ function ValidResultEvidencePanel({ tile }: { tile: DashboardTile }) {
       {matchingColumns.length > 200 && <p role="status">Showing the first 200 of {matchingColumns.length.toLocaleString()} matching columns. Search to narrow the list.</p>}
       {activeColumnSearch && matchingColumns.length === 0 && <p role="status">No columns match. Your current column remains selected.</p>}
       <section aria-label="Recorded result explanation">
+        {tile.result.localExecution&&!receiptVerified&&<p role="status">{checkedReceipt?.signature===receiptSignature?'Recorded execution evidence could not be verified. No source-version or exclusion facts are asserted from it.':'Checking the recorded local execution evidence…'}</p>}
         <h3>{evidence.heading}</h3>
         {!evidence.settingsCurrent && <p className="result-evidence-warning" role="status">The edited settings differ from the saved result. This explanation describes the saved result; refresh the analysis to apply your edits.</p>}
         <dl>{evidence.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>

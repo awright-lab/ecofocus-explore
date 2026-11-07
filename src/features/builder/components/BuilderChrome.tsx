@@ -1,3 +1,4 @@
+import type { ExportIssueTarget } from "../../export/exportIssueTarget";
 import { AudienceControl } from "../../audiences/AudienceControl";
 import { ReportThemeControl } from "./ReportThemeControl";
 import { ExportPreflightDialog } from "../../export/ExportPreflightDialog";
@@ -199,6 +200,8 @@ export const BuilderHeader = memo(function BuilderHeader({
   onAudienceChange,
   audienceDatasets,
   selectedTileId,
+  activePageId,
+  onShowExportIssue,
 }: {
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
@@ -223,6 +226,8 @@ export const BuilderHeader = memo(function BuilderHeader({
   onAudienceChange?: (update:(current:DashboardDraft)=>DashboardDraft)=>boolean;
   audienceDatasets?: DashboardDraft["importedDatasets"];
   selectedTileId?: string|null;
+  activePageId?: string;
+  onShowExportIssue?: (target: ExportIssueTarget, canMoveFocus: () => boolean) => boolean;
 }) {
   const readiness = useMemo(
     () => buildPublishReadinessView(dashboard),
@@ -261,7 +266,7 @@ export const BuilderHeader = memo(function BuilderHeader({
   }
 
   return (
-    <header className="builder-header">
+    <header className="builder-header" data-canvas-keyboard-scope="controls">
       <div className="top-nav" aria-label="Product navigation">
         <button
           type="button"
@@ -416,7 +421,7 @@ export const BuilderHeader = memo(function BuilderHeader({
             <ChevronDown size={13} />
           </summary>
           <div>
-            <button type="button" disabled={Boolean(exporting)} onClick={() => setPreflightOpen(true)}>Review before exporting</button>
+            <button type="button" disabled={Boolean(exporting)} data-export-review-trigger="" onClick={() => setPreflightOpen(true)}>Review before exporting</button>
             <button
               type="button"
               disabled={Boolean(exporting)}
@@ -457,7 +462,7 @@ export const BuilderHeader = memo(function BuilderHeader({
           <span>{activeOutcomeMode.helper}</span>
         </div>
       )}
-      {preflightOpen && <ExportPreflightDialog dashboard={dashboard} onClose={() => setPreflightOpen(false)} />}
+      {preflightOpen && <ExportPreflightDialog dashboard={dashboard} activePageId={activePageId} onShowIssue={onShowExportIssue} onClose={() => setPreflightOpen(false)} />}
     </header>
   );
 });
@@ -530,7 +535,7 @@ export const WorkspaceModeStrip = memo(function WorkspaceModeStrip({
   }
 
   return (
-    <div className="workspace-mode-strip" aria-label="Workspace mode">
+    <div className="workspace-mode-strip" aria-label="Workspace mode" data-canvas-keyboard-scope="controls">
       <div className="workspace-strip-document">
         <button
           type="button"
@@ -646,7 +651,7 @@ export function ToolRail({
   onChange: (view: "pages" | "layers" | "insert" | "data" | "brand") => void;
 }) {
   return (
-    <nav className="tool-rail" aria-label="Design tools">
+    <nav className="tool-rail" aria-label="Design tools" data-canvas-keyboard-scope="controls">
       <button
         type="button"
         className={activeView === "pages" ? "active" : ""}
@@ -727,7 +732,7 @@ export function BuilderPanel({
   children: ReactNode;
 }) {
   return (
-    <aside className={className} aria-label={label}>
+    <aside className={className} aria-label={label} data-canvas-keyboard-scope="controls">
       {children}
     </aside>
   );
