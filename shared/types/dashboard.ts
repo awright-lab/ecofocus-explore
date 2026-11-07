@@ -1,3 +1,6 @@
+import type { CellFormulaSpec } from "./calculatedMetric";
+import type { SavedImportedAudience } from "./audience";
+import type { NarrativeEvidence } from "./narrative";
 import type { BreakById, DatasetId, FilterFieldId, Metric, QuestionId, WeightId } from "./analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse, ChartType } from "./analytics";
 import type { ComparisonMode } from "./analytics";
@@ -14,7 +17,14 @@ export interface GradientStop {
 
 export type GradientType = "linear" | "radial" | "conic";
 
+export interface ReportColorTheme {
+  version: 1;
+  palette: string[];
+  slots: Array<{ key: string; label: string; index: number }>;
+}
 export interface TileAppearance {
+  reportColorsEnabled?: boolean;
+  reportColorSlots?: { rows: Record<string, number>; columns: Record<string, number>; originalPalette: string[]; styles?: Record<string, TileAppearance["barStyles"][string]> };
   primaryColor: string;
   palette: string[];
   background: string;
@@ -122,7 +132,8 @@ export interface DashboardTile {
     };
   };
   derivedOutput?: {
-    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference" | "row_average";
+    formula?: CellFormulaSpec;
+    kind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference" | "row_average" | "cell_formula";
     sourceTileId: string;
     sourceTitle: string;
     rowId?: string;
@@ -139,7 +150,7 @@ export interface DashboardTile {
     savedDefinition?: {
       id: string;
       label: string;
-      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference" | "row_average";
+      outputKind: "lead_row_summary" | "top_n_extract" | "bottom_n_extract" | "row_difference" | "row_average" | "cell_formula";
       sourceTileId: string;
       sourceTileTitle: string;
     };
@@ -176,6 +187,7 @@ export interface DashboardTile {
 export type DashboardCanvasElementType = "text" | "rectangle" | "circle" | "image";
 
 export interface DashboardCanvasElement {
+  evidence?: NarrativeEvidence;
   id: string;
   name: string;
   type: DashboardCanvasElementType;
@@ -343,11 +355,7 @@ export interface SavedAnalyticalTemplate {
   datasetId: DatasetId;
   label: string;
   description: string;
-  source: {
-    kind: "question" | "variableSet";
-    id: string;
-    label: string;
-  };
+  source: NonNullable<DashboardTile["source"]>;
   query: AnalyticsQueryRequest;
   visualization: ChartType;
   summary: {
@@ -367,7 +375,7 @@ export interface SavedDerivedDefinition {
   description: string;
   definitionType?: "output" | "metric";
   source: {
-    kind: "question" | "variableSet";
+    kind: "question" | "variableSet" | "importedField";
     id: string;
     label: string;
   };
@@ -375,8 +383,9 @@ export interface SavedDerivedDefinition {
   sourceTileTitle: string;
   query: AnalyticsQueryRequest;
   outputKind: NonNullable<DashboardTile["derivedOutput"]>["kind"];
-  metricKind?: "row_difference" | "row_average";
+  metricKind?: "row_difference" | "row_average" | "cell_formula";
   spec: {
+    formula?: CellFormulaSpec;
     columnId: string;
     columnLabel: string;
     rowId?: string;
@@ -564,6 +573,9 @@ export interface ImportedDatasetField {
   label: string;
   sourceColumn: string;
   variableLabel?: string;
+  /** User-declared discovery labels; never inferred from respondent values. */
+  researchTopic?: string;
+  researchConcepts?: string[];
   valueLabels?: Record<string, string>;
   sourceFormat?: string;
   type: ImportedDatasetFieldType;
@@ -577,6 +589,7 @@ export interface ImportedDatasetField {
 }
 
 export interface ImportedDatasetRecord {
+  preparation?: import("./dataPreparation").StudyPreparation;
   id: string;
   title: string;
   sourceType: "local_file" | "supabase" | "netlify";
@@ -614,6 +627,8 @@ export interface ImportedDatasetRecord {
 }
 
 export interface DashboardDraft {
+  savedAudiences?: SavedImportedAudience[];
+  reportColorTheme?: ReportColorTheme;
   id: string;
   title: string;
   status: DashboardStatus;

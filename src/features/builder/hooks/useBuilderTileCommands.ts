@@ -1,5 +1,9 @@
 import type React from "react";
+import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
+import { buildPageFromTemplate } from "../builderDocumentCommands";
+import { useAnalysisOperationOwnership } from "./useAnalysisOperationOwnership";
 import { runAnalyticsQuery } from "../../../lib/api";
+import { runIllustrativeFollowUpQuery } from "../../analytics/illustrativeFollowUpQuery";
 import { applyVariableSetRows } from "../../../../shared/analytics/variableSets";
 import { canvasHeight, canvasWidth, defaultAppearance, defaultDataset } from "../builderConstants";
 import { defaultVariableSetRows } from "../../document/documentSeeds";
@@ -10,6 +14,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
+import { assertSavedImportedTileSource, runSavedImportedQuery } from "../../data/savedImportedQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import {
   buildSmartCompositionBlockFromTile,
@@ -22,20 +27,25 @@ import type { AnalyticsQueryRequest, ChartType, FilterFieldId, Metric } from "..
 import type { CanvasLayout, DashboardCanvasElement, DashboardDraft, DashboardPage, DashboardTile, ImportedDatasetField, ImportedDatasetRecord, SavedAnalyticalTemplate, SavedDerivedDefinition, SavedSegmentProfile, SavedVariableSet } from "../../../../shared/types/dashboard";
 import type { DerivedDefinitionRecreationCue, DerivedOutputCreationCue, DerivedOutputRecreationCue } from "../builderTypes";
 
-type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => void;
+type SetDashboard = (updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory?: boolean) => boolean;
 
 type UseBuilderTileCommandsArgs = {
+  documentId: string;
+  getContextVersion: () => string | number;
+  documentVersion?: string;
+  readOnly?: boolean;
   activePage: DashboardPage;
   canvasScale: number;
   query: AnalyticsQueryRequest;
   selectedQuestion: typeof defaultDataset.questions[number];
   selectedVariableSet: SavedVariableSet | null;
   savedVariableSets: SavedVariableSet[];
+  importedDatasets?: ImportedDatasetRecord[];
   selectedTile: DashboardTile | null;
   selectedElement: DashboardCanvasElement | null;
   setDashboard: SetDashboard;
   selectTile: (tileId: string) => void;
-  setActivePageId: (pageId: string) => void;
+  setActivePageId: (pageId: string, originPageId?: string) => void;
   updateTile: (tileId: string, updates: Partial<DashboardTile>) => void;
   applyQuestionSelection: (question: typeof defaultDataset.questions[number]) => void;
   applyVariableSetSelection: (variableSet: SavedVariableSet) => void;
@@ -130,12 +140,17 @@ function tableFirstQuery(nextQuery: AnalyticsQueryRequest): AnalyticsQueryReques
 }
 
 export function useBuilderTileCommands({
+  documentId,
+  getContextVersion,
+  documentVersion,
+  readOnly = false,
   activePage,
   canvasScale,
   query,
   selectedQuestion,
   selectedVariableSet,
   savedVariableSets,
+  importedDatasets = [],
   selectedTile,
   selectedElement,
   setDashboard,
@@ -150,26 +165,70 @@ export function useBuilderTileCommands({
   setIsLoading,
   setError
 }: UseBuilderTileCommandsArgs) {
+  const beginOperation = useAnalysisOperationOwnership(JSON.stringify([documentId, activePage.id, documentVersion]), readOnly, setIsLoading, getContextVersion);
+  function insertCreatedAnalysis(tile: DashboardTile, ownsContext: () => boolean, destination?: AnalysisDestination) {
+    const newPage = destination === "new_page" ? buildPageFromTemplate({ pageCount: 0, pageThemes: [], pageMasters: [] }) : null;
+    const inserted = setDashboard((current) => {
+      if (!ownsContext() || current.id !== documentId) return current;
+      const sourcePage = current.pages.find(page => page.id === activePage.id);
+      if (!sourcePage) return current;
+      if (newPage) {
+        if (current.pages.some(page => page.id === newPage.id)) return current;
+        const order = current.pages.reduce((maximum, page) => Math.max(maximum, page.order), 0) + 1;
+        const layout = findAnalysisPlacement(newPage)!;
+        return { ...current, status: "draft", pages: [...current.pages, { ...newPage, title: `Analysis ${order}`, order, tiles: [{ ...tile, layout }] }] };
+      }
+      const layout = destination === "current_page" ? findAnalysisPlacement(sourcePage, tile.layout) : tile.layout;
+      if (!layout) return current;
+      return { ...current, status: "draft", pages: current.pages.map(page => page.id === sourcePage.id ? { ...page, tiles: [...page.tiles, { ...tile, layout }] } : page) };
+    });
+    if (!inserted) {
+      if (destination && ownsContext()) setError("This page has no room for the analysis. Choose a new page in analysis setup, or make space and retry. Your existing objects are unchanged.");
+      return null;
+    }
+    if (newPage) setActivePageId(newPage.id, activePage.id);
+    selectTile(tile.id);
+    return tile.id;
+  }
+  async function executeQuery(nextQuery: AnalyticsQueryRequest, source: DashboardTile["source"]) {
+    if (nextQuery.sourceIdentity?.kind !== "imported" &&
+        (source?.kind === "importedField" || nextQuery.sourceRef && ["imported_file","workspace_database"].includes(nextQuery.sourceRef.kind))) {
+      throw new Error("This saved analysis is missing its imported study context. Recreate it from the original result.");
+    }
+    assertSavedImportedTileSource(nextQuery, source);
+    if (nextQuery.sourceIdentity?.kind === "seeded" && nextQuery.sourceIdentity.sourceRef?.kind === "seeded_demo") {
+      return runIllustrativeFollowUpQuery(nextQuery);
+    }
+    return nextQuery.sourceIdentity?.kind === "imported" ? runSavedImportedQuery(nextQuery, importedDatasets) : runAnalyticsQuery(nextQuery);
+  }
   async function createTileFromSource(
     tileQuery: AnalyticsQueryRequest,
     sourceLabel: string,
     position?: { x: number; y: number },
     source?: DashboardTile["source"],
-    options?: { segmentProfile?: DashboardTile["segmentProfile"] }
+    options?: { segmentProfile?: DashboardTile["segmentProfile"]; isCurrent?: () => boolean; destination?: AnalysisDestination; contextNotes?: string[]; executionMode?: "illustrative_sample" }
   ) {
-    setIsLoading(true);
+    const operation = beginOperation(options?.isCurrent);
+    if (!operation) return null;
     setError(null);
 
     try {
-      const response = await runAnalyticsQuery(tileQuery);
-      const resolvedResponse = resolveVariableSetResult(response, tileQuery, source, savedVariableSets);
+      const response = options?.executionMode === "illustrative_sample" ? runIllustrativeFollowUpQuery(tileQuery) : await executeQuery(tileQuery, source);
+      if (!operation.isCurrent()) return null;
+      const resolvedResponse = tileQuery.sourceIdentity?.kind === "imported" ? response : resolveVariableSetResult(response, tileQuery, source, savedVariableSets);
       const tileId = makeTileId();
+      const importedIdentity = response.query.sourceIdentity?.kind === "imported" ? response.query.sourceIdentity : null;
+      const resolvedSource = importedIdentity ? {
+        kind: "importedField" as const, id: `${importedIdentity.datasetId}:${importedIdentity.primaryFieldId}`,
+        label: source?.kind === "importedField" ? source.label : importedIdentity.primaryFieldLabel,
+        datasetId: importedIdentity.datasetId, fieldId: importedIdentity.primaryFieldId, sourceRef: importedIdentity.sourceRef,
+      } : source;
       const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
       const tile: DashboardTile = {
         id: tileId,
         name: sourceLabel,
         title: sourceLabel,
-        source,
+        source: resolvedSource,
         segmentProfile: options?.segmentProfile,
         analysisLifecycle: {
           role: "canonical",
@@ -179,24 +238,18 @@ export function useBuilderTileCommands({
         locked: false,
         hidden: false,
         layout: tileInsertionLayout(activePage, position, selectedLayout),
-        query: tileQuery,
+        query: response.query,
         visualization: tileQuery.chartType,
         appearance: { ...defaultAppearance, palette: [...defaultAppearance.palette] },
-        result: resolvedResponse
+        result: options?.contextNotes?.length ? { ...resolvedResponse, notes: [...resolvedResponse.notes, ...options.contextNotes] } : resolvedResponse
       };
 
-      setDashboard((current) => ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
-      }));
-      selectTile(tile.id);
-      return tile.id;
+      return insertCreatedAnalysis(tile, operation.ownsContext, options?.destination);
     } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
+      if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong.");
       return null;
     } finally {
-      setIsLoading(false);
+      operation.finish();
     }
   }
 
@@ -255,14 +308,15 @@ export function useBuilderTileCommands({
     );
   }
 
-  async function addTileFromSourceWithVisualization(nextVisualization: ChartType) {
+  async function addTileFromSourceWithVisualization(nextVisualization: ChartType, isCurrent?: () => boolean, destination?: AnalysisDestination) {
     return createTileFromSource(
       { ...query, chartType: nextVisualization },
       selectedVariableSet?.label ?? selectedQuestion.shortLabel,
       undefined,
       selectedVariableSet
         ? { kind: "variableSet", id: selectedVariableSet.id, label: selectedVariableSet.label }
-        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel }
+        : { kind: "question", id: selectedQuestion.id, label: selectedQuestion.shortLabel },
+      { isCurrent, destination }
     );
   }
 
@@ -282,6 +336,9 @@ export function useBuilderTileCommands({
     nextVisualization: ChartType,
     nextMetric: Metric,
     options?: {
+      destination?: AnalysisDestination;
+      groupingScope?: "all_respondents";
+      isCurrent?: () => boolean;
       measureField?: ImportedDatasetField | null;
       bannerField?: ImportedDatasetField | null;
       filter?: {
@@ -290,19 +347,22 @@ export function useBuilderTileCommands({
       } | null;
     }
   ) {
-    setIsLoading(true);
+    const operation = beginOperation(options?.isCurrent);
+    if (!operation) return null;
     setError(null);
 
     try {
       const response = await runImportedDatasetQueryForRuntime({
         dataset,
         field,
+        groupingScope: options?.groupingScope,
         measureField: options?.measureField,
         bannerField: options?.bannerField,
         filter: options?.filter,
         chartType: nextVisualization,
         metric: nextMetric
       });
+      if (!operation.isCurrent()) return null;
       const tileId = makeTileId();
       const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
       const measureField = options?.measureField ?? null;
@@ -340,18 +400,12 @@ export function useBuilderTileCommands({
         result: response
       };
 
-      setDashboard((current) => ({
-        ...current,
-        status: "draft",
-        pages: current.pages.map((page) => (page.id === activePage.id ? { ...page, tiles: [...page.tiles, tile] } : page))
-      }));
-      selectTile(tile.id);
-      return tile.id;
+      return insertCreatedAnalysis(tile, operation.ownsContext, options?.destination);
     } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this imported-data view.");
+      if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this imported-data view.");
       return null;
     } finally {
-      setIsLoading(false);
+      operation.finish();
     }
   }
 
@@ -389,15 +443,18 @@ export function useBuilderTileCommands({
   }
 
   async function createSourceDrivenSmartStarter(starterId: SmartCompositionStarterId) {
-    if (starterId === "source_comparison_section" && !isComparisonQuery(query)) {
-      setError("Choose a banner or wave comparison before creating a comparison starter from the active source.");
-      return null;
-    }
-
-    setIsLoading(true);
+    const operation = beginOperation();
+    if (!operation) return null;
     setError(null);
 
     try {
+      if (starterId === "source_comparison_section" && !isComparisonQuery(query)) {
+        setError("Choose a banner or wave comparison before creating a comparison starter from the active source.");
+        return null;
+      }
+      if (query.sourceIdentity?.kind === "imported" || query.sourceRef && ["imported_file","workspace_database"].includes(query.sourceRef.kind)) {
+        throw new Error("Create an imported analysis first, then build a report section from that result on the canvas.");
+      }
       const starterQuery: AnalyticsQueryRequest = {
         ...query,
         chartType: starterId === "source_table_insight" ? "table" : query.chartType
@@ -407,6 +464,7 @@ export function useBuilderTileCommands({
         ? { kind: "variableSet" as const, id: selectedVariableSet.id, label: selectedVariableSet.label }
         : { kind: "question" as const, id: selectedQuestion.id, label: selectedQuestion.shortLabel };
       const response = await runAnalyticsQuery(starterQuery);
+      if (!operation.isCurrent()) return null;
       const resolvedResponse = resolveVariableSetResult(response, starterQuery, source, savedVariableSets);
       const seedTileId = makeTileId();
       const seedTile: DashboardTile = {
@@ -458,7 +516,7 @@ export function useBuilderTileCommands({
       });
       if (tiles.length === 0 && elements.length === 0) return null;
 
-      setDashboard((current) => ({
+      const inserted = setDashboard((current) => !operation.ownsContext() || current.id !== documentId ? current : ({
         ...current,
         status: "draft",
         pages: current.pages.map((page) =>
@@ -471,6 +529,7 @@ export function useBuilderTileCommands({
             : page
         )
       }));
+      if (!inserted) return null;
       if (tiles[0]) {
         selectTile(tiles[0].id);
       }
@@ -481,39 +540,47 @@ export function useBuilderTileCommands({
         placement
       };
     } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this analytical starter.");
+      if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this analytical starter.");
       return null;
     } finally {
-      setIsLoading(false);
+      operation.finish();
     }
   }
 
   async function rerunTileAnalysis(tile: DashboardTile, nextQuery: AnalyticsQueryRequest) {
-    setIsLoading(true);
+    if (tile.derivedOutput?.kind === "cell_formula") {
+      setError("Use Calculated metrics to preview and refresh this formula; ordinary query reruns would replace its calculation.");
+      return false;
+    }
+    const operation = beginOperation(undefined, tile.id);
+    if (!operation) return false;
     setError(null);
 
     try {
-      const response = await runAnalyticsQuery(nextQuery);
-      const resolvedResponse = resolveVariableSetResult(response, nextQuery, tile.source, savedVariableSets);
+      const response = await executeQuery(nextQuery, tile.source);
+      if (!operation.isCurrent()) return false;
+      const resolvedResponse = nextQuery.sourceIdentity?.kind === "imported" ? response : resolveVariableSetResult(response, nextQuery, tile.source, savedVariableSets);
       const compatibleVisualizations = getCompatibleChartTypes(resolvedResponse);
       const nextVisualization = compatibleVisualizations.includes(tile.visualization)
         ? tile.visualization
         : compatibleVisualizations[0] ?? "table";
 
-      updateTile(tile.id, {
-        query: { ...nextQuery, chartType: nextVisualization, confidenceLevel: nextQuery.confidenceLevel ?? 0.95 },
+      const updates: Partial<DashboardTile> = {
+        query: { ...response.query, chartType: nextVisualization, confidenceLevel: response.query.confidenceLevel ?? 0.95 },
         visualization: nextVisualization,
         result: {
           ...resolvedResponse,
           query: { ...resolvedResponse.query, chartType: nextVisualization, confidenceLevel: resolvedResponse.query.confidenceLevel ?? nextQuery.confidenceLevel ?? 0.95 }
         }
-      });
-      return true;
+      };
+      return setDashboard(current => !operation.ownsContext() || current.id !== documentId ? current : ({ ...current, status: "draft",
+        pages: current.pages.map(page => page.id !== activePage.id ? page : { ...page, tiles: page.tiles.map(item => item.id === tile.id ? { ...item, ...updates } : item) }),
+      }));
     } catch (queryError) {
-      setError(queryError instanceof Error ? queryError.message : "Something went wrong refreshing this analysis.");
+      if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong refreshing this analysis.");
       return false;
     } finally {
-      setIsLoading(false);
+      operation.finish();
     }
   }
 
@@ -724,7 +791,8 @@ export function useBuilderTileCommands({
       config: {
         rowId: definition.spec.rowId,
         comparedRowId: definition.spec.comparedRowId,
-        columnId: definition.spec.columnId
+        columnId: definition.spec.columnId,
+        formula: definition.spec.formula
       },
       savedDefinition: {
         id: definition.id,
@@ -761,7 +829,8 @@ export function useBuilderTileCommands({
     const config: DerivedOutputConfig = {
       rowId: tile.derivedOutput.rowId,
       comparedRowId: tile.derivedOutput.comparedRowId,
-      columnId: tile.derivedOutput.columnId
+      columnId: tile.derivedOutput.columnId,
+      formula: tile.derivedOutput.formula
     };
     const outputResult = buildDerivedOutputResponse(sourceTile, tile.derivedOutput.kind, config);
     const derivedOutput = buildDerivedOutputMetadata(sourceTile, tile.derivedOutput.kind, config);

@@ -237,7 +237,7 @@ describe("snowflakeProvider", () => {
   });
 
   it("normalizes Snowflake rows into the same table-first response contract", () => {
-    const result = normalizeSnowflakeRows(breakoutQuery, [
+    const result = normalizeSnowflakeRows({ ...breakoutQuery, weight: null }, [
       {
         OPTION_ID: "trust_a_lot",
         OPTION_LABEL: "Trust a lot",
@@ -393,19 +393,8 @@ describe("snowflakeProvider", () => {
     expect(result.warnings).toEqual(expect.arrayContaining([
       "Weighted Snowflake output has zero base across all cells; verify weight availability and filter scope."
     ]));
-    expect(result.statistics.significanceExecutionReport).toMatchObject({
-      method: "column_comparison",
-      status: "not_executed",
-      inputAccepted: true,
-      reasonCodes: ["insufficient_base"],
-      result: {
-        summary: {
-          testedComparisons: 0,
-          deferredComparisons: expect.any(Number),
-          significantComparisons: 0
-        }
-      }
-    });
+    expect(result.statistics.significanceExecutionReport).toBeNull();
+    expect(result.statistics.significance.status).toBe("unsupported");
   });
 
   it("keeps empty and ambiguous Snowflake results visible as warnings while preserving the normalized contract", () => {
@@ -610,7 +599,7 @@ describe("snowflakeProvider", () => {
       }
     };
 
-    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(waveQuery);
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery({ ...waveQuery, weight: null });
 
     expect(executedSql).toContain("'ecofocus_2024' AS column_id");
     expect(result.columns).toEqual([
@@ -684,6 +673,7 @@ describe("snowflakeProvider", () => {
   it("executes narrow multi-wave summary trend significance as adjacent wave pairs", async () => {
     const query: AnalyticsQueryRequest = {
       ...waveQuery,
+      weight: null,
       comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"]
     };
     const executor: SnowflakeQueryExecutor = {
@@ -762,7 +752,7 @@ describe("snowflakeProvider", () => {
       }
     };
 
-    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery(breakoutWaveQuery);
+    const result = await createSnowflakeAnalyticsProvider(executor, env).runQuery({ ...breakoutWaveQuery, weight: null });
 
     expect(executedSql).toContain("CONCAT('ecofocus_2024__', LOWER(TO_VARCHAR(generation))) AS column_id");
     expect(result.columns).toEqual([
@@ -861,6 +851,7 @@ describe("snowflakeProvider", () => {
   it("keeps multi-wave breakout significance outside the narrow live execution bridge", async () => {
     const query: AnalyticsQueryRequest = {
       ...breakoutWaveQuery,
+      weight: null,
       comparisonDatasets: ["ecofocus_2024", "ecofocus_2023"]
     };
     const executor: SnowflakeQueryExecutor = {
@@ -963,6 +954,7 @@ describe("snowflakeProvider", () => {
     let executedSql = "";
     const query: AnalyticsQueryRequest = {
       ...authoredVariableSetQuery,
+      weight: null,
       breakBy: "GENERATION"
     };
     const executor: SnowflakeQueryExecutor = {

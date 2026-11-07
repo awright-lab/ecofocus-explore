@@ -17,6 +17,7 @@ import type {
 } from "../../types/analytics";
 
 const columnComparisonInput: AnalyticsColumnComparisonExecutionInput = {
+  inferenceBasis: "unweighted_full_precision_v1",
   method: "column_comparison",
   confidenceLevel: 0.95,
   metric: {
@@ -55,6 +56,7 @@ const deferredColumnComparisonPlan: AnalyticsSignificanceExecutionPlan = {
 };
 
 const waveComparisonInput: AnalyticsWaveComparisonExecutionInput = {
+  inferenceBasis: "unweighted_full_precision_v1",
   method: "wave_comparison",
   confidenceLevel: 0.95,
   metric: {

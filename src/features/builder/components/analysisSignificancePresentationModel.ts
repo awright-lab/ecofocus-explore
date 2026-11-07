@@ -1,3 +1,4 @@
+import { withSafeInference } from "../../../../shared/analytics/inferenceSafety";
 import type { AnalyticsQueryResponse } from "../../../../shared/types/analytics";
 
 export interface ExecutedSignificanceCellPresentation {
@@ -55,6 +56,7 @@ function titlePrefix(direction: ExecutedSignificanceCellPresentation["direction"
 }
 
 export function buildExecutedColumnComparisonPresentation(result: AnalyticsQueryResponse): ExecutedSignificancePresentation {
+  result = withSafeInference(result);
   const report = result.statistics?.significanceExecutionReport;
   const executionResult = report?.result;
 
@@ -116,7 +118,7 @@ export function buildExecutedColumnComparisonPresentation(result: AnalyticsQuery
           comparisonCount,
           comparedLabels: item.comparedLabels,
           label: directionLabel(direction, comparisonCount),
-          title: `${titlePrefix(direction)} ${item.comparedLabels.join(", ")} at ${Math.round(result.statistics.confidenceLevel * 100)}% confidence.`
+          title: `${titlePrefix(direction)} ${item.comparedLabels.join(", ")} at ${Math.round(result.statistics.confidenceLevel * 100)}% confidence (independent-sample approximation; unadjusted).`
         }
       ];
     })

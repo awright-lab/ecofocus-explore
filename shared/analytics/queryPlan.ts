@@ -66,6 +66,10 @@ const defaultSignificanceExecutionCapabilities: SignificanceExecutionCapabilitie
 };
 
 export function buildSignificanceReadiness(query: AnalyticsQueryRequest): AnalyticsSignificanceReadiness {
+  if (query.weight && ((query.comparisonMode === "wave" && (query.comparisonDatasets?.length ?? 0) > 0) || query.breakBy !== "SUMMARY")) return {
+    status: "unsupported", method: "none", reasonCodes: ["weighted_inference_unsupported"],
+    comparisonBasis: (query.comparisonMode ?? "none") === "wave" ? "wave" : query.breakBy === "SUMMARY" ? "summary" : "breakout"
+  };
   if ((query.comparisonMode ?? "none") === "wave") {
     if ((query.comparisonDatasets ?? []).length === 0) {
       return {

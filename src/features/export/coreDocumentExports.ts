@@ -1,10 +1,14 @@
+import { analyticalCell } from "../../../shared/analytics/resultCells";
+import { narrativeCitation } from "../narratives/narrativeEvidence";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
-import { dataUrlToBytes, renderPageVisualImages, type PageVisualImage } from "./pageVisualExport";
+import { buildPageVisualSvg, dataUrlToBytes, renderPageVisualImages, type PageVisualImage, type SvgRasterizer } from "./pageVisualExport";
 import { buildEditableSlideReconstruction, canReconstructElementInPptx } from "./pptxEditableReconstruction";
 import { buildNativePptxChartDescriptor, canReconstructTileAsNativePptxChart, type PptxNativeChartDescriptor } from "./pptxNativeCharts";
 import { buildZip } from "./zip";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
+import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
+import { analysisContextRows, assertExportResultsCurrent, assertSpreadsheetText, spreadsheetColumnName } from "./exportIntegrity";
 
 export type CoreExportTarget = "pptx" | "pdf" | "xlsx" | "json";
 
@@ -27,7 +31,8 @@ function escapeXml(value: unknown) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/'/g, "&apos;")
+    .replace(/\r/g, "&#13;");
 }
 
 function visiblePages(pages: DashboardPage[]) {
@@ -56,14 +61,18 @@ function visualSlideRels(index: number, nativeCharts: PptxNativeChartDescriptor[
   return `${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page${index}.jpg"/>${chartRels}</Relationships>`;
 }
 
-export async function buildPptxBlob(pages: DashboardPage[]) {
+export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer) {
+  assertExportResultsCurrent(pages);
   const sortedPages = visiblePages(pages);
+  // Validate complete raster bodies as well as native data before any rendering.
+  sortedPages.forEach(page => buildPageVisualSvg(page));
   const pageImages = await renderPageVisualImages(sortedPages, {
+    rasterizeSvg,
     // Hybrid PPTX strategy: keep a visual fallback for charts, image assets,
     // and complex content, then layer cleanly reconstructable elements as
     // editable Office objects.
     includeElement: (element) => !canReconstructElementInPptx(element),
-    includeTile: (tile) => !canReconstructTileAsNativePptxChart(tile)
+    includeTileBody: (tile) => !canReconstructTileAsNativePptxChart(tile)
   });
   const slideIds = pageImages.map((_, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join("");
   const rels = pageImages.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("");
@@ -74,7 +83,7 @@ export async function buildPptxBlob(pages: DashboardPage[]) {
       .map((tile, tileIndex) => {
         const chartId = nextChartId;
         nextChartId += 1;
-        return buildNativePptxChartDescriptor(tile, chartId, 100 + chartId, `rId${tileIndex + 2}`);
+        return buildNativePptxChartDescriptor(tile, chartId, 3 + page.elements.filter(canReconstructElementInPptx).length + tileIndex, `rId${tileIndex + 2}`);
       })
   ));
   const chartOverrides = chartDescriptorsBySlide.flat().map((chart) => `<Override PartName="/${chart.chartPath}" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`).join("");
@@ -148,8 +157,10 @@ function concatBytes(chunks: Uint8Array[]) {
   return output;
 }
 
-export async function buildPdfBlob(pages: DashboardPage[]) {
-  const pageImages = await renderPageVisualImages(visiblePages(pages));
+export async function buildPdfBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer) {
+  assertExportResultsCurrent(pages);
+  visiblePages(pages).forEach(page => buildPageVisualSvg(page));
+  const pageImages = await renderPageVisualImages(visiblePages(pages), { rasterizeSvg });
   const chunks: Uint8Array[] = [];
   const offsets: number[] = [];
   let byteOffset = 0;
@@ -193,7 +204,7 @@ export async function buildPdfBlob(pages: DashboardPage[]) {
     objectEnd();
 
     objectStart(ids.page);
-    push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfPageWidth} ${pdfPageHeight}] /Resources << /XObject << /Im${index + 1} ${ids.image} 0 R >> >> >> /Contents ${ids.content} 0 R >>`);
+    push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfPageWidth} ${pdfPageHeight}] /Resources << /XObject << /Im${index + 1} ${ids.image} 0 R >> >> /Contents ${ids.content} 0 R >>`);
     objectEnd();
   });
 
@@ -209,11 +220,13 @@ export async function buildPdfBlob(pages: DashboardPage[]) {
 }
 
 function worksheetXml(rows: Array<Array<string | number>>) {
+  if (rows.length > 1048576) throw new Error("Excel supports at most 1,048,576 rows. Use JSON for this result.");
   const body = rows.map((row, rowIndex) => {
     const cells = row.map((cell, columnIndex) => {
-      const ref = `${String.fromCharCode(65 + columnIndex)}${rowIndex + 1}`;
+      const ref = `${spreadsheetColumnName(columnIndex)}${rowIndex + 1}`;
       if (typeof cell === "number" && Number.isFinite(cell)) return `<c r="${ref}"><v>${cell}</v></c>`;
-      return `<c r="${ref}" t="inlineStr"><is><t>${escapeXml(cell)}</t></is></c>`;
+      assertSpreadsheetText(String(cell));
+      return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(cell)}</t></is></c>`;
     }).join("");
     return `<row r="${rowIndex + 1}">${cells}</row>`;
   }).join("");
@@ -222,19 +235,20 @@ function worksheetXml(rows: Array<Array<string | number>>) {
 }
 
 function safeSheetName(value: string, fallback: string, used: Set<string>) {
-  const base = (value || fallback).replace(/[\][*?/\\:]/g, " ").trim().slice(0, 28) || fallback;
+  const base = (value || fallback).replace(/[\][*?/\\:\r\n\t]/g, " ").trim().slice(0, 28).replace(/^'+|'+$/g, "") || fallback;
   let name = base;
   let index = 2;
-  while (used.has(name)) {
+  while (used.has(name.toLowerCase())) {
     const suffix = ` ${index}`;
     name = `${base.slice(0, 31 - suffix.length)}${suffix}`;
     index += 1;
   }
-  used.add(name);
+  used.add(name.toLowerCase());
   return name;
 }
 
 export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[]) {
+  assertExportResultsCurrent(pages);
   const sortedPages = visiblePages(pages);
   const usedSheetNames = new Set<string>();
   const sheets: Array<{ name: string; rows: Array<Array<string | number>> }> = [
@@ -251,24 +265,59 @@ export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[])
   ];
 
   sortedPages.forEach((page) => {
+    const narratives=page.elements.filter(element=>!element.hidden&&element.evidence!==undefined);
+    if(narratives.length)sheets.push({name:safeSheetName(`${page.order}-Evidence`,"Evidence",usedSheetNames),rows:[
+      ["Page",page.title],["Scope","Recorded links track selected result cells; they do not validate the written conclusion or authenticate source data."],
+      ...narratives.flatMap(element=>[["Text object",element.name],["Written claim",element.content],["Reviewed at",element.evidence!.reviewedAt],["Recorded citations",narrativeCitation(element)],["Evidence definition (JSON)",JSON.stringify(element.evidence)],[]])
+    ]});
     visibleTiles(page).forEach((tile) => {
+      if (importedMeasureBasesNeedRefresh(tile.result)) throw new Error(`Refresh "${tile.title || tile.name}" before exporting: its cached numeric sample bases are unverified. JSON preserves the original result.`);
+      for (const row of tile.result.table) for (const column of tile.result.columns) {
+        if (!Object.hasOwn(row.bases, column.id) || !Number.isFinite(row.bases[column.id]) || row.bases[column.id] < 0) {
+          throw new Error(`Cannot export "${tile.title || tile.name}": a cell base is missing or invalid. Refresh the analysis or use JSON to preserve it.`);
+        }
+      }
       sheets.push({
         name: safeSheetName(`${page.order}-${tile.title || tile.name}`, `Tile ${sheets.length}`, usedSheetNames),
         rows: [
           ["Page", page.title],
           ["Tile", tile.title || tile.name],
           ["Visualization", tile.visualization],
+          ...analysisContextRows(tile),
           [],
-          ["Row", ...tile.result.columns.map((column) => column.label), "Base"],
+          ["Source row label", "Display row label", ...tile.result.columns.flatMap((column) => {
+            const alias = tile.appearance.axisLabelOverrides[column.id];
+            const label = alias && alias !== column.label ? `${column.label} (display: ${alias})` : column.label;
+            return [`${label} — value`, `${label} — ${tile.result.weighting.applied ? "weighted base total" : "base"}`];
+          })],
           ...tile.result.table.map((row) => [
             row.label,
-            ...tile.result.columns.map((column) => row.values[column.id] ?? ""),
-            Math.max(...Object.values(row.bases), 0)
+            tile.appearance.axisLabelOverrides[row.optionId] ?? row.label,
+            ...tile.result.columns.flatMap((column) => [analyticalCell(tile.result,row,column.id).value ?? "Unavailable", row.bases[column.id]])
           ])
         ]
       });
     });
   });
+
+  // Keep the authored story, including unlinked headings and methodology,
+  // alongside the existing analytical tables and evidence definitions.
+  const narrativeTextRows: Array<Array<string | number>> = [];
+  for(const page of sortedPages.filter(page=>page.elements.some(element=>!element.hidden&&element.evidence!==undefined))){
+    for(const element of page.elements.filter(element=>!element.hidden&&element.type==="text")){
+      const parts:string[]=[];let part="",lineFeeds=0;
+      for(const char of element.content){
+        if(part.length+char.length>32000||char==="\n"&&lineFeeds>=250){parts.push(part);part="";lineFeeds=0;}
+        part+=char;if(char==="\n")lineFeeds+=1;
+      }
+      parts.push(part);
+      parts.forEach((content,index)=>narrativeTextRows.push([page.title,element.name,index+1,parts.length,content]));
+    }
+  }
+  if(narrativeTextRows.length)sheets.push({name:safeSheetName("Narrative text","Narrative text",usedSheetNames),rows:[
+    ["Scope","Authored text from pages with recorded evidence links. Layout is not reproduced; see each page's Evidence worksheet for citations and recorded analytical context."],
+    ["Page","Text object","Part","Parts","Authored content"],...narrativeTextRows
+  ]});
 
   const workbookSheets = sheets.map((sheet, index) => `<sheet name="${escapeXml(sheet.name || `Sheet ${index + 1}`)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
   const workbookRels = sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
@@ -306,17 +355,17 @@ export async function exportCoreDocument(dashboard: DashboardDraft, pages: Dashb
     throw new Error("JSON package export is handled by the legacy package exporter.");
   }
   if (target === "pptx") {
-    warnings.push("PPTX uses a hybrid export: simple text/shapes and supported bar charts are editable Office objects; unsupported charts and complex content remain image-backed for visual fidelity.");
+    warnings.push("PPTX reconstructs supported charts and objects. All analytical rows/series are retained; fonts, effects and Office layout need visual review.");
     downloadBlob(await buildPptxBlob(pages), `${baseName}-${dashboard.status}.pptx`);
     return { target, fileName: `${baseName}-${dashboard.status}.pptx`, warnings };
   }
   if (target === "pdf") {
-    warnings.push("PDF is a visual-fidelity export generated from rendered report-page images.");
+    warnings.push("PDF uses reconstructed page images with complete supported analytical content. Review fonts, effects and layout; it is not a pixel-identical canvas capture.");
     downloadBlob(await buildPdfBlob(pages), `${baseName}-${dashboard.status}.pdf`);
     return { target, fileName: `${baseName}-${dashboard.status}.pdf`, warnings };
   }
 
-  warnings.push("XLSX exports analytical result tables and report metadata; visual-only canvas objects are not represented as spreadsheet objects.");
+  warnings.push("XLSX exports analytical tables, recorded evidence and authored narrative text; the canvas layout is not reproduced.");
   downloadBlob(buildXlsxBlob(dashboard, pages), `${baseName}-analysis-${dashboard.status}.xlsx`);
   return { target, fileName: `${baseName}-analysis-${dashboard.status}.xlsx`, warnings };
 }

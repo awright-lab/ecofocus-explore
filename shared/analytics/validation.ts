@@ -26,6 +26,7 @@ export function validateAnalyticsQuery(input: Partial<AnalyticsQueryRequest>): s
   if (!metric || !input.metric || !question?.allowedMetrics.includes(input.metric)) errors.push("Unsupported metric.");
   if (!chartType || !input.chartType || !question?.allowedChartTypes.includes(input.chartType)) errors.push("Unsupported chartType.");
   if (input.chartType === "donut" && (dimension?.values.length !== 1 || input.comparisonMode === "wave")) errors.push("Donut charts require a single summary column.");
+  if (input.chartType === "donut" && question?.type === "multi_binary_set") errors.push("Donut charts require mutually exclusive responses. Choose a bar chart or table for multi-response questions.");
   if (chartType && input.metric && !chartType.supportedMetrics.includes(input.metric)) errors.push("Chart type does not support this metric.");
   if (input.weight !== null && input.weight !== undefined && !weight) errors.push("Unsupported weight.");
   if (!Array.isArray(input.filters)) errors.push("filters must be an array.");

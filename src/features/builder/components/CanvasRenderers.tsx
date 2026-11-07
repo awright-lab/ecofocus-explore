@@ -1,3 +1,12 @@
+import { getBarStyle, chartGradientId, chartPaint, chartHasConicFill } from "../../design-system/chartPaint";
+import { narrativeDisplayText } from "../../narratives/narrativeEvidence";
+import "../../narratives/narrativeEvidence.css";
+import { paletteColor } from "../../design-system/reportColors";
+import { resultWeightingLabel } from "../../../../shared/analytics/weightingLabel";
+import { analyticalCell, analyticalRowValues } from "../../../../shared/analytics/resultCells";
+import { supportsDonutResult } from "../../analytics/analyticsDisplay";
+export { getCompatibleChartTypes, supportsDonutResult } from "../../analytics/analyticsDisplay";
+import { resultInferenceLabel, withSafeInference } from "../../../../shared/analytics/inferenceSafety";
 import { memo, type CSSProperties } from "react";
 import { Rnd } from "react-rnd";
 import {
@@ -49,37 +58,12 @@ import {
   getExecutedSignificanceCell,
 } from "./analysisSignificancePresentationModel";
 import {
-  buildImportedResultProvenance,
+  importedMeasureBasesNeedRefresh, buildImportedResultProvenance,
   formatImportedMeasureValue,
 } from "../../data/importedDatasetAnalytics";
 
-export function getBarStyle(
-  appearance: TileAppearance,
-  id: string,
-  fallbackColor: string,
-) {
-  const defaultGradientColor =
-    appearance.barFillMode === "gradient"
-      ? appearance.primaryColor
-      : fallbackColor;
-  return {
-    color: appearance.barStyles[id]?.color ?? defaultGradientColor,
-    fillMode: appearance.barStyles[id]?.fillMode ?? appearance.barFillMode,
-    gradientTo:
-      appearance.barStyles[id]?.gradientTo ?? appearance.barGradientTo,
-    gradientType:
-      appearance.barStyles[id]?.gradientType ?? appearance.barGradientType,
-    gradientAngle:
-      appearance.barStyles[id]?.gradientAngle ?? appearance.barGradientAngle,
-    gradientStops:
-      appearance.barStyles[id]?.gradientStops ?? appearance.barGradientStops,
-    radius: appearance.barStyles[id]?.radius ?? appearance.barRadius,
-  };
-}
-
-export function gradientId(tileId: string, key: string) {
-  return `gradient_${tileId.replace(/[^a-zA-Z0-9]/g, "_")}_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
-}
+export { getBarStyle } from "../../design-system/chartPaint";
+export const gradientId = chartGradientId;
 
 export function SvgGradientStops({
   from,
@@ -152,11 +136,12 @@ type ValueLabelFormatOptions = {
 };
 
 export function formatValue(
-  value: number,
+  value: number | null,
   format: AnalyticsQueryResponse["metric"]["valueFormat"],
   metricId?: AnalyticsQueryResponse["metric"]["id"],
   options: ValueLabelFormatOptions = {},
 ) {
+  if (value === null || !Number.isFinite(value)) return "Unavailable";
   if (format === "percent") {
     const decimals = options.percentDecimals ?? 0;
     const factor = 10 ** decimals;
@@ -206,7 +191,7 @@ function chartYAxisProps(result: AnalyticsQueryResponse, values: number[]) {
 
 function resultColumnValues(result: AnalyticsQueryResponse) {
   return result.table.flatMap((row) =>
-    result.columns.map((column) => Number(row.values[column.id] ?? 0)),
+    result.columns.map((column) => analyticalCell(result,row,column.id).value).filter((value): value is number => value !== null),
   );
 }
 
@@ -368,16 +353,6 @@ export const gradientStylePresets = [
   },
 ];
 
-export function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
-  const isSingleSeries = result.columns.length === 1;
-  const chartTypes: ChartType[] = isSingleSeries
-    ? ["table", "vertical_bar", "horizontal_bar", "donut"]
-    : ["table", "grouped_bar", "stacked_bar", "line_chart"];
-  return chartTypes.filter((chartType) =>
-    defaultDataset.chartTypes.some((item) => item.id === chartType),
-  );
-}
-
 export function defaultVisualizationForQuestion(
   questionMetadata: (typeof defaultDataset.questions)[number],
 ) {
@@ -469,10 +444,11 @@ export function sampleSizeLabel(result: AnalyticsQueryResponse) {
     .flatMap((row) => Object.values(row.bases))
     .filter((base) => base > 0);
   const uniqueBases = [...new Set(bases)].sort((a, b) => a - b);
-  if (uniqueBases.length === 0) return "Sample n/a";
+  const prefix = result.weighting.applied ? "Weighted total" : result.query.weight ? "Recorded base (weighting unverified)" : "Sample n";
+  if (uniqueBases.length === 0) return `${prefix} unavailable`;
   if (uniqueBases.length === 1)
-    return `Sample n=${uniqueBases[0].toLocaleString()}`;
-  return `Sample n=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
+    return `${prefix}=${uniqueBases[0].toLocaleString()}`;
+  return `${prefix}=${uniqueBases[0].toLocaleString()}-${uniqueBases[uniqueBases.length - 1].toLocaleString()}`;
 }
 
 export function confidenceLevelLabel(value: number) {
@@ -563,8 +539,8 @@ export function tilePresentationNotes(tile: DashboardTile) {
     `${resultSourceLabel(tile.result)} (${tileSourceKindLabel(tile.source)})`,
     ...(trendSpanLabel(tile.query) ? [trendSpanLabel(tile.query)!] : []),
     `Comparison: ${comparisonSummaryLabel(tile.query)}`,
-    `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${tile.result.weighting.applied ? tile.result.weighting.label : "Unweighted"}`,
-    confidenceLevelLabel(resultConfidenceLevel(tile.result)),
+    `${tile.result.metric.label}; ${sampleSizeLabel(tile.result)}; ${resultWeightingLabel(tile.result)}`,
+    resultInferenceLabel(tile.result),
     ...tile.result.notes.slice(0, 2),
   ];
 }
@@ -581,7 +557,7 @@ export function ValueLabel(props: {
 }) {
   const { payload, result, appearance } = props;
 
-  if (!appearance.showValueLabels) return null;
+  if (!appearance.showValueLabels || props.value == null || !Number.isFinite(Number(props.value))) return null;
 
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
@@ -640,7 +616,7 @@ export function HorizontalValueLabel(props: {
 }) {
   const { result, appearance } = props;
 
-  if (!appearance.showValueLabels) return null;
+  if (!appearance.showValueLabels || props.value == null || !Number.isFinite(Number(props.value))) return null;
 
   const x = Number(props.x ?? 0);
   const y = Number(props.y ?? 0);
@@ -767,13 +743,7 @@ function SeriesLegend({ tile }: { tile: DashboardTile }) {
           <span
             className="chart-legend-swatch"
             style={{
-              background: getBarStyle(
-                tile.appearance,
-                column.id,
-                tile.appearance.palette[
-                  index % tile.appearance.palette.length
-                ] ?? tile.appearance.primaryColor,
-              ).color,
+              background: tile.visualization !== "line_chart" && chartPaint(tile,"columns",column.id,index).fillMode === "gradient" ? gradientCss(chartPaint(tile,"columns",column.id,index).color,chartPaint(tile,"columns",column.id,index).gradientTo,chartPaint(tile,"columns",column.id,index).gradientStops,chartPaint(tile,"columns",column.id,index).gradientType === "radial" ? "radial" : "linear",`${chartPaint(tile,"columns",column.id,index).gradientAngle ?? 180}deg`) : chartPaint(tile,"columns",column.id,index).color,
             }}
           />
           <span>{column.label}</span>
@@ -790,8 +760,8 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    value: row.values[column.id],
-    base: row.bases[column.id],
+    value: analyticalCell(result,row,column.id).value,
+    base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
   }));
   const yAxisProps = chartYAxisProps(
     result,
@@ -818,10 +788,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {chartData.map((item, index) => {
-              const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
-              const style = getBarStyle(appearance, item.optionId, fallback);
+              const style = chartPaint(tile, "rows", item.optionId, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, item.optionId)}
@@ -865,7 +832,7 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -882,19 +849,9 @@ export function VerticalBarChartView({ tile }: { tile: DashboardTile }) {
               <Cell
                 key={item.optionId}
                 fill={
-                  getBarStyle(
-                    appearance,
-                    item.optionId,
-                    appearance.palette[index % appearance.palette.length] ??
-                      appearance.primaryColor,
-                  ).fillMode === "gradient"
+                  chartPaint(tile, "rows", item.optionId, index).fillMode === "gradient"
                     ? `url(#${gradientId(tile.id, item.optionId)})`
-                    : getBarStyle(
-                        appearance,
-                        item.optionId,
-                        appearance.palette[index % appearance.palette.length] ??
-                          appearance.primaryColor,
-                      ).color
+                    : chartPaint(tile, "rows", item.optionId, index).color
                 }
                 {...({
                   radius: [
@@ -936,7 +893,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values,
+    ...analyticalRowValues(result,row),
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
@@ -960,10 +917,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {result.columns.map((column, index) => {
-              const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
-              const style = getBarStyle(appearance, column.id, fallback);
+              const style = chartPaint(tile, "columns", column.id, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, column.id)}
@@ -1007,7 +961,7 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1026,19 +980,9 @@ export function GroupedBarChartView({ tile }: { tile: DashboardTile }) {
               dataKey={column.id}
               name={column.label}
               fill={
-                getBarStyle(
-                  appearance,
-                  column.id,
-                  appearance.palette[index % appearance.palette.length] ??
-                    appearance.primaryColor,
-                ).fillMode === "gradient"
+                chartPaint(tile, "columns", column.id, index).fillMode === "gradient"
                   ? `url(#${gradientId(tile.id, column.id)})`
-                  : getBarStyle(
-                      appearance,
-                      column.id,
-                      appearance.palette[index % appearance.palette.length] ??
-                        appearance.primaryColor,
-                    ).color
+                  : chartPaint(tile, "columns", column.id, index).color
               }
               radius={[
                 getBarStyle(appearance, column.id, appearance.primaryColor)
@@ -1086,8 +1030,8 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    value: row.values[column.id],
-    base: row.bases[column.id],
+    value: analyticalCell(result,row,column.id).value,
+    base: importedMeasureBasesNeedRefresh(result) ? undefined : row.bases[column.id],
   }));
   const xAxisProps = chartYAxisProps(
     result,
@@ -1114,10 +1058,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {chartData.map((item, index) => {
-              const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
-              const style = getBarStyle(appearance, item.optionId, fallback);
+              const style = chartPaint(tile, "rows", item.optionId, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, item.optionId)}
@@ -1173,7 +1114,7 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1196,19 +1137,9 @@ export function HorizontalBarChartView({ tile }: { tile: DashboardTile }) {
               <Cell
                 key={item.optionId}
                 fill={
-                  getBarStyle(
-                    appearance,
-                    item.optionId,
-                    appearance.palette[index % appearance.palette.length] ??
-                      appearance.primaryColor,
-                  ).fillMode === "gradient"
+                  chartPaint(tile, "rows", item.optionId, index).fillMode === "gradient"
                     ? `url(#${gradientId(tile.id, item.optionId)})`
-                    : getBarStyle(
-                        appearance,
-                        item.optionId,
-                        appearance.palette[index % appearance.palette.length] ??
-                          appearance.primaryColor,
-                      ).color
+                    : chartPaint(tile, "rows", item.optionId, index).color
                 }
               />
             ))}
@@ -1234,7 +1165,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values,
+    ...analyticalRowValues(result,row),
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
@@ -1257,10 +1188,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
         >
           <defs>
             {result.columns.map((column, index) => {
-              const fallback =
-                appearance.palette[index % appearance.palette.length] ??
-                appearance.primaryColor;
-              const style = getBarStyle(appearance, column.id, fallback);
+              const style = chartPaint(tile, "columns", column.id, index);
               return (
                 <SvgBarGradientDef
                   id={gradientId(tile.id, column.id)}
@@ -1304,7 +1232,7 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1324,19 +1252,9 @@ export function StackedBarChartView({ tile }: { tile: DashboardTile }) {
               name={column.label}
               stackId="stack"
               fill={
-                getBarStyle(
-                  appearance,
-                  column.id,
-                  appearance.palette[index % appearance.palette.length] ??
-                    appearance.primaryColor,
-                ).fillMode === "gradient"
+                chartPaint(tile, "columns", column.id, index).fillMode === "gradient"
                   ? `url(#${gradientId(tile.id, column.id)})`
-                  : getBarStyle(
-                      appearance,
-                      column.id,
-                      appearance.palette[index % appearance.palette.length] ??
-                        appearance.primaryColor,
-                    ).color
+                  : chartPaint(tile, "columns", column.id, index).color
               }
               radius={
                 index === result.columns.length - 1
@@ -1358,7 +1276,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
     optionId: row.optionId,
     label: row.label,
     axisLabel: getAxisLabel(appearance, row.optionId, row.label),
-    ...row.values,
+    ...analyticalRowValues(result,row),
   }));
   const yAxisProps = chartYAxisProps(result, resultColumnValues(result));
 
@@ -1411,7 +1329,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
             cursor={false}
             formatter={(value) => [
               formatValue(
-                Number(value ?? 0),
+                value == null ? null : Number(value),
                 result.metric.valueFormat,
                 result.metric.id,
               ),
@@ -1431,12 +1349,7 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
               dataKey={column.id}
               name={column.label}
               stroke={
-                getBarStyle(
-                  appearance,
-                  column.id,
-                  appearance.palette[index % appearance.palette.length] ??
-                    appearance.primaryColor,
-                ).color
+                chartPaint(tile, "columns", column.id, index).color
               }
               strokeWidth={3}
               dot={{ r: 4 }}
@@ -1451,17 +1364,13 @@ export function LineChartView({ tile }: { tile: DashboardTile }) {
 
 export function DonutChartView({ tile }: { tile: DashboardTile }) {
   const { result, appearance } = tile;
+  if (!supportsDonutResult(result)) return <div role="status">Donut unavailable: responses must form a complete, mutually exclusive whole. Choose a bar chart or table.</div>;
   const column = result.columns[0];
   const chartData = result.table.map((row, index) => ({
     optionId: row.optionId,
     name: getAxisLabel(appearance, row.optionId, row.label),
-    value: row.values[column.id],
-    fill: getBarStyle(
-      appearance,
-      row.optionId,
-      appearance.palette[index % appearance.palette.length] ??
-        appearance.primaryColor,
-    ).color,
+    value: analyticalCell(result,row,column.id).value,
+    fill: chartPaint(tile, "rows", row.optionId, index).color,
   }));
   return (
     <div
@@ -1485,7 +1394,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
                 cursor={false}
                 formatter={(value) => [
                   formatValue(
-                    Number(value ?? 0),
+                    value == null ? null : Number(value),
                     result.metric.valueFormat,
                     result.metric.id,
                     valueLabelFormatOptions(appearance),
@@ -1545,6 +1454,7 @@ export function DonutChartView({ tile }: { tile: DashboardTile }) {
 }
 
 export function TableView({ tile }: { tile: DashboardTile }) {
+  tile = { ...tile, result: withSafeInference(tile.result) };
   const { result, appearance } = tile;
   const visibleColumns = result.columns;
   const executedSignificance =
@@ -1567,12 +1477,12 @@ export function TableView({ tile }: { tile: DashboardTile }) {
       aria-label="Query-driven table"
     >
       <div className="table-shell">
-        <table className="analytics-table">
+        <table className="analytics-table" style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>
           <thead>
             <tr>
-              <th>Answer</th>
+              <th style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>Answer</th>
               {visibleColumns.map((column) => (
-                <th key={column.id}>{column.label}</th>
+                <th key={column.id} style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>{column.label}</th>
               ))}
             </tr>
           </thead>
@@ -1588,7 +1498,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                       : "table-row"
                 }
               >
-                <th>
+                <th style={{ fontSize: appearance.axisFontSize, color: appearance.labelColor }}>
                   <div className="table-row-label">
                     <span>
                       {getAxisLabel(appearance, row.optionId, row.label)}
@@ -1618,6 +1528,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                       <div className="table-cell-stack">
                         {appearance.showValueLabels && (
                           <span
+                            style={{ fontSize: appearance.labelFontSize, color: annotation || significanceCell ? undefined : appearance.labelColor }}
                             className={
                               annotation
                                 ? `table-value ${annotation.direction}`
@@ -1627,7 +1538,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                             }
                           >
                             {formatValue(
-                              row.values[column.id],
+                              analyticalCell(result,row,column.id).value,
                               result.metric.valueFormat,
                               result.metric.id,
                             )}
@@ -1649,8 +1560,8 @@ export function TableView({ tile }: { tile: DashboardTile }) {
                           </span>
                         )}
                         {appearance.showBases && (
-                          <small>
-                            Base {row.bases[column.id].toLocaleString()}
+                          <small style={{ fontSize: Math.max(8, appearance.labelFontSize - 1), color: appearance.labelColor }}>
+                            {importedMeasureBasesNeedRefresh(result) ? "Base unavailable; rerun" : `Base ${row.bases[column.id].toLocaleString()}`}
                           </small>
                         )}
                       </div>
@@ -1700,7 +1611,10 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 }
 
 export function ChartView({ tile }: { tile: DashboardTile }) {
+  tile = { ...tile, result: withSafeInference(tile.result) };
+  if (chartHasConicFill(tile)) return <p role="status">Conic fills cannot yet be rendered faithfully. Choose a solid, linear or radial fill to view or export this chart. Your analysis and styling are retained.</p>;
   if (tile.visualization === "table") return <TableView tile={tile} />;
+  if (!resultColumnValues(tile.result).length) return <p role="status">{tile.result.metric.valueFormat === "percent" ? "Unavailable: no valid percentage denominator." : "Unavailable: no verified numeric observations."} Rerun the analysis or review its source values.</p>;
   if (tile.visualization === "vertical_bar")
     return <VerticalBarChartView tile={tile} />;
   if (tile.visualization === "horizontal_bar")
@@ -1875,7 +1789,7 @@ export const TileRenderer = memo(
                 <span>{sampleSizeLabel(result)}</span>
               )}
               <small>
-                {confidenceLevelLabel(resultConfidenceLevel(result))}
+                {resultInferenceLabel(result)}
               </small>
             </div>
           )}
@@ -1900,13 +1814,11 @@ export const TileRenderer = memo(
                   <span>{sampleSizeLabel(result)}</span>
                 )}
                 <span>
-                  {result.weighting.applied
-                    ? result.weighting.label
-                    : "Unweighted"}
+                  {resultWeightingLabel(result)}
                 </span>
                 <span>{result.metric.label}</span>
                 <span>
-                  {confidenceLevelLabel(resultConfidenceLevel(result))}
+                  {resultInferenceLabel(result)}
                 </span>
               </>
             )}
@@ -1933,10 +1845,12 @@ export const CanvasElementRenderer = memo(
     element,
     selected,
     onSelect,
+    evidenceWarning,
   }: {
     element: DashboardCanvasElement;
     selected: boolean;
     onSelect: () => void;
+    evidenceWarning?: string|null;
   }) {
     if (element.type === "image") {
       return (
@@ -1982,6 +1896,8 @@ export const CanvasElementRenderer = memo(
             textDecoration: element.style.textDecoration,
             textAlign: element.style.textAlign,
             lineHeight: element.style.lineHeight,
+            whiteSpace: element.evidence!==undefined?"pre-wrap":undefined,
+            overflowWrap: element.evidence!==undefined?"anywhere":undefined,
             padding: element.style.padding,
             background: backgroundStyle(
               element.style.fillMode,
@@ -2000,7 +1916,8 @@ export const CanvasElementRenderer = memo(
           }}
           onClick={onSelect}
         >
-          {element.content}
+          {element.evidence!==undefined&&evidenceWarning!==null&&<span role="status" className="narrative-review-badge">Evidence needs review: {evidenceWarning??"links are not checked in this preview"}</span>}
+          {narrativeDisplayText(element)}
         </div>
       );
     }
@@ -2034,5 +1951,5 @@ export const CanvasElementRenderer = memo(
     );
   },
   (previous, next) =>
-    previous.element === next.element && previous.selected === next.selected,
+    previous.element === next.element && previous.selected === next.selected && previous.evidenceWarning === next.evidenceWarning,
 );

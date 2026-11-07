@@ -158,6 +158,6 @@ export function buildExportPackageConfirmationView(
   return {
     status: exportContext.status,
     label: contextLabel,
-    helper: `${exportContext.packageLabel} ${exportContext.readinessLabel}`
+    helper: `${exportContext.packageLabel} ${exportContext.readinessLabel}${target === "pdf" || target === "pptx" ? " Reconstructed layout: review fonts, effects and positioning before presenting." : ""}`
   };
 }

@@ -1,4 +1,5 @@
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
+import { narrativeDisplayText } from "../narratives/narrativeEvidence";
 import type { DashboardCanvasElement, DashboardPage } from "../../../shared/types/dashboard";
 
 export interface PptxEditableSlideReconstruction {
@@ -65,11 +66,11 @@ function textBodyXml(element: DashboardCanvasElement) {
   const isBold = Number(element.style.fontWeight) >= 600 || element.style.fontWeight === "bold";
   const italic = element.style.fontStyle === "italic" ? " i=\"1\"" : "";
   const underline = element.style.textDecoration === "underline" ? " u=\"sng\"" : "";
-  const lines = element.content.split("\n").map((line) => line.trim()).filter(Boolean);
-  const paragraphs = (lines.length ? lines : [element.content]).map((line) => (
-    `<a:p><a:pPr algn="${pptTextAlign(element.style.textAlign)}"/><a:r><a:rPr lang="en-US" sz="${fontSize}" b="${isBold ? 1 : 0}"${italic}${underline}><a:solidFill><a:srgbClr val="${hexColor(element.style.textColor, "162033")}"/></a:solidFill><a:latin typeface="${escapeXml(element.style.fontFamily || "Inter")}"/></a:rPr><a:t>${escapeXml(line)}</a:t></a:r></a:p>`
+  const lines = narrativeDisplayText(element).split(/\r?\n/);
+  const paragraphs = (lines.length ? lines : [narrativeDisplayText(element)]).map((line) => (
+    `<a:p><a:pPr algn="${pptTextAlign(element.style.textAlign)}"/><a:r><a:rPr lang="en-US" sz="${fontSize}" b="${isBold ? 1 : 0}"${italic}${underline}><a:solidFill><a:srgbClr val="${hexColor(element.style.textColor, "162033")}"/></a:solidFill><a:latin typeface="${escapeXml(element.style.fontFamily || "Inter")}"/></a:rPr><a:t xml:space="preserve">${escapeXml(line)}</a:t></a:r></a:p>`
   )).join("");
-  return `<p:txBody><a:bodyPr wrap="square" lIns="${Math.round(element.style.padding * 9000)}" tIns="${Math.round(element.style.padding * 9000)}" rIns="${Math.round(element.style.padding * 9000)}" bIns="${Math.round(element.style.padding * 9000)}"/><a:lstStyle/>${paragraphs}</p:txBody>`;
+  return `<p:txBody><a:bodyPr wrap="square" lIns="${Math.round(element.style.padding * 9525)}" tIns="${Math.round(element.style.padding * 9525)}" rIns="${Math.round(element.style.padding * 9525)}" bIns="${Math.round(element.style.padding * 9525)}"/><a:lstStyle/>${paragraphs}</p:txBody>`;
 }
 
 export function canReconstructElementInPptx(element: DashboardCanvasElement) {

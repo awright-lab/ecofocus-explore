@@ -589,19 +589,19 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
       const zoom =
         Math.floor(
           (Math.min(
-            (width - 80) / canvasWidth,
+              (width - (width < 600 ? 24 : 80)) / canvasWidth,
             (height - 64) / canvasHeight,
             1.2,
           ) *
             100) /
             5,
         ) * 5;
-      zoomCallback.current(Math.max(35, zoom));
+      zoomCallback.current(Math.max(10, zoom));
     };
-    const observer = new ResizeObserver(fit);
-    observer.observe(viewport);
-    fit();
-    return () => observer.disconnect();
+    // Fit initially or when explicitly requested. Opening an inspector or
+    // selecting an object must not silently replace the user's zoom level.
+    const frame = requestAnimationFrame(fit);
+    return () => cancelAnimationFrame(frame);
   }, [fitRequest]);
 
   async function toggleCanvasFullscreen() {
@@ -655,7 +655,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
             </button>
             <input
               type="range"
-              min="35"
+                min="10"
               max="160"
               step="5"
               value={canvasZoom}

@@ -1,3 +1,4 @@
+import { getQuestionMetadata } from "../../../shared/metadata/ecofocus2025";
 import { defaultDataset } from "../builder/builderConstants";
 import type { AnalyticsQueryResponse, ChartType, QuestionId } from "../../../shared/types/analytics";
 
@@ -9,12 +10,28 @@ export function getChartTypeLabel(chartType: ChartType) {
   return defaultDataset.chartTypes.find((item) => item.id === chartType)?.label ?? chartType;
 }
 
+export function supportsDonutResult(result: AnalyticsQueryResponse) {
+  if (result.columns.length !== 1) return false;
+  const exclusive = result.query.sourceIdentity?.kind === "imported" ||
+    getQuestionMetadata(result.query.dataset, result.query.question)?.type === "single_select";
+  if (!exclusive || (result.metric.valueFormat === "number" && result.metric.id !== "count")) return false;
+  const values = result.table.map(row => row.values[result.columns[0].id]);
+  if (!values.every(value => Number.isFinite(value) && value >= 0)) return false;
+  const total = values.reduce((sum, value) => sum + value, 0);
+  // Imported percentages may already be rounded to one decimal place. Permit
+  // only their maximum aggregate rounding error, not an incomplete partition.
+  return result.metric.valueFormat === "percent" ? Math.abs(total - 100) <= 0.05 * values.length + 1e-8 : total > 0;
+}
+
 export function getCompatibleChartTypes(result: AnalyticsQueryResponse) {
   const isSingleSeries = result.columns.length === 1;
   const chartTypes: ChartType[] = isSingleSeries
     ? ["table", "vertical_bar", "horizontal_bar", "donut"]
     : ["table", "grouped_bar", "stacked_bar", "line_chart"];
-  return chartTypes.filter((chartType) => defaultDataset.chartTypes.some((item) => item.id === chartType));
+  return chartTypes.filter((chartType) =>
+    defaultDataset.chartTypes.some((item) => item.id === chartType) &&
+    (chartType !== "donut" || supportsDonutResult(result)),
+  );
 }
 
 export function defaultVisualizationForQuestion(questionMetadata: typeof defaultDataset.questions[number]) {

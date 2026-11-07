@@ -248,10 +248,17 @@ function normalCdf(value: number) {
 
 function twoTailedPercentPValue(value: number, comparedValue: number, base: number, comparedBase: number) {
   if (base <= 0 || comparedBase <= 0) return null;
+  // Conservative large-sample gate. No approximation or fallback significance
+  // claim for sparse cells; an exact/design-aware method is not implemented.
+  if (![value, comparedValue].every((item) => Number.isFinite(item) && item >= 0 && item <= 100)) return null;
+  if (![base, comparedBase].every(Number.isSafeInteger)) return null;
+  if (Math.min(value / 100 * base, (1 - value / 100) * base,
+    comparedValue / 100 * comparedBase, (1 - comparedValue / 100) * comparedBase) < 5) return null;
 
   const proportion = value / 100;
   const comparedProportion = comparedValue / 100;
   const pooled = ((proportion * base) + (comparedProportion * comparedBase)) / (base + comparedBase);
+  if (Math.min(pooled * base, (1 - pooled) * base, pooled * comparedBase, (1 - pooled) * comparedBase) < 5) return null;
   const standardError = Math.sqrt(pooled * (1 - pooled) * ((1 / base) + (1 / comparedBase)));
 
   if (!Number.isFinite(standardError) || standardError <= 0) return null;
@@ -314,6 +321,7 @@ function testedColumnComparisonOutcome(
 export function executeColumnComparisonSignificance(
   input: AnalyticsColumnComparisonExecutionInput
 ): AnalyticsColumnComparisonExecutionResult {
+  if (input.inferenceBasis !== "unweighted_full_precision_v1") return shapeDeferredColumnComparisonResult(input, ["inference_precision_unverified"]);
   const outcomes = input.rows.flatMap((row) =>
     input.columns.flatMap((column, columnIndex) =>
       input.columns.slice(columnIndex + 1).map((comparedColumn) => testedColumnComparisonOutcome(input, row, column, comparedColumn))
@@ -383,6 +391,7 @@ function testedWaveComparisonOutcome(
 export function executeWaveComparisonSignificance(
   input: AnalyticsWaveComparisonExecutionInput
 ): AnalyticsWaveComparisonExecutionResult {
+  if (input.inferenceBasis !== "unweighted_full_precision_v1") return shapeDeferredWaveComparisonResult(input, ["inference_precision_unverified"]);
   const outcomes = input.rows.flatMap((row) =>
     waveComparisonPairs(input).flatMap(({ waveId, comparedWaveId }) =>
       (input.comparisonScope.breakoutColumnIds?.length ? input.comparisonScope.breakoutColumnIds : [undefined]).map((breakoutColumnId) =>
@@ -407,9 +416,10 @@ export function runColumnComparisonSignificanceAdapter(
     return null;
   }
   const validation = validateColumnComparisonExecutionInput(input);
-  const reasonCodes = Array.from(new Set([...plan.reasonCodes, ...validation.reasonCodes]));
+  const reasonCodes = Array.from(new Set([...plan.reasonCodes, ...validation.reasonCodes,
+    ...(input.inferenceBasis === "unweighted_full_precision_v1" ? [] : ["inference_precision_unverified" as const])]));
   const unmetPrerequisites = Array.from(new Set([...plan.unmetPrerequisites, ...validation.unmetPrerequisites]));
-  const canExecute = validation.valid && plan.providerCanExecute && input.metric.valueFormat === "percent";
+  const canExecute = validation.valid && plan.providerCanExecute && input.metric.valueFormat === "percent" && input.inferenceBasis === "unweighted_full_precision_v1";
   const executedResult = canExecute ? executeColumnComparisonSignificance(input) : null;
   const hasTestedComparisons = (executedResult?.summary.testedComparisons ?? 0) > 0;
   const executionReasonCodes =
@@ -474,10 +484,11 @@ export function runWaveComparisonSignificanceAdapter(
   const reasonCodes = Array.from(new Set([
     ...plan.reasonCodes,
     ...validation.reasonCodes,
+    ...(input.inferenceBasis === "unweighted_full_precision_v1" ? [] : ["inference_precision_unverified" as const]),
     ...unsupportedNarrowReason
   ]));
   const unmetPrerequisites = Array.from(new Set([...plan.unmetPrerequisites, ...validation.unmetPrerequisites]));
-  const canExecute = validation.valid && plan.providerCanExecute && supportsNarrowWaveExecution;
+  const canExecute = validation.valid && plan.providerCanExecute && supportsNarrowWaveExecution && input.inferenceBasis === "unweighted_full_precision_v1";
   const executedResult = canExecute ? executeWaveComparisonSignificance(input) : null;
   const hasTestedComparisons = (executedResult?.summary.testedComparisons ?? 0) > 0;
   const executionReasonCodes =

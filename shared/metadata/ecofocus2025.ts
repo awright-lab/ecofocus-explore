@@ -165,7 +165,7 @@ const sharedQuestions: QuestionMetadata[] = [
     sourceVariables: ["Q15r1", "Q15r2", "Q15r7", "Q15r8", "Q15r9"],
     universe: "Total respondents",
     defaultMetric: "percent_selected",
-    allowedChartTypes: ["vertical_bar", "horizontal_bar", "donut", "table"],
+    allowedChartTypes: ["vertical_bar", "horizontal_bar", "table"],
     allowedMetrics: ["percent_selected", "count"],
     allowedBreakBys: ["SUMMARY"],
     options: [

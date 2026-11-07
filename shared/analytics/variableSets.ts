@@ -1,5 +1,8 @@
+import { validSourceCategoryKey } from "./sourceCategoryIdentity";
 import type { AnalyticsAuthoredVariableSet, AnalyticsQueryResponse, AnalyticsTableRow } from "../types/analytics";
 import type { SavedVariableSet } from "../types/dashboard";
+import { getQuestionMetadata } from "../metadata/ecofocus2025";
+import { withSafeInference } from "./inferenceSafety";
 
 type VariableSetRowSource = Pick<SavedVariableSet, "id" | "label" | "rows"> | AnalyticsAuthoredVariableSet;
 
@@ -46,6 +49,10 @@ function variableSetRowNote(variableSet: VariableSetRowSource) {
 
 export function applyVariableSetRows(response: AnalyticsQueryResponse, variableSet: VariableSetRowSource): AnalyticsQueryResponse {
   if (!variableSet.rows.length) return response;
+  if (getQuestionMetadata(response.query.dataset, response.query.question)?.type === "multi_binary_set" &&
+      variableSet.rows.some((row) => row.visible && row.sourceOptionIds.length > 1)) {
+    throw new Error("Multi-response nets require respondent-level union data. Marginal percentages cannot establish how respondents overlap. Rerun with a respondent-level provider.");
+  }
 
   const orderedRows = variableSet.rows
     .slice()
@@ -63,6 +70,7 @@ export function applyVariableSetRows(response: AnalyticsQueryResponse, variableS
       const { values, bases } = aggregateRowValues(response, sourceRows);
 
       return {
+        sourceCategoryKey: sourceRows.every(source => validSourceCategoryKey(source.sourceCategoryKey)) ? row.kind === "option" && sourceRows.length === 1 ? sourceRows[0].sourceCategoryKey : JSON.stringify({ kind: "authored", definitionId: variableSet.id, rowId: row.id, rowKind: row.kind, members: [...new Set(sourceRows.map(source => source.sourceCategoryKey!))].sort() }) : undefined,
         optionId: row.id,
         label: row.label,
         values,
@@ -82,8 +90,9 @@ export function applyVariableSetRows(response: AnalyticsQueryResponse, variableS
     bases: response.columns.map((column) => row.bases[column.id])
   }));
 
-  return {
+  return withSafeInference({
     ...response,
+    statistics: { ...response.statistics, inferenceBasis: undefined },
     query: {
       ...response.query,
       authoredVariableSet: {
@@ -104,5 +113,5 @@ export function applyVariableSetRows(response: AnalyticsQueryResponse, variableS
         applied: true
       }
     }
-  };
+  });
 }
