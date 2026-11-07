@@ -2250,7 +2250,7 @@ export default function BuilderApp() {
         const existing=currentWorkspace.importedDatasets.find(study=>study.id===preview.dataset.id);
         if(existing&&!samePreparedStudy(existing,preview.dataset))return "A different study already uses this identity. Existing data is preserved; create a fresh preview.";
         const next=upsertWorkspaceImportedDataset(currentWorkspace,existing??preview.dataset);workspaceRef.current=next;setWorkspace(next);
-        const saved=saveDashboardWorkspace(next,snapshot);setError(saved?null:workspaceSaveFailureMessage);
+        const saved=saveDashboardWorkspace(next);setError(saved?null:workspaceSaveFailureMessage);
         return saved?null:workspaceSaveFailureMessage;
       }}/></Suspense>}
       {calculatedMetricOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading calculated metrics...</div>}><CalculatedMetricBuilder key={dashboard.id} draft={dashboard} selectedTileId={selectedTile?.id} onClose={()=>setCalculatedMetricOpen(false)} onChange={setDashboard} onNavigate={(pageId,tileId)=>{setActivePageId(pageId);selectTile(tileId);}} onCreateAnalysis={()=>{setCalculatedMetricOpen(false);openGuidedDataQuery({sourceMode:"imported"});}}/></Suspense>}
