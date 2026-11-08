@@ -10,6 +10,16 @@ export function preparationSourceIssue(source: ImportedDatasetRecord | undefined
   if (!Number.isSafeInteger(source.rowCount) || source.rowCount < 1 || source.rowCount > 50000 || source.fieldCount > 200 || new Set(source.fields.map(field => field.id)).size !== source.fields.length || new Set(source.fields.map(field => field.sourceColumn)).size !== source.fields.length) return "Use an unambiguous complete study with 1–50,000 rows and up to 200 fields.";
   return null;
 }
+// Version-1 recipes address exact stored keys. Reading an absent key as blank
+// would let a deliberate blank recode shadow a real case-fallback value.
+// Refuse that mapping rather than silently change historical replay semantics.
+export function preparationFieldMappingIssue(source: ImportedDatasetRecord, field: ImportedDatasetRecord['fields'][number]): string | null {
+  const column = field.sourceColumn, lower = column.toLowerCase();
+  if (source.rows.some(row => !Object.hasOwn(row, column) && Object.keys(row).some(key => key.toLowerCase() === lower))) {
+    return `Preparation needs an exact stored source column for ${JSON.stringify(column.slice(0, 120))}. A row uses a differently cased key. Keep this source and re-import with matching headers before preparing a copy.`;
+  }
+  return null;
+}
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().filter(key => (value as Record<string, unknown>)[key] !== undefined).map(key => [key, canonical((value as Record<string, unknown>)[key])]));
@@ -40,6 +50,7 @@ export async function previewPreparation(source: ImportedDatasetRecord, steps: P
   for (const step of steps) {
     const fields = dataset.fields.filter(field => field.id === step.fieldId && field.sourceColumn === step.sourceColumn), field = fields[0];
     if (fields.length !== 1 || !["text", "categorical"].includes(field.type)) throw Error("Choose one original text or categorical field for each step. Numeric and date transformations are not supported.");
+    const mappingIssue = preparationFieldMappingIssue(dataset, field); if (mappingIssue) throw Error(mappingIssue);
     let count = 0; const alteredTargets = new Set<string>();
     for (let offset = 0; offset < dataset.rows.length; offset += 500) {
       abort();

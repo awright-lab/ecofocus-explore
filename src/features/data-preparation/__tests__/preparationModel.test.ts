@@ -44,4 +44,46 @@ it('rejects corrupted saved history rather than silently dropping it',async()=>{
 it.each(['lowercase','recode'] as const)('removes the old target label when %s combines values into an already labeled category',async kind=>{const source=await fixture();source.rows[0].Answer='N';source.rows[1].Answer='n';source.fields[1].valueLabels={N:'First meaning',n:'Different meaning',South:'Southern region'};const result=await previewPreparation(source,[step(source,kind,kind==='recode'?['N']:[],kind==='recode'?'n':'')],'Merged');expect(result.dataset.rows.slice(0,2).map(row=>row.Answer)).toEqual(['n','n']);expect(result.dataset.fields[1].valueLabels).not.toHaveProperty('n');expect(result.dataset.fields[1].valueLabels).not.toHaveProperty('N');});
 it('permits a same-copy retry after storage adds notes/status without permitting changed analytical data',async()=>{const source=await fixture(),result=await previewPreparation(source,[step(source,'lowercase')],'Retry'),stored=structuredClone(result.dataset);stored.notes.push('Storage lifecycle note');stored.previewRows=[];stored.importStatus!.label='Pending local write';expect(samePreparedStudy(stored,result.dataset)).toBe(true);stored.rows[0].Answer='different';expect(samePreparedStudy(stored,result.dataset)).toBe(false);});
 
+it('does not recode nonblank fallback-mapped cells as missing after workspace normalization',async()=>{
+ const source=await fixture();source.rows=source.rows.map(({Answer,...row})=>({...row,answer:Answer}));source.previewRows=structuredClone(source.rows);
+ const draft=structuredClone(initialDashboard);draft.importedDatasets=[source];
+ const stored=normalizeDashboardWorkspace({reports:[createReportRecord(draft)],importedDatasets:[source]}).importedDatasets[0],before=structuredClone(stored);
+ const original=runImportedDatasetQuery({dataset:stored,field:stored.fields[1],metric:'count',chartType:'table'});
+ expect(original.table.reduce((sum,row)=>sum+row.values.summary,0)).toBe(3);
+ await expect(previewPreparation(stored,[step(stored,'recode',[''],'Missing')],'Safe copy')).rejects.toThrow('exact stored source column');
+ expect(stored).toEqual(before);
+});
+
+it.each(['later row','ambiguous aliases'])('refuses %s mappings without changing a source',async kind=>{
+ const source=await fixture(),row=source.rows[2];row.answer=row.Answer;delete row.Answer;if(kind==='ambiguous aliases')row.ANSWER='Another answer';
+ const before=structuredClone(source);
+ await expect(previewPreparation(source,[step(source,'lowercase')],'Refused')).rejects.toThrow('exact stored source column');
+ expect(source).toEqual(before);
+});
+
+it('retains exact-key precedence and genuine missing-key recodes',async()=>{
+ const source=await fixture();source.rows[0].answer='Unrelated alias';delete source.rows[3].Answer;
+ const before=structuredClone(source),result=await previewPreparation(source,[step(source,'uppercase'),{...step(source,'recode',[''],'Missing'),id:'fill-true-missing'}],'Exact keys');
+ expect(result.dataset.rows.map(row=>row.Answer)).toEqual(['NORTH','NORTH','SOUTH','Missing']);
+ expect(result.dataset.rows[0].answer).toBe('Unrelated alias');expect(source).toEqual(before);
+});
+
+it('allows preparation of another exact-mapped field while preserving legacy fallback values',async()=>{
+ const source=await fixture();source.rows=source.rows.map(({Answer,...row})=>({...row,answer:Answer}));const before=structuredClone(source);
+ const result=await previewPreparation(source,[{id:'other',kind:'uppercase',fieldId:source.fields[2].id,sourceColumn:'Other',from:[],to:''}],'Other only');
+ expect(result.dataset.rows.map(row=>row.answer)).toEqual(source.rows.map(row=>row.answer));
+ expect(result.dataset.rows.every(row=>!Object.hasOwn(row,'Answer'))).toBe(true);
+ expect(runImportedDatasetQuery({dataset:result.dataset,field:result.dataset.fields[1],metric:'count',chartType:'table'}).table.reduce((sum,row)=>sum+row.values.summary,0)).toBe(3);
+ expect(source).toEqual(before);await verifyPreparedStudy(source,result.dataset);
+});
+
+it('preserves an old fallback-mapped prepared copy while withholding unsafe history replay',async()=>{
+ const source=await fixture();source.rows=source.rows.map(({Answer,...row})=>({...row,answer:Answer}));
+ const prepared=structuredClone(source);prepared.id='old-prepared';prepared.preparation={version:1,sourceDatasetId:source.id,sourceImportedAt:source.importedAt,sourceFingerprint:await preparationFingerprint(source),steps:[step(source,'recode',[''],'Missing')]};
+ prepared.rows=prepared.rows.map(row=>({...row,Answer:'Missing'}));prepared.previewRows=structuredClone(prepared.rows);
+ const before=JSON.stringify({source,prepared});
+ await expect(verifyPreparedStudy(source,prepared)).rejects.toThrow('exact stored source column');
+ expect(JSON.stringify({source,prepared})).toBe(before);
+});
+
 
