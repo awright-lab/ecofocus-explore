@@ -46,7 +46,7 @@ export default function App() {
 
   const recoveryDock = <div className="workspace-recovery-dock">
     <WorkspaceSaveRecovery />
-    <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} />
+    <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
     <DeferredWorkspaceHistoryRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
   </div>;
   if (!workspace) return <>{recoveryDock}<WorkspaceLoadRecovery /></>;

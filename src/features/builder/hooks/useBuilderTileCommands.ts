@@ -1,12 +1,12 @@
+import {resolveVariableSetResult} from "../../analytics/savedQueryRows";
+import {executeNonImportedSavedQuery} from "../../analytics/nonImportedSavedQuery";
 import type React from "react";
 import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
 import { buildPageFromTemplate } from "../builderDocumentCommands";
 import { useAnalysisOperationOwnership } from "./useAnalysisOperationOwnership";
 import { runAnalyticsQuery } from "../../../lib/api";
 import { runIllustrativeFollowUpQuery } from "../../analytics/illustrativeFollowUpQuery";
-import { applyVariableSetRows } from "../../../../shared/analytics/variableSets";
 import { canvasHeight, canvasWidth, defaultAppearance, defaultDataset } from "../builderConstants";
-import { defaultVariableSetRows } from "../../document/documentSeeds";
 import { makeTileId, nextZIndex } from "../../document/documentModel";
 import { getCompatibleChartTypes } from "../../analytics/analyticsDisplay";
 import { queryForAnalyticalTemplate, queryForQuestion, queryForVariableSet } from "../../analytics/useAnalysisAuthoring";
@@ -55,41 +55,6 @@ type UseBuilderTileCommandsArgs = {
   setIsLoading: (value: boolean) => void;
   setError: (value: string | null) => void;
 };
-
-function fallbackVariableSet(source: NonNullable<DashboardTile["source"]>, query: AnalyticsQueryRequest): SavedVariableSet {
-  return {
-    id: source.id,
-    datasetId: defaultDataset.id,
-    label: source.label,
-    description: "",
-    topic: source.label,
-    questionIds: [query.question],
-    primaryQuestionId: query.question,
-    rowMode: "authored",
-    rows: defaultVariableSetRows(query.question),
-    breakBy: query.breakBy,
-    metric: query.metric,
-    chartType: query.chartType,
-    weight: query.weight,
-    filterField: (query.filters[0]?.field as FilterFieldId | undefined) ?? null,
-    filterValue: query.filters[0]?.values[0] ?? "all"
-  };
-}
-
-function resolveVariableSetResult(
-  response: Awaited<ReturnType<typeof runAnalyticsQuery>>,
-  query: AnalyticsQueryRequest,
-  source: DashboardTile["source"] | undefined,
-  savedVariableSets: SavedVariableSet[]
-) {
-  if (response.metadataRefs.authoredVariableSet?.applied) {
-    return response;
-  }
-
-  return source?.kind === "variableSet"
-    ? applyVariableSetRows(response, savedVariableSets.find((item) => item.id === source.id) ?? fallbackVariableSet(source, query))
-    : response;
-}
 
 const tileWidth = 760;
 const tileHeight = 460;
@@ -191,15 +156,8 @@ export function useBuilderTileCommands({
     return tile.id;
   }
   async function executeQuery(nextQuery: AnalyticsQueryRequest, source: DashboardTile["source"]) {
-    if (nextQuery.sourceIdentity?.kind !== "imported" &&
-        (source?.kind === "importedField" || nextQuery.sourceRef && ["imported_file","workspace_database"].includes(nextQuery.sourceRef.kind))) {
-      throw new Error("This saved analysis is missing its imported study context. Recreate it from the original result.");
-    }
     assertSavedImportedTileSource(nextQuery, source);
-    if (nextQuery.sourceIdentity?.kind === "seeded" && nextQuery.sourceIdentity.sourceRef?.kind === "seeded_demo") {
-      return runIllustrativeFollowUpQuery(nextQuery);
-    }
-    return nextQuery.sourceIdentity?.kind === "imported" ? runSavedImportedQuery(nextQuery, importedDatasets) : runAnalyticsQuery(nextQuery);
+    return nextQuery.sourceIdentity?.kind === "imported" ? runSavedImportedQuery(nextQuery, importedDatasets) : executeNonImportedSavedQuery(nextQuery,source);
   }
   async function createTileFromSource(
     tileQuery: AnalyticsQueryRequest,

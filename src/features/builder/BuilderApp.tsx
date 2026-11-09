@@ -1,6 +1,9 @@
+import {newImportIdentityIssue} from "../document/newImportIdentity";
+import {checkLocalStudyDuplicate,isLocalFileCopyCandidate} from "../data/localStudyDuplicate";
 import { useClosingPanelFocus } from "./hooks/useClosingPanelFocus";
 import { resolveExportIssueTarget, type ExportIssueTarget } from "../export/exportIssueTarget";
-import { useReportInsightQueue } from "../significance-review/useReportInsightQueue";
+import { useSavedReportInsightQueue } from "../significance-review/useSavedReportInsightQueue";
+import { assertReadableInsightPlans } from "../significance-review/savedReportInsightPlans";
 import { buildJourneyPages,type JourneyDraft } from "../journey/questionJourneyModel";
 import { deferredWorkspaceHistory } from "../document/deferredWorkspaceHistory";
 import { findingFollowUps } from "../analytics/findingFollowUps";
@@ -129,6 +132,8 @@ import {
   upsertWorkspaceImportedDataset,
   upsertDraftReport,
 } from "../document/workspacePersistence";
+import { assertRefreshedReportReady } from "../report-refresh/reportRefreshReadiness";
+import { createRefreshedReportWorkspace } from "../report-refresh/reportRefreshModel";
 import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
 import { deferredWorkspaceImports } from "../document/deferredWorkspaceImports";
 import { editorStudyRemovalBlocker } from "../document/importedStudyUsage";
@@ -185,6 +190,7 @@ const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
 const LinearModelExplorer = lazy(() => import("../models/LinearModelExplorer"));
 const MultiResponseExplorer = lazy(() => import("../multi-response/MultiResponseExplorer"));
 const DataPreparation = lazy(() => import("../data-preparation/DataPreparation"));
+const ReportRefresh = lazy(() => import("../report-refresh/ReportRefresh"));
 const WaveReview = lazy(() => import("../wave-review/WaveReview"));
 const ResponseCoding = lazy(() => import("../response-coding/ResponseCoding"));
 const ComparisonReview = lazy(() => import("../significance-review/ComparisonReview"));
@@ -202,6 +208,7 @@ export default function BuilderApp() {
   const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
   const workspaceRef = useRef(workspace);
   const importOwnerMounted = useRef(true);
+  const fileImportBusy=useRef(false);
   const navigationOwner = useRef<{ token: symbol; editVersion: number } | null>(null);
   const [isReportTransitionPending, setIsReportTransitionPending] = useState(false);
   useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; navigationOwner.current = null; }; }, []);
@@ -226,7 +233,7 @@ export default function BuilderApp() {
   );
   const [publishedSnapshot, setPublishedSnapshot] =
     useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
-  const [dashboard, setDashboardState, getDocumentReplacementVersion, getDocumentEditVersion] = useDocumentCommandState<DashboardDraft>(() =>
+  const [dashboard, setDashboardState, getDocumentReplacementVersion, getDocumentEditVersion, getCurrentImportDocument] = useDocumentCommandState<DashboardDraft>(() =>
     initialPublishedSnapshot
       ? initialPublishedSnapshot.dashboard
       : normalizeDashboard(initialReport.draft),
@@ -314,6 +321,8 @@ export default function BuilderApp() {
   const [multiResponseOpen,setMultiResponseOpen] = useState(false);
   const [dataPreparationOpen,setDataPreparationOpen] = useState(false);
   const [waveReviewOpen,setWaveReviewOpen] = useState(false);
+  const [reportRefreshOpen,setReportRefreshOpen] = useState(false);
+  const reportRefreshSource = useRef<{reportId:string;draft:string}|null>(null);
   const [responseCodingOpen,setResponseCodingOpen] = useState(false);
   const [comparisonReviewOpen,setComparisonReviewOpen] = useState(false);
   const [reportInsightsOpen,setReportInsightsOpen] = useState(false);
@@ -413,7 +422,6 @@ export default function BuilderApp() {
         new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime(),
     );
   }, [dashboard.importedDatasets, workspace.importedDatasets]);
-  const reportInsightQueue = useReportInsightQueue({draft:dashboard,studies:workspaceImportedDatasets});
   const designPalettes = dashboard.designLibrary.palettes;
   const textStylePresets = dashboard.designLibrary.textStyles;
   const textBlockPresets = dashboard.designLibrary.textBlocks;
@@ -690,6 +698,13 @@ export default function BuilderApp() {
     return () => { window.removeEventListener("hashchange", cancel); window.removeEventListener("popstate", cancel); };
   }, []);
 
+  function captureEditorWorkspace() {
+    const current=workspaceRef.current,retained=reportRefreshSource.current,record=current.reports.find(item=>item.id===activeReportId);
+    if(retained?.reportId===activeReportId && record && JSON.stringify(dashboard)===retained.draft && JSON.stringify(record.draft)===retained.draft)
+      return current.activeReportId===activeReportId?current:{...current,activeReportId};
+    return upsertDraftReport(current,dashboard,activeReportId);
+  }
+
   async function saveBeforeReportTransition(nextWorkspace: DashboardWorkspace, onSaved: () => void, recoveryWorkspace = nextWorkspace, onLateStored?: () => void) {
     if (navigationOwner.current) return false;
     const token = Symbol("report-transition");
@@ -799,6 +814,7 @@ export default function BuilderApp() {
 
   async function createPublishedDashboardSnapshot(current: DashboardDraft) {
     if (navigationOwner.current) return null;
+    try { assertReadableInsightPlans(current); assertRefreshedReportReady(current); } catch (reason) { setError(reason instanceof Error ? reason.message : "Review this refreshed report before saving a snapshot."); return null; }
     const draftWorkspace = upsertDraftReport(workspaceRef.current, current, activeReportId);
     let next: ReturnType<typeof createPublishedSnapshot>;
     let acknowledgedPayload: string;
@@ -849,7 +865,7 @@ export default function BuilderApp() {
     if (publishedSnapshot) return undefined;
 
     if (workspaceSaveSession.hasPending()) {
-      workspaceSaveSession.remember(upsertDraftReport(workspaceRef.current, dashboard, activeReportId));
+      workspaceSaveSession.remember(captureEditorWorkspace());
     }
     if (isReportTransitionPending) {
       if (navigationOwner.current && navigationOwner.current.editVersion !== getDocumentEditVersion()) {
@@ -859,7 +875,7 @@ export default function BuilderApp() {
       return;
     }
     return scheduleAcknowledgedWorkspaceAutosave({
-      capture: () => upsertDraftReport(workspaceRef.current, dashboard, activeReportId),
+      capture: () => captureEditorWorkspace(),
       onCaptured: setWorkspace,
       save: (nextWorkspace) => workspaceSaveSession.saveAsync(nextWorkspace),
       onRejected: (nextWorkspace) => workspaceSaveSession.remember(nextWorkspace),
@@ -876,7 +892,7 @@ export default function BuilderApp() {
   useEffect(() => {
     if (publishedSnapshot) return;
     function flush(event?: BeforeUnloadEvent) {
-      const next = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
+      const next = captureEditorWorkspace();
       if (!saveDashboardWorkspace(next) && event) {
         event.preventDefault();
         event.returnValue = "";
@@ -1027,6 +1043,13 @@ export default function BuilderApp() {
     getDocumentEditVersion,
     openPublishedSnapshot: openPublishedDashboardSnapshot,
   });
+
+  const changeInsightPlans=useCallback((update:(draft:DashboardDraft)=>DashboardDraft)=>{
+    if(!importOwnerMounted.current||viewerContext.current||navigationOwner.current)return false;
+    const before=getCurrentImportDocument();setDashboard(update);return getCurrentImportDocument()!==before;
+  },[setDashboard,getCurrentImportDocument]);
+  const reportInsightQueue = useSavedReportInsightQueue({draft:dashboard,studies:workspaceImportedDatasets},changeInsightPlans);
+
 
   const {
     question,
@@ -1218,26 +1241,37 @@ export default function BuilderApp() {
   }
 
   async function importDataset(file: File) {
-    const { importDatasetForWorkspace } =
-      await import("../data/importDatasetWorkspaceService");
-    const result = await importDatasetForWorkspace(file);
-    if (!importOwnerMounted.current) {
-      if (result.dataset) deferredWorkspaceImports.remember(result.dataset);
-      return null;
-    }
-    if (result.error || !result.dataset) {
-      setError(result.error ?? "Dataset import failed.");
-      return null;
-    }
-
-    const nextWorkspace = upsertWorkspaceImportedDataset(
-      workspaceRef.current,
-      result.dataset,
-    );
-    setWorkspace(nextWorkspace);
-    const saved = saveDashboardWorkspace(nextWorkspace);
-    setError(saved ? null : workspaceSaveFailureMessage);
-    return result.dataset;
+    if(viewerMode){setError("Open an editable report before importing a study.");return null;}
+    if(fileImportBusy.current){setError("Another study import is still reading. This file was not read; retry after the first import finishes.");return null;}
+    fileImportBusy.current=true;
+    const documentVersion=getDocumentReplacementVersion();
+    try{
+      const { importDatasetForWorkspace } = await import("../data/importDatasetWorkspaceService");
+      const result = await importDatasetForWorkspace(file);
+      if (!importOwnerMounted.current) {
+        if (result.dataset) deferredWorkspaceImports.remember(result.dataset);
+        return null;
+      }
+      if (result.error || !result.dataset) {setError(result.error ?? "Dataset import failed.");return null;}
+      const parsed=result.dataset,pending=workspaceSaveSession.getPending();
+      if(documentVersion!==getDocumentReplacementVersion()||navigationOwner.current||pending&&pending!==workspaceRef.current){
+        deferredWorkspaceImports.remember(parsed);setError("The report or recovery context changed while reading. The complete import is kept for workspace recovery; no older workspace was applied.");return null;
+      }
+      const current=getCurrentImportDocument();
+      if(!workspaceRef.current.reports.some(report=>report.id===current.id&&!report.archived)){
+        deferredWorkspaceImports.remember(parsed);setError("The active report changed. The complete import is kept for workspace recovery.");return null;
+      }
+      const base=upsertDraftReport(workspaceRef.current,current,current.id);
+      const identityIssue=newImportIdentityIssue(base,parsed.id);
+      if(identityIssue){deferredWorkspaceImports.remember(parsed);setError(identityIssue);return null;}
+      if(result.storage.provider==="local"&&isLocalFileCopyCandidate(parsed)&&checkLocalStudyDuplicate(parsed,base.importedDatasets).status!=="no_match"){
+        deferredWorkspaceImports.remember(parsed);setError("The complete file is kept for copy review. Return to the workspace and choose Add recovered studies to reuse an existing copy or keep it separate. No study was added here.");return null;
+      }
+      const nextWorkspace = upsertWorkspaceImportedDataset(base,parsed);
+      workspaceRef.current=nextWorkspace;setWorkspace(nextWorkspace);
+      const saved = saveDashboardWorkspace(nextWorkspace);setError(saved ? null : workspaceSaveFailureMessage);
+      return parsed;
+    }finally{fileImportBusy.current=false;}
   }
 
   function updateImportedDatasetField(
@@ -1720,6 +1754,7 @@ export default function BuilderApp() {
     {id:"linear-model",label:"Explore numeric relationships",group:"Analyze",icon:Database,run:()=>setLinearModelOpen(true)},
     {id:"multiple-response",label:"Analyze multiple-response overlaps",group:"Analyze",icon:Database,run:()=>setMultiResponseOpen(true)},
     {id:"data-preparation",label:"Clean and recode a study copy",group:"Analyze",icon:Database,run:()=>setDataPreparationOpen(true)},
+    {id:"report-refresh",label:"Refresh a report with a new wave",group:"Analyze",icon:Database,run:()=>setReportRefreshOpen(true)},
     {id:"wave-review",label:"Check a comparison across years",group:"Analyze",icon:Database,run:()=>setWaveReviewOpen(true)},
     {id:"response-coding",label:"Code open-ended responses",group:"Analyze",icon:Database,run:()=>setResponseCodingOpen(true)},
     {id:"comparison-review",label:"Review event-rate significance",group:"Analyze",icon:Database,run:()=>setComparisonReviewOpen(true)},
@@ -2289,10 +2324,28 @@ export default function BuilderApp() {
       {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
       {linearModelOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading numeric relationships...</div>}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></Suspense>}
       {multiResponseOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response overlaps...</div>}><MultiResponseExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setMultiResponseOpen(false)}/></Suspense>}
+      {reportRefreshOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading new-wave report review...</div>}><ReportRefresh key={dashboard.id} draft={dashboard} studies={workspace.importedDatasets} onClose={()=>setReportRefreshOpen(false)} onCreate={async preview=>{
+        if (!importOwnerMounted.current || navigationOwner.current || viewerContext.current) throw Error("Resolve the pending report save before creating a new-wave copy.");
+        const pending=workspaceSaveSession.getPending();
+        const base=pending??workspaceRef.current;
+        if (base.id !== workspaceRef.current.id) throw Error("Resolve the other workspace’s pending save before creating this copy.");
+        const next=createRefreshedReportWorkspace(base,{draft:getCurrentImportDocument(),studies:base.importedDatasets},preview,true);
+        if (pending && pending.activeReportId !== activeReportId && pending.activeReportId !== next.report.id) throw Error("Resolve the other report’s pending save before creating this copy.");
+        reportRefreshSource.current={reportId:activeReportId,draft:JSON.stringify(getCurrentImportDocument())};
+        return saveBeforeReportTransition(next.workspace,()=>{
+          setReportRefreshOpen(false);
+          setActiveReportId(next.report.id);
+          setPublishedSnapshot(null);
+          setDashboardState(normalizeDashboard(next.report));
+          resetEditorForReport(next.report);
+          setViewerMode(false);
+          replaceHash(makeBuilderReportPath(next.report.id));
+        });
+      }}/></Suspense>}
       {waveReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading year comparison...</div>}><WaveReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setWaveReviewOpen(false)}/></Suspense>}
       {responseCodingOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response coding...</div>}><ResponseCoding key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={setDashboard} onClose={()=>setResponseCodingOpen(false)}/></Suspense>}
-      {reportInsightsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading report insights...</div>}><ReportInsights key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} entries={reportInsightQueue.entries} onRemove={reportInsightQueue.remove} onClear={reportInsightQueue.clear} onClose={()=>setReportInsightsOpen(false)} onReviewAnother={()=>{setReportInsightsOpen(false);setComparisonReviewOpen(true);}}/></Suspense>}
-      {comparisonReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading exact group review...</div>}><ComparisonReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onQueueReview={reportInsightQueue.addReviewed} onOpenReportInsights={()=>{setComparisonReviewOpen(false);setReportInsightsOpen(true);}} onClose={()=>setComparisonReviewOpen(false)}/></Suspense>}
+      {reportInsightsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading report insights...</div>}><ReportInsights key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} entries={reportInsightQueue.entries} persistent storedIssue={reportInsightQueue.storedIssue} onRemove={reportInsightQueue.remove} onClear={reportInsightQueue.clear} onClose={()=>setReportInsightsOpen(false)} onReviewAnother={()=>{setReportInsightsOpen(false);setComparisonReviewOpen(true);}}/></Suspense>}
+      {comparisonReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading exact group review...</div>}><ComparisonReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onQueueReview={reportInsightQueue.addReviewed} savedQueue onOpenReportInsights={()=>{setComparisonReviewOpen(false);setReportInsightsOpen(true);}} onClose={()=>setComparisonReviewOpen(false)}/></Suspense>}
       {audienceDiscoveryOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading audience discovery...</div>}><AudienceDiscovery key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={update=>setDashboard(update)} onClose={()=>setAudienceDiscoveryOpen(false)}/></Suspense>}
       {versionedResultOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading source evidence...</div>}><VersionedResultReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialTileId={selectedTile?.id} onChange={setDashboard} onClose={()=>setVersionedResultOpen(false)}/></Suspense>}
       {dataPreparationOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading data preparation...</div>}><DataPreparation key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setDataPreparationOpen(false)} onSave={async(preview,signal)=>{

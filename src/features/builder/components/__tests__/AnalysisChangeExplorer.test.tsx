@@ -104,3 +104,8 @@ it("opens complete review on demand and keeps dismissal and keyboard scope", asy
   await act(async () => document.querySelector('[role="dialog"] input')!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
   expect(dismiss).not.toHaveBeenCalled(); expect(document.querySelector('[role="dialog"]')).toBeNull(); expect(document.activeElement).toBe(button("Review settings and all results")); expect(host.querySelector('[data-canvas-keyboard-scope="controls"]')).not.toBeNull();
 });
+
+it("keeps pager focus at a boundary and when a search leaves only one result", async () => {
+ await act(async () => root.render(<AnalysisChangeExplorer before={before} after={after}/>)); const next = button("Next answers"); next.focus(); await click("Next answers"); await click("Next answers"); await click("Next answers"); expect(host.textContent).toContain("76–80 of 80"); expect(next.getAttribute("aria-disabled")).toBe("true"); expect(next.disabled).toBe(false); expect(document.activeElement).toBe(next);
+ await click("Next answers"); expect(host.textContent).toContain("76–80 of 80"); await input("Answer 060"); expect(host.textContent).toContain("1–1 of 1"); expect(document.activeElement).toBe(next); expect(next.getAttribute("aria-disabled")).toBe("true");
+});

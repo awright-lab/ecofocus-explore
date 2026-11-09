@@ -1,3 +1,4 @@
+import {PendingTileQueryPreview} from "./PendingTileQueryPreview";
 import { useState } from "react";
 import {
   bannerDimensions,
@@ -241,6 +242,7 @@ export function TileQueryActions(props: BuilderInspectorProps) {
           <small>{originCue.helper}</small>
         </div>
       )}
+      {!queryStatus.isImported&&<PendingTileQueryPreview tile={tile} savedVariableSets={props.savedVariableSets} isLoading={isLoading} getEditorContextVersion={props.getEditorContextVersion}/>}
       <button
         type="button"
         onClick={() => void refreshSelectedTile()}

@@ -2,53 +2,19 @@ import type { DashboardTile } from "../../../shared/types/dashboard";
 import { ownAxisLabel } from "../design-system/axisLabels";
 import { chartColor } from "../design-system/reportColors";
 import { buildDotPlotModel } from "./dotPlotModel";
+import { dotIntervals, dotIntervalLabel } from "./dotPlotIntervals";
 
-type Area = { x: number; y: number; width: number; height: number };
-export class DotPlotFitError extends Error {
-  constructor(readonly requiredHeight: number) {
-    super('All dot-plot series and labels cannot fit readably. Enlarge the chart, reduce type sizes or use the complete table/Excel; no points were truncated.');
-  }
-}
-const xml = (value: unknown) => {
-  const raw=String(value);
-  for(const character of raw){const code=character.codePointAt(0)!;if((code<32&&![9,10,13].includes(code))||(code>=0xd800&&code<=0xdfff)||code===0xfffe||code===0xffff)throw Error('A dot-plot label contains unsupported XML characters. Review its display alias; the source was retained.');}
-  return raw.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
-};
-function solid(value: string) {
-  if (value.length<=256&&(/^#(?:[a-f0-9]{3,4}|[a-f0-9]{6}|[a-f0-9]{8})$/i.test(value) || /^[a-z]+$/i.test(value) || /^rgba?\([\d.,%\s]+\)$/i.test(value))) return value;
-  throw Error("Dot plots require solid colors. Review the chart palette before rendering or exporting.");
-}
-function text(value: string, x: number, y: number, size: number, color: string, anchor = "start") {
-  return `<text x="${x}" y="${y}" font-family="Inter, Arial, sans-serif" font-size="${size}" text-anchor="${anchor}" fill="${xml(solid(color))}">${xml(value)}</text>`;
-}
-function wrap(value: string, characters: number, words = false): string[] {
-  const source = Array.from(value), lines: string[] = [];
-  if (source.length > characters * 6) throw Error("A full dot-plot label cannot fit. Enlarge the chart or shorten its display alias; no label was truncated.");
-  for(let i=0;i<source.length;){
-    let length=Math.min(characters,source.length-i);
-    if(words&&i+length<source.length)for(let n=length-1;n>0;n--)if(/\s/u.test(source[i+n])){length=n+1;break;}
-    lines.push(source.slice(i,i+length).join(''));i+=length;
-  }
-  if(lines.length>6)throw Error("A full dot-plot label cannot fit. Enlarge the chart or shorten its display alias; no label was truncated.");
-  return lines.length ? lines : [""];
-}
-function marker(index: number, x: number, y: number, fill: string, paired = false) {
-  const color=xml(solid(fill));
-  switch(index % 6) {
-    case 1:return paired ? `<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="none" stroke="${color}" stroke-width="2"/>` : `<rect x="${x-4}" y="${y-4}" width="8" height="8" fill="${color}"/>`;
-    case 2:return `<polygon points="${x},${y-5} ${x+5},${y} ${x},${y+5} ${x-5},${y}" fill="${color}"/>`;
-    case 3:return `<polygon points="${x},${y-5} ${x+5},${y+4} ${x-5},${y+4}" fill="${color}"/>`;
-    case 4:return `<polygon points="${x-5},${y-4} ${x+5},${y-4} ${x},${y+5}" fill="${color}"/>`;
-    case 5:return `<path d="M${x-5} ${y-1.5}h3.5v-3.5h3v3.5h3.5v3h-3.5v3.5h-3v-3.5h-3.5z" fill="${color}"/>`;
-    default:return `<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>`;
-  }
-}
+import {DotPlotFitError, xml, solid, text, wrap, marker, type Area} from "./plotSvgPrimitives";
+import {comparisonPlotSvg} from "./comparisonPlotSvg";
+export {DotPlotFitError} from "./plotSvgPrimitives";
 
 /** Shared canvas/export body. All source strings are escaped; nothing is omitted. */
 export function dotPlotSvg(tile: DashboardTile, area: Area, format: (value: number | null) => string): string {
   const model=buildDotPlotModel(tile.result);if(model.status!=='ready')throw Error(model.reason);
+  const intervals = dotIntervals(tile);
   const layout=tile.appearance.dotPlotLayout;
-  if(layout!==undefined&&layout!=='separate'&&layout!=='paired')throw Error('Choose a supported dot-plot layout. The source and recorded values were retained.');
+  if(layout!==undefined&&layout!=='separate'&&layout!=='paired'&&layout!=='small_multiples'&&layout!=='slope')throw Error('Choose a supported dot-plot layout. The source and recorded values were retained.');
+  if(layout==='small_multiples'||layout==='slope')return comparisonPlotSvg(tile,area,format);
   const paired=layout==='paired';
   if(paired&&tile.result.columns.length!==2)throw Error('Paired dots require exactly two recorded groups. Choose Separate series or change the comparison; no groups were hidden.');
   const axis=tile.appearance.axisFontSize,valueSize=tile.appearance.labelFontSize;
@@ -58,7 +24,7 @@ export function dotPlotSvg(tile: DashboardTile, area: Area, format: (value: numb
   if([...names,...series].some(name=>name.length>4096))throw Error('A dot-plot display label is too long. Shorten its display alias; the source was retained.');
   const left=Math.max(70,Math.min(area.width*.28,Math.max(...names.map(n=>Array.from(n).length))*axis*1.1+12));
   const basePrefix=tile.result.weighting.applied?'W':tile.result.query.weight?'base (weight unconfirmed)':'n';
-  const printed=model.cells.map(row=>row.map(cell=>`${format(cell.value)}${tile.appearance.showBases?`; ${cell.base===null?'base unavailable':`${basePrefix}=${cell.base}`}`:''}`));
+  const printed=model.cells.map((row,r)=>row.map((cell,c)=>`${format(cell.value)}${tile.appearance.showBases?`; ${cell.base===null?'base unavailable':`${basePrefix}=${cell.base}`}`:''}${intervals?`; ${dotIntervalLabel(intervals[r][c])}`:''}`));
   const right=tile.appearance.showValueLabels?Math.max(70,...printed.flat().map(v=>Array.from(v).length*valueSize*1.1+12))+(paired?26:0):8;
   const plot={x:area.x+left,y:area.y,width:area.width-left-right-16};
   if(plot.width<100)throw Error('Dot-plot labels and values cannot fit at the selected type sizes. Enlarge the chart, shorten display aliases or hide value labels; nothing was omitted.');
@@ -86,8 +52,13 @@ export function dotPlotSvg(tile: DashboardTile, area: Area, format: (value: numb
     if(paired&&first.fraction!==null&&second.fraction!==null)svg+=`<line data-dot-pair="${xml(row.optionId)}" x1="${coordinate(first.fraction)}" x2="${coordinate(second.fraction)}" y1="${pairY}" y2="${pairY}" stroke="${xml(solid(tile.appearance.labelColor))}" stroke-opacity="0.45" stroke-width="1.5"/>`;
     model.cells[r].forEach((cell,c)=>{
       const cy=top+(height-columns.length*pointLine)/2+(c+.5)*pointLine;
-      const detail=`${names[r]} / ${series[c]}: ${printed[r][c]}`;
+      const intervalCell = intervals?.[r][c], interval = intervalCell?.interval;
+      const detail=`${names[r]} / ${series[c]}: ${printed[r][c]}${intervalCell?`; ${intervalCell.events} events / ${intervalCell.base} valid respondents`:''}`;
       svg+=`<g data-dot-row="${xml(row.optionId)}" data-dot-column="${xml(columns[c].id)}" data-dot-value="${cell.value??'unavailable'}" data-dot-base="${cell.base??'unavailable'}"><title>${xml(detail)}</title>`;
+      if(interval){
+        const lo=coordinate(interval.lower),hi=coordinate(interval.upper),stroke=xml(solid(colors[multi?c:r]));
+        svg+=`<g data-dot-interval="wilson95" data-lower="${interval.lower}" data-upper="${interval.upper}" data-events="${intervalCell!.events}" data-valid-base="${intervalCell!.base}"><line x1="${lo}" x2="${hi}" y1="${cy}" y2="${cy}" stroke="${stroke}" stroke-width="2"/><path d="M${lo} ${cy-5}v10M${hi} ${cy-5}v10" stroke="${stroke}" stroke-width="2" fill="none"/></g>`;
+      }
       if(cell.fraction!==null)svg+=marker(multi?c:0,coordinate(cell.fraction),paired?pairY:cy,colors[multi?c:r],paired);
       if(tile.appearance.showValueLabels){
         if(paired)svg+=`<g data-dot-label-marker="${xml(columns[c].id)}">${marker(c,plot.x+plot.width+22,cy,colors[c],true)}</g>`;

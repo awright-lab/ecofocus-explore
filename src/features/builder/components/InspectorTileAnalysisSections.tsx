@@ -1,4 +1,5 @@
 import type { SavedImportedAudience } from "../../../../shared/types/audience";
+import { DotPlotIntervalControl } from "./DotPlotIntervalControl";
 import { AnalysisEditPreview } from "./AnalysisEditPreview";
 import { allRespondentsGroupingField, allRespondentsGroupingId, allRespondentsGroupingOption } from "../../data/numericSummaryScope";
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
@@ -1595,13 +1596,16 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
               <div className="toggle-list">
                 {selectedTile.visualization === "dot_plot" && <label>
                   Dot layout
-                  <select aria-label="Dot layout" value={[undefined,"separate","paired"].includes(selectedTile.appearance.dotPlotLayout) ? selectedTile.appearance.dotPlotLayout ?? "separate" : "invalid"} onChange={event => { const layout=event.target.value; if(layout==="separate"||layout==="paired")updateSelectedAppearance({dotPlotLayout:layout}); }}>
-                    {![undefined,"separate","paired"].includes(selectedTile.appearance.dotPlotLayout) && <option value="invalid" disabled>Choose a supported layout</option>}
+                  <select aria-label="Dot layout" value={[undefined,"separate","paired","small_multiples","slope"].includes(selectedTile.appearance.dotPlotLayout) ? selectedTile.appearance.dotPlotLayout ?? "separate" : "invalid"} onChange={event => { const layout=event.target.value; if(layout==="separate"||layout==="paired"||layout==="small_multiples"||layout==="slope")updateSelectedAppearance({dotPlotLayout:layout}); }}>
+                    {![undefined,"separate","paired","small_multiples","slope"].includes(selectedTile.appearance.dotPlotLayout) && <option value="invalid" disabled>Choose a supported layout</option>}
                     <option value="separate">Separate series</option>
                     <option value="paired" disabled={selectedTile.result.columns.length !== 2}>Pair two groups</option>
+                    <option value="small_multiples">Small multiples (one panel per group)</option>
+                    <option value="slope" disabled={selectedTile.result.columns.length !== 2}>Slope chart (two groups)</option>
                   </select>
-                  <small>Paired dots require exactly two groups. Connectors compare recorded values within an answer; they do not imply trends or significance.</small>
+                  <small>Paired dots and slope charts require exactly two groups. Small multiples repeat every answer on the same scale. Connectors do not imply time, respondent pairing or significance. Intervals require Separate series.</small>
                 </label>}
+                {selectedTile.visualization === "dot_plot" && <DotPlotIntervalControl tile={selectedTile} onChange={updateSelectedAppearance} />}
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> {selectedTile.visualization === "table" ? "Table guides" : "Chart grid"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showValueLabels} onChange={(event) => updateSelectedAppearance({ showValueLabels: event.target.checked })} /> {selectedTile.visualization === "table" ? "Cell values" : "Value labels"}</label>
                 <label><input type="checkbox" checked={selectedTile.appearance.showNotes} onChange={(event) => updateSelectedAppearance({ showNotes: event.target.checked })} /> Notes</label>

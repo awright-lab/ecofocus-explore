@@ -23,7 +23,8 @@ export interface ReportColorTheme {
   slots: Array<{ key: string; label: string; index: number }>;
 }
 export interface TileAppearance {
-  dotPlotLayout?: "separate" | "paired";
+  dotPlotLayout?: "separate" | "paired" | "small_multiples" | "slope";
+  dotPlotIntervals?: { method: "wilson95_independent_unweighted_v1"; binding: string };
   reportColorsEnabled?: boolean;
   reportColorSlots?: { rows: Record<string, number>; columns: Record<string, number>; originalPalette: string[]; styles?: Record<string, TileAppearance["barStyles"][string]> };
   primaryColor: string;
@@ -628,6 +629,17 @@ export interface ImportedDatasetRecord {
 }
 
 export interface DashboardDraft {
+  insightReviewPlans?: import("./reportInsights").ReviewedInsightPlan[];
+  waveRefresh?: {
+    version: 1;
+    sourceReportId: string;
+    sourceReportTitle: string;
+    sourceStudy: { datasetId: string; importedAt: string };
+    targetStudy: { datasetId: string; importedAt: string };
+    fieldMappings: Array<{ sourceFieldId: string; targetFieldId: string; sourceColumn: string }>;
+    reviewedAt?: string;
+    declaration: string;
+  };
   responseCodebooks?: import('./responseCoding').ResponseCodebook[];
   savedAudiences?: SavedImportedAudience[];
   reportColorTheme?: ReportColorTheme;

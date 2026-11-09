@@ -1,3 +1,5 @@
+import {runMockAnalyticsQuery} from "../../../../shared/mock/analytics";
+import { localFileReuseFixture } from "../../data/__tests__/fixtures/localFileReuseFixture";
 import { deferredWorkspaceHistory } from "../deferredWorkspaceHistory";
 import * as importedRuntimeQuery from "../../data/importedDatasetRuntimeQuery";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
@@ -726,7 +728,8 @@ describe("workspace save recovery UI", () => {
   it.each(["home", "builder"])("recovers a delayed %s import after navigation without overwriting the new editor", async (origin) => {
     writeFailure.mockRestore();
     let complete!: (result: Awaited<ReturnType<typeof importFile>>) => void;
-    const imported = { ...baseline.importedDatasets[0], id: "late-route-study" };
+    // A new import cannot retain the old dataset's source-reference identity.
+    const imported = { ...baseline.importedDatasets[0], id: "late-route-study", sourceRef: undefined };
     importFile.mockReturnValue(new Promise((resolve) => { complete = resolve; }));
     if (origin === "builder") window.history.replaceState(null, "", `#/reports/${baseline.reports[0].id}`);
     await act(async () => root.render(<App />));
@@ -777,11 +780,308 @@ describe("workspace save recovery UI", () => {
       expect(host.querySelector('[aria-label="Workspace not saved"]')).not.toBeNull();
       writeFailure.mockRestore();
       await act(async () => button("Retry saving").click());
+      // A generic workspace retry does not acknowledge the separate import
+      // recovery queue. Rechecking the identical saved copy is idempotent.
+      expect(deferredWorkspaceImports.getPending()).toHaveLength(1);
+      await act(async () => button("Add recovered studies").click());
     }
     const saved = loadDashboardWorkspace();
     expect(saved.reports.some((report) => report.draft.title === "New route preserved")).toBe(true);
     expect(saved.importedDatasets.find((dataset) => dataset.id === imported.id)?.rows).toHaveLength(30);
     expect(deferredWorkspaceImports.getPending()).toHaveLength(0);
+  });
+
+  it.each(["home-xlsx", "home-sav", "builder-xlsx", "builder-sav"] as const)("reviews a delayed duplicate %s through actual App without overwriting newer work", async scenario => {
+    writeFailure.mockRestore();
+    const origin = scenario.startsWith("home") ? "home" : "builder";
+    const format = scenario.endsWith("xlsx") ? "xlsx" : "sav";
+    const { file, dataset } = await localFileReuseFixture(format);
+    baseline.importedDatasets = [dataset];
+    baseline.reports[0].draft.importedDatasets = [dataset];
+    expect(saveDashboardWorkspace(baseline)).toBe(true);
+    const preserved = structuredClone(loadDashboardWorkspace());
+    const imported = { ...structuredClone(dataset), id: "late-copy", sourceRef: undefined, importStatus: undefined };
+    let complete!: (result: Awaited<ReturnType<typeof importFile>>) => void;
+    importFile.mockReturnValue(new Promise(resolve => { complete = resolve; }));
+    if (origin === "builder") window.history.replaceState(null, "", `#/reports/${baseline.reports[0].id}`);
+    await act(async () => root.render(<App />));
+    if (origin === "builder") {
+      await act(async () => button("Create analysis").click());
+      await act(async () => { await import("../../builder/components/GuidedDataQueryModal"); });
+    }
+    const input = host.querySelector(origin === "builder" ? '[role="dialog"] input[type="file"]' : '[aria-label="Import study file"]')!;
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
+    if (origin === "builder") {
+      await act(async () => button("Cancel").click());
+      await act(async () => { window.history.pushState(null, "", "#/"); window.dispatchEvent(new HashChangeEvent("hashchange")); });
+      await act(async () => button("New report").click());
+      await act(async () => window.dispatchEvent(new HashChangeEvent("hashchange")));
+    } else {
+      await act(async () => { window.history.pushState(null, "", `#/reports/${baseline.reports[0].id}`); window.dispatchEvent(new HashChangeEvent("hashchange")); });
+    }
+    const title = host.querySelector(".workspace-mode-strip button strong")!.textContent!;
+    await act(async () => button(title).click());
+    const titleInput = host.querySelector<HTMLInputElement>('[aria-label="Document title"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(titleInput, "Latest editor preserved");
+      titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => titleInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    await act(async () => vi.advanceTimersByTime(1000));
+    const savedBeforeCompletion = localStorage.getItem(workspaceStorageKey);
+    expect(loadDashboardWorkspace().reports.some(r => r.draft.title === "Latest editor preserved")).toBe(true);
+    await act(async () => complete({ dataset: imported, storage: { provider: "local", stored: false } }));
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(savedBeforeCompletion);
+    expect(deferredWorkspaceImports.getPending()[0]).toEqual(imported);
+    await act(async () => { window.history.pushState(null, "", "#/"); window.dispatchEvent(new HashChangeEvent("hashchange")); });
+    const beforeReview = structuredClone(loadDashboardWorkspace());
+    await act(async () => button("Add recovered studies").click());
+    expect(host.querySelector('[aria-label="Recovered study copy choices"]')).not.toBeNull();
+    expect(loadDashboardWorkspace()).toEqual(beforeReview);
+    expect(deferredWorkspaceImports.getPending()).toHaveLength(1);
+    await act(async () => button("Reuse matching studies and add the rest").click());
+    expect(deferredWorkspaceImports.getPending()).toHaveLength(0);
+    const saved = loadDashboardWorkspace();
+    expect(saved.importedDatasets).toEqual(preserved.importedDatasets);
+    expect(saved.reports).toEqual(beforeReview.reports);
+    expect(saved.publishedSnapshots).toEqual(preserved.publishedSnapshots);
+    expect(saved.reports.some(r => r.draft.title === "Latest editor preserved")).toBe(true);
+    await act(async () => root.unmount());
+    workspaceSaveSession.remember(null);
+    root = createRoot(host);
+    await act(async () => root.render(<App />));
+    expect(loadDashboardWorkspace()).toEqual(saved);
+  });
+
+  it.each(["xlsx", "sav"] as const)("queues a mounted Builder duplicate %s and refuses concurrent file parsing", async format => {
+    writeFailure.mockRestore();
+    const { file, dataset } = await localFileReuseFixture(format);
+    baseline.importedDatasets=[dataset];baseline.reports[0].draft.importedDatasets=[dataset];
+    expect(saveDashboardWorkspace(baseline)).toBe(true);
+    const preserved=structuredClone(loadDashboardWorkspace());
+    const imported={...structuredClone(dataset),id:"mounted-copy",sourceRef:undefined,importStatus:undefined};
+    let complete!:(result:Awaited<ReturnType<typeof importFile>>)=>void;
+    importFile.mockReturnValue(new Promise(resolve=>{complete=resolve;}));
+    window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    await act(async()=>button("Create analysis").click());
+    await act(async()=>{await import("../../builder/components/GuidedDataQueryModal");});
+    const input=host.querySelector('[role="dialog"] input[type="file"]')!;
+    Object.defineProperty(input,"files",{configurable:true,value:[file]});
+    const previousReads=importFile.mock.calls.length;
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(importFile.mock.calls.length-previousReads).toBe(1);
+    await act(async()=>complete({dataset:imported,storage:{provider:"local",stored:false}}));
+    expect(deferredWorkspaceImports.getPending()[0]).toEqual(imported);
+    expect(loadDashboardWorkspace().importedDatasets).toEqual(preserved.importedDatasets);
+    await act(async()=>button("Cancel").click());
+    await act(async()=>{window.history.pushState(null,"","#/");window.dispatchEvent(new HashChangeEvent("hashchange"));});
+    const before=structuredClone(loadDashboardWorkspace());
+    await act(async()=>button("Add recovered studies").click());
+    expect(loadDashboardWorkspace()).toEqual(before);
+    await act(async()=>button("Reuse matching studies and add the rest").click());
+    expect(deferredWorkspaceImports.getPending()).toHaveLength(0);
+    expect(loadDashboardWorkspace()).toEqual(before);
+    expect(loadDashboardWorkspace().publishedSnapshots).toEqual(preserved.publishedSnapshots);
+  });
+
+  it("adds a unique Builder study without replacing edits made during the read", async () => {
+    writeFailure.mockRestore();
+    const {file,dataset}=await localFileReuseFixture("sav");
+    const imported={...dataset,id:"unique-builder-study",title:"Distinct synthetic wave",sourceRef:undefined,importStatus:undefined};
+    let complete!:(result:Awaited<ReturnType<typeof importFile>>)=>void;
+    importFile.mockReturnValue(new Promise(resolve=>{complete=resolve;}));
+    window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    await act(async()=>button("Create analysis").click());
+    await act(async()=>{await import("../../builder/components/GuidedDataQueryModal");});
+    const input=host.querySelector('[role="dialog"] input[type="file"]')!;
+    Object.defineProperty(input,"files",{configurable:true,value:[file]});
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    await act(async()=>button("Cancel").click());
+    const title=host.querySelector(".workspace-mode-strip button strong")!.textContent!;
+    await act(async()=>button(title).click());
+    const editor=host.querySelector<HTMLInputElement>('[aria-label="Document title"]')!;
+    await act(async()=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(editor,"Edited during unique import");
+      editor.dispatchEvent(new Event("input",{bubbles:true}));
+    });
+    await act(async()=>editor.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true})));
+    // Complete before the 900ms autosave: import must read the command-time draft.
+    await act(async()=>complete({dataset:imported,storage:{provider:"local",stored:false}}));
+    const saved=loadDashboardWorkspace();
+    expect(saved.reports[0].draft.title).toBe("Edited during unique import");
+    expect(saved.importedDatasets.find(d=>d.id===imported.id)?.rows).toEqual(imported.rows);
+    expect(saved.importedDatasets.find(d=>d.id===baseline.importedDatasets[0].id)?.rows).toEqual(baseline.importedDatasets[0].rows);
+    expect(saved.publishedSnapshots).toEqual(baseline.publishedSnapshots);
+    expect(deferredWorkspaceImports.getPending()).toHaveLength(0);
+  });
+
+  it.each([
+    ["home","local"],["home","netlify"],["home","supabase"],
+    ["builder","local"],["builder","netlify"],["builder","supabase"]
+  ] as const)("retains a conflicting %s import from %s without replacing any stored study", async (origin,provider) => {
+    writeFailure.mockRestore();
+    const incoming=structuredClone(baseline.importedDatasets[0]);
+    incoming.rows[0].Segment="Changed incoming respondent";
+    incoming.previewRows[0].Segment="Changed incoming respondent";
+    incoming.title="Distinct conflicting service result";
+    importFile.mockResolvedValue({dataset:incoming,storage:{provider,stored:provider!=="local"}});
+    if(origin==="builder")window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    if(origin==="builder"){
+      await act(async()=>button("Create analysis").click());
+      await act(async()=>{await import("../../builder/components/GuidedDataQueryModal");});
+    }
+    const before=structuredClone(loadDashboardWorkspace()),raw=localStorage.getItem(workspaceStorageKey),input=host.querySelector(origin==="builder"?'[role="dialog"] input[type="file"]':'[aria-label="Import study file"]')!;
+    Object.defineProperty(input,"files",{configurable:true,value:[new File(["synthetic service result"],"study.csv")]});
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+    expect(loadDashboardWorkspace()).toEqual(before);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+    expect(workspaceSaveSession.hasPending()).toBe(false);
+    expect(host.textContent).toContain("already retained");
+    if(origin==="builder")await act(async()=>button("Cancel").click());
+    await act(async()=>{window.history.pushState(null,"","#/");window.dispatchEvent(new HashChangeEvent("hashchange"));});
+    const beforeRecovery=localStorage.getItem(workspaceStorageKey);
+    await act(async()=>button("Add recovered studies").click());
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(beforeRecovery);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+    expect(host.textContent).toContain("shares an identity with different data");
+    await act(async()=>root.unmount());workspaceSaveSession.remember(null);root=createRoot(host);
+    await act(async()=>root.render(<App/>));
+    expect(loadDashboardWorkspace().importedDatasets).toEqual(before.importedDatasets);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+  });
+
+  it.each(["home","builder"] as const)("defers an unchanged reused identity in %s for explicit idempotent recovery", async origin => {
+    writeFailure.mockRestore();
+    const incoming=structuredClone(baseline.importedDatasets[0]);
+    importFile.mockResolvedValue({dataset:incoming,storage:{provider:"local",stored:false}});
+    if(origin==="builder")window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    if(origin==="builder"){
+      await act(async()=>button("Create analysis").click());
+      await act(async()=>{await import("../../builder/components/GuidedDataQueryModal");});
+    }
+    const raw=localStorage.getItem(workspaceStorageKey),source=structuredClone(loadDashboardWorkspace().importedDatasets),input=host.querySelector(origin==="builder"?'[role="dialog"] input[type="file"]':'[aria-label="Import study file"]')!;
+    Object.defineProperty(input,"files",{configurable:true,value:[new File(["synthetic"],"study.csv")]});
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+    if(origin==="builder")await act(async()=>button("Cancel").click());
+    await act(async()=>{window.history.pushState(null,"","#/");window.dispatchEvent(new HashChangeEvent("hashchange"));});
+    await act(async()=>button("Add recovered studies").click());
+    expect(deferredWorkspaceImports.getPending()).toHaveLength(0);
+    expect(loadDashboardWorkspace().importedDatasets).toEqual(source);
+  });
+
+  it.each(["home","builder"] as const)("does not rebind a missing saved audience source through a %s file result", async origin => {
+    writeFailure.mockRestore();
+    const incoming={...structuredClone(baseline.importedDatasets[0]),id:"reserved-audience-source",sourceRef:undefined,importStatus:undefined};
+    const field=incoming.fields[0];
+    baseline.reports[0].draft.savedAudiences=[{version:1,id:"saved-original-audience",label:"Retained audience",datasetId:incoming.id,importedAt:incoming.importedAt,expression:{kind:"category",fieldId:field.id,sourceColumn:field.sourceColumn,exclude:false,values:["Core"]}}];
+    expect(saveDashboardWorkspace(baseline)).toBe(true);
+    importFile.mockResolvedValue({dataset:incoming,storage:{provider:"local",stored:false}});
+    if(origin==="builder")window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    if(origin==="builder"){
+      await act(async()=>button("Create analysis").click());
+      await act(async()=>{await import("../../builder/components/GuidedDataQueryModal");});
+    }
+    const before=structuredClone(loadDashboardWorkspace()),raw=localStorage.getItem(workspaceStorageKey),input=host.querySelector(origin==="builder"?'[role="dialog"] input[type="file"]':'[aria-label="Import study file"]')!;
+    Object.defineProperty(input,"files",{configurable:true,value:[new File(["synthetic"],"study.csv")]});
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+    expect(loadDashboardWorkspace()).toEqual(before);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+    expect(host.textContent).toContain("already references this study identity");
+    if(origin==="builder")await act(async()=>button("Cancel").click());
+    await act(async()=>{window.history.pushState(null,"","#/");window.dispatchEvent(new HashChangeEvent("hashchange"));});
+    const recoveryRaw=localStorage.getItem(workspaceStorageKey);
+    await act(async()=>button("Add recovered studies").click());
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(recoveryRaw);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+    expect(loadDashboardWorkspace().importedDatasets.some(study=>study.id===incoming.id)).toBe(false);
+    expect(loadDashboardWorkspace().reports[0].draft.savedAudiences).toEqual(before.reports[0].draft.savedAudiences);
+  });
+
+  it("keeps a Home import separate from another pending recovery workspace", async () => {
+    writeFailure.mockRestore();
+    await act(async()=>root.render(<App/>));
+    const pending=structuredClone(baseline);pending.reports[0].draft.title="Unrelated unsaved draft";await act(async()=>workspaceSaveSession.remember(pending));
+    const incoming={...structuredClone(baseline.importedDatasets[0]),id:"fresh-but-pending"};
+    importFile.mockResolvedValue({dataset:incoming,storage:{provider:"local",stored:false}});
+    const input=host.querySelector('[aria-label="Import study file"]')!,raw=localStorage.getItem(workspaceStorageKey);
+    Object.defineProperty(input,"files",{configurable:true,value:[new File(["synthetic"],"study.csv")]});
+    await act(async()=>input.dispatchEvent(new Event("change",{bubbles:true})));
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+    expect(workspaceSaveSession.getPending()).toBe(pending);
+    expect(deferredWorkspaceImports.getPending()).toEqual([incoming]);
+    expect(host.querySelector('[aria-label="Workspace not saved"]')).not.toBeNull();
+  });
+
+  it("previews a pending seeded weight through real App without saving, then refreshes independently and reopens", async () => {
+    writeFailure.mockRestore();
+    baseline=createPublishedSnapshot(baseline,baseline.reports[0].draft).workspace;
+    expect(saveDashboardWorkspace(baseline)).toBe(true);
+    const sources=structuredClone(loadDashboardWorkspace().importedDatasets),history=structuredClone(loadDashboardWorkspace().publishedSnapshots),requests:unknown[]=[];
+    vi.mocked(fetch).mockImplementation(async(url,options)=>{
+      if(url!=="/.netlify/functions/analytics-query")throw Error("No live service in this synthetic workflow");
+      const query=JSON.parse(String(options?.body));requests.push(query);
+      return new Response(JSON.stringify(runMockAnalyticsQuery(query)),{status:200});
+    });
+    window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    await act(async()=>button("Select first test tile").click());
+    await act(async()=>button("Data").click());
+    await act(async()=>{await import("../../builder/components/InspectorTileAnalysisSections");});
+    const weight=Array.from(host.querySelectorAll("label")).find(label=>label.firstChild?.textContent?.trim()==="Weight")!.querySelector("select")!;
+    await act(async()=>{weight.value="none";weight.dispatchEvent(new Event("change",{bubbles:true}));});
+    await act(async()=>vi.advanceTimersByTime(1000));
+    const pending=structuredClone(loadDashboardWorkspace()),raw=localStorage.getItem(workspaceStorageKey),tile=pending.reports[0].draft.pages[0].tiles[0];
+    expect(tile.query.weight).toBeNull();expect(tile.result.query.weight).not.toBeNull();
+    await act(async()=>button("Preview pending query").click());
+    expect(host.querySelector('[aria-label="Proposed analysis change preview"]')).not.toBeNull();
+    expect(host.textContent).toContain("Proposed weight: Unweighted");
+    expect(requests).toHaveLength(1);expect((requests[0]as{weight:unknown}).weight).toBeNull();
+    expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+    expect(loadDashboardWorkspace()).toEqual(pending);
+    await act(async()=>button("Dismiss preview").click());
+    await act(async()=>button("Refresh analysis").click());
+    expect(requests).toHaveLength(2);
+    await act(async()=>vi.advanceTimersByTime(1000));
+    const saved=structuredClone(loadDashboardWorkspace()),updated=saved.reports[0].draft.pages[0].tiles[0];
+    expect(updated.result.query.weight).toBeNull();expect(updated.result.weighting.applied).toBe(false);
+    expect(saved.importedDatasets).toEqual(sources);expect(saved.publishedSnapshots).toEqual(history);
+    await act(async()=>root.unmount());workspaceSaveSession.remember(null);root=createRoot(host);
+    await act(async()=>root.render(<App/>));
+    expect(loadDashboardWorkspace()).toEqual(saved);
+    expect(requests).toHaveLength(2);
+  });
+
+  it.each(["imported_file","workspace_database"]as const)("keeps a question tile with %s provenance out of seeded preview and refresh",async kind=>{
+    writeFailure.mockRestore();
+    const tile=baseline.reports[0].draft.pages[0].tiles[0],study=baseline.importedDatasets[0];
+    tile.source={kind:"question",id:tile.query.question,label:"Retained legacy source",sourceRef:{id:"explicit-import",kind,provider:kind==="imported_file"?"local_file":"netlify",label:"Original study reference",datasetId:study.id}};
+    expect(saveDashboardWorkspace(baseline)).toBe(true);
+    const stored=structuredClone(loadDashboardWorkspace());
+    window.history.replaceState(null,"",`#/reports/${baseline.reports[0].id}`);
+    await act(async()=>root.render(<App/>));
+    await act(async()=>button("Select first test tile").click());await act(async()=>button("Data").click());
+    await act(async()=>{await import("../../builder/components/InspectorTileAnalysisSections");});
+    const raw=localStorage.getItem(workspaceStorageKey);
+    expect(host.textContent).toContain("missing its imported study context");
+    expect(button("Preview pending query").getAttribute("aria-disabled")).toBe("true");
+    await act(async()=>button("Preview pending query").click());
+    await act(async()=>button("Refresh again").click());
+    expect(fetch).not.toHaveBeenCalled();expect(localStorage.getItem(workspaceStorageKey)).toBe(raw);
+    expect(loadDashboardWorkspace()).toEqual(stored);
+    expect(host.querySelector('[aria-label="Proposed analysis change preview"]')).toBeNull();
+    await act(async()=>root.unmount());workspaceSaveSession.remember(null);root=createRoot(host);
+    await act(async()=>root.render(<App/>));expect(loadDashboardWorkspace()).toEqual(stored);
   });
 
   it("loads the correct imported query when separate pages reuse a tile ID", async () => {

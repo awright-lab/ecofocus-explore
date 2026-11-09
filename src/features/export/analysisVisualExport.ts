@@ -6,6 +6,7 @@ import { barPaintSvg } from "./chartPaintExport";
 import { ownAxisLabel } from "../design-system/axisLabels";
 import { chartColor } from "../design-system/reportColors";
 import { analyticalBase, analyticalCell } from "../../../shared/analytics/resultCells";
+import { dotIntervalExplanation } from "../analytics/dotPlotIntervals";
 import type { DashboardTile } from "../../../shared/types/dashboard";
 import { formatValue, supportsDonutResult } from "../builder/components/CanvasRenderers";
 import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
@@ -67,7 +68,7 @@ export function analysisVisualLayout(tile: DashboardTile) {
     `Filter: ${rows.get("Filter")}`,
     `Weight: ${rows.get("Weighting")}; ${rows.get("Base scope")}`,
     `Inference: ${rows.get("Inference")}`,
-    `Rendering: reconstructed analytical view${tile.visualization === "line_chart" ? "; straight line segments" : tile.visualization === "dot_plot" ? tile.appearance.dotPlotLayout === "paired" ? "; paired dots on one shared zero-based scale; within-answer connectors; no intervals, time trend or significance implied" : "; dots on one shared zero-based scale; no intervals or connecting trends" : ""}`,
+    `Rendering: reconstructed analytical view${tile.visualization === "line_chart" ? "; straight line segments" : tile.visualization === "dot_plot" ? tile.appearance.dotPlotIntervals !== undefined ? `; ${dotIntervalExplanation}` : tile.appearance.dotPlotLayout === "small_multiples" ? "; small multiples with one complete panel per recorded group, sharing one scale; no intervals or trends implied" : tile.appearance.dotPlotLayout === "slope" ? "; slope chart joining two recorded groups per answer on one scale; no respondent pairing, time trend or significance implied" : tile.appearance.dotPlotLayout === "paired" ? "; paired dots on one shared zero-based scale; within-answer connectors; no intervals, time trend or significance implied" : "; dots on one shared zero-based scale; no intervals or connecting trends" : ""}`,
     ...(rows.get("Result warnings") ? [`Warnings: ${rows.get("Result warnings")}`] : [])
   ].flatMap(line => completeLines(line, Math.max(12, Math.floor((width - 40) / 5.8)), 12));
   const contextTop = titleBottom + 10;

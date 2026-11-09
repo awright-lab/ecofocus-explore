@@ -1,0 +1,11 @@
+# Field identity on completed profile snapshots
+
+Large-study numeric and categorical profile summaries retain the display label and physical column captured when the background job starts. Captions, accessible distribution labels and a visible snapshot-field note use these copied strings. Editing the current field metadata does not relabel an older completed result. Refresh starts a new job with the current mapping and label; no field or row is changed by the summary.
+
+The render-time result owner also includes stored and declared row counts. If either count changes in place, the old profile is withheld synchronously before layout observers run, and the existing background lifecycle starts a new job. Declared count changes are included in the effect dependencies, so a change without a new dataset object does not leave an indefinitely pending result. Small synchronous profiles continue to recompute directly.
+
+The snapshots remain explicit snapshots: same-reference value edits do not automatically recalculate a large profile. Users refresh deliberately. The captured strings and counts are display context, not historical source authentication, a dataset-version receipt, an atomic snapshot, or proof of every later mutation. Worker verification, cancellation, deadlines, numeric calculations, category labels and storage are otherwise unchanged. Existing source/worker jobs continue to check their own input context before accepting completion.
+
+An isolated reproduction exercised actual profile components and held workers over 6,000 synthetic rows. Both profiles used a replacement caption on old values; both exposed an old row count to a layout observer before their effect started. Regression checks retain the captured caption/column until explicit refresh and withhold the prior result synchronously on count changes. Existing worker, deadline, refresh, focus and parent save/reopen checks are also relevant. Native Worker timing, browser paint frames, assistive technology and performance remain unverified. This does not close goal 15.
+
+This candidate was developed in a separate source copy while the main checkout's canceled staging correction remains unresolved. It does not change that checkout or its index. Build, browser, socket and Office restrictions remain in force; no retry, publication, merge or deployment is part of this change.

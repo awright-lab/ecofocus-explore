@@ -1,4 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { searchReportObjects, reportObjectMatchKey, resolveReportObjectMatch, type ReportObjectMatch } from "./reportObjectSearch";
+import "./report-object-search.css";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
@@ -107,16 +109,26 @@ export function ReportPageTree({
     target?.focus();
   });
   const normalizedSearch = pageSearch.trim().toLowerCase();
-  const visiblePages = useMemo(
-    () =>
-      normalizedSearch
-        ? sortedPages.filter((page) => {
-            const pageText = `${page.title} ${page.order} ${page.tiles.map((tile) => `${tile.title} ${tile.name}`).join(" ")} ${page.elements.map((element) => element.name).join(" ")}`;
-            return pageText.toLowerCase().includes(normalizedSearch);
-          })
-        : sortedPages,
-    [normalizedSearch, sortedPages]
-  );
+  const search = searchReportObjects(sortedPages, pageSearch);
+  const visiblePages = search.pages;
+  const [searchIssue, setSearchIssue] = useState("");
+  const searchResultNodes = useRef(new Map<string, HTMLButtonElement>());
+  const displacedSearchResult = useRef<HTMLButtonElement | null>(null);
+  useLayoutEffect(() => {
+    const displaced = displacedSearchResult.current; displacedSearchResult.current = null;
+    if (displaced && !displaced.isConnected && (!document.activeElement || document.activeElement === document.body) && searchInput.current?.isConnected && !searchInput.current.closest("[hidden], [inert]")) searchInput.current.focus();
+  });
+  function searchResultRef(key: string, node: HTMLButtonElement | null) {
+    const previous = searchResultNodes.current.get(key);
+    if (!node && previous === document.activeElement) displacedSearchResult.current = previous;
+    if (node) searchResultNodes.current.set(key, node); else searchResultNodes.current.delete(key);
+  }
+  function chooseSearchMatch(match: ReportObjectMatch) {
+    const current = resolveReportObjectMatch(sortedPages, pageSearch, match);
+    if (!current) { setSearchIssue("That match changed or was removed. Search again; no report content was changed."); return; }
+    setSearchIssue("");
+    if (current.kind === "tile") selectPageTile(current.page, current.object); else selectPageElement(current.page, current.object);
+  }
 
   function startRename(page: DashboardPage) {
     setActivePageId(page.id);
@@ -249,9 +261,22 @@ export function ReportPageTree({
       </div>
       <label>
         Search pages
-        <input ref={searchInput} value={pageSearch} aria-describedby={`${outlineId}-status`} onChange={(event) => setPageSearch(event.target.value)} placeholder="Page title, number, or object" />
+        <input type="search" maxLength={200} ref={searchInput} value={pageSearch} aria-describedby={`${outlineId}-status`} onChange={(event) => { setPageSearch(event.target.value); setSearchIssue(""); }} onKeyDown={event => { if (event.key === "Escape" && pageSearch && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); setPageSearch(""); setSearchIssue(""); } }} placeholder="Page, chart name, or written text" />
       </label>
-      <p id={`${outlineId}-status`} role="status">{visiblePages.length} of {sortedPages.length} pages. Open a page before changing its objects.</p>
+      <p id={`${outlineId}-status`} role="status">{visiblePages.length} of {sortedPages.length} pages. {normalizedSearch && `${search.total} matching objects. `}Open a page before changing its objects.</p>
+      {search.issue && <p className="report-object-search-note" role="status">{search.issue}</p>}
+      {searchIssue && <p role="alert">{searchIssue}</p>}
+      {normalizedSearch && search.matches.length > 0 && <section className="report-object-search-results" aria-label="Matching report objects" data-canvas-keyboard-scope="controls">
+        <h3>Jump to a matching object</h3>
+        <p className="report-object-search-note">{search.textIncluded ? "Search finds page titles, object names, source field labels, and authored text." : "These matches include names and source field labels only."} {search.total > search.matches.length && `Showing the first ${search.matches.length} of ${search.total} objects; refine your search for more. `}The page tree below remains available.</p>
+        <ul>{search.matches.map((match, matchIndex) => {
+          const key = reportObjectMatchKey(match), label = match.kind === "tile" ? match.object.title || match.object.name : match.object.name;
+          const type = match.kind === "tile" ? getChartTypeLabel(match.object.visualization) : elementTypeLabel(match.object);
+          const excerptId = `${outlineId}-search-excerpt-${matchIndex}`;
+          const selected = match.page.id === activePage.id && (match.kind === "tile" ? selectedTileId === match.object.id : selectedElementId === match.object.id);
+          return <li key={key}><button type="button" className="report-object-match" ref={node => searchResultRef(key, node)} aria-pressed={selected} aria-label={`Find ${type} ${label}, matching object ${matchIndex + 1} of ${search.total}, page ${match.page.order}: ${match.page.title}. ${objectStatus(match.object)}.`} aria-describedby={match.excerpt ? excerptId : undefined} onClick={() => chooseSearchMatch(match)}><strong>{label}</strong><small>Page {match.page.order}: {match.page.title} · {type} · {objectStatus(match.object)}</small>{match.excerpt && <small id={excerptId}>{match.excerpt}</small>}</button></li>;
+        })}</ul>
+      </section>}
       <nav className="page-list report-page-tree" aria-label="Report pages and objects">
         {visiblePages.map((page) => {
           const pageIndex = sortedPages.findIndex((item) => item.id === page.id);
@@ -414,7 +439,7 @@ export function ReportPageTree({
             </div>
           );
         })}
-        {visiblePages.length === 0 && <div className="empty-state compact">No pages match that search.</div>}
+        {visiblePages.length === 0 && <div className="empty-state compact">No pages match {search.textIncluded ? "that search" : "the names-only search"}.</div>}
       </nav>
       <div className="brand-card-actions">
         <button type="button" className="secondary" onClick={() => addPage()}>

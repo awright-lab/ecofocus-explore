@@ -26,12 +26,12 @@ export interface WorkspaceBackupStudy {
 // Portable recovery artifact only. Do not normalize, merge, compact, fetch remote
 // rows or write active storage when creating it. Raw damaged saves use the
 // separate byte-preserving recovery download.
-export function createWorkspaceBackup(workspace: DashboardWorkspace, pendingImports: ImportedDatasetRecord[] = [], createdAt = new Date().toISOString()) {
+export function createWorkspaceBackup(workspace: DashboardWorkspace, pendingImports: readonly ImportedDatasetRecord[] = [], createdAt = new Date().toISOString()) {
   // Count all copies and previews before JSON.stringify can repeat large keys
   // into an enormous string. Never truncate, compact or silently omit a scope.
   checkBackupSize([workspace, pendingImports], workspaceBackupRawChars);
   const studies: WorkspaceBackupStudy[] = [];
-  function inventory(scope: string, datasets: ImportedDatasetRecord[]) {
+  function inventory(scope: string, datasets: readonly ImportedDatasetRecord[]) {
     for (const dataset of datasets) {
       const storedRows = dataset.rows.length, previewRows = dataset.previewRows.length;
       const availableRows = Math.max(storedRows, previewRows);

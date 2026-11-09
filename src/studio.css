@@ -4327,3 +4327,8 @@ dialog::backdrop {
 .analysis-change-dialog caption { text-align: left; font-weight: 600; padding-bottom: 10px; }
 .analysis-change-dialog .analysis-preview-scroll { overflow: auto; max-height: 420px; background: white; border-radius: 10px; }
 @media(max-width:640px) { .analysis-change-backdrop { padding: 8px; } .analysis-change-dialog { max-height: 96vh; } .analysis-change-dialog header { flex-wrap: wrap; } .analysis-change-dialog header, .analysis-change-scroll { padding: 12px; } }
+
+.numeric-distribution > select { display: block; width: 100%; min-height: 44px; margin-block: 6px; }
+.numeric-distribution-table { max-width: 100%; overflow-x: auto; }
+.numeric-distribution-table table { min-width: 360px; }
+.numeric-distribution-table caption { text-align: left; font-weight: 600; padding-block: 8px; }

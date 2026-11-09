@@ -1,3 +1,4 @@
+import { pptxTextLineSpacing } from "./textLineSpacing";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { narrativeDisplayText } from "../narratives/narrativeEvidence";
 import type { DashboardCanvasElement, DashboardPage } from "../../../shared/types/dashboard";
@@ -63,19 +64,26 @@ function lineXml(element: DashboardCanvasElement) {
 function textBodyXml(element: DashboardCanvasElement) {
   if (!element.content.trim()) return "";
   const fontSize = Math.max(700, Math.round(element.style.fontSize * 75));
+  // Keep unspecified legacy paragraphs unchanged; never clamp authored spacing.
+  const lineSpacing = element.style.lineHeight === undefined ? "" : `<a:lnSpc><a:spcPts val="${pptxTextLineSpacing(element.style.fontSize, element.style.lineHeight)}"/></a:lnSpc>`;
+  const paragraphProperties = lineSpacing ? `<a:pPr algn="${pptTextAlign(element.style.textAlign)}">${lineSpacing}</a:pPr>` : `<a:pPr algn="${pptTextAlign(element.style.textAlign)}"/>`;
   const isBold = Number(element.style.fontWeight) >= 600 || element.style.fontWeight === "bold";
   const italic = element.style.fontStyle === "italic" ? " i=\"1\"" : "";
   const underline = element.style.textDecoration === "underline" ? " u=\"sng\"" : "";
   const lines = narrativeDisplayText(element).split(/\r?\n/);
   const paragraphs = (lines.length ? lines : [narrativeDisplayText(element)]).map((line) => (
-    `<a:p><a:pPr algn="${pptTextAlign(element.style.textAlign)}"/><a:r><a:rPr lang="en-US" sz="${fontSize}" b="${isBold ? 1 : 0}"${italic}${underline}><a:solidFill><a:srgbClr val="${hexColor(element.style.textColor, "162033")}"/></a:solidFill><a:latin typeface="${escapeXml(element.style.fontFamily || "Inter")}"/></a:rPr><a:t xml:space="preserve">${escapeXml(line)}</a:t></a:r></a:p>`
+    `<a:p>${paragraphProperties}<a:r><a:rPr lang="en-US" sz="${fontSize}" b="${isBold ? 1 : 0}"${italic}${underline}><a:solidFill><a:srgbClr val="${hexColor(element.style.textColor, "162033")}"/></a:solidFill><a:latin typeface="${escapeXml(element.style.fontFamily || "Inter")}"/></a:rPr><a:t xml:space="preserve">${escapeXml(line)}</a:t></a:r></a:p>`
   )).join("");
   return `<p:txBody><a:bodyPr wrap="square" lIns="${Math.round(element.style.padding * 9525)}" tIns="${Math.round(element.style.padding * 9525)}" rIns="${Math.round(element.style.padding * 9525)}" bIns="${Math.round(element.style.padding * 9525)}"/><a:lstStyle/>${paragraphs}</p:txBody>`;
 }
 
 export function canReconstructElementInPptx(element: DashboardCanvasElement) {
-  if (element.hidden) return false;
-  return element.type === "text" || element.type === "rectangle" || element.type === "circle";
+  if (element.hidden || !["text", "rectangle", "circle"].includes(element.type)) return false;
+  if (element.content.trim() && element.style.lineHeight !== undefined) {
+    try { pptxTextLineSpacing(element.style.fontSize, element.style.lineHeight); }
+    catch { return false; } // Keep supported SVG content in the slide image.
+  }
+  return true;
 }
 
 function editableElementXml(element: DashboardCanvasElement, shapeId: number) {

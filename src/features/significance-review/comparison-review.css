@@ -6,3 +6,5 @@
 .ranked-finding-card h4 small { display: block; color: #315c45; font-weight: 600; }
 .ranked-finding-card p { margin: 8px 0; }
 .ranked-finding-card button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
+.comparison-source-suggestion dl{display:grid;grid-template-columns:minmax(90px,auto) minmax(0,1fr);gap:6px 14px}.comparison-source-suggestion dd{margin:0;overflow-wrap:anywhere}.comparison-source-suggestion dt{font-weight:650}.comparison-source-suggestion button[aria-disabled="true"]{opacity:.65}.comparison-source-suggestion code{overflow-wrap:anywhere}@media(max-width:600px){.comparison-source-suggestion dl{grid-template-columns:1fr}.comparison-source-suggestion dd{margin-bottom:8px}}

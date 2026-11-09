@@ -1,3 +1,5 @@
+import { assertReadableInsightPlans } from '../significance-review/savedReportInsightPlans';
+import { assertRefreshedReportReady } from "../report-refresh/reportRefreshReadiness";
 import { assertResponseCodebooks } from "../../../shared/types/responseCoding";
 import { assertSavedCellFormulas } from "../metrics/cellFormulaModel";
 import { assertSavedAudiences } from "../audiences/audienceModel";
@@ -725,6 +727,8 @@ export function createPublishedSnapshot(
   workspace: DashboardWorkspace,
   dashboard: DashboardDraft
 ): { workspace: DashboardWorkspace; dashboard: DashboardDraft; snapshot: PublishedDashboardSnapshot } {
+  assertReadableInsightPlans(dashboard);
+  assertRefreshedReportReady(dashboard);
   const publishedAt = nowIso();
   // A newer draft may intentionally keep editing after a snapshot save. Its
   // metadata can lag acknowledged history, so version numbers use both sources.

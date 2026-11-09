@@ -1,0 +1,8 @@
+// @vitest-environment jsdom
+import {expect,it,vi} from "vitest";
+import {checkLocalStudyDuplicate} from "../localStudyDuplicate";
+import {normalizeImportedDataset} from "../../document/documentModel";
+import {localFileReuseFixture} from "./fixtures/localFileReuseFixture";
+it.each(["xlsx","sav"] as const)("compares actual parsed %s file with its saved/decoded metadata without modifying rows",async format=>{const{dataset}=await localFileReuseFixture(format),old=normalizeImportedDataset({...structuredClone(dataset),id:"existing",importedAt:"2020-01-01T00:00:00.000Z"},0);const before=structuredClone({dataset,old});expect(checkLocalStudyDuplicate(dataset,[old])).toMatchObject({status:"match",study:{id:"existing"}});expect({dataset,old}).toEqual(before);old.rows.at(-1)![old.fields.at(-1)!.sourceColumn]+="changed";expect(checkLocalStudyDuplicate(dataset,[old]).status).toBe("no_match");});
+it.each(["xlsx","sav"] as const)("keeps %s metadata changes and incomplete sources distinct",async format=>{const{dataset}=await localFileReuseFixture(format),old=normalizeImportedDataset({...structuredClone(dataset),id:"old"},0);old.fields[0].label="Analyst label";expect(checkLocalStudyDuplicate(dataset,[old]).status).toBe("no_match");old.fields[0].label=dataset.fields[0].label;old.rows.pop();expect(checkLocalStudyDuplicate(dataset,[old]).status).toBe("no_match");});
+it("does not execute object coercion for an invalid file type",async()=>{const{dataset}=await localFileReuseFixture("sav"),hook=vi.fn(()=>"sav");Object.defineProperty(dataset,"fileType",{value:{toString:hook},enumerable:true});expect(checkLocalStudyDuplicate(dataset,[]).status).toBe("unverified");expect(hook).not.toHaveBeenCalled();});

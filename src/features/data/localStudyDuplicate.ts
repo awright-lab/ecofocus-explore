@@ -44,7 +44,8 @@ export function checkLocalStudyDuplicate(candidate: ImportedDatasetRecord, studi
   }
   function eligible(study:ImportedDatasetRecord):boolean {
     keys(study);
-    if(own(study,'sourceType')!=='local_file'||own(study,'fileType')!=='csv'||own(study,'remote')!==undefined||own(study,'preparation')!==undefined)return false;
+    const fileType=own(study,'fileType');
+    if(own(study,'sourceType')!=='local_file'||(fileType!=='csv'&&fileType!=='xlsx'&&fileType!=='sav')||own(study,'remote')!==undefined||own(study,'preparation')!==undefined)return false;
     const count=own(study,'rowCount'),fieldCount=own(study,'fieldCount'),rows=own(study,'rows'),fields=own(study,'fields');
     if(!Number.isSafeInteger(count)||Number(count)<=0||!Number.isSafeInteger(fieldCount)||Number(fieldCount)<=0||!Array.isArray(rows)||own(rows,'length')!==count||!Array.isArray(fields)||own(fields,'length')!==fieldCount)return false;
     if(typeof own(study,'id')!=='string'||typeof own(study,'title')!=='string'||typeof own(study,'fileName')!=='string'||typeof own(study,'importedAt')!=='string')return false;
@@ -77,7 +78,7 @@ export function checkLocalStudyDuplicate(candidate: ImportedDatasetRecord, studi
     }return true;
   }
   try {
-    if(!eligible(candidate))return{status:'unverified',reason:'Only complete, unprepared local CSV studies with their ordinary local source metadata can be checked.'};
+    if(!eligible(candidate))return{status:'unverified',reason:'Only complete, unprepared local CSV, Excel or SPSS studies with their ordinary local source metadata can be checked.'};
     if(!Array.isArray(studies))return{status:'unverified',reason:'The current study library is unavailable.'};
     if(studies.length>localDuplicateLimits.studies)return{status:'unverified',reason:'The current library exceeds the 1,000-study comparison limit.'};
     const reference=metadata(candidate);
@@ -88,4 +89,9 @@ export function checkLocalStudyDuplicate(candidate: ImportedDatasetRecord, studi
       if(equal(reference,metadata(current))&&rowsEqual(candidate,current))return{status:'match',study:{id:current.id,title:current.title,fileName:current.fileName,importedAt:current.importedAt,rowCount:current.rowCount,fieldCount:current.fieldCount}};
     }return{status:'no_match'};
   }catch(error){return{status:'unverified',reason:error instanceof Unverified?error.message:'The existing-copy check could not verify this data. No data was changed.'};}
+}
+
+/** The ordinary browser-local Excel/SPSS records covered by copy review. */
+export function isLocalFileCopyCandidate(study:ImportedDatasetRecord){
+ return study.sourceType==='local_file'&&!study.remote&&!study.preparation&&(study.fileType==='xlsx'||study.fileType==='sav')&&study.rowCount>0&&study.rows.length===study.rowCount;
 }

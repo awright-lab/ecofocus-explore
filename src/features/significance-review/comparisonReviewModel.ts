@@ -2,11 +2,8 @@ import type {DashboardDraft,ImportedDatasetField,ImportedDatasetRecord} from '..
 import {compileAudience} from '../audiences/audienceModel';
 import {fisherExactTwoSided,holmLogPValues,thresholdDecision} from './exactComparisonMath';
 
-export interface ComparisonReviewPlan {
- reportId:string;datasetId:string;importedAt:string;idFieldId:string;idBinding:string;groupFieldId:string;groupBinding:string;outcomeFieldId:string;outcomeBinding:string;
- audienceId:string;reference:string;targets:string[];eventCodes:string[];excludedCodes:string[];alpha:number;
- design:'unknown'|'unweighted_independent'|'weighted'|'paired_or_clustered';question:string;methodology:string;
-}
+import type {ComparisonReviewPlan} from '../../../shared/types/reportInsights';
+export type {ComparisonReviewPlan} from '../../../shared/types/reportInsights';
 export interface ComparisonReviewContext {draft:DashboardDraft;studies:ImportedDatasetRecord[];plan:ComparisonReviewPlan}
 export interface ComparisonCoverage {total:number;audienceIncluded:number;audienceExcluded:number;audienceUnknown:number;missingGroup:number;unselectedGroups:number;missingOutcome:number;excludedOutcome:number;valid:number}
 export interface ComparisonGroup {code:string;label:string;rows:number;missingOutcome:number;excludedOutcome:number;event:number;nonEvent:number;base:number}
@@ -19,6 +16,7 @@ const maximumBytes=20*1024*1024;
 export function comparisonStudyIssue(study:ImportedDatasetRecord|undefined):string|null{
  if(!study)return 'Choose a complete original local study.';
  if(study.remote||study.preparation||study.sourceType!=='local_file')return 'Exact group review supports original local-file imports. Remote, partial and prepared studies are not substituted.';
+ if(study.sourceRef&&(study.sourceRef.kind!=='imported_file'||study.sourceRef.provider!=='local_file'||study.sourceRef.datasetId!==study.id))return 'Use an original local-file study with consistent recorded provenance. A live or managed reference is not replayed as local data.';
  if(!Number.isSafeInteger(study.rowCount)||study.rowCount<1||study.rowCount>50000||!Array.isArray(study.rows)||!Array.isArray(study.fields)||study.rows.length!==study.rowCount||study.fields.length!==study.fieldCount)return 'Use all source rows and fields from a study with 1–50,000 respondents.';
  if(study.fields.some(f=>!f||typeof f.id!=='string'||!f.id.trim()||typeof f.sourceColumn!=='string'||!f.sourceColumn.trim())||new Set(study.fields.map(f=>f.id)).size!==study.fields.length||new Set(study.fields.map(f=>f.sourceColumn)).size!==study.fields.length)return 'Ambiguous field identities prevent a trustworthy comparison.';
  return null;

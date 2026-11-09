@@ -6,19 +6,21 @@ import { useModalAccessibility } from "../builder/hooks/useModalAccessibility";
 import { runLocalCsvImport, type LocalCsvProgress } from "../data/localCsvImportJob";
 import "../significance-review/comparison-review.css";
 
-export function LocalCsvImportDialog({ onAdd, onClose, studies = [], onShowExisting }: {
+export function LocalCsvImportDialog({ onAdd, onClose, studies = [], onShowExisting, initialDataset, importNotice }: {
   onAdd: (dataset: ImportedDatasetRecord) => Promise<boolean>;
   onClose: () => void;
   studies?: readonly ImportedDatasetRecord[];
   onShowExisting?: (id: string) => boolean;
+  initialDataset?: ImportedDatasetRecord;
+  importNotice?: string;
 }) {
   const modal = useRef<HTMLElement | null>(null);
   const warning = useRef<HTMLElement | null>(null);
   const owner = useRef<AbortController | null>(null);
   const alive = useRef(true);
   const adding = useRef(false), actionFocus = useRef<HTMLElement | null>(null), parsedPanel = useRef<HTMLElement | null>(null), fileInput = useRef<HTMLInputElement | null>(null), restoreFile = useRef(false);
-  const [duplicate, setDuplicate] = useState<LocalDuplicateResult | null>(null);
-  const [dataset, setDataset] = useState<ImportedDatasetRecord | null>(null);
+  const [duplicate, setDuplicate] = useState<LocalDuplicateResult | null>(()=>initialDataset?checkLocalStudyDuplicate(initialDataset,studies):null);
+  const [dataset, setDataset] = useState<ImportedDatasetRecord | null>(initialDataset ?? null);
   const [progress, setProgress] = useState<LocalCsvProgress | null>(null);
   const [error, setError] = useState("");
   const [closing, setClosing] = useState(false);
@@ -99,11 +101,11 @@ export function LocalCsvImportDialog({ onAdd, onClose, studies = [], onShowExist
     } catch { setError("The existing study could not be shown. The parsed import was retained."); }
   }
   return createPortal(<div className="comparison-review-backdrop"><section ref={modal} role="dialog" aria-modal="true" aria-labelledby="local-csv-title" tabIndex={-1} className="comparison-review-dialog" data-canvas-keyboard-scope="controls">
-    <header><div><small>LOCAL STUDY</small><h2 id="local-csv-title">Import a CSV in this browser</h2><p>Read and review the complete study before adding it to your workspace.</p></div><button onClick={requestClose} disabled={saving}>Close local import</button></header>
+    <header><div><small>LOCAL STUDY</small><h2 id="local-csv-title">{initialDataset ? "Review the imported study" : "Import a CSV in this browser"}</h2><p>Read and review the complete study before adding it to your workspace.</p></div><button onClick={requestClose} disabled={saving}>Close local import</button></header>
     <div className="comparison-review-scroll">
-      <p>No file is uploaded by this import. The study uses this browser's workspace storage; it will not be available on another device. Keep the original file and download workspace backups.</p>
-      <p>CSV up to 16 MiB, 1 million rows, 5,000 fields and 2 million cells. Very long field names can exceed the expanded-data limit even in a small file. Workspace storage can fill before these limits. Excel and SPSS remain available through Import data.</p>
-      {!added && <label>CSV file<input ref={fileInput} type="file" accept=".csv,text/csv" disabled={busy || saving || !!dataset} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; void read(file); }} /></label>}
+      {initialDataset ? <p>This file was read through Import data before this local-copy review. The configured import route may already have contacted a storage service. This review only avoids adding another browser-local study; it does not remove uploaded files.{importNotice ? ` Storage note: ${importNotice}` : ""}</p> : <p>No file is uploaded by this import. The study uses this browser's workspace storage; it will not be available on another device. Keep the original file and download workspace backups.</p>}
+      {!initialDataset && <p>CSV up to 16 MiB, 1 million rows, 5,000 fields and 2 million cells. Very long field names can exceed the expanded-data limit even in a small file. Workspace storage can fill before these limits. Excel and SPSS remain available through Import data.</p>}
+      {!initialDataset && !added && <label>CSV file<input ref={fileInput} type="file" accept=".csv,text/csv" disabled={busy || saving || !!dataset} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; void read(file); }} /></label>}
       {busy && <div role="status"><p>{progress.phase === "reading" ? "Reading the local file…" : progress.phase === "parsing" ? "Reading fields and responses…" : `Receiving ${progress.received.toLocaleString()} of ${progress.total.toLocaleString()} rows…`}</p>
         {progress.phase === "receiving" && <progress aria-label="Rows received" value={progress.received} max={progress.total} />}
         <button ref={bindCancelImport} onClick={() => { owner.current?.abort(); setProgress(null); setError("Import canceled. No study was added."); }}>Cancel import</button></div>}
@@ -116,11 +118,11 @@ export function LocalCsvImportDialog({ onAdd, onClose, studies = [], onShowExist
             <button aria-disabled={saving} onClick={event => void add(true, event.currentTarget)}>{saving ? "Saving separate study." : "Import as a separate study"}</button>
             <p>Nothing was added by this check. Choosing a separate study keeps both copies and uses additional browser storage. Keep a separate study for a distinct wave or source, even when its values match.</p>
           </section> : <button aria-disabled={saving} onClick={event => void add(false, event.currentTarget)}>{saving ? "Saving study." : "Add study to workspace"}</button>}
-          <button disabled={saving} onClick={event => { if (adding.current) return; restoreFile.current = document.activeElement === event.currentTarget; setDataset(null); setDuplicate(null); setError(""); }}>Discard preview and choose another file</button>
+          {!initialDataset && <button disabled={saving} onClick={event => { if (adding.current) return; restoreFile.current = document.activeElement === event.currentTarget; setDataset(null); setDuplicate(null); setError(""); }}>Discard preview and choose another file</button>}
         </>}
       </section>}
       {added && <p role={added === "pending" ? "alert" : "status"}>{added === "reused" ? "The existing study was selected. No additional study was added or saved." : added === "saved" ? "The complete study was added and saved in this browser." : "The complete study was added, but workspace saving failed. It remains pending in this session. Close this dialog and use the workspace save recovery controls before leaving or reloading."}</p>}
-      {closing && <section ref={warning} tabIndex={-1} role="alert" aria-label="Discard local import"><h3>Discard this local import?</h3><p>No study will be added. Keep the source CSV to try again.</p><button onClick={() => { setClosing(false); modal.current?.focus(); }}>Keep reviewing import</button> <button onClick={() => { owner.current?.abort(); onClose(); }}>Discard import and close</button></section>}
+      {closing && <section ref={warning} tabIndex={-1} role="alert" aria-label="Discard local import"><h3>Discard this local import?</h3><p>No study will be added. Keep the original source file to try again.</p><button onClick={() => { setClosing(false); modal.current?.focus(); }}>Keep reviewing import</button> <button onClick={() => { owner.current?.abort(); onClose(); }}>Discard import and close</button></section>}
     </div>
   </section></div>, document.body);
 }

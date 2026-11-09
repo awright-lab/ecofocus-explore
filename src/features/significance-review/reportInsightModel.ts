@@ -4,7 +4,8 @@ import { buildRankedFindings, type RankedFinding } from './rankedFindingsModel';
 import { holmLogPValues, thresholdDecision } from './exactComparisonMath';
 
 export const reportInsightLimits = { families: 5, comparisons: 20, planBytes: 2 * 1024 * 1024, sourceBytes: 20 * 1024 * 1024 } as const;
-export interface ReviewedInsightPlan { version: 1; id: string; sourceDigest: string; plan: ComparisonReviewPlan }
+import type {ReviewedInsightPlan} from '../../../shared/types/reportInsights';
+export type {ReviewedInsightPlan} from '../../../shared/types/reportInsights';
 export interface ReportInsightContext { draft: DashboardDraft; studies: ImportedDatasetRecord[] }
 export interface ReportInsightFinding extends RankedFinding { familyId: string; question: string; study: string; datasetId: string; importedAt: string; outcome: string; audience: string; rawLogP: number; originalAdjustedLogP: number; originalAlpha: number; methodology: string }
 export interface ReportInsightRun { families: Array<{ entry: ReviewedInsightPlan; result: ComparisonReviewResult }>; familySize: number; sourceStillCurrent: () => boolean }

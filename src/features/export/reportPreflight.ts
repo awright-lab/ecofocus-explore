@@ -1,3 +1,4 @@
+import { reviewPptxEditability } from "./pptxEditability";
 import { planPptxLayers } from "./pptxLayerPlan";
 import type { DashboardDraft } from "../../../shared/types/dashboard";
 import { narrativeState } from "../narratives/narrativeEvidence";
@@ -41,6 +42,6 @@ export function buildReportPreflight(dashboard: DashboardDraft) {
     if (powerpoint.mode === "complete_visual") issues.push({check: "PowerPoint layers", objectId: powerpoint.objectId, message: powerpoint.reason});
     const visual=inspectPageVisualSvg(page),pdfSvg=visual.svg;
     for(const failure of visual.failures)issues.push({check:"PDF layout",objectId:failure.objectId,message:failure.objectName?`"${failure.objectName}": ${failure.message}`:failure.message});
-    return { pageId: page.id, title: page.title, issues, pdfSvg };
+    return { pageId: page.id, title: page.title, issues, pdfSvg, pptxEditability: reviewPptxEditability(page) };
   });
 }

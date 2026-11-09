@@ -26,3 +26,6 @@ export function buildDotPlotModel(result: AnalyticsQueryResponse): DotPlotModel 
     fraction: cell.value === null ? null : (cell.value / scale - minimum / scale) / span
   }))) };
 }
+
+export const smallMultiplesExplanation = "Each panel shows one recorded group on the same scale. All answer rows are repeated in every panel; missing values have no marker. Panels do not imply time, significance or confidence intervals.";
+export const slopePlotExplanation = "Lines connect two recorded group values for each answer on one shared scale. They do not establish time order, paired respondents, change, significance or causation. Missing values have no marker and are not connected. Coincident endpoints may overlap; use complete values to distinguish them. No confidence intervals are shown.";

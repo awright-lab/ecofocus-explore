@@ -1,0 +1,9 @@
+# Analysis change summary and ordering
+
+The complete analysis-change dialog now summarizes the selected result column before search: changed comparable values and bases, entries present only in current/proposed output, unavailable/incomparable entries, and identical comparable entries. Counts describe different checks and may overlap. This is descriptive arithmetic, not statistical significance, a causal effect or a matched-person estimate.
+
+Users can request largest absolute arithmetic changes first, using stored numeric values rather than rounded text. Source order follows the existing review: current-result entries followed by proposed-only entries. Ties retain that order; unavailable/overflowing differences are unranked. Existing source/import/grouping/breakout/metric/weight and precision gates still apply. Incompatible results explicitly fall back to source order. The preferred ordering control remains visible rather than disappearing with focused controls.
+
+An optional filter hides only entries with identical comparable values and bases. Missing categories are never converted to zero, unavailable entries are retained, and label-only edits are outside this numeric filter. The complete selected-column summary remains independent of search and display filters. Controls and pager remain connected when a result becomes invalid; aria-disabled boundary buttons retain focus and guard against out-of-range actions.
+
+Cell indexing is linear in source rows and uses the existing availability/base rules. Sorting affects a private display array, not source/result order. Fresh calculation on each render avoids retaining a prior same-reference result review. Results are not cryptographically authenticated or replayed against raw source rows by this display; it does not validate server arithmetic or survey methods. Native/browser/AT/performance and production-build gates remain open. Goal13 remains partial.

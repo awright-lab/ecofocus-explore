@@ -1,0 +1,13 @@
+# Current and proposed report-color assignments
+
+The report-color dialog distinguishes the current report's recorded assignment history from the retained or new assignments that would exist after applying the selected palette. Selecting a palette only previews the existing pure theme operation. If no valid palette is available, the current count remains visible and Apply remains unavailable; the dialog does not describe that missing preview as zero recorded assignments.
+
+The preview is recalculated from the current report on each render. Previously it was memoized by the report and palette object references; a result changed in place could show four assignments even though the action would create five. The regression uses an actual local imported query, adds a response category, and replaces the recorded result without replacing the report object. No respondent rows are queried by the color-preview operation; it uses the recorded result identities.
+
+The theme algorithms and Apply/Restore callbacks are unchanged. Explicit per-chart styles are retained, and the existing Apply behavior still rejoins individually opted-out charts, as the dialog already explains. Existing source data, analytical results, history, layouts, typography, backgrounds, exports and storage logic are unchanged by previewing. Labels and counts are explanatory UI, not numerical analysis or export approval.
+
+Checks cover current-versus-preview counts, same-reference result updates, unavailable palettes, explicit updater application, local save/reopen with exact source rows/fields and result equality, and Cancel/focus restoration. Fixtures establish their baseline through the real workspace writer/reader before comparison, so existing inference-safety normalization is not confused with a theme change. These DOM/storage tests do not establish native browser, assistive technology, Office, cross-tab/crash durability or live-source acceptance. There is no new production build; the prior EPERM restriction is not retried.
+
+Existing native individual-chart opt-out evidence is recorded in `semantic-theme-export-review.md` and private `theme-optout-*` artifacts. This work reconciles that evidence without repeating a browser or uncertain download action. Independent original-goal acceptance, faithful conic rendering and native Office/download gates remain; goal 34 is still partial.
+
+This three-file proposal is isolated from the accepted comparison and profile candidates. The main checkout and canceled staging correction are preserved; nothing is staged, applied, committed, published, merged or deployed by this proposal.

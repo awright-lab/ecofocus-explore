@@ -18,20 +18,25 @@ import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 class Background implements LocalCsvWorker {
   static workers: Background[] = [];
   static hold = false;
+  static startDelay = 0;
   onmessage: LocalCsvWorker['onmessage'] = null;
   onerror: LocalCsvWorker['onerror'] = null;
   onmessageerror: LocalCsvWorker['onmessageerror'] = null;
   stopped = false;
   controller = createLocalCsvImportController(message => queueMicrotask(() => { if (!this.stopped) this.onmessage?.({ data: structuredClone(message) } as MessageEvent<CsvImportMessage>); }));
   constructor() { Background.workers.push(this); }
-  postMessage(message: CsvImportRequest) { if (!Background.hold) this.controller(message); }
+  postMessage(message: CsvImportRequest) {
+    if (Background.hold) return;
+    if (message.type === 'start' && Background.startDelay) setTimeout(() => { if (!this.stopped) this.controller(message); }, Background.startDelay);
+    else this.controller(message);
+  }
   terminate() { this.stopped = true; }
 }
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); vi.stubGlobal('Worker', Background);
   vi.stubGlobal('File', File); vi.stubGlobal('Blob', Blob); vi.stubGlobal('fetch', vi.fn());
-  Background.workers = []; Background.hold = false;
+  Background.workers = []; Background.hold = false; Background.startDelay = 0;
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
   localStorage.clear(); workspaceSaveSession.remember(null);
 });
@@ -45,7 +50,7 @@ async function click(text: string) {
     if (!button) throw Error(`Missing ${text}`); button.click();
   });
 }
-async function until(check: () => boolean) { await vi.waitFor(async () => { await act(async () => { await Promise.resolve(); }); expect(check()).toBe(true); }); }
+async function until(check: () => boolean, stage = 'local import readiness') { await vi.waitFor(async () => { await act(async () => { await Promise.resolve(); }); expect(check(), `${stage}: ${document.body.textContent?.slice(-1400)}`).toBe(true); }, { timeout: 5000, interval: 10 }); }
 async function choose(contents = 'Region,Score\nNorth,10\nSouth,20', name = 'local.csv') {
   await act(async () => {
     const input = document.querySelector<HTMLInputElement>('[aria-labelledby="local-csv-title"] input[type="file"]')!;
@@ -84,9 +89,12 @@ it('preserves the complete additive candidate through actual App quota failure, 
     nativeSet.call(this, key, value);
   });
   await act(async () => root.render(<App />));
-  await until(() => Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Import local CSV'));
-  await click('Import local CSV'); await choose(); await until(() => !!document.querySelector('[aria-label="Parsed study"]'));
-  deny = true; await click('Add study to workspace'); await until(() => workspaceSaveSession.hasPending());
+  await until(() => Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Import local CSV'), 'Home ready');
+  // Source completion is asynchronous; it is not a one-second performance contract.
+  // This controlled delay makes the former default wait fail on a valid import.
+  Background.startDelay = 1200;
+  await click('Import local CSV'); await choose(); await until(() => !!document.querySelector('[aria-label="Parsed study"]'), 'Parsed source ready');
+  deny = true; await click('Add study to workspace'); await until(() => workspaceSaveSession.getPending()?.importedDatasets.some(study => study.fileName === 'local.csv') ?? false, 'Complete import candidate pending');
   const pending = workspaceSaveSession.getPending()!;
   const added = pending.importedDatasets.find(study => study.fileName === 'local.csv')!;
   expect(added.rows).toEqual([{ Region: 'North', Score: '10' }, { Region: 'South', Score: '20' }]);

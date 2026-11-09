@@ -27,3 +27,12 @@ it('shows partial-data limitations instead of counting a remote preview', async 
   await act(async () => root.render(<CategoricalFieldProfile dataset={{ ...dataset }} field={dataset.fields[0]} />)); await expand();
   expect(host.textContent).toContain('partial preview'); expect(host.querySelector('table')).toBeNull();
 });
+
+it('recounts small same-reference category rows after they change',async()=>{
+ const dataset=await render('Answer,Record\nA,1\nB,2\n');await expand();expect(host.querySelectorAll('tbody tr')).toHaveLength(2);
+ dataset.rows[0][dataset.fields[0].sourceColumn]='B';const before=structuredClone(dataset);await act(async()=>root.render(<CategoricalFieldProfile dataset={dataset} field={dataset.fields[0]}/>));expect(host.querySelectorAll('tbody tr')).toHaveLength(1);expect(host.querySelector('tbody tr')?.textContent).toContain('B2100%');expect(dataset).toEqual(before);
+});
+it('updates small category labels when selected metadata changes in place',async()=>{
+ const dataset=await render('Answer,Record\nA,1\nB,2\n');await expand();dataset.fields[0].valueLabels={A:'Alpha',B:'Beta'};const before=structuredClone(dataset);
+ await act(async()=>root.render(<CategoricalFieldProfile dataset={dataset} field={dataset.fields[0]}/>));expect(host.querySelector('tbody')?.textContent).toContain('Alpha');expect(host.querySelector('tbody')?.textContent).toContain('Beta');expect(dataset).toEqual(before);
+});

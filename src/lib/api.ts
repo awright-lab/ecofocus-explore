@@ -1,12 +1,13 @@
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse } from "../../shared/types/analytics";
 
-export async function runAnalyticsQuery(query: AnalyticsQueryRequest): Promise<AnalyticsQueryResponse> {
+export async function runAnalyticsQuery(query: AnalyticsQueryRequest, options: {signal?:AbortSignal} = {}): Promise<AnalyticsQueryResponse> {
   const response = await fetch("/.netlify/functions/analytics-query", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(query)
+    body: JSON.stringify(query),
+    ...(options.signal ? {signal:options.signal} : {})
   });
 
   const payload = await response.json();

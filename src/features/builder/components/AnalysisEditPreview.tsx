@@ -22,18 +22,18 @@ function ResultSample({ result, label, precision }: { result: AnalyticsQueryResp
     {result.warnings.length > 0 && <ul aria-label={`${label} data quality notices`}>{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
   </section>;
 }
-export function AnalysisEditPreview({ before, after, onDismiss, id }: { before: AnalyticsQueryResponse; after: AnalyticsQueryResponse; onDismiss: () => void; id?: string }) {
+export function AnalysisEditPreview({ before, after, onDismiss, id, onDialogUnmount, applyActionLabel = "Update imported result" }: { before: AnalyticsQueryResponse; after: AnalyticsQueryResponse; onDismiss: () => void; id?: string; applyActionLabel?: string; onDialogUnmount?: (ownedFocus:boolean)=>void }) {
   const [expanded, setExpanded] = useState(false);
   const [fullPrecision, setFullPrecision] = useState(false);
   const precision = fullPrecision ? "full" : "compact";
   return <section id={id} className="analysis-result-preview analysis-edit-preview" aria-label="Proposed analysis change preview" data-canvas-keyboard-scope="controls" onKeyDown={event => {
     if (event.key === "Escape" && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); onDismiss(); }
   }}>
-    <h4>Review the proposed change</h4><p role="status">Preview loaded. The canvas is unchanged.</p><p>These are two separate query results, not a statistical test of their difference. Update imported result runs a fresh query before replacing the current result.</p>
+    <h4>Review the proposed change</h4><p role="status">Preview loaded. The canvas is unchanged.</p><p>These are two separate query results, not a statistical test of their difference. {applyActionLabel} runs a fresh query before replacing the current result.</p>
     <button type="button" className="secondary" aria-pressed={fullPrecision} onClick={() => setFullPrecision(value => !value)}>Full numeric precision</button><small>{fullPrecision ? "Full numeric display; stored rounding remains." : "Compact numbers; small nonzero values use scientific notation."}</small>
     <ResultSample label="Current result" result={before} precision={precision}/><ResultSample label="Proposed result (not applied)" result={after} precision={precision}/>
     <button type="button" className="secondary" aria-expanded={expanded} onClick={event => { event.currentTarget.focus(); setExpanded(true); }}>Review settings and all results</button>
-    {expanded && <AnalysisChangeDialog before={before} after={after} onClose={() => setExpanded(false)} />}
+    {expanded && <AnalysisChangeDialog before={before} after={after} onClose={() => setExpanded(false)} onAfterUnmount={onDialogUnmount}/>}
     <button type="button" className="secondary" onClick={onDismiss}>Dismiss preview</button>
   </section>;
 }

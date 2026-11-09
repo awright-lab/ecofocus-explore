@@ -1,3 +1,4 @@
+import { savedReportInsightPlans, savedInsightSourceIds } from '../significance-review/savedReportInsightPlans';
 import type { AnalyticsQueryRequest } from "../../../shared/types/analytics";
 import { narrativeStudyIds } from "../narratives/narrativeEvidence";
 import type { DashboardDraft, DashboardTile, DashboardWorkspace } from "../../../shared/types/dashboard";
@@ -28,6 +29,11 @@ export function draftImportedStudyReferences(draft: DashboardDraft): Array<{ dat
   function add(location: string, ids: string[]) {
     for (const datasetId of new Set(ids)) references.push({ datasetId, location });
   }
+  if(draft.waveRefresh?.version===1){
+    const source=draft.waveRefresh.sourceStudy?.datasetId,target=draft.waveRefresh.targetStudy?.datasetId;
+    add('New-wave report source history',[source,target].filter((id):id is string=>typeof id==='string'&&id.length>0));
+  }
+  add('Saved insight review plans',savedInsightSourceIds(draft));
   for (const audience of draft.savedAudiences??[]) add(`Saved audience: ${audience.label}`,[audience.datasetId]);
   for (const book of draft.responseCodebooks??[]) add(`Response coding: ${book.label}`,[book.source.datasetId]);
   for (const study of draft.importedDatasets) if (study.preparation) add(`Preparation history: ${study.title}`, [study.preparation.sourceDatasetId]);
@@ -41,6 +47,7 @@ export function draftImportedStudyReferences(draft: DashboardDraft): Array<{ dat
   return references;
 }
 function draftLocations(draft: DashboardDraft, datasetId: string) {
+  if(savedReportInsightPlans(draft).issue)return ['Unreadable saved insight plans; review their source dependencies before removing any study.'];
   return draftImportedStudyReferences(draft).filter(reference => reference.datasetId === datasetId).map(reference => reference.location);
 }
 

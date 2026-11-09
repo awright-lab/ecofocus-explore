@@ -40,3 +40,13 @@ it('does not invent distribution bars for invalid-only or incomplete data',async
  const dataset=await study('Spend\ninvalid\nmissing\n');await act(async()=>root.render(<NumericFieldProfile dataset={dataset} field={dataset.fields[0]}/>));expect(host.querySelector('.numeric-distribution')).toBeNull();
  const complete=await study('Spend\n1\n2\n3\n');complete.rows=[];complete.previewRows=complete.previewRows.slice(0,1);await act(async()=>root.render(<NumericFieldProfile dataset={complete} field={complete.fields[0]}/>));expect(host.querySelector('.numeric-distribution')).toBeNull();
 });
+
+it('recomputes a small summary after same-reference selected values change',async()=>{
+ const dataset=await study('Spend\n10\n30\n'),field=dataset.fields[0];await act(async()=>root.render(<NumericFieldProfile dataset={dataset} field={field}/>));expect(statistic('Mean')).toBe('20');
+ dataset.rows[1][field.sourceColumn]='300';const before=structuredClone(dataset);await act(async()=>root.render(<NumericFieldProfile dataset={dataset} field={field}/>));expect(statistic('Mean')).toBe('155');expect(dataset).toEqual(before);
+});
+
+it('recomputes after an in-place selected source-column mapping change',async()=>{
+ const dataset=await study('Spend,Other\n10,1\n30,3\n'),field=dataset.fields[0];await act(async()=>root.render(<NumericFieldProfile dataset={dataset} field={field}/>));expect(statistic('Mean')).toBe('20');
+ field.sourceColumn='Other';const before=structuredClone(dataset);await act(async()=>root.render(<NumericFieldProfile dataset={dataset} field={field}/>));expect(statistic('Mean')).toBe('2');expect(dataset).toEqual(before);
+});

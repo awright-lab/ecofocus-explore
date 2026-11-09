@@ -1,3 +1,4 @@
+import { textLineAdvance } from "./textLineSpacing";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { narrativeDisplayText } from "../narratives/narrativeEvidence";
 import { analysisTileSvg, completeLines } from "./analysisVisualExport";
@@ -62,16 +63,23 @@ function elementSvg(element: DashboardCanvasElement) {
   if (element.type === "text") {
     const linked=element.evidence!==undefined,size=element.style.fontSize,padding=element.style.padding;
     if(linked&&(![x,y,width,height,size,padding].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>canvasWidth||y+height>canvasHeight||size<7||size>144||padding<0||width-padding*2<size*1.1))throw new Error("Keep linked text and its citations inside the page with a valid readable font size and padding before exporting.");
-    const spacing=linked?1.45:1.24;
+    // Missing legacy spacing keeps its previous SVG default without rewriting it.
+    const spacing=element.style.lineHeight===undefined?(linked?1.45:1.24):element.style.lineHeight;
+    const advance=textLineAdvance(size,spacing),lineBox=Math.max(size,advance);
+    if(!Number.isFinite(height)||!Number.isFinite(padding)||padding<0||height<=padding*2)throw new Error("Canvas text height cannot fit completely. Enlarge the text object before export.");
+    // Cover only floating arithmetic roundoff, not a pixel-sized fit margin.
+    const tolerance=Number.EPSILON*Math.max(Math.abs(height),Math.abs(padding*2),lineBox)*8;
+    const capacity=Math.floor((height-padding*2+tolerance)/lineBox);
+    if(!Number.isSafeInteger(capacity)||capacity<1)throw new Error("Canvas text height cannot fit completely. Enlarge the text object before export.");
     const lines = wrapLines(
       narrativeDisplayText(element),
       linked?Math.max(1,Math.floor((width-padding*2)/(size*1.1))):Math.max(
         12,
         Math.floor(width / Math.max(element.style.fontSize * 0.48, 6)),
       ),
-      linked?Math.max(1,Math.floor((height-padding*2)/(size*spacing))):8,
+      capacity,
     );
-    if (lines.length * element.style.fontSize * spacing + element.style.padding * 2 > height) throw new Error("Canvas text height cannot fit completely. Enlarge the text object before export.");
+    if (lines.length * lineBox + padding * 2 > height+tolerance) throw new Error("Canvas text height cannot fit completely. Enlarge the text object before export.");
     const anchor =
       element.style.textAlign === "center"
         ? "middle"
@@ -92,7 +100,7 @@ function elementSvg(element: DashboardCanvasElement) {
       element.style.borderStyle === "none" || element.style.borderWidth <= 0
         ? ""
         : `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${element.style.borderRadius}" fill="none" stroke="${escapeXml(element.style.borderColor)}" stroke-width="${element.style.borderWidth}"/>`;
-    const rendered=linked?lines.map((line,index)=>textLines([line],textX,y+padding+size+index*size*spacing,size,element.style.textColor,Number(element.style.fontWeight)||700,anchor,element.style.fontFamily)).join(""):textLines(lines,textX,y+padding+size,size,element.style.textColor,Number(element.style.fontWeight)||700,anchor,element.style.fontFamily);
+    const rendered=lines.map((line,index)=>textLines([line],textX,y+padding+size+index*advance,size,element.style.textColor,Number(element.style.fontWeight)||700,anchor,element.style.fontFamily)).join("");
     return `${background}${border}${rendered}`;
   }
   if (element.type === "circle") {

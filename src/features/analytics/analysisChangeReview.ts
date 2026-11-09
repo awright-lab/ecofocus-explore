@@ -76,11 +76,18 @@ export function analysisChangeReview(before: AnalyticsQueryResponse, after: Anal
   return model;
 }
 
-export function changeReviewCell(result: AnalyticsQueryResponse, rowId?: string, columnId?: string) {
-  if (!rowId || !columnId) return { value: null, base: null, status: "Not present in this result" };
-  const row = result.table.find(item => item.optionId === rowId);
-  if (!row) return { value: null, base: null, status: "Not present in this result" };
+function rowCell(result: AnalyticsQueryResponse, row: AnalyticsTableRow | undefined, columnId?: string) {
+  if (!row || !columnId) return { value: null, base: null, status: "Not present in this result" };
   const cell = analyticalCell(result, row, columnId), base = analyticalBase(result, row, columnId);
   const value = base !== null ? cell.value : null;
   return { value, base: cell.status !== "rerun_required" ? base : null, status: value === null ? "Unavailable" : "Available" };
+}
+
+export function changeReviewCell(result: AnalyticsQueryResponse, rowId?: string, columnId?: string) {
+  if (!rowId || !columnId) return rowCell(result, undefined, columnId);
+  return rowCell(result, result.table.find(item => item.optionId === rowId), columnId);
+}
+/** One linear index for a complete selected column; keeps the existing cell rules. */
+export function changeReviewColumn(result: AnalyticsQueryResponse, columnId?: string) {
+  return new Map(result.table.map(row => [row.optionId, rowCell(result, row, columnId)]));
 }

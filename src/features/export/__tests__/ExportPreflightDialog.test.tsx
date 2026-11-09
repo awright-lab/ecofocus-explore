@@ -23,3 +23,20 @@ it("opens from the export menu without starting a download and preserves existin
  const panel = await mount(<BuilderHeader dashboard={dashboard} activeProductMode="design" setActiveProductMode={noop} reports={[createReportRecord(dashboard)]} activeReportId={dashboard.id} onOpenReport={noop} onCreateReport={noop} onDuplicateReport={noop} canUndo={false} canRedo={false} onUndo={noop} onRedo={noop} onExport={onExport} onOpenPublished={noop} onPublish={noop} onUnpublish={noop} onHome={noop} onSearch={noop} onHelp={noop} />);
  try { const menu = panel.host.querySelector('details.export-menu')!; menu.setAttribute("open", ""); const review = Array.from(menu.querySelectorAll("button")).find(button => button.textContent === "Review before exporting")!; review.focus(); await act(async () => review.click()); expect(panel.host.querySelector('[role="dialog"]')).not.toBeNull(); expect(onExport).not.toHaveBeenCalled(); await act(async () => window.document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); expect(window.document.activeElement).toBe(review); const excel = Array.from(menu.querySelectorAll("button")).find(button => button.textContent?.includes("Excel tables"))!; await act(async () => excel.click()); expect(onExport).toHaveBeenCalledExactlyOnceWith("xlsx"); } finally { await panel.close(); }
 });
+
+it("explains slide editability without export and updates the inventory when changing pages", async () => {
+ const value = document(), before = JSON.stringify(value);
+ const shape = { ...structuredClone(initialDashboard.pages[0].elements[0]), id: "editable", name: "Synthetic shape", type: "rectangle" as const, content: "", layout: { x: 20, y: 20, width: 100, height: 100, zIndex: 1 } };
+ value.pages[0].elements = [shape]; value.pages.push({ ...structuredClone(value.pages[0]), id: "empty-inventory", title: "Empty inventory", order: 2, elements: [] });
+ const original = JSON.stringify(value), panel = await mount(<ExportPreflightDialog dashboard={value} onClose={() => undefined} />);
+ try {
+  const inventory = panel.host.querySelector('[aria-label="PowerPoint editability"]')!;
+  expect(inventory.textContent).toContain("1 editable text or shape objects; 0 editable chart bodies; 0 objects included only in the slide image");
+  expect(inventory.textContent).toContain("Synthetic shape: Editable object");
+  expect(inventory.textContent).toContain("not a PowerPoint rendering test or export approval");
+  const select = panel.host.querySelector("select")!; await act(async () => { select.value = "empty-inventory"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(inventory.textContent).toContain("0 editable text or shape objects"); expect(inventory.querySelector("details")).toBeNull();
+  expect(inventory.textContent).toContain("Slide image without editable overlays"); expect(inventory.textContent).not.toContain("Slide image with editable overlays");
+  expect(JSON.stringify(value)).toBe(original); expect(before).not.toBe(original);
+ } finally { await panel.close(); }
+});
