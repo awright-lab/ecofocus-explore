@@ -1,0 +1,67 @@
+// @vitest-environment jsdom
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { webcrypto } from "node:crypto";
+import DataPreparation from "../DataPreparation";
+import { importDatasetBuffer } from "../../data/datasetImportModel";
+import { initialDashboard } from "../../document/documentSeeds";
+import type { PreparationPreview } from "../preparationModel";
+import { savePreparationCheckpoint } from "../preparationCheckpoint";
+import * as checkpointModel from "../preparationCheckpoint";
+let root: Root, host: HTMLDivElement;
+beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); localStorage.clear(); host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
+afterEach(async () => { vi.restoreAllMocks(); await act(async () => root.unmount()); host.remove(); localStorage.clear(); vi.unstubAllGlobals(); });
+async function fixture() {
+  const { dataset } = await importDatasetBuffer(new TextEncoder().encode("Region,Other\nNorth,kept\nNORTH,kept\nSouth,kept\n").buffer, "checkpoint-editor.csv"); const props = { draft: structuredClone(initialDashboard), studies: [dataset!], onClose: vi.fn(), onSave: vi.fn<(preview: PreparationPreview, signal: AbortSignal) => Promise<string | null>>().mockResolvedValue(null) }; await act(async () => root.render(<DataPreparation {...props}/>)); return props;
+}
+function button(label: string) { const node = Array.from(document.querySelectorAll("button")).find(n => n.textContent === label); if (!node) throw Error(label); return node; }
+async function click(label: string) { await act(async () => { const node = button(label); node.focus(); node.click(); }); }
+function control(label: string) { const node = Array.from(document.querySelectorAll("label")).find(n => Array.from(n.childNodes).filter(c => c.nodeType === Node.TEXT_NODE).map(c => c.textContent).join("") === label)?.querySelector<HTMLInputElement | HTMLSelectElement>("input,select"); if (!node) throw Error(label); return node; }
+async function change(label: string, value: string) { await act(async () => { const node = control(label); node.focus(); Object.getOwnPropertyDescriptor(node.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype, "value")!.set!.call(node, value); node.dispatchEvent(new Event(node.tagName === "SELECT" ? "change" : "input", { bubbles: true })); }); }
+async function until(check: () => boolean) { for (let i = 0; i < 400 && !check(); i++) await act(async () => new Promise(resolve => setTimeout(resolve, 5))); expect(check(), document.body.textContent?.slice(-1200)).toBe(true); }
+async function setup(props: Awaited<ReturnType<typeof fixture>>) { await change("Preparation study", props.studies[0].id); await change("Preparation field", props.studies[0].fields[0].id); }
+async function apply(kind: string) { await change("Preparation operation", kind); await click("Preview new step"); await until(() => !!Array.from(document.querySelectorAll("button")).find(b => b.textContent === "Apply previewed step to history")); await click("Apply previewed step to history"); }
+function checkpointKey() { return Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).find(k => k.startsWith("ecofocus:preparation-checkpoint:"))!; }
+async function remount(props: Awaited<ReturnType<typeof fixture>>) { await act(async () => root.unmount()); root = createRoot(host); await act(async () => root.render(<DataPreparation {...props}/>)); }
+it("restores full undo/redo and unapplied recode choices after forced unmount without reusing preview or review approval", async () => {
+  const props = await fixture(), before = structuredClone(props.studies); localStorage.setItem("workspace-sentinel", "original bytes"); await setup(props); await apply("lowercase"); await apply("uppercase"); await click("Undo preparation step"); await change("Preparation operation", "recode"); await act(async () => document.querySelector<HTMLInputElement>(".preparation-choices input")!.click()); await change("Target raw code", "Pending combined code"); await change("Prepared study name", "Recover this draft");
+  await click("Preview current history"); await until(() => !!document.querySelector('[aria-label="Preparation preview"]')); const preview = document.querySelector('[aria-label="Preparation preview"]')!.textContent;
+  await click("Save recovery checkpoint"); await until(() => document.body.textContent?.includes("Recovery checkpoint saved") ?? false); expect(document.querySelector('[aria-label="Preparation preview"]')!.textContent).toBe(preview); const key = checkpointKey(), raw = localStorage.getItem(key); expect(raw).toBeTruthy();
+  await remount(props); await change("Recovery checkpoint", key); await click("Restore recovery checkpoint"); await until(() => document.body.textContent?.includes("Checkpoint restored") ?? false);
+  expect(control("Preparation study").value).toBe(props.studies[0].id); expect(control("Prepared study name").value).toBe("Recover this draft"); expect(control("Target raw code").value).toBe("Pending combined code"); expect(document.querySelector<HTMLInputElement>(".preparation-choices input")!.checked).toBe(true); expect(document.querySelectorAll('[aria-label="Preparation history"] li')).toHaveLength(2); expect(document.querySelector(".preparation-undone")!.textContent).toContain("Use uppercase"); expect(document.querySelector('[aria-label="Preparation preview"]')).toBeNull(); expect(button("Save prepared study copy").disabled).toBe(true);
+  await click("Preview current history"); await until(() => !!document.querySelector('[aria-label="Preparation preview"]')); expect(document.querySelector<HTMLInputElement>(".preparation-check input")!.checked).toBe(false); expect(props.onSave).not.toHaveBeenCalled(); expect(props.studies).toEqual(before); expect(localStorage.getItem("workspace-sentinel")).toBe("original bytes"); expect(localStorage.getItem(key)).toBe(raw);
+});
+it("preserves choices and existing storage when checkpoint persistence fails", async () => {
+  const props = await fixture(); await setup(props); await change("Preparation operation", "recode"); await change("Target raw code", "Keep after quota"); localStorage.setItem("workspace-sentinel", "original bytes"); vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => { throw new DOMException("Synthetic checkpoint quota failure", "QuotaExceededError"); }); await click("Save recovery checkpoint"); await until(() => document.body.textContent?.includes("Checkpoint storage could not be confirmed") ?? false); expect(control("Target raw code").value).toBe("Keep after quota"); expect(localStorage.getItem("workspace-sentinel")).toBe("original bytes"); expect(checkpointKey()).toBeUndefined(); expect(props.onSave).not.toHaveBeenCalled();
+});
+it("refuses changed sources and never replaces a dirty editor with recovery", async () => {
+  const props = await fixture(); await setup(props); await change("Preparation operation", "recode"); await change("Target raw code", "Saved choice"); await click("Save recovery checkpoint"); await until(() => !!checkpointKey()); const key = checkpointKey(), raw = localStorage.getItem(key); await remount(props); await change("Recovery checkpoint", key); await setup(props); await change("Prepared study name", "New unsaved editor"); expect(button("Restore recovery checkpoint").disabled).toBe(true); await click("Restore recovery checkpoint"); expect(control("Prepared study name").value).toBe("New unsaved editor");
+  await remount(props); props.studies[0].rows[0].Region = "Changed original"; await act(async () => root.render(<DataPreparation {...props}/>)); await change("Recovery checkpoint", key); await click("Restore recovery checkpoint"); await until(() => document.body.textContent?.includes("original study changed") ?? false); expect(control("Preparation study").value).toBe(""); expect(localStorage.getItem(key)).toBe(raw); expect(props.onSave).not.toHaveBeenCalled();
+});
+it("aborts a checkpoint whose source check is pending when the editor unmounts", async () => {
+  const props = await fixture(); await setup(props); await change("Preparation operation", "recode"); await change("Target raw code", "Never acknowledged"); const original = crypto.subtle.digest.bind(crypto.subtle); let release!: () => void; vi.spyOn(crypto.subtle, "digest").mockImplementationOnce((algorithm, bytes) => new Promise(resolve => { release = () => { void original(algorithm, bytes).then(resolve); }; })); await click("Save recovery checkpoint"); expect(release).toBeDefined(); await act(async () => root.unmount()); root = createRoot(host); await act(async () => { release(); await new Promise(resolve => setTimeout(resolve, 20)); }); expect(checkpointKey()).toBeUndefined(); expect(props.onSave).not.toHaveBeenCalled();
+});
+it("clears a clean saved preview and its approval when restoring another checkpoint", async () => {
+  const props = await fixture(); await setup(props); await apply("lowercase"); await click("Save recovery checkpoint"); await until(() => !!checkpointKey()); const key = checkpointKey();
+  await apply("uppercase"); await act(async () => document.querySelector<HTMLInputElement>(".preparation-check input")!.click()); await click("Save prepared study copy"); await until(() => document.body.textContent?.includes("Prepared study saved in this browser") ?? false); expect(props.onSave).toHaveBeenCalledOnce(); expect(props.onSave.mock.calls[0][0].recipe.steps).toHaveLength(2); expect(document.querySelector<HTMLInputElement>(".preparation-check input")!.checked).toBe(true); expect(button("Restore recovery checkpoint").disabled).toBe(false);
+  await change("Recovery checkpoint", key); await click("Restore recovery checkpoint"); await until(() => document.body.textContent?.includes("Checkpoint restored") ?? false); expect(document.querySelectorAll('[aria-label="Preparation history"] li')).toHaveLength(1); expect(document.querySelector('[aria-label="Preparation preview"]')).toBeNull(); expect(button("Save prepared study copy").disabled).toBe(true); expect(props.onSave).toHaveBeenCalledOnce();
+  await click("Preview current history"); await until(() => !!document.querySelector('[aria-label="Preparation preview"]')); expect(document.querySelector<HTMLInputElement>(".preparation-check input")!.checked).toBe(false); expect(button("Save prepared study copy").disabled).toBe(true);
+});
+it("cancels checkpoint A when selecting B during deferred hashing, then ignores A after B restores", async () => {
+  const props = await fixture(), before = structuredClone(props.studies), source = props.studies[0]; localStorage.setItem("workspace-sentinel", "unchanged bytes");
+  const editor = { sourceId: source.id, title: "Checkpoint A", history: [], cursor: 0, fieldId: source.fields[0].id, kind: "recode" as const, from: ["North"], to: "Target A" };
+  const a = await savePreparationCheckpoint(localStorage, props.draft.id, editor, () => props.studies), b = await savePreparationCheckpoint(localStorage, props.draft.id, { ...editor, title: "Checkpoint B", to: "Target B" }, () => props.studies); const rawA = localStorage.getItem(a), rawB = localStorage.getItem(b);
+  await click("Refresh recovery checkpoints"); await change("Recovery checkpoint", a);
+  const realRestore = checkpointModel.restorePreparationCheckpoint; let settledA: Promise<void> | undefined;
+  vi.spyOn(checkpointModel, "restorePreparationCheckpoint").mockImplementation((...args) => { const work = realRestore(...args); if (args[2] === a) settledA = work.then(() => undefined, () => undefined); return work; });
+  const original = crypto.subtle.digest.bind(crypto.subtle); let release: (() => void) | undefined;
+  vi.spyOn(crypto.subtle, "digest").mockImplementationOnce((algorithm, bytes) => new Promise(resolve => { release = () => { void original(algorithm, bytes).then(resolve); }; }));
+  async function finishA() { await act(async () => { const done = release; release = undefined; done?.(); await settledA; }); }
+  try {
+    await click("Restore recovery checkpoint"); expect(release).toBeDefined(); expect(settledA).toBeDefined(); expect(button("Restore recovery checkpoint").disabled).toBe(true);
+    await change("Recovery checkpoint", b); expect(control("Recovery checkpoint").value).toBe(b); expect(button("Restore recovery checkpoint").disabled).toBe(false); expect(document.body.textContent).toContain("previous restore was canceled"); expect(control("Preparation study").value).toBe("");
+    await click("Restore recovery checkpoint"); await until(() => document.body.textContent?.includes("Checkpoint restored") ?? false); expect(control("Prepared study name").value).toBe("Checkpoint B"); expect(control("Target raw code").value).toBe("Target B"); expect(control("Recovery checkpoint").value).toBe(b);
+    await finishA(); expect(control("Prepared study name").value).toBe("Checkpoint B"); expect(control("Target raw code").value).toBe("Target B"); expect(control("Recovery checkpoint").value).toBe(b); expect(props.studies).toEqual(before); expect(props.onSave).not.toHaveBeenCalled(); expect(localStorage.getItem(a)).toBe(rawA); expect(localStorage.getItem(b)).toBe(rawB); expect(localStorage.getItem("workspace-sentinel")).toBe("unchanged bytes");
+  } finally { await finishA(); }
+});
