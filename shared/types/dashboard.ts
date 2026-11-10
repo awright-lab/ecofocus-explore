@@ -636,6 +636,7 @@ export interface DashboardDraft {
     sourceReportTitle: string;
     sourceStudy: { datasetId: string; importedAt: string };
     targetStudy: { datasetId: string; importedAt: string };
+    categoryMappings?: Array<{ sourceFieldId: string; targetFieldId: string; categories: Array<{ source: string; target: string }> }>;
     fieldMappings: Array<{ sourceFieldId: string; targetFieldId: string; sourceColumn: string }>;
     reviewedAt?: string;
     declaration: string;
