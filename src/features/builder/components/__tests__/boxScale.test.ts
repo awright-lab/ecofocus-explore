@@ -1,0 +1,11 @@
+import { expect,it } from 'vitest';
+import { proportionalBoxSize,boxScalePercentages } from '../boxScale';
+const box={x:12,y:-4,width:800,height:480,zIndex:9};
+it('changes both dimensions in a single patch, retaining original position/layer/content untouched',()=>{const before=structuredClone(box);expect(proportionalBoxSize(box,125)).toEqual({width:1000,height:600});expect(box).toEqual(before);expect(Object.keys(proportionalBoxSize(box,150)!)).toEqual(['width','height']);});
+it('uses the same percentage for every supported preset without intermediate rounding',()=>{for(const percentage of boxScalePercentages){const size=proportionalBoxSize({x:0,y:0,width:1000,height:2000,zIndex:1},percentage,{width:0,height:0});if(percentage===100)expect(size).toBeNull();else expect(size).toEqual({width:percentage*10,height:percentage*20});}expect(proportionalBoxSize({...box,width:402,height:250},125)).toEqual({width:502.5,height:312.5});});
+it('returns no patch for100% and never changes a frozen source',()=>{expect(proportionalBoxSize(Object.freeze(box),100)).toBeNull();expect(proportionalBoxSize(Object.freeze(box),200)).toEqual({width:1600,height:960});});
+it.each([0,-1,101,NaN,Infinity,'125'])('rejects unsupported percentage%s',percentage=>expect(()=>proportionalBoxSize(box,percentage as number)).toThrow());
+it.each([{width:319},{height:219},{width:0},{height:-1},{x:NaN},{y:Infinity},{width:Number.MAX_VALUE}])('refuses unsupported current geometry%s',change=>expect(()=>proportionalBoxSize({...box,...change},200)).toThrow());
+it('refuses chart min violations while allowing valid smaller element boxes',()=>{expect(()=>proportionalBoxSize(box,25)).toThrow('rendered minimum');expect(proportionalBoxSize(box,50)).toEqual({width:400,height:240});expect(proportionalBoxSize({...box,width:120,height:60},50,{width:0,height:0})).toEqual({width:60,height:30});});
+it('refuses unsafe targets and underflow without mutating the box',()=>{expect(()=>proportionalBoxSize({...box,width:Number.MAX_SAFE_INTEGER},400)).toThrow('represented');expect(()=>proportionalBoxSize({...box,width:Number.MIN_VALUE,height:1},10,{width:0,height:0})).toThrow('represented');});
+it.each([{width:-1,height:0},{width:Infinity,height:0}])('refuses invalid minimum%s',min=>expect(()=>proportionalBoxSize(box,125,min)).toThrow());

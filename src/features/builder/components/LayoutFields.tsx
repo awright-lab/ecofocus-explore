@@ -1,6 +1,7 @@
 import { LayoutNudgeControls } from "./LayoutNudgeControls";
 import { LayoutFitControls } from "./LayoutFitControls";
 import { PageAlignmentControls } from "./PageAlignmentControls";
+import { BoxScaleControls } from "./BoxScaleControls";
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasLayout } from "../../../../shared/types/dashboard";
 
@@ -86,6 +87,6 @@ export function LayoutFields({ layout, locked = false, itemKind = "chart", onApp
   return <div data-canvas-keyboard-scope="controls"><div className="layout-grid">
     {([['x', 'X position'], ['y', 'Y position'], ['width', 'Width'], ['height', 'Height']] as const).map(([coordinate, name]) =>
       <LayoutNumberField key={coordinate} coordinate={coordinate} name={name} value={layout[coordinate]} disabled={locked} helpId={helpId} onApply={onApply} onStageChange={markStaged} />)}
-    </div><PageAlignmentControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} itemKind={itemKind} onApply={onApply}/><LayoutNudgeControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} onApply={onApply}/><LayoutFitControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} itemKind={itemKind} onApply={onApply}/><small id={helpId}>{locked ? "Unlock this item before editing its position or size." : "Changes apply on Enter or when you leave the field. Escape cancels the edit."}</small>
+    </div><PageAlignmentControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} itemKind={itemKind} onApply={onApply}/><LayoutNudgeControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} onApply={onApply}/><LayoutFitControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} itemKind={itemKind} onApply={onApply}/><BoxScaleControls layout={layout} locked={locked} staged={Object.values(staged).some(Boolean)} itemKind={itemKind} onApply={onApply}/><small id={helpId}>{locked ? "Unlock this item before editing its position or size." : "Changes apply on Enter or when you leave the field. Escape cancels the edit."}</small>
   </div>;
 }

@@ -21,7 +21,7 @@ export type CsvImportMessage =
 
 // One job per worker. Each batch waits for acknowledgement so delivery cannot
 // queue an entire study on the main thread. Cancellation terminates the worker.
-export function createLocalCsvImportController(send: (message: CsvImportMessage) => void) {
+export function createLocalCsvImportController(send: (message: CsvImportMessage) => void, format: "csv" | "sav" = "csv") {
   let started = false;
   let waiting: { sequence: number; resume: () => void } | undefined;
   function delivered(message: Extract<CsvImportMessage, { type: "rows" }>) {
@@ -32,15 +32,15 @@ export function createLocalCsvImportController(send: (message: CsvImportMessage)
   }
   async function start(file: Blob, name: string) {
     try {
-      if (!name.toLowerCase().endsWith(".csv") || !Number.isSafeInteger(file.size) || file.size < 1 || file.size > localCsvMaxBytes) {
-        throw new Error("Choose a CSV file up to 16 MiB for local import.");
+      if (!["csv", "sav"].includes(format) || !name.toLowerCase().endsWith(`.${format}`) || !Number.isSafeInteger(file.size) || file.size < 1 || file.size > localCsvMaxBytes) {
+        throw new Error(`Choose a ${format.toUpperCase()} file up to 16 MiB for local import.`);
       }
       send({ type: "phase", phase: "reading" });
       const buffer = await file.arrayBuffer();
       if (buffer.byteLength !== file.size) throw new Error("The source file could not be read completely.");
       send({ type: "phase", phase: "parsing" });
-      const result = await importDatasetBuffer(buffer, name, "csv", localCsvLimits);
-      if (!result.dataset || result.error) throw new Error(result.error ?? "The CSV could not be read.");
+      const result = await importDatasetBuffer(buffer, name, format, localCsvLimits);
+      if (!result.dataset || result.error) throw new Error(result.error ?? `The ${format.toUpperCase()} could not be read.`);
       const dataset = result.dataset;
       const { rows, previewRows, fields, ...metadata } = dataset;
       // Serialize field by field, checking the budget before building a large

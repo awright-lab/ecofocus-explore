@@ -1023,7 +1023,7 @@ export function WorkspaceHome({
             </strong>
           </div>
           <div className="workspace-home-header__actions">
-            <button type="button" className="workspace-home-secondary" disabled={isImporting} onClick={() => setShowLocalCsvImport(true)}>Import local CSV</button>
+            <button type="button" className="workspace-home-secondary" disabled={isImporting} onClick={() => setShowLocalCsvImport(true)}>Import local CSV or SPSS</button>
             <WorkspaceBackupButton getWorkspace={() => workspaceRef.current} className="workspace-home-secondary" onFeedback={(text, failed) => setBackupFeedback({text, failed})} />
             <button
               type="button"
