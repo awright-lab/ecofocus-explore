@@ -35,3 +35,13 @@ it('rejects remote and weighted workflows',async()=>{
  ctx.studies[1].sourceType='local_file';ctx.draft.pages[0].tiles[0].query.weight='weightvar';
  await expect(previewReportRefresh(ctx,'new','Next',{mappings})).rejects.toThrow('Weighted');
 });
+it('validates a complete 10,000-category bijection and rejects unknown or duplicate targets',async()=>{
+ const {validateWaveMapping}=await import('../reportRefreshMapping');
+ const ctx=await fixture(),[source,target]=ctx.studies,oldField=source.fields[0],newField=target.fields[0];
+ source.rows=Array.from({length:10000},(_,i)=>({Region:`Old ${i}`}));target.rows=Array.from({length:10000},(_,i)=>({Region:`New ${i}`}));
+ const categories=source.rows.map((row,i)=>({source:row.Region,target:`New ${i}`}));
+ const mappings=[{sourceFieldId:oldField.id,targetFieldId:newField.id,categories}];
+ expect(validateWaveMapping(source,target,oldField,mappings).entry.categories).toHaveLength(10000);
+ categories[9999].target='Unknown';expect(()=>validateWaveMapping(source,target,oldField,mappings)).toThrow('one-to-one');
+ categories[9999].target='New 0';expect(()=>validateWaveMapping(source,target,oldField,mappings)).toThrow('one-to-one');
+});

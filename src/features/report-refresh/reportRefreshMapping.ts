@@ -1,4 +1,4 @@
-import type { ImportedDatasetField, ImportedDatasetRecord } from '../../../shared/types/dashboard';
+import type { DashboardDraft, ImportedDatasetField, ImportedDatasetRecord } from '../../../shared/types/dashboard';
 import { importedCategoryCode } from '../data/importedCategoryCode';
 import { importedRawFieldValue } from '../data/importedRawValue';
 
@@ -23,9 +23,30 @@ export function validateWaveMapping(source: ImportedDatasetRecord, target: Impor
   if (field.type === 'numeric') {
     if (entry.categories.length || JSON.stringify(field.valueLabels ?? {}) !== JSON.stringify(next.valueLabels ?? {})) throw Error('Numeric values cannot be recoded during report refresh.');
   } else {
-    const oldValues = waveCategories(source, field), newValues = waveCategories(target, next);
-    if (entry.categories.length !== oldValues.length || new Set(entry.categories.map(item => item.source)).size !== oldValues.length || new Set(entry.categories.map(item => item.target)).size !== newValues.length || oldValues.length !== newValues.length || entry.categories.some(item => !oldValues.includes(item.source) || !newValues.includes(item.target)))
+    const oldValues = new Set(waveCategories(source, field)), newValues = new Set(waveCategories(target, next));
+    if (entry.categories.length !== oldValues.size || new Set(entry.categories.map(item => item.source)).size !== oldValues.size || new Set(entry.categories.map(item => item.target)).size !== newValues.size || oldValues.size !== newValues.size || entry.categories.some(item => !oldValues.has(item.source) || !newValues.has(item.target)))
       throw Error(`Map every raw category of “${field.label}” one-to-one. Unmapped, merged, added or removed categories need a separate review.`);
   }
   return { field: next, entry };
+}
+
+/** Only fields actually replayed by the report need mapping controls. */
+export function referencedWaveFields(draft: DashboardDraft, study: ImportedDatasetRecord): ImportedDatasetField[] {
+  const ids = new Set<string>();
+  for (const tile of draft.pages.flatMap(page => page.tiles)) {
+    const identity = tile.query.sourceIdentity;
+    if (identity?.kind !== 'imported' || identity.datasetId !== study.id) throw Error('Every analysis must reference the same local source study before mapping.');
+    if (identity.groupingScope !== 'all_respondents') ids.add(identity.primaryFieldId);
+    if (tile.query.metric === 'average' || tile.query.metric === 'sum') {
+      if (!identity.measureFieldId) throw Error('A referenced numeric field is missing. Review the original analysis.');
+      ids.add(identity.measureFieldId);
+    }
+    if (identity.bannerFieldId) ids.add(identity.bannerFieldId);
+    if (identity.filterFieldId) ids.add(identity.filterFieldId);
+  }
+  return [...ids].map(id => {
+    const matches = study.fields.filter(field => field.id === id);
+    if (matches.length !== 1) throw Error(`Referenced field “${id}” is missing or ambiguous. Review the original report and study before mapping.`);
+    return matches[0];
+  });
 }
