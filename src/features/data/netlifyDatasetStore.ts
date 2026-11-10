@@ -1,4 +1,5 @@
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../shared/types/dashboard";
+import { assertImportedFieldPageRequest, readImportedFieldPage } from "./importedFieldPageResponse";
 
 export interface NetlifyDatasetStoreResult {
   stored: boolean;
@@ -68,6 +69,7 @@ export async function listImportedDatasetFieldsFromNetlify(options: {
   limit: number;
   search?: string;
 }): Promise<NetlifyDatasetFieldListResult> {
+  assertImportedFieldPageRequest(options);
   const params = new URLSearchParams({
     datasetId: options.datasetId,
     offset: String(options.offset),
@@ -78,10 +80,11 @@ export async function listImportedDatasetFieldsFromNetlify(options: {
   const response = await fetch(`/.netlify/functions/imported-dataset-fields?${params.toString()}`);
   const payload = await response.json().catch(() => null) as unknown;
   if (!response.ok || !payload || isFieldListError(payload)) {
-    const detail = isFieldListError(payload) && payload.details?.length ? ` ${payload.details.join(" ")}` : "";
-    throw new Error(`${isFieldListError(payload) ? payload.error : `Imported dataset fields failed with ${response.status}.`}${detail}`);
+    const detail = isFieldListError(payload) && Array.isArray(payload.details) ? payload.details.filter(item => typeof item === "string").join(" ") : "";
+    const message = isFieldListError(payload) && typeof payload.error === "string" ? payload.error : `Imported dataset fields failed with ${response.status}.`;
+    throw new Error(`${message}${detail ? ` ${detail}` : ""}`);
   }
-  return payload as NetlifyDatasetFieldListResult;
+  return readImportedFieldPage(payload, options);
 }
 
 export async function storeImportedDatasetInNetlify(file: File, dataset?: ImportedDatasetRecord): Promise<NetlifyDatasetStoreResult> {

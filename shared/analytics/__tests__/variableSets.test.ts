@@ -4,7 +4,7 @@ import { runMockAnalyticsQuery } from "../../mock/analytics";
 import type { SavedVariableSet } from "../../types/dashboard";
 
 describe("applyVariableSetRows", () => {
-  it("applies authored row order, visibility, and summary rows", () => {
+  it("blocks a multi-response summary row when only marginals are available", () => {
     const response = runMockAnalyticsQuery({
       dataset: "ecofocus_2025",
       question: "Q15_TOP2_BRAND_PRIORITIES",
@@ -62,25 +62,6 @@ describe("applyVariableSetRows", () => {
       filterValue: "all"
     };
 
-    const result = applyVariableSetRows(response, variableSet);
-
-    expect(result.table.map((row) => row.optionId)).toEqual(["top_box", "Q15r1"]);
-    expect(result.table[0]).toMatchObject({
-      label: "Top 2 box",
-      values: { summary: 100 },
-      bases: { summary: 3125 },
-      presentation: {
-        rowKind: "topbox",
-        emphasis: "summary"
-      }
-    });
-    expect(result.table[1]).toMatchObject({
-      presentation: {
-        rowKind: "option",
-        emphasis: "detail"
-      }
-    });
-    expect(result.notes[result.notes.length - 1]).toContain("Summary rows: Top 2 box");
-    expect(result.notes[result.notes.length - 1]).toContain("Hidden rows: Charity");
+    expect(() => applyVariableSetRows(response, variableSet)).toThrow("respondent-level union");
   });
 });

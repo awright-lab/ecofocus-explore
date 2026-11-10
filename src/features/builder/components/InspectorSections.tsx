@@ -1,3 +1,4 @@
+import { LayoutFields } from "./LayoutFields";
 import { ColorField, rangeFill } from "../../design-system/DesignControls";
 import {
   axisRotationPresets,
@@ -319,24 +320,7 @@ export function LayoutInspector(props: BuilderInspectorProps) {
                   <span>Place the selected item low on the canvas for sources or supporting notes.</span>
                 </button>
               </div>
-              <div className="layout-grid">
-                <label>
-                  X
-                  <input type="number" value={selectedTile?.layout.x ?? selectedElement?.layout.x ?? 0} onChange={(event) => updateSelectedLayout({ x: Number(event.target.value) })} />
-                </label>
-                <label>
-                  Y
-                  <input type="number" value={selectedTile?.layout.y ?? selectedElement?.layout.y ?? 0} onChange={(event) => updateSelectedLayout({ y: Number(event.target.value) })} />
-                </label>
-                <label>
-                  W
-                  <input type="number" value={selectedTile?.layout.width ?? selectedElement?.layout.width ?? 0} onChange={(event) => updateSelectedLayout({ width: Number(event.target.value) })} />
-                </label>
-                <label>
-                  H
-                  <input type="number" value={selectedTile?.layout.height ?? selectedElement?.layout.height ?? 0} onChange={(event) => updateSelectedLayout({ height: Number(event.target.value) })} />
-                </label>
-              </div>
+              <LayoutFields key={selectedTile ? `tile:${selectedTile.id}` : `element:${selectedElement!.id}`} layout={(selectedTile ?? selectedElement!).layout} locked={(selectedTile ?? selectedElement!).locked} itemKind={selectedTile ? "chart" : "element"} onApply={updateSelectedLayout} />
             </>
           )}
 
@@ -489,25 +473,8 @@ export function TileOptionsInspector(props: BuilderInspectorProps) {
         <strong>{selectedTile.visualization === "horizontal_bar" ? "Horizontal bars" : getPaletteId(selectedTile.appearance.palette) === "custom" ? "Custom chart" : "Chart options"}</strong>
         <small>Position, size, spacing, labels, and chart-specific behavior.</small>
       </div>
-      <div className="layout-grid">
-        <label>
-          X
-          <input type="number" value={selectedTile.layout.x} onChange={(event) => updateSelectedLayout({ x: Number(event.target.value) })} />
-        </label>
-        <label>
-          Y
-          <input type="number" value={selectedTile.layout.y} onChange={(event) => updateSelectedLayout({ y: Number(event.target.value) })} />
-        </label>
-        <label>
-          W
-          <input type="number" value={selectedTile.layout.width} onChange={(event) => updateSelectedLayout({ width: Number(event.target.value) })} />
-        </label>
-        <label>
-          H
-          <input type="number" value={selectedTile.layout.height} onChange={(event) => updateSelectedLayout({ height: Number(event.target.value) })} />
-        </label>
-      </div>
-      {selectedTile.visualization !== "table" && (
+      <LayoutFields key={`tile:${selectedTile.id}`} layout={selectedTile.layout} locked={selectedTile.locked} itemKind="chart" onApply={updateSelectedLayout} />
+      {selectedTile.visualization !== "table" && selectedTile.visualization !== "dot_plot" && (
         <>
           <label>
             Series overlap
@@ -562,24 +529,7 @@ export function ElementOptionsInspector(props: BuilderInspectorProps) {
         <strong>{selectedElement.name}</strong>
         <small>Position, size, text behavior, and object-specific settings.</small>
       </div>
-      <div className="layout-grid">
-        <label>
-          X
-          <input type="number" value={selectedElement.layout.x} onChange={(event) => updateSelectedLayout({ x: Number(event.target.value) })} />
-        </label>
-        <label>
-          Y
-          <input type="number" value={selectedElement.layout.y} onChange={(event) => updateSelectedLayout({ y: Number(event.target.value) })} />
-        </label>
-        <label>
-          W
-          <input type="number" value={selectedElement.layout.width} onChange={(event) => updateSelectedLayout({ width: Number(event.target.value) })} />
-        </label>
-        <label>
-          H
-          <input type="number" value={selectedElement.layout.height} onChange={(event) => updateSelectedLayout({ height: Number(event.target.value) })} />
-        </label>
-      </div>
+      <LayoutFields key={`element:${selectedElement.id}`} layout={selectedElement.layout} locked={selectedElement.locked} itemKind="element" onApply={updateSelectedLayout} />
       {selectedElement.type === "text" && (
         <>
           <label>

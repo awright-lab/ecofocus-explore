@@ -1,3 +1,6 @@
+import { analyticalCell } from "../../../../shared/analytics/resultCells";
+import { formatImportedMeasureValue } from "../../data/importedDatasetAnalytics";
+import { withSafeInference } from "../../../../shared/analytics/inferenceSafety";
 import {
   lazy,
   memo,
@@ -51,6 +54,7 @@ import {
 } from "./CanvasRenderers";
 import {
   getChartTypeLabel,
+  getCompatibleChartTypes,
   getQuestionLabel,
 } from "../../analytics/analyticsDisplay";
 import { buildExecutedColumnComparisonPresentation } from "./analysisSignificancePresentationModel";
@@ -94,6 +98,7 @@ import type {
   SavedLibraryInsertionCue,
   SavedSettingOriginCue,
   SettingsView,
+  InspectorSurface,
 } from "../builderTypes";
 import type {
   DerivedOutputConfig,
@@ -105,6 +110,8 @@ const TileAnalysisQuerySection = lazy(() =>
     default: module.TileAnalysisQuerySection,
   })),
 );
+const ResultEvidencePanel = lazy(() => import("./ResultEvidencePanel"));
+const FindingFollowUps = lazy(() => import("./FindingFollowUps"));
 const TileAnalysisResultSection = lazy(() =>
   import("./InspectorTileAnalysisSections").then((module) => ({
     default: module.TileAnalysisResultSection,
@@ -175,12 +182,20 @@ function AssistantFolder({
 }
 
 export type BuilderInspectorProps = {
+  reportPages?: DashboardPage[];
+  onEditCalculatedMetric?: () => void;
   outcomeMode: OutcomeWorkspaceMode | null;
   outcomeLabel: string;
   outcomeHelper: string;
   settingsView: SettingsView;
+  inspectorSurface?: InspectorSurface;
+  onInspectorSurfaceChange?: (surface: InspectorSurface) => void;
   setSettingsView: (view: SettingsView) => void;
   activePage: DashboardPage;
+  evidencePages?: DashboardPage[];
+  followUpAudiences?: import("../../../../shared/types/audience").SavedImportedAudience[];
+  onCreateFindingFollowUp?: import("./FindingFollowUps").CreateFindingFollowUp;
+  onEvidenceNavigate?: (tileId:string)=>void;
   dashboardPageCount: number;
   updateActivePage: (updates: Partial<DashboardPage>) => void;
   duplicateActivePage: () => void;
@@ -285,6 +300,7 @@ export type BuilderInspectorProps = {
   derivedOutputLibraryActionCue: DerivedOutputLibraryActionCue;
   deleteSelectedItem: () => void;
   isLoading: boolean;
+  getEditorContextVersion?: () => string | number;
   comparisonDatasets: DatasetId[];
 };
 
@@ -348,9 +364,12 @@ export const BuilderInspector = memo(function BuilderInspector(
     isLoading,
     comparisonDatasets,
   } = props;
-  const [inspectorSurface, setInspectorSurface] = useState<
-    "style" | "data" | "insight"
-  >("style");
+  const [localInspectorSurface, setLocalInspectorSurface] = useState<InspectorSurface>("style");
+  const inspectorSurface = props.inspectorSurface ?? localInspectorSurface;
+  function setInspectorSurface(surface: InspectorSurface) {
+    setLocalInspectorSurface(surface);
+    props.onInspectorSurfaceChange?.(surface);
+  }
   const multiSelectionSummary = useMemo(
     () => buildMultiSelectionSummary(activePage, multiSelectedObjects),
     [activePage, multiSelectedObjects],
@@ -413,17 +432,15 @@ export const BuilderInspector = memo(function BuilderInspector(
   const leadColumn = selectedTile?.result.columns[0] ?? null;
   const leadRow = selectedTile?.result.table[0] ?? null;
   const leadValue =
-    leadColumn && leadRow ? leadRow.values[leadColumn.id] : undefined;
+    leadColumn && leadRow && selectedTile ? analyticalCell(selectedTile.result,leadRow,leadColumn.id).value : undefined;
   const leadValueLabel =
     typeof leadValue === "number"
       ? selectedTile?.result.metric.valueFormat === "percent"
         ? `${Math.round(leadValue)}%`
-        : new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(
-            leadValue,
-          )
+        : formatImportedMeasureValue(leadValue, selectedTile?.result.metric.id ?? "count")
       : null;
   const executionReport =
-    selectedTile?.result.statistics.significanceExecutionReport ?? null;
+    selectedTile ? withSafeInference(selectedTile.result).statistics.significanceExecutionReport : null;
   const executionSummary =
     executionReport?.status === "executed"
       ? `${executionReport.method.replace("_", " ")} ran`
@@ -571,22 +588,7 @@ export const BuilderInspector = memo(function BuilderInspector(
     if (itemId === "options") setSettingsView("options");
   }
   const chartTypeOptions = useMemo(
-    () =>
-      selectedTile
-        ? defaultDataset.chartTypes
-            .filter((chartTypeOption) =>
-              chartTypeOption.supportedMetrics.includes(
-                selectedTile.query.metric,
-              ),
-            )
-            .filter(chartTypeOption => chartTypeOption.id !== "donut" || selectedTile.result.columns.length === 1)
-            .filter(
-              (chartTypeOption) =>
-                !chartTypeOption.minSeries ||
-                selectedTile.result.columns.length >= chartTypeOption.minSeries,
-            )
-            .map((chartTypeOption) => chartTypeOption.id)
-        : [],
+    () => selectedTile ? getCompatibleChartTypes(selectedTile.result) : [],
     [selectedTile],
   );
   const activeDesignPaletteId = selectedTile
@@ -1100,6 +1102,8 @@ export const BuilderInspector = memo(function BuilderInspector(
           <span>{selectedTile.query.weight ? "Weighted" : "Unweighted"}</span>
         </div>
       </div>
+      {props.onCreateFindingFollowUp && <Suspense fallback={<p>Loading follow-up questions...</p>}><FindingFollowUps key={selectedTile.id} tile={selectedTile} studies={props.importedDatasets} audiences={props.followUpAudiences} onCreate={props.onCreateFindingFollowUp} isLoading={isLoading}/></Suspense>}
+      <Suspense fallback={<p>Loading result explanation...</p>}><ResultEvidencePanel key={selectedTile.id} tile={selectedTile} /></Suspense>
       <AssistantFolder
         title="Edit analysis"
         helper={`${dataContext?.chart} · ${dataContext?.banner}`}

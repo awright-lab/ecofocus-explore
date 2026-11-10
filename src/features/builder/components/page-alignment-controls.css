@@ -1,0 +1,7 @@
+.page-alignment { border: 1px solid var(--panel-border, #cbd5d0); border-radius: 10px; padding: 12px; }
+.page-alignment summary { cursor: pointer; font-weight: 600; min-height: 28px; }
+.page-alignment p { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; margin: 8px 0; }
+.page-alignment [role="group"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.page-alignment button { min-height: 44px; min-width: 0; padding: 8px 6px; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.page-alignment summary:focus-visible, .page-alignment button:focus-visible { outline: 3px solid #167566; outline-offset: 2px; }
+.page-alignment button[aria-disabled="true"] { opacity: .65; }

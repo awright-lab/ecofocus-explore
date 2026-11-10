@@ -1,0 +1,1661 @@
+{
+  "reference": "NumPy lstsq (SVD), no runtime dependency",
+  "seed": 12345,
+  "cases": [
+    {
+      "row": 1,
+      "predictors": [
+        -8,
+        -11
+      ],
+      "outcome": 6.030000000000001
+    },
+    {
+      "row": 2,
+      "predictors": [
+        -7,
+        -4
+      ],
+      "outcome": 2.0700000000000003
+    },
+    {
+      "row": 3,
+      "predictors": [
+        -6,
+        3
+      ],
+      "outcome": -2.4600000000000004
+    },
+    {
+      "row": 4,
+      "predictors": [
+        -5,
+        10
+      ],
+      "outcome": -6.99
+    },
+    {
+      "row": 5,
+      "predictors": [
+        -4,
+        -6
+      ],
+      "outcome": 7.450000000000001
+    },
+    {
+      "row": 6,
+      "predictors": [
+        -3,
+        1
+      ],
+      "outcome": 2.9200000000000004
+    },
+    {
+      "row": 7,
+      "predictors": [
+        -2,
+        8
+      ],
+      "outcome": -1.6100000000000003
+    },
+    {
+      "row": 8,
+      "predictors": [
+        -1,
+        -8
+      ],
+      "outcome": 12.83
+    },
+    {
+      "row": 9,
+      "predictors": [
+        0,
+        -1
+      ],
+      "outcome": 8.3
+    },
+    {
+      "row": 10,
+      "predictors": [
+        1,
+        6
+      ],
+      "outcome": 3.769999999999999
+    },
+    {
+      "row": 11,
+      "predictors": [
+        2,
+        -10
+      ],
+      "outcome": 18.21
+    },
+    {
+      "row": 12,
+      "predictors": [
+        3,
+        -3
+      ],
+      "outcome": 13.68
+    },
+    {
+      "row": 13,
+      "predictors": [
+        4,
+        4
+      ],
+      "outcome": 9.15
+    },
+    {
+      "row": 14,
+      "predictors": [
+        5,
+        11
+      ],
+      "outcome": 5.1899999999999995
+    },
+    {
+      "row": 15,
+      "predictors": [
+        6,
+        -5
+      ],
+      "outcome": 19.06
+    },
+    {
+      "row": 16,
+      "predictors": [
+        7,
+        2
+      ],
+      "outcome": 14.530000000000001
+    },
+    {
+      "row": 17,
+      "predictors": [
+        8,
+        9
+      ],
+      "outcome": 10.57
+    },
+    {
+      "row": 18,
+      "predictors": [
+        -8,
+        -7
+      ],
+      "outcome": 3.1900000000000004
+    },
+    {
+      "row": 19,
+      "predictors": [
+        -7,
+        0
+      ],
+      "outcome": -1.34
+    },
+    {
+      "row": 20,
+      "predictors": [
+        -6,
+        7
+      ],
+      "outcome": -5.870000000000001
+    },
+    {
+      "row": 21,
+      "predictors": [
+        -5,
+        -9
+      ],
+      "outcome": 8.569999999999999
+    },
+    {
+      "row": 22,
+      "predictors": [
+        -4,
+        -2
+      ],
+      "outcome": 4.04
+    },
+    {
+      "row": 23,
+      "predictors": [
+        -3,
+        5
+      ],
+      "outcome": -0.49
+    },
+    {
+      "row": 24,
+      "predictors": [
+        -2,
+        -11
+      ],
+      "outcome": 13.950000000000001
+    },
+    {
+      "row": 25,
+      "predictors": [
+        -1,
+        -4
+      ],
+      "outcome": 9.42
+    },
+    {
+      "row": 26,
+      "predictors": [
+        0,
+        3
+      ],
+      "outcome": 4.89
+    },
+    {
+      "row": 27,
+      "predictors": [
+        1,
+        10
+      ],
+      "outcome": 0.9299999999999999
+    },
+    {
+      "row": 28,
+      "predictors": [
+        2,
+        -6
+      ],
+      "outcome": 14.8
+    },
+    {
+      "row": 29,
+      "predictors": [
+        3,
+        1
+      ],
+      "outcome": 10.27
+    },
+    {
+      "row": 30,
+      "predictors": [
+        4,
+        8
+      ],
+      "outcome": 6.31
+    },
+    {
+      "row": 31,
+      "predictors": [
+        5,
+        -8
+      ],
+      "outcome": 20.18
+    },
+    {
+      "row": 32,
+      "predictors": [
+        6,
+        -1
+      ],
+      "outcome": 15.65
+    },
+    {
+      "row": 33,
+      "predictors": [
+        7,
+        6
+      ],
+      "outcome": 11.69
+    },
+    {
+      "row": 34,
+      "predictors": [
+        8,
+        -10
+      ],
+      "outcome": 25.56
+    },
+    {
+      "row": 35,
+      "predictors": [
+        -8,
+        -3
+      ],
+      "outcome": -0.21999999999999964
+    },
+    {
+      "row": 36,
+      "predictors": [
+        -7,
+        4
+      ],
+      "outcome": -4.18
+    },
+    {
+      "row": 37,
+      "predictors": [
+        -6,
+        11
+      ],
+      "outcome": -8.71
+    },
+    {
+      "row": 38,
+      "predictors": [
+        -5,
+        -5
+      ],
+      "outcome": 5.16
+    },
+    {
+      "row": 39,
+      "predictors": [
+        -4,
+        2
+      ],
+      "outcome": 0.6299999999999999
+    },
+    {
+      "row": 40,
+      "predictors": [
+        -3,
+        9
+      ],
+      "outcome": -3.33
+    },
+    {
+      "row": 41,
+      "predictors": [
+        -2,
+        -7
+      ],
+      "outcome": 10.540000000000001
+    },
+    {
+      "row": 42,
+      "predictors": [
+        -1,
+        0
+      ],
+      "outcome": 6.01
+    },
+    {
+      "row": 43,
+      "predictors": [
+        0,
+        7
+      ],
+      "outcome": 2.0499999999999994
+    },
+    {
+      "row": 44,
+      "predictors": [
+        1,
+        -9
+      ],
+      "outcome": 15.92
+    },
+    {
+      "row": 45,
+      "predictors": [
+        2,
+        -2
+      ],
+      "outcome": 11.389999999999999
+    },
+    {
+      "row": 46,
+      "predictors": [
+        3,
+        5
+      ],
+      "outcome": 7.43
+    },
+    {
+      "row": 47,
+      "predictors": [
+        4,
+        -11
+      ],
+      "outcome": 21.3
+    },
+    {
+      "row": 48,
+      "predictors": [
+        5,
+        -4
+      ],
+      "outcome": 16.77
+    },
+    {
+      "row": 49,
+      "predictors": [
+        6,
+        3
+      ],
+      "outcome": 12.81
+    },
+    {
+      "row": 50,
+      "predictors": [
+        7,
+        10
+      ],
+      "outcome": 8.28
+    },
+    {
+      "row": 51,
+      "predictors": [
+        8,
+        -6
+      ],
+      "outcome": 22.150000000000002
+    },
+    {
+      "row": 52,
+      "predictors": [
+        -8,
+        1
+      ],
+      "outcome": -3.0599999999999996
+    },
+    {
+      "row": 53,
+      "predictors": [
+        -7,
+        8
+      ],
+      "outcome": -7.590000000000001
+    },
+    {
+      "row": 54,
+      "predictors": [
+        -6,
+        -8
+      ],
+      "outcome": 6.28
+    },
+    {
+      "row": 55,
+      "predictors": [
+        -5,
+        -1
+      ],
+      "outcome": 2.32
+    },
+    {
+      "row": 56,
+      "predictors": [
+        -4,
+        6
+      ],
+      "outcome": -2.210000000000001
+    },
+    {
+      "row": 57,
+      "predictors": [
+        -3,
+        -10
+      ],
+      "outcome": 11.66
+    },
+    {
+      "row": 58,
+      "predictors": [
+        -2,
+        -3
+      ],
+      "outcome": 7.130000000000001
+    },
+    {
+      "row": 59,
+      "predictors": [
+        -1,
+        4
+      ],
+      "outcome": 3.17
+    },
+    {
+      "row": 60,
+      "predictors": [
+        0,
+        11
+      ],
+      "outcome": -1.3600000000000008
+    },
+    {
+      "row": 61,
+      "predictors": [
+        1,
+        -5
+      ],
+      "outcome": 12.51
+    },
+    {
+      "row": 62,
+      "predictors": [
+        2,
+        2
+      ],
+      "outcome": 8.55
+    },
+    {
+      "row": 63,
+      "predictors": [
+        3,
+        9
+      ],
+      "outcome": 4.02
+    },
+    {
+      "row": 64,
+      "predictors": [
+        4,
+        -7
+      ],
+      "outcome": 17.89
+    },
+    {
+      "row": 65,
+      "predictors": [
+        5,
+        0
+      ],
+      "outcome": 13.93
+    },
+    {
+      "row": 66,
+      "predictors": [
+        6,
+        7
+      ],
+      "outcome": 9.399999999999999
+    },
+    {
+      "row": 67,
+      "predictors": [
+        7,
+        -9
+      ],
+      "outcome": 23.27
+    },
+    {
+      "row": 68,
+      "predictors": [
+        8,
+        -2
+      ],
+      "outcome": 19.310000000000002
+    },
+    {
+      "row": 69,
+      "predictors": [
+        -8,
+        5
+      ],
+      "outcome": -6.47
+    },
+    {
+      "row": 70,
+      "predictors": [
+        -7,
+        -11
+      ],
+      "outcome": 7.4
+    },
+    {
+      "row": 71,
+      "predictors": [
+        -6,
+        -4
+      ],
+      "outcome": 3.4400000000000004
+    },
+    {
+      "row": 72,
+      "predictors": [
+        -5,
+        3
+      ],
+      "outcome": -1.0900000000000003
+    },
+    {
+      "row": 73,
+      "predictors": [
+        -4,
+        10
+      ],
+      "outcome": -5.62
+    },
+    {
+      "row": 74,
+      "predictors": [
+        -3,
+        -6
+      ],
+      "outcome": 8.82
+    },
+    {
+      "row": 75,
+      "predictors": [
+        -2,
+        1
+      ],
+      "outcome": 4.29
+    },
+    {
+      "row": 76,
+      "predictors": [
+        -1,
+        8
+      ],
+      "outcome": -0.24000000000000035
+    },
+    {
+      "row": 77,
+      "predictors": [
+        0,
+        -8
+      ],
+      "outcome": 13.63
+    },
+    {
+      "row": 78,
+      "predictors": [
+        1,
+        -1
+      ],
+      "outcome": 9.67
+    },
+    {
+      "row": 79,
+      "predictors": [
+        2,
+        6
+      ],
+      "outcome": 5.14
+    },
+    {
+      "row": 80,
+      "predictors": [
+        3,
+        -10
+      ],
+      "outcome": 19.01
+    },
+    {
+      "row": 81,
+      "predictors": [
+        4,
+        -3
+      ],
+      "outcome": 15.05
+    },
+    {
+      "row": 82,
+      "predictors": [
+        5,
+        4
+      ],
+      "outcome": 10.520000000000001
+    },
+    {
+      "row": 83,
+      "predictors": [
+        6,
+        11
+      ],
+      "outcome": 5.989999999999999
+    },
+    {
+      "row": 84,
+      "predictors": [
+        7,
+        -5
+      ],
+      "outcome": 20.43
+    },
+    {
+      "row": 85,
+      "predictors": [
+        8,
+        2
+      ],
+      "outcome": 15.9
+    },
+    {
+      "row": 86,
+      "predictors": [
+        -8,
+        9
+      ],
+      "outcome": -9.879999999999999
+    },
+    {
+      "row": 87,
+      "predictors": [
+        -7,
+        -7
+      ],
+      "outcome": 4.5600000000000005
+    },
+    {
+      "row": 88,
+      "predictors": [
+        -6,
+        0
+      ],
+      "outcome": 0.03
+    },
+    {
+      "row": 89,
+      "predictors": [
+        -5,
+        7
+      ],
+      "outcome": -4.500000000000001
+    },
+    {
+      "row": 90,
+      "predictors": [
+        -4,
+        -9
+      ],
+      "outcome": 9.94
+    },
+    {
+      "row": 91,
+      "predictors": [
+        -3,
+        -2
+      ],
+      "outcome": 5.409999999999999
+    },
+    {
+      "row": 92,
+      "predictors": [
+        -2,
+        5
+      ],
+      "outcome": 0.88
+    },
+    {
+      "row": 93,
+      "predictors": [
+        -1,
+        -11
+      ],
+      "outcome": 15.32
+    },
+    {
+      "row": 94,
+      "predictors": [
+        0,
+        -4
+      ],
+      "outcome": 10.79
+    },
+    {
+      "row": 95,
+      "predictors": [
+        1,
+        3
+      ],
+      "outcome": 6.26
+    },
+    {
+      "row": 96,
+      "predictors": [
+        2,
+        10
+      ],
+      "outcome": 1.73
+    },
+    {
+      "row": 97,
+      "predictors": [
+        3,
+        -6
+      ],
+      "outcome": 16.17
+    },
+    {
+      "row": 98,
+      "predictors": [
+        4,
+        1
+      ],
+      "outcome": 11.639999999999999
+    },
+    {
+      "row": 99,
+      "predictors": [
+        5,
+        8
+      ],
+      "outcome": 7.109999999999999
+    },
+    {
+      "row": 100,
+      "predictors": [
+        6,
+        -8
+      ],
+      "outcome": 21.549999999999997
+    },
+    {
+      "row": 101,
+      "predictors": [
+        7,
+        -1
+      ],
+      "outcome": 17.02
+    },
+    {
+      "row": 102,
+      "predictors": [
+        8,
+        6
+      ],
+      "outcome": 12.489999999999998
+    },
+    {
+      "row": 103,
+      "predictors": [
+        -8,
+        -10
+      ],
+      "outcome": 5.68
+    },
+    {
+      "row": 104,
+      "predictors": [
+        -7,
+        -3
+      ],
+      "outcome": 1.1500000000000004
+    },
+    {
+      "row": 105,
+      "predictors": [
+        -6,
+        4
+      ],
+      "outcome": -3.3800000000000003
+    },
+    {
+      "row": 106,
+      "predictors": [
+        -5,
+        11
+      ],
+      "outcome": -7.340000000000001
+    },
+    {
+      "row": 107,
+      "predictors": [
+        -4,
+        -5
+      ],
+      "outcome": 6.53
+    },
+    {
+      "row": 108,
+      "predictors": [
+        -3,
+        2
+      ],
+      "outcome": 2.0
+    },
+    {
+      "row": 109,
+      "predictors": [
+        -2,
+        9
+      ],
+      "outcome": -1.9600000000000002
+    },
+    {
+      "row": 110,
+      "predictors": [
+        -1,
+        -7
+      ],
+      "outcome": 11.910000000000002
+    },
+    {
+      "row": 111,
+      "predictors": [
+        0,
+        0
+      ],
+      "outcome": 7.38
+    },
+    {
+      "row": 112,
+      "predictors": [
+        1,
+        7
+      ],
+      "outcome": 3.4199999999999995
+    },
+    {
+      "row": 113,
+      "predictors": [
+        2,
+        -9
+      ],
+      "outcome": 17.29
+    },
+    {
+      "row": 114,
+      "predictors": [
+        3,
+        -2
+      ],
+      "outcome": 12.76
+    },
+    {
+      "row": 115,
+      "predictors": [
+        4,
+        5
+      ],
+      "outcome": 8.23
+    },
+    {
+      "row": 116,
+      "predictors": [
+        5,
+        -11
+      ],
+      "outcome": 22.67
+    },
+    {
+      "row": 117,
+      "predictors": [
+        6,
+        -4
+      ],
+      "outcome": 18.14
+    },
+    {
+      "row": 118,
+      "predictors": [
+        7,
+        3
+      ],
+      "outcome": 13.61
+    },
+    {
+      "row": 119,
+      "predictors": [
+        8,
+        10
+      ],
+      "outcome": 9.65
+    },
+    {
+      "row": 120,
+      "predictors": [
+        -8,
+        -6
+      ],
+      "outcome": 2.270000000000001
+    },
+    {
+      "row": 121,
+      "predictors": [
+        -7,
+        1
+      ],
+      "outcome": -2.26
+    },
+    {
+      "row": 122,
+      "predictors": [
+        -6,
+        8
+      ],
+      "outcome": -6.220000000000001
+    },
+    {
+      "row": 123,
+      "predictors": [
+        -5,
+        -8
+      ],
+      "outcome": 7.65
+    },
+    {
+      "row": 124,
+      "predictors": [
+        -4,
+        -1
+      ],
+      "outcome": 3.1199999999999997
+    },
+    {
+      "row": 125,
+      "predictors": [
+        -3,
+        6
+      ],
+      "outcome": -0.8400000000000007
+    },
+    {
+      "row": 126,
+      "predictors": [
+        -2,
+        -10
+      ],
+      "outcome": 13.03
+    },
+    {
+      "row": 127,
+      "predictors": [
+        -1,
+        -3
+      ],
+      "outcome": 8.5
+    },
+    {
+      "row": 128,
+      "predictors": [
+        0,
+        4
+      ],
+      "outcome": 4.54
+    },
+    {
+      "row": 129,
+      "predictors": [
+        1,
+        11
+      ],
+      "outcome": 0.009999999999999287
+    },
+    {
+      "row": 130,
+      "predictors": [
+        2,
+        -5
+      ],
+      "outcome": 13.88
+    },
+    {
+      "row": 131,
+      "predictors": [
+        3,
+        2
+      ],
+      "outcome": 9.92
+    },
+    {
+      "row": 132,
+      "predictors": [
+        4,
+        9
+      ],
+      "outcome": 5.39
+    },
+    {
+      "row": 133,
+      "predictors": [
+        5,
+        -7
+      ],
+      "outcome": 19.26
+    },
+    {
+      "row": 134,
+      "predictors": [
+        6,
+        0
+      ],
+      "outcome": 14.73
+    },
+    {
+      "row": 135,
+      "predictors": [
+        7,
+        7
+      ],
+      "outcome": 10.769999999999998
+    },
+    {
+      "row": 136,
+      "predictors": [
+        8,
+        -9
+      ],
+      "outcome": 24.64
+    },
+    {
+      "row": 137,
+      "predictors": [
+        -8,
+        -2
+      ],
+      "outcome": -1.14
+    },
+    {
+      "row": 138,
+      "predictors": [
+        -7,
+        5
+      ],
+      "outcome": -5.1
+    },
+    {
+      "row": 139,
+      "predictors": [
+        -6,
+        -11
+      ],
+      "outcome": 8.770000000000001
+    },
+    {
+      "row": 140,
+      "predictors": [
+        -5,
+        -4
+      ],
+      "outcome": 4.24
+    },
+    {
+      "row": 141,
+      "predictors": [
+        -4,
+        3
+      ],
+      "outcome": 0.27999999999999964
+    },
+    {
+      "row": 142,
+      "predictors": [
+        -3,
+        10
+      ],
+      "outcome": -4.25
+    },
+    {
+      "row": 143,
+      "predictors": [
+        -2,
+        -6
+      ],
+      "outcome": 9.620000000000001
+    },
+    {
+      "row": 144,
+      "predictors": [
+        -1,
+        1
+      ],
+      "outcome": 5.66
+    },
+    {
+      "row": 145,
+      "predictors": [
+        0,
+        8
+      ],
+      "outcome": 1.1299999999999997
+    },
+    {
+      "row": 146,
+      "predictors": [
+        1,
+        -8
+      ],
+      "outcome": 15.0
+    },
+    {
+      "row": 147,
+      "predictors": [
+        2,
+        -1
+      ],
+      "outcome": 11.040000000000001
+    },
+    {
+      "row": 148,
+      "predictors": [
+        3,
+        6
+      ],
+      "outcome": 6.509999999999999
+    },
+    {
+      "row": 149,
+      "predictors": [
+        4,
+        -10
+      ],
+      "outcome": 20.38
+    },
+    {
+      "row": 150,
+      "predictors": [
+        5,
+        -3
+      ],
+      "outcome": 16.419999999999998
+    },
+    {
+      "row": 151,
+      "predictors": [
+        6,
+        4
+      ],
+      "outcome": 11.89
+    },
+    {
+      "row": 152,
+      "predictors": [
+        7,
+        11
+      ],
+      "outcome": 7.359999999999999
+    },
+    {
+      "row": 153,
+      "predictors": [
+        8,
+        -5
+      ],
+      "outcome": 21.23
+    },
+    {
+      "row": 154,
+      "predictors": [
+        -8,
+        2
+      ],
+      "outcome": -3.9799999999999995
+    },
+    {
+      "row": 155,
+      "predictors": [
+        -7,
+        9
+      ],
+      "outcome": -8.51
+    },
+    {
+      "row": 156,
+      "predictors": [
+        -6,
+        -7
+      ],
+      "outcome": 5.36
+    },
+    {
+      "row": 157,
+      "predictors": [
+        -5,
+        0
+      ],
+      "outcome": 1.4
+    },
+    {
+      "row": 158,
+      "predictors": [
+        -4,
+        7
+      ],
+      "outcome": -3.1300000000000003
+    },
+    {
+      "row": 159,
+      "predictors": [
+        -3,
+        -9
+      ],
+      "outcome": 10.739999999999998
+    },
+    {
+      "row": 160,
+      "predictors": [
+        -2,
+        -2
+      ],
+      "outcome": 6.779999999999999
+    },
+    {
+      "row": 161,
+      "predictors": [
+        -1,
+        5
+      ],
+      "outcome": 2.25
+    },
+    {
+      "row": 162,
+      "predictors": [
+        0,
+        -11
+      ],
+      "outcome": 16.12
+    },
+    {
+      "row": 163,
+      "predictors": [
+        1,
+        -4
+      ],
+      "outcome": 12.16
+    },
+    {
+      "row": 164,
+      "predictors": [
+        2,
+        3
+      ],
+      "outcome": 7.63
+    },
+    {
+      "row": 165,
+      "predictors": [
+        3,
+        10
+      ],
+      "outcome": 3.1
+    },
+    {
+      "row": 166,
+      "predictors": [
+        4,
+        -6
+      ],
+      "outcome": 17.54
+    },
+    {
+      "row": 167,
+      "predictors": [
+        5,
+        1
+      ],
+      "outcome": 13.01
+    },
+    {
+      "row": 168,
+      "predictors": [
+        6,
+        8
+      ],
+      "outcome": 8.48
+    },
+    {
+      "row": 169,
+      "predictors": [
+        7,
+        -8
+      ],
+      "outcome": 22.919999999999998
+    },
+    {
+      "row": 170,
+      "predictors": [
+        8,
+        -1
+      ],
+      "outcome": 18.39
+    },
+    {
+      "row": 171,
+      "predictors": [
+        -8,
+        6
+      ],
+      "outcome": -7.390000000000001
+    },
+    {
+      "row": 172,
+      "predictors": [
+        -7,
+        -10
+      ],
+      "outcome": 6.48
+    },
+    {
+      "row": 173,
+      "predictors": [
+        -6,
+        -3
+      ],
+      "outcome": 2.5200000000000005
+    },
+    {
+      "row": 174,
+      "predictors": [
+        -5,
+        4
+      ],
+      "outcome": -2.0100000000000002
+    },
+    {
+      "row": 175,
+      "predictors": [
+        -4,
+        11
+      ],
+      "outcome": -6.540000000000001
+    },
+    {
+      "row": 176,
+      "predictors": [
+        -3,
+        -5
+      ],
+      "outcome": 7.9
+    },
+    {
+      "row": 177,
+      "predictors": [
+        -2,
+        2
+      ],
+      "outcome": 3.37
+    },
+    {
+      "row": 178,
+      "predictors": [
+        -1,
+        9
+      ],
+      "outcome": -1.1600000000000001
+    },
+    {
+      "row": 179,
+      "predictors": [
+        0,
+        -7
+      ],
+      "outcome": 13.280000000000001
+    },
+    {
+      "row": 180,
+      "predictors": [
+        1,
+        0
+      ],
+      "outcome": 8.75
+    }
+  ],
+  "trainingRows": [
+    15,
+    23,
+    107,
+    159,
+    119,
+    98,
+    64,
+    177,
+    94,
+    46,
+    82,
+    8,
+    146,
+    100,
+    42,
+    84,
+    85,
+    36,
+    49,
+    31,
+    132,
+    96,
+    59,
+    18,
+    130,
+    58,
+    118,
+    91,
+    1,
+    126,
+    32,
+    68,
+    39,
+    145,
+    52,
+    122,
+    17,
+    56,
+    103,
+    79,
+    43,
+    33,
+    72,
+    22,
+    12,
+    160,
+    137,
+    54,
+    13,
+    163,
+    2,
+    106,
+    92,
+    155,
+    38,
+    9,
+    158,
+    143,
+    80,
+    35,
+    168,
+    37,
+    27,
+    120,
+    93,
+    99,
+    179,
+    156,
+    21,
+    97,
+    26,
+    116,
+    114,
+    157,
+    3,
+    128,
+    55,
+    125,
+    170,
+    162,
+    4,
+    105,
+    90,
+    63,
+    7,
+    73,
+    41,
+    60,
+    67,
+    151,
+    135,
+    178,
+    172,
+    141,
+    10,
+    133,
+    153,
+    180,
+    142,
+    131,
+    75,
+    40,
+    66,
+    44,
+    11,
+    86,
+    89,
+    57,
+    62,
+    150,
+    123,
+    148,
+    139,
+    74,
+    19,
+    111,
+    83,
+    28,
+    101,
+    110,
+    61,
+    69,
+    104,
+    14,
+    129,
+    169,
+    124,
+    5,
+    50,
+    112,
+    6,
+    51,
+    20,
+    176,
+    88,
+    95,
+    149,
+    174,
+    134,
+    30,
+    81,
+    117,
+    71,
+    140
+  ],
+  "holdoutRows": [
+    152,
+    45,
+    53,
+    34,
+    138,
+    166,
+    136,
+    108,
+    77,
+    65,
+    76,
+    115,
+    113,
+    29,
+    16,
+    87,
+    171,
+    173,
+    109,
+    102,
+    24,
+    47,
+    175,
+    161,
+    167,
+    154,
+    127,
+    147,
+    121,
+    165,
+    144,
+    78,
+    70,
+    25,
+    48,
+    164
+  ],
+  "intercept": 7.502282924635775,
+  "coefficients": [
+    1.2528580359759862,
+    -0.7993518182802676
+  ],
+  "standardizedCoefficients": [
+    0.7800773551866325,
+    -0.6842353667205809
+  ],
+  "vif": [
+    1.0052499642023964,
+    1.0052499642023964
+  ],
+  "training": {
+    "rows": 144,
+    "rmse": 0.1645380217400673,
+    "mae": 0.1412979777921261,
+    "baselineRmse": 7.778515066431123,
+    "rSquared": 0.9995525555265055,
+    "adjustedRSquared": 0.999546208796385,
+    "residualMean": 2.110965723210888e-15
+  },
+  "holdout": {
+    "rows": 36,
+    "rmse": 0.16483485940701226,
+    "mae": 0.1456861417232594,
+    "baselineRmse": 8.615538823863632,
+    "rSquared": 0.9996317414057287,
+    "adjustedRSquared": null,
+    "residualMean": -0.018617972043350653
+  }
+}

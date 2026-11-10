@@ -1,0 +1,17 @@
+# Inspect storage by study and historical version
+
+The workspace storage panel now attributes the current compact save text to three nonoverlapping groups: current study-library records, complete historical snapshot records, and the remaining workspace/report content. Each snapshot total includes its captured studies, report content and assets. The study-copy inventory also shows historical copies as a breakdown, so those values should not be added to their snapshot totals again.
+
+Two inventory views show study copies and local snapshots, with case-insensitive search, largest-first or name ordering, and ten visible records per page. Filtering and paging operate on cached measurement summaries and do not reserialize the workspace. Coverage still distinguishes stored rows/fields from declared dimensions, including remote previews. The size difference from the last saved text is a size comparison; equal size does not establish equal content. Loading can normalize metadata and change projected save text without pending edits.
+
+Snapshot review links use a computed local hash path, never the snapshot's stored destination. A link requires unique identities in the measured and stored snapshot lists, an exact serialized match for the captured snapshot record, encodable identifiers and displayable metadata. Links are disabled while the measurement is stale, storage cannot be read, no saved copy is available, or the existing save session has pending work. Unverified versions remain inspectable without a direct link. This is version matching, not comprehensive backup validation or cross-tab synchronization.
+
+Keyboard paging moves focus to the new result range when the paging control owns focus. A disappearing focused version link hands focus to the persistent search field. Deliberate blur and unrelated focus are respected. If a failed measurement removes the inventory, its displaced focus returns to the measurement button. Search, sorting and browsing never write storage.
+
+## Verification and limits
+
+Tests compare category and per-snapshot sizes against the actual compact text written by the existing saver, including a 1,000-row, 30-field synthetic study, Unicode metadata and large embedded report assets. They cover ambiguous identities, changed/unacknowledged versions, malformed stored metadata, remote preview coverage, paging/search/sorting, failure focus and a genuine quota failure followed by the existing save-session retry. The actual App journey opens a captured local snapshot, verifies the historical mean and source version, and cold reopens while preserving exact browser-save bytes, the current study, draft and historical snapshot. All data is fabricated; no live services are called.
+
+Text estimates still use two bytes per UTF-16 code unit. Browser-managed origin estimates remain separate from the localStorage limit, and a low estimate never guarantees a successful save. Measurement remains explicit and synchronous; bounded rendering does not make serialization or measurement a background operation. Strict version matching can leave older normalized records without direct inventory links. Native browser, screen-reader, touch and live-backend acceptance remain unverified.
+
+The existing saver, row codec, schema, backup and recovery behavior are unchanged. This feature does not delete or deduplicate datasets or snapshots, activate restore/recovery, request persistence permission, publish a report, or provide cross-device storage. Goal 4 remains partial.

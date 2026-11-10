@@ -1,0 +1,20 @@
+import { expect, it } from "vitest";
+import { importDatasetBuffer } from "../datasetImportModel";
+
+import { sav, concat, numeric, expected } from "./fixtures/savCaseFixture";
+
+async function read(buffer: ArrayBuffer) { const bytes = new Uint8Array(buffer).slice(); const result = await importDatasetBuffer(buffer, "synthetic-case-integrity.sav", "sav"); expect(new Uint8Array(buffer)).toEqual(bytes); return result; }
+
+it.each([0, 1])("preserves complete ordinary compression %s cases", async compression => { const result = await read(sav(compression)); expect(result.error).toBeUndefined(); expect(result.dataset?.rows).toEqual(expected); expect(result.dataset?.rowCount).toBe(3); });
+it.each([1, 7, 8, 9, 15, 16, 17, 47, 48])("refuses declared uncompressed rows after %s missing bytes", async missing => { const source = sav(); const result = await read(source.slice(0, source.byteLength - missing)); expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/SAV.*(incomplete|truncated)/i); });
+it.each([1, 7, 9, 15])("refuses unknown-count uncompressed partial cases missing %s bytes", async missing => { const source = sav(0, -1); const result = await read(source.slice(0, source.byteLength - missing)); expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/SAV.*(incomplete|truncated)/i); });
+it("keeps unknown-count whole-case boundaries valid", async () => { const source = sav(0, -1); expect((await read(source)).dataset?.rows).toEqual(expected); expect((await read(source.slice(0, source.byteLength - 16))).dataset?.rows).toEqual(expected.slice(0, 2)); });
+it.each([3, -1])("refuses a partial compressed case before terminator (count %s)", async count => { const result = await read(sav(1, count, new Uint8Array([101, 110, 102, 252, 0, 0, 0, 0]))); expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/SAV.*(incomplete|truncated)/i); });
+it("refuses compressed terminator before declared whole-case count", async () => { const result = await read(sav(1, 3, new Uint8Array([101, 110, 102, 120, 252, 0, 0, 0]))); expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/SAV.*(incomplete|truncated)/i); });
+it.each([3, -1])("refuses truncated compressed raw-value payload (count %s)", async count => { const data = concat(new Uint8Array([101, 110, 253, 120, 103, 130, 252, 0]), numeric(2).slice(0, 5)); const result = await read(sav(1, count, data)); expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/SAV.*(incomplete|truncated)/i); });
+it.each([3, -1])("refuses an incomplete compressed control block (count %s)", async count => { const result = await read(sav(1, count, new Uint8Array([101, 110, 102, 120]))); expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/SAV.*(incomplete|truncated)/i); });
+it.each([3, -1])("preserves complete raw compressed values and clean endings (count %s)", async count => { const data = concat(new Uint8Array([101, 110, 253, 120, 103, 130, 252, 0]), numeric(2)); expect((await read(sav(1, count, data))).dataset?.rows).toEqual(expected); });
+it("accepts unknown compressed EOF at a full-case boundary without terminator", async () => { expect((await read(sav(1, -1, new Uint8Array([101, 110, 102, 120, 103, 130, 0, 0])))).dataset?.rows).toEqual(expected); });
+it("retains metadata-only compatibility for unsupported ZLIB compression", async () => { const result = await read(sav(2)); expect(result.error).toBeUndefined(); expect(result.dataset?.rowCount).toBe(0); expect(result.dataset?.fields.map(field => field.sourceColumn)).toEqual(["ID", "AMOUNT"]); expect(result.dataset?.notes.join(" ")).toContain("not supported yet"); });
+
+it.each([0, -1, -2147483648])("refuses invalid physical case width %s without entering the reader",async width=>{const buffer=sav();new DataView(buffer).setInt32(68,width,true);const result=await read(buffer);expect(result.dataset).toBeUndefined();expect(result.errorCode).toBe("sav_case_integrity");expect(result.error).toContain("case width is invalid");});

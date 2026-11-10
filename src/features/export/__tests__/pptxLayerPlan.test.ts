@@ -1,0 +1,32 @@
+import { expect, it } from "vitest";
+import { dotPlotFixture } from "../../analytics/__tests__/dotPlotFixture";
+import { initialDashboard } from "../../document/documentSeeds";
+import { planPptxLayers, pptxLayerLimits } from "../pptxLayerPlan";
+import { buildPptxBlob } from "../coreDocumentExports";
+import { buildPageVisualSvg } from "../pageVisualExport";
+import { buildReportPreflight } from "../reportPreflight";
+
+async function fixture(native=false) {
+ const {draft,tile}=await dotPlotFixture();
+ tile.visualization=native?'grouped_bar':'table'; tile.query.chartType=tile.visualization; tile.result.query.chartType=tile.visualization; tile.layout.zIndex=10;tile.appearance.showValueLabels=false;
+ const page=draft.pages[0];
+ const shape={...structuredClone(initialDashboard.pages[0].elements[0]),id:'backdrop',name:'Backdrop',type:'rectangle' as const,content:'',layout:{x:20,y:20,width:1220,height:700,zIndex:0}};
+ page.elements=[shape];return{draft,page,tile,shape};
+}
+async function parts(blob:Blob){const bytes=new Uint8Array(await blob.arrayBuffer()),v=new DataView(bytes.buffer),out=new Map<string,string>();let offset=0;while(v.getUint32(offset,true)===0x04034b50){expect(v.getUint16(offset+8,true)).toBe(0);const size=v.getUint32(offset+18,true),n=v.getUint16(offset+26,true),extra=v.getUint16(offset+28,true),start=offset+30+n+extra;out.set(new TextDecoder().decode(bytes.subarray(offset+30,offset+30+n)),new TextDecoder().decode(bytes.subarray(start,start+size)));offset=start+size;}return out;}
+// This tiny structural raster is only a ZIP/XML routing probe, not image fidelity evidence.
+const tinyJpeg='data:image/jpeg;base64,/9j/2Q==';
+it('keeps an overlapping backdrop and table in their complete rendered order without changing data',async()=>{const{page}=await fixture(),before=structuredClone(page);expect(planPptxLayers(page)).toMatchObject({mode:'complete_visual',objectId:'backdrop',coveredObjectId:page.tiles[0].id});expect(page).toEqual(before);});
+it.each(['above','separate','touching','hidden'] as const)('retains editable objects for %s geometry',async mode=>{const{page,shape}=await fixture();if(mode==='above')shape.layout.zIndex=20;if(mode==='separate')shape.layout.x=1241;if(mode==='touching')shape.layout.x=1240;if(mode==='hidden')shape.hidden=true;expect(planPptxLayers(page)).toEqual({mode:'hybrid'});});
+it('matches the stable elements-before-tiles tie ordering',async()=>{const{page,shape}=await fixture();shape.layout.zIndex=10;expect(planPptxLayers(page).mode).toBe('complete_visual');});
+it('retains editable versus editable ordering',async()=>{const{page,shape}=await fixture();page.tiles=[];page.elements.push({...structuredClone(shape),id:'upper',layout:{...shape.layout,zIndex:20}});expect(planPptxLayers(page)).toEqual({mode:'hybrid'});});
+it('ignores a hidden overlapping analysis',async()=>{const{page,tile}=await fixture();tile.hidden=true;expect(planPptxLayers(page)).toEqual({mode:'hybrid'});});
+it('protects a higher raster tile from a lower native chart body',async()=>{const{page,tile}=await fixture(true);page.elements=[];page.tiles.push({...structuredClone(tile),id:'upper-table',visualization:'table',layout:{...tile.layout,zIndex:20}});expect(planPptxLayers(page).mode).toBe('complete_visual');});
+it('protects the raster context of a higher native chart',async()=>{const{page,tile}=await fixture(true);page.elements=[];page.tiles.push({...structuredClone(tile),id:'upper-native',layout:{...tile.layout,zIndex:20}});expect(planPptxLayers(page).mode).toBe('complete_visual');});
+it('retains a higher native chart over a lower raster tile',async()=>{const{page,tile}=await fixture(true);page.elements=[];page.tiles.unshift({...structuredClone(tile),id:'lower-table',visualization:'table',layout:{...tile.layout,zIndex:0}});expect(planPptxLayers(page)).toEqual({mode:'hybrid'});});
+it('retains a native chart below a foreground editable object',async()=>{const{page,shape}=await fixture(true);shape.layout.zIndex=20;expect(planPptxLayers(page)).toEqual({mode:'hybrid'});});
+it('uses a bounded conservative fallback instead of an unbounded pair search',async()=>{const{page,shape}=await fixture();page.elements=Array.from({length:pptxLayerLimits.objects+1},(_,i)=>({...shape,id:String(i)}));expect(planPptxLayers(page)).toMatchObject({mode:'complete_visual',reason:expect.stringContaining('bounded')});});
+it.each([NaN,Infinity,-Infinity])('refuses to assert hybrid geometry for %s',async x=>{const{page,shape}=await fixture();shape.layout.x=x;expect(planPptxLayers(page).mode).toBe('complete_visual');});
+it('discloses the editability tradeoff in read-only preflight',async()=>{const{draft}=await fixture(),before=structuredClone(draft),review=buildReportPreflight(draft);expect(review[0].issues).toContainEqual(expect.objectContaining({check:'PowerPoint layers',objectId:'backdrop',message:expect.stringContaining('will not contain native editable objects')}));expect(review[0].pdfSvg).toBe(buildPageVisualSvg(draft.pages[0]));expect(draft).toEqual(before);});
+it('exports the complete composition without duplicate editable overlays',async()=>{const{page}=await fixture(),before=structuredClone(page),svgs:string[]=[];const zip=await parts(await buildPptxBlob([page],async svg=>{svgs.push(svg);return tinyJpeg;}));expect(svgs).toEqual([buildPageVisualSvg(page)]);expect(zip.get('ppt/slides/slide1.xml')).toContain('<p:pic>');expect(zip.get('ppt/slides/slide1.xml')).not.toContain('<p:sp>');expect(zip.get('ppt/slides/slide1.xml')).not.toContain('<p:graphicFrame>');expect(page).toEqual(before);});
+it('plans each page separately even for shared object references and keeps native chart IDs contiguous',async()=>{const first=await fixture(true),shape=first.shape;const second={...first.page,id:'second',order:first.page.order+1,elements:[shape],tiles:[]};const svgs:string[]=[];const zip=await parts(await buildPptxBlob([first.page,second],async svg=>{svgs.push(svg);return tinyJpeg;}));expect(svgs[0]).toBe(buildPageVisualSvg(first.page));expect(zip.get('ppt/slides/slide1.xml')).not.toContain('<p:sp>');expect(zip.get('ppt/slides/slide2.xml')).toContain('<p:sp>');const third=await fixture(true);third.page.id='third';third.page.order=second.order+1;third.page.elements=[];const out=await parts(await buildPptxBlob([first.page,third.page],async()=>tinyJpeg));expect(out.has('ppt/charts/chart1.xml')).toBe(true);expect(out.has('ppt/charts/chart2.xml')).toBe(false);expect(out.get('ppt/slides/_rels/slide2.xml.rels')).toContain('chart1.xml');});

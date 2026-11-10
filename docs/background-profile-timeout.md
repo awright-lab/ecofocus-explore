@@ -1,0 +1,11 @@
+# Background field summary timeout
+
+Numeric and category field summaries now stop an unresponsive background job with a scheduled30second watchdog. The shared job clears its preparation/deadline timers, removes its abort listener and terminates the worker through the existing completion path. A clear error uses the existing Retry summary control. Late results from a timed-out job are ignored; retry starts a fresh job. No synchronous calculation fallback is added.
+
+The watchdog covers asynchronous preparation and worker calculation. It is an event-loop timer, not a hard real-time or memory guarantee; browser throttling or a blocked main thread can delay its callback. Small synchronous profiles and existing numerical/category calculations are unchanged. No new data transformation, storage write, study binding or server behavior is introduced.
+
+Verification covers both profile kinds using5000synthetic responses:29,999milliseconds remains pending and30,000triggers refusal under the virtual clock; ordinary completion, manual cancellation, partial data, post/message/runtime failures and malformed output clear timers. Component tests check focused retry, late-result rejection, successful retry and no focus theft after outside focus or explicit blur. Existing field, overflow, cancellation and summary-focus assertions remain unchanged; six setup clocks now advance100milliseconds through preparation rather than draining all future timers, including the new deadline.
+
+An actual App workflow times out and retries both profiles, preserves the selected report, full source rows and published snapshots, guards canvas deletion while retry owns focus and cold reopens exact report/source/snapshot data. It uses real authoring, analysis and save modules with a deterministic worker transport and injected watchdog callbacks. The separate job tests verify elapsed-clock behavior. This is not native browser timer/Worker acceptance, assistive-technology testing or live backend verification.
+
+Original data and cached report results are preserved. This is scoped progress toward large-study responsiveness and accessible authoring; it does not complete the broader performance or accessibility goals. Existing recovery/restore activation, publication and security restrictions remain unchanged.

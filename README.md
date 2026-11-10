@@ -1,5 +1,10 @@
 # EcoFocus Explore
 
+For the verified implementation baseline, beta risks, and prioritized next work,
+see the [beta readiness audit](docs/beta-readiness-audit.md). Some phase summaries
+below predate the implemented Snowflake executor and PPTX/PDF/XLSX exports;
+implementation presence does not establish live-provider or export acceptance.
+
 EcoFocus Explore is a separate analytics workspace for EcoFocus: part survey analysis studio, part report/presentation builder.
 
 The product is intentionally being built as a parallel environment so the team can experiment safely without touching the existing EcoFocus production portal.

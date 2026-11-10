@@ -1,0 +1,6 @@
+.dot-plot-view{height:100%;min-height:0;display:flex;flex-direction:column;gap:8px;color:#243343;font-size:12px}
+.dot-plot-view>p{margin:0;line-height:1.5}
+.dot-plot-scroll{overflow:auto;min-height:0;border:1px solid #cbd5e1;border-radius:8px;background:transparent}
+.dot-plot-scroll:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+.dot-plot-scroll>svg{display:block;max-width:none;flex:none}
+.dot-plot-view>button{align-self:flex-start;flex:none}

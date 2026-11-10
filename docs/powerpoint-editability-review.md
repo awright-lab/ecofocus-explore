@@ -1,0 +1,7 @@
+# PowerPoint composition review
+
+The existing export review now lists the selected page's planned editable text/shapes, editable chart bodies, and image-only objects. It uses the same layer policy and object/chart eligibility predicates as the PowerPoint writer. Hidden objects are excluded. Overlap or the bounded layer policy can make an entire slide image-only; this is explicitly disclosed. Object details are omitted above the existing 500-object inspection limit.
+
+The slide image retains the background, chart titles/context, and unsupported bodies. An editable chart body does not mean every surrounding label is editable. This read-only inventory does not render or download files, certify analytical results, or establish Office visual fidelity. Existing analytical, image and layout checks and original export actions remain in place. If eligibility cannot be checked, the existing layer policy conservatively selects a complete slide image and explicitly retains analytical validation. An unreadable page structure yields an unavailable inventory. Neither is export approval.
+
+Tests compare inventory counts to actual generated PPTX slide XML for hybrid, overlap and table compositions using a structural raster stub. That stub is not image-fidelity evidence. Component checks cover page navigation and source preservation. Native browser, screen-reader, Office and operating-system download acceptance remain open; the production build remains blocked by the previously reported EPERM and was not retried.

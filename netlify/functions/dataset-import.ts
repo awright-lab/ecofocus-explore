@@ -4,6 +4,7 @@ import type { Handler } from "@netlify/functions";
 import { createRequire } from "node:module";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../shared/types/dashboard";
 import { importDatasetBuffer, importedFileExtension } from "../../src/features/data/datasetImportModel";
+import { createImportedStudyId } from "../../shared/importedStudyId";
 
 const jsonHeaders = {
   "Content-Type": "application/json"
@@ -64,10 +65,6 @@ function humanizeHeader(value: string) {
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
-}
-
-function datasetId(fileName: string) {
-  return `dataset_${slug(fileName.replace(/\.[^.]+$/, ""))}_${Date.now().toString(36)}`;
 }
 
 function objectPath(dataset: ImportedDatasetRecord, fileName: string) {
@@ -201,7 +198,7 @@ async function parseSavWithSavReader(fileBuffer: Buffer, fileName: string): Prom
   });
 
   return {
-    id: datasetId(fileName),
+    id: createImportedStudyId(fileName),
     title: fileName.replace(/\.[^.]+$/, ""),
     sourceType: "local_file",
     fileName,
@@ -229,7 +226,9 @@ async function parseSavWithSavReader(fileBuffer: Buffer, fileName: string): Prom
   };
 }
 
-async function insertDatasetFields(pool: ReturnType<typeof getDatabase>["pool"], datasetId: string, fields: ImportedDatasetField[]) {
+type ImportedDatasetDatabaseClient = Pick<ReturnType<typeof getDatabase>["pool"], "query">;
+
+async function insertDatasetFields(pool: ImportedDatasetDatabaseClient, datasetId: string, fields: ImportedDatasetField[]) {
   await pool.query("delete from imported_dataset_fields where dataset_id = $1", [datasetId]);
 
   for (const field of fields) {
@@ -275,7 +274,7 @@ async function insertDatasetFields(pool: ReturnType<typeof getDatabase>["pool"],
   }
 }
 
-async function insertDatasetRows(pool: ReturnType<typeof getDatabase>["pool"], dataset: ImportedDatasetRecord) {
+async function insertDatasetRows(pool: ImportedDatasetDatabaseClient, dataset: ImportedDatasetRecord) {
   await pool.query("delete from imported_dataset_rows where dataset_id = $1", [dataset.id]);
 
   const chunkSize = 250;
@@ -299,10 +298,12 @@ async function insertDatasetRows(pool: ReturnType<typeof getDatabase>["pool"], d
 async function writeImportedDatasetToDatabase(dataset: ImportedDatasetRecord) {
   try {
     const { pool } = getDatabase();
-    await pool.query("begin");
+    const client = await pool.connect();
+    let releaseError: Error | undefined;
 
     try {
-      await pool.query(
+      await client.query("begin");
+      await client.query(
         `insert into imported_datasets (
           id,
           title,
@@ -349,14 +350,20 @@ async function writeImportedDatasetToDatabase(dataset: ImportedDatasetRecord) {
         ]
       );
 
-      await insertDatasetFields(pool, dataset.id, dataset.fields);
-      await insertDatasetRows(pool, dataset);
-      await pool.query("commit");
+      await insertDatasetFields(client, dataset.id, dataset.fields);
+      await insertDatasetRows(client, dataset);
+      await client.query("commit");
 
       return { stored: true as const };
     } catch (error) {
-      await pool.query("rollback").catch(() => undefined);
+      try {
+        await client.query("rollback");
+      } catch (rollbackError) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error("Imported dataset rollback failed.");
+      }
       throw error;
+    } finally {
+      client.release(releaseError);
     }
   } catch (error) {
     if (error instanceof MissingDatabaseConnectionError) {
@@ -383,6 +390,10 @@ async function buildDatasetForUpload(request: DatasetImportRequest, fileBuffer: 
         fileType
       )
     : { dataset: request.dataset };
+
+  // Recognized case or dictionary integrity failures must not be accepted by
+  // a fallback parser or replaced with supplied browser metadata.
+  if (parseResult.errorCode === "sav_case_integrity") throw new Error(parseResult.error);
 
   if (fileType === "sav" && (!parseResult.dataset || parseResult.dataset.rowCount === 0)) {
     try {

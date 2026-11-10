@@ -1,0 +1,386 @@
+{
+  "calculationInputs": {
+    "version": 1,
+    "method": "local_unweighted_v1",
+    "query": {
+      "dataset": "ecofocus_2025",
+      "question": "Q_PACKAGING_TRUST",
+      "breakBy": "SUMMARY",
+      "filters": [],
+      "weight": null,
+      "metric": "average",
+      "chartType": "table",
+      "confidenceLevel": 0.95,
+      "comparisonMode": "none",
+      "comparisonDatasets": [],
+      "sourceRef": {
+        "id": "imported:dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+        "kind": "imported_file",
+        "provider": "local_file",
+        "label": "synthetic-versioned-source",
+        "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24"
+      },
+      "sourceIdentity": {
+        "kind": "imported",
+        "datasetImportedAt": "2026-11-06T22:52:02.849Z",
+        "audience": {
+          "version": 1,
+          "id": "members",
+          "label": "Members",
+          "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+          "importedAt": "2026-11-06T22:52:02.849Z",
+          "expression": {
+            "kind": "category",
+            "fieldId": "member_6",
+            "sourceColumn": "Member",
+            "values": [
+              "Y"
+            ],
+            "exclude": false
+          }
+        },
+        "measureBaseScope": "cell",
+        "queryKind": "measure",
+        "sourceRef": {
+          "id": "imported:dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+          "kind": "imported_file",
+          "provider": "local_file",
+          "label": "synthetic-versioned-source",
+          "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24"
+        },
+        "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+        "datasetLabel": "synthetic-versioned-source",
+        "primaryFieldId": "region_2",
+        "primaryFieldLabel": "Region",
+        "measureFieldId": "amount_4",
+        "measureFieldLabel": "Amount",
+        "bannerFieldId": "banner_3",
+        "bannerFieldLabel": "Banner",
+        "filterFieldId": "filter_5",
+        "filterFieldLabel": "Filter",
+        "filterValue": "Keep"
+      }
+    },
+    "columns": {
+      "blank_1": "(blank)",
+      "a_2": "A",
+      "b_3": "B"
+    },
+    "rows": {
+      "north_1": {
+        "label": "North",
+        "cells": {
+          "blank_1": {
+            "numerator": 0,
+            "denominator": 0
+          },
+          "a_2": {
+            "numerator": 30,
+            "denominator": 2
+          },
+          "b_3": {
+            "numerator": 100,
+            "denominator": 1
+          }
+        }
+      },
+      "south_2": {
+        "label": "South",
+        "cells": {
+          "blank_1": {
+            "numerator": 40,
+            "denominator": 1
+          },
+          "a_2": {
+            "numerator": 0,
+            "denominator": 0
+          },
+          "b_3": {
+            "numerator": 30,
+            "denominator": 1
+          }
+        }
+      }
+    }
+  },
+  "query": {
+    "dataset": "ecofocus_2025",
+    "question": "Q_PACKAGING_TRUST",
+    "breakBy": "SUMMARY",
+    "filters": [],
+    "weight": null,
+    "metric": "average",
+    "chartType": "table",
+    "confidenceLevel": 0.95,
+    "comparisonMode": "none",
+    "comparisonDatasets": [],
+    "sourceRef": {
+      "id": "imported:dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+      "kind": "imported_file",
+      "provider": "local_file",
+      "label": "synthetic-versioned-source",
+      "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24"
+    },
+    "sourceIdentity": {
+      "kind": "imported",
+      "datasetImportedAt": "2026-11-06T22:52:02.849Z",
+      "audience": {
+        "version": 1,
+        "id": "members",
+        "label": "Members",
+        "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+        "importedAt": "2026-11-06T22:52:02.849Z",
+        "expression": {
+          "kind": "category",
+          "fieldId": "member_6",
+          "sourceColumn": "Member",
+          "values": [
+            "Y"
+          ],
+          "exclude": false
+        }
+      },
+      "measureBaseScope": "cell",
+      "queryKind": "measure",
+      "sourceRef": {
+        "id": "imported:dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+        "kind": "imported_file",
+        "provider": "local_file",
+        "label": "synthetic-versioned-source",
+        "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24"
+      },
+      "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+      "datasetLabel": "synthetic-versioned-source",
+      "primaryFieldId": "region_2",
+      "primaryFieldLabel": "Region",
+      "measureFieldId": "amount_4",
+      "measureFieldLabel": "Amount",
+      "bannerFieldId": "banner_3",
+      "bannerFieldLabel": "Banner",
+      "filterFieldId": "filter_5",
+      "filterFieldLabel": "Filter",
+      "filterValue": "Keep"
+    }
+  },
+  "labels": [
+    "(blank)",
+    "A",
+    "B"
+  ],
+  "series": [
+    {
+      "id": "north_1",
+      "label": "North",
+      "values": [
+        0,
+        15,
+        100
+      ],
+      "bases": [
+        0,
+        2,
+        1
+      ]
+    },
+    {
+      "id": "south_2",
+      "label": "South",
+      "values": [
+        40,
+        0,
+        30
+      ],
+      "bases": [
+        1,
+        0,
+        1
+      ]
+    }
+  ],
+  "columns": [
+    {
+      "sourceCategoryKey": "null",
+      "id": "blank_1",
+      "label": "(blank)"
+    },
+    {
+      "sourceCategoryKey": "\"A\"",
+      "id": "a_2",
+      "label": "A"
+    },
+    {
+      "sourceCategoryKey": "\"B\"",
+      "id": "b_3",
+      "label": "B"
+    }
+  ],
+  "table": [
+    {
+      "sourceCategoryKey": "\"North\"",
+      "optionId": "north_1",
+      "label": "North",
+      "values": {
+        "blank_1": 0,
+        "a_2": 15,
+        "b_3": 100
+      },
+      "bases": {
+        "blank_1": 0,
+        "a_2": 2,
+        "b_3": 1
+      },
+      "presentation": {
+        "rowKind": "option",
+        "emphasis": "detail"
+      }
+    },
+    {
+      "sourceCategoryKey": "\"South\"",
+      "optionId": "south_2",
+      "label": "South",
+      "values": {
+        "blank_1": 40,
+        "a_2": 0,
+        "b_3": 30
+      },
+      "bases": {
+        "blank_1": 1,
+        "a_2": 0,
+        "b_3": 1
+      },
+      "presentation": {
+        "rowKind": "option",
+        "emphasis": "detail"
+      }
+    }
+  ],
+  "metric": {
+    "id": "average",
+    "label": "Average Amount",
+    "valueFormat": "number"
+  },
+  "weighting": {
+    "applied": false,
+    "id": null,
+    "label": "Unweighted"
+  },
+  "annotations": [],
+  "statistics": {
+    "confidenceLevel": 0.95,
+    "significanceMethod": "none",
+    "significanceExecutionPlan": {
+      "status": "not_applicable",
+      "candidateMethod": "none",
+      "queryShapeSupported": false,
+      "providerCanExecute": false,
+      "executionInputContract": null,
+      "reasonCodes": [
+        "summary_only",
+        "no_comparison_basis"
+      ],
+      "unmetPrerequisites": [
+        "comparison_basis"
+      ]
+    },
+    "significanceExecutionInput": null,
+    "significanceExecutionReport": null,
+    "significance": {
+      "status": "none",
+      "method": "none",
+      "readiness": {
+        "status": "not_applicable",
+        "method": "none",
+        "reasonCodes": [
+          "summary_only",
+          "no_comparison_basis"
+        ],
+        "comparisonBasis": "summary"
+      },
+      "reasonCodes": [
+        "summary_only"
+      ],
+      "comparisonBasis": "summary",
+      "hasPlaceholders": false,
+      "details": []
+    }
+  },
+  "warnings": [
+    "Unavailable averages have no valid numeric observations in that cell. They are not zero estimates.",
+    "Skipped 2 rows without a valid numeric value for Amount.",
+    "Skipped 1 row without an answer for Region."
+  ],
+  "notes": [
+    "Imported dataset: synthetic-versioned-source.",
+    "Aggregated Amount by Region.",
+    "Broken out by Banner.",
+    "Filtered to Filter is Keep.",
+    "Imported-data support is currently limited to one categorical grouping field, one optional breakout, one optional filter, and one optional numeric measure."
+  ],
+  "metadataRefs": {
+    "dataset": "ecofocus_2025",
+    "question": "Q_PACKAGING_TRUST",
+    "breakBy": "SUMMARY",
+    "source": {
+      "kind": "imported",
+      "datasetImportedAt": "2026-11-06T22:52:02.849Z",
+      "audience": {
+        "version": 1,
+        "id": "members",
+        "label": "Members",
+        "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+        "importedAt": "2026-11-06T22:52:02.849Z",
+        "expression": {
+          "kind": "category",
+          "fieldId": "member_6",
+          "sourceColumn": "Member",
+          "values": [
+            "Y"
+          ],
+          "exclude": false
+        }
+      },
+      "measureBaseScope": "cell",
+      "queryKind": "measure",
+      "sourceRef": {
+        "id": "imported:dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+        "kind": "imported_file",
+        "provider": "local_file",
+        "label": "synthetic-versioned-source",
+        "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24"
+      },
+      "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+      "datasetLabel": "synthetic-versioned-source",
+      "primaryFieldId": "region_2",
+      "primaryFieldLabel": "Region",
+      "measureFieldId": "amount_4",
+      "measureFieldLabel": "Amount",
+      "bannerFieldId": "banner_3",
+      "bannerFieldLabel": "Banner",
+      "filterFieldId": "filter_5",
+      "filterFieldLabel": "Filter",
+      "filterValue": "Keep"
+    },
+    "comparisonMode": "none",
+    "comparisonDatasets": []
+  },
+  "localExecution": {
+    "version": 1,
+    "method": "local-analysis-inputs-sha256-v1",
+    "sourceDigest": "4a63463a9343679b24abe91ed9b524071c96931f9416b2f1a0d467f627b2f89d",
+    "datasetId": "dataset_synthetic_versioned_source_mw5kkgpt_2_a6cd42b5-d470-462e-97ae-0ea2092bdf24",
+    "importedAt": "2026-11-06T22:52:02.849Z",
+    "executedAt": "2026-11-06T22:52:02.855Z",
+    "sourceFieldCount": 999,
+    "projectedFieldCount": 5,
+    "coverage": {
+      "sourceRows": 12,
+      "audienceExcluded": 2,
+      "audienceUnknown": 1,
+      "filterExcluded": 1,
+      "missingGrouping": 1,
+      "invalidNumeric": 2,
+      "includedRows": 5
+    },
+    "resultDigest": "dd65a45de41b154e46ad9c559684fac7d854b68b7289fcd9abb8be9cdb7d3b41"
+  }
+}

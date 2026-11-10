@@ -1,0 +1,13 @@
+# Position one box relative to the page
+
+The Position controls now include a collapsed **Align box to page** section for one selected analysis or element. Horizontal left/center/right and vertical top/middle/bottom actions use the existing 1280 x 760 page coordinates. This avoids manually calculating coordinates; each action changes only its own position axis through the existing layout command and can be undone.
+
+Width, height, content, query/result, source metadata, layer order and other objects are unchanged. This is separate from the protected multi-selection alignment implementation. It is independent of canvas zoom and grid snapping. Already aligned boxes issue no new command after their current geometry is rendered.
+
+Locked items and unfinished numeric edits block alignment. Pointer activation of a blocked action retains a numeric draft; Enter/blur can commit it and Escape cancels it through the existing numeric editor. Persistent aria-disabled buttons retain focus as an action becomes unavailable. Collapsing the section transfers focus from an internal action to its summary only when that action still owns focus; outside focus and deliberate blur are respected.
+
+Geometry must be finite, positive-sized and in the supported range. Chart boxes below the shared 320 x 220 rendered minimum are refused rather than aligning a stored size that differs from the frame. Small element boxes remain supported. Alignment does not resize an oversized box: far-edge/center positions may be negative, and the UI explicitly warns that containment is not guaranteed. The separate Fit box action is available when containment is wanted. This positions the declared box, not its glyphs, shadows, chart marks, footnotes or exported paint bounds.
+
+Synthetic tests cover six exact anchors, fractional coordinates, oversized and malformed geometry, repeated-action refusal, chart minima versus element sizes, signed zero, staged entries, locks, current props, focus/no-focus-theft and unconfirmed commands. An actual App test exercises chart/text selection, Undo/Redo, keyboard guards, failed localStorage save with retained pending work, Retry and same-process reopen while comparing the complete expected draft, imported study and published history.
+
+Native browser visuals, screen readers, touch, focus scrolling, export fidelity and Office/download behavior remain unverified. The save refusal is simulated; real quota, process termination, multi-tab and arbitrary asynchronous-writer acceptance are not established. No responsive content layout or original-goal completion is claimed: goals 16 and 33 remain partial. The earlier production-build EPERM is not retried.

@@ -1,0 +1,10 @@
+.narrative-evidence-panel { display:grid; gap:12px; margin-block:16px; padding:16px; border:1px solid #cbd8d0; border-radius:12px; background:#f6faf7; }
+.narrative-evidence-panel h2,.narrative-evidence-panel p { margin:0; }
+.narrative-evidence-panel ul { padding-left:18px; display:grid; gap:14px; }
+.narrative-evidence-panel li { overflow-wrap:anywhere; }
+.narrative-evidence-panel pre { max-height:240px; overflow:auto; white-space:pre-wrap; font-size:12px; }
+.narrative-evidence-panel label { display:grid; gap:6px; margin-block:10px; }
+.narrative-evidence-panel button { white-space:normal; min-height:36px; margin:3px; }
+.narrative-warning { color:#75440b; background:#fff2d7; border:1px solid #c9953d; padding:10px; border-radius:8px; }
+.narrative-current { color:#20523c; background:#e8f4ed; padding:10px; border-radius:8px; }
+.narrative-review-badge { display:block; font:600 14px/1.4 Arial,sans-serif; color:#75440b; background:#fff2d7; padding:5px 8px; margin-bottom:6px; border:1px solid #c9953d; border-radius:5px; }

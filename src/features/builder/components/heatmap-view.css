@@ -1,0 +1,12 @@
+.heatmap-view{display:flex;flex-direction:column;gap:8px;min-height:0;height:100%;font-size:12px;color:#243343}
+.heatmap-key{margin:0;line-height:1.5}
+.heatmap-scroll{overflow:auto;min-height:0;max-height:100%;border:1px solid #cbd5e1;border-radius:8px}
+.heatmap-scroll:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+.heatmap-scroll table{border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;min-width:480px}
+.heatmap-scroll caption{text-align:left;padding:8px;font-size:12px}
+.heatmap-scroll th,.heatmap-scroll td{padding:8px;min-width:82px;overflow-wrap:anywhere;text-align:center;vertical-align:middle}
+.heatmap-scroll th{background:#f8fafc;color:#0f172a;font-weight:600}
+.heatmap-scroll tbody th{text-align:left}
+.heatmap-scroll td strong,.heatmap-scroll td small{display:block;line-height:1.4}
+.heatmap-scroll td small{font-size:11px;margin-top:3px}
+.heatmap-view>button{align-self:flex-start;flex:none}

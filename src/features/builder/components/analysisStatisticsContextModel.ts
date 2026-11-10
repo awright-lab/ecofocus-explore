@@ -1,3 +1,4 @@
+import { inferenceSafetyMessage, unsupportedInferenceReason, withSafeInference } from "../../../../shared/analytics/inferenceSafety";
 import type { AnalyticsSignificanceResult, ConfidenceLevel, SignificanceMethod, SignificanceReasonCode } from "../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 import { datasets } from "../builderConstants";
@@ -139,7 +140,9 @@ function significanceReasonLabel(reasonCode: SignificanceReasonCode) {
     no_comparison_basis: "No comparison basis",
     insufficient_base: "Insufficient base",
     future_method: "Future method scaffold",
-    invalid_execution_input: "Invalid execution input"
+    invalid_execution_input: "Invalid execution input",
+    weighted_inference_unsupported: "Weighted inference unavailable: survey design and variance information required",
+    inference_precision_unverified: "Significance requires unrounded estimates; rerun analysis"
   };
   return labels[reasonCode];
 }
@@ -240,6 +243,12 @@ function buildSignificanceEligibility(tile: DashboardTile): AnalysisSignificance
 
 function buildBaseDiagnostics(tile: DashboardTile): AnalysisBaseDiagnosticsView {
   const result = tile.result;
+  if (result.weighting.applied || result.query.weight) return {
+    status: "unavailable", label: "Respondent sample size unavailable",
+    message: "Displayed weighted totals are not respondent sample sizes.",
+    helper: "No survey variance or effective sample size can be inferred from a weighted total alone.",
+    chips: ["Weighted totals", "No inference"], notes: []
+  };
   const bases = result.table
     .flatMap((row) => Object.values(row.bases))
     .filter((base) => base > 0)
@@ -484,6 +493,7 @@ function buildComparisonDiagnostics(tile: DashboardTile): AnalysisComparisonDiag
 }
 
 export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisStatisticsContextView {
+  tile = { ...tile, result: withSafeInference(tile.result) };
   const queryConfidence = tile.query.confidenceLevel ?? 0.95;
   const resultConfidence = tile.result.statistics?.confidenceLevel ?? tile.result.query.confidenceLevel ?? queryConfidence;
   const confidenceChangedSinceRefresh = resultConfidence !== queryConfidence;
@@ -508,6 +518,15 @@ export function buildAnalysisStatisticsContext(tile: DashboardTile): AnalysisSta
   const executionDiagnostics = buildExecutionDiagnostics(tile);
   const baseDiagnostics = buildBaseDiagnostics(tile);
   const comparisonDiagnostics = buildComparisonDiagnostics(tile);
+
+  const unsupported = unsupportedInferenceReason(tile.result);
+  if (unsupported) return {
+    status: "none", label: "Significance unavailable", currentConfidenceLabel, resultConfidenceLabel,
+    confidenceChangedSinceRefresh, refreshCue, eligibility, executionDiagnostics, baseDiagnostics, comparisonDiagnostics,
+    significanceLabel: "No significance testing", message: inferenceSafetyMessage(unsupported),
+    helper: "Estimates remain available. No p-values, confidence claims or significance markers are shown.",
+    chips: ["No test performed", "Inference unavailable"]
+  };
 
   if (significance.hasPlaceholders || significance.status === "placeholder") {
     return {

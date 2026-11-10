@@ -1,6 +1,17 @@
-import { useMemo, useState } from "react";
+import { localAnalysisLimits } from "../../data/localAnalysisModel";
+import type { LocalAnalysisProgress } from "../../data/localAnalysisJob";
+import { formatPercentageSample } from "../../../../shared/analytics/percentagePrecision";
+import { researchSearchMatcher } from "../../data/researchSearch";
+import { analysisViewRecommendations } from "../../analytics/analysisViewRecommendations";
+import { analyticalCell } from "../../../../shared/analytics/resultCells";
+import { findAnalysisPlacement, type AnalysisDestination } from "../analysisPlacement";
+import { allRespondentsGroupingField, allRespondentsGroupingId, allRespondentsGroupingOption } from "../../data/numericSummaryScope";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useModalAccessibility } from "../hooks/useModalAccessibility";
+import { runMockAnalyticsQuery } from "../../../../shared/mock/analytics";
 import { X } from "lucide-react";
-import { bannerDimensions, comparisonDatasetOptions, defaultDataset, filterDimensions } from "../builderConstants";
+import { bannerDimensions, comparisonDatasetOptions, defaultAppearance, defaultDataset, filterDimensions } from "../builderConstants";
+import { ResultTableBrowser } from "./ResultTableBrowser";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import {
   buildImportedDatasetStructureSummary,
@@ -15,16 +26,24 @@ import {
 import { importedSurveyQuestionPrompt } from "../../data/importedSurveyLabelModel";
 import {
   buildImportedFieldSuitability,
-  buildImportedQueryRecommendations,
+  formatImportedMeasureValue,
   firstImportedDimensionField,
   firstImportedMeasureField,
   getImportedDatasetQuerySupport as getImportedExecutionSupport,
   importedDatasetHasQueryableRows,
+  getImportedFilterChoiceSupport,
   isImportedFieldAnalysisCandidate,
-  importedFieldValues
+  importedFieldChoiceResult
 } from "../../data/importedDatasetAnalytics";
+import { runImportedDatasetQuery, type ImportedDatasetQueryConfig } from "../../data/importedDatasetAnalytics";
+import { immediateGuidedPreviewKey } from "../../data/immediateGuidedPreviewKey";
+import { guidedPreviewLimits } from "../../data/guidedPreviewModel";
+import { useGuidedBackgroundPreview } from "../../data/useGuidedBackgroundPreview";
+import { importedQuerySelectionIssue, importedEmptyFieldOption } from "../../data/importedQuerySelection";
 import type { AnalysisAuthoringPanelProps, GuidedDataQueryLaunchOptions } from "./AnalysisAuthoringPanel";
-import type { BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
+import type { AnalyticsQueryResponse, BreakById, ChartType, FilterFieldId, Metric, QuestionId, WeightId } from "../../../../shared/types/analytics";
+
+import type { DashboardTile, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 
 type GuidedOutputMode = "table" | "chart";
 type ImportedQueryMode = "categorical" | "measure";
@@ -34,17 +53,59 @@ function supportedChartType(chartTypes: ChartType[]) {
   return chartTypes.find((item) => item !== "table") ?? "vertical_bar";
 }
 
+// A field launch carries an explicit modeling choice, including same-ID updates.
+// Apply it only to that study and leave the workspace's dataset/rows untouched.
+function withLaunchFieldSnapshot(dataset: ImportedDatasetRecord | null, launch?: GuidedDataQueryLaunchOptions) {
+  const snapshot = launch?.importedFieldSnapshot;
+  if (!dataset || dataset.id !== launch?.importedDatasetId || !snapshot) return dataset;
+  const exists = dataset.fields.some((field) => field.id === snapshot.id);
+  return { ...dataset, fields: exists
+    ? dataset.fields.map((field) => field.id === snapshot.id ? snapshot : field)
+    : [snapshot, ...dataset.fields] };
+}
+
 export function GuidedDataQueryModal({
   props,
   initialOutputMode = "table",
   launchContext,
-  onClose
+  onClose,
+  onCreated,
+  onStartQuestion
 }: {
   props: AnalysisAuthoringPanelProps;
   initialOutputMode?: GuidedOutputMode;
   launchContext?: GuidedDataQueryLaunchOptions;
   onClose: () => void;
+  onCreated?: (tileId: string) => void;
+  onStartQuestion?: () => void;
 }) {
+  const modalRef = useRef<HTMLElement | null>(null);
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const importedGroupingRef = useRef<HTMLSelectElement | null>(null);
+  const [fieldSearch, setFieldSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [creationMode, setCreationMode] = useState<"foreground" | "background">("foreground");
+  const [creationProgress, setCreationProgress] = useState<LocalAnalysisProgress | null>(null);
+  const creationControl = useRef<AbortController | null>(null);
+  const cancelCreationRef = useRef<HTMLButtonElement | null>(null);
+  const createActionRef = useRef<HTMLButtonElement | null>(null);
+  const creationConfigRef = useRef<ImportedDatasetQueryConfig | null>(null);
+  const [creationError, setCreationError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const currentPageHasRoom = useMemo(() => !props.activePage || findAnalysisPlacement(props.activePage) !== null, [props.activePage]);
+  const [destination, setDestination] = useState<AnalysisDestination>(() => currentPageHasRoom ? "current_page" : "new_page");
+  const destinationAvailable = destination === "new_page" || currentPageHasRoom;
+  const active = useRef(true);
+  const requestSequence = useRef(0);
+  useEffect(() => { active.current = true; return () => { active.current = false; requestSequence.current += 1; creationControl.current?.abort(); }; }, []);
+  function dismiss() { active.current = false; requestSequence.current += 1; creationControl.current?.abort(); onClose(); }
+  function cancelCalculation() {
+    requestSequence.current += 1;
+    creationControl.current?.abort(); creationControl.current = null;
+    setCreating(false); setCreationProgress(null);
+    setCreationError("Background creation canceled. Your setup, report and source were kept.");
+  }
+  useModalAccessibility(modalRef, dismiss);
   const {
     importedDatasets,
     selectedQuestion,
@@ -76,10 +137,11 @@ export function GuidedDataQueryModal({
     addTileFromImportedDatasetField,
     isLoading
   } = props;
-  const launchDatasetBase = importedDatasets.find((dataset) => dataset.id === launchContext?.importedDatasetId) ?? importedDatasets[0] ?? null;
-  const launchDataset = launchDatasetBase && launchContext?.importedFieldSnapshot && !launchDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
-    ? { ...launchDatasetBase, fields: [launchContext.importedFieldSnapshot, ...launchDatasetBase.fields] }
-    : launchDatasetBase;
+  const [importedChartType, setImportedChartType] = useState<ChartType>(chartType === "table" ? "vertical_bar" : chartType);
+  const launchDatasetBase = launchContext?.importedDatasetId
+    ? importedDatasets.find((dataset) => dataset.id === launchContext.importedDatasetId) ?? null
+    : importedDatasets[0] ?? null;
+  const launchDataset = withLaunchFieldSnapshot(launchDatasetBase, launchContext);
   const launchField = launchContext?.importedFieldSnapshot ?? launchDataset?.fields.find((field) => field.id === launchContext?.importedFieldId) ?? null;
   const launchFieldSuitability = launchField ? buildImportedFieldSuitability(launchField) : null;
   const launchFieldCanDriveAnalysis = isImportedFieldAnalysisCandidate(launchField);
@@ -89,21 +151,22 @@ export function GuidedDataQueryModal({
   const launchMeasureField = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure"
     ? launchField
     : firstImportedMeasureField(launchDataset);
-  const launchQueryMode: ImportedQueryMode = launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure" ? "measure" : "categorical";
-  const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded");
-  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? "");
-  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchPrimaryField?.id ?? "");
-  const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState("none");
-  const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState("none");
-  const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState("all");
+  const launchQueryMode: ImportedQueryMode = launchContext?.groupingScope === "all_respondents" || (launchFieldCanDriveAnalysis && launchFieldSuitability?.recommendedQueryMode === "measure") ? "measure" : "categorical";
+  const [datasetMode, setDatasetMode] = useState<"seeded" | "imported">(launchContext?.sourceMode ?? (launchContext?.importedDatasetId || importedDatasets.length ? "imported" : "seeded"));
+  const [selectedImportedDatasetId, setSelectedImportedDatasetId] = useState(launchDataset?.id ?? launchContext?.importedDatasetId ?? "");
+  const [selectedImportedFieldId, setSelectedImportedFieldId] = useState(launchContext?.groupingScope === "all_respondents" ? allRespondentsGroupingId : launchContext?.importedFieldId && launchFieldSuitability?.recommendedQueryMode !== "measure"
+    ? launchField?.id ?? launchContext.importedFieldId : launchPrimaryField?.id ?? "");
+  const [overallSummarySelected, setOverallSummarySelected] = useState(launchContext?.groupingScope === "all_respondents");
+  const [selectedImportedBannerFieldId, setSelectedImportedBannerFieldId] = useState<string | null>(null);
+  const [selectedImportedFilterFieldId, setSelectedImportedFilterFieldId] = useState<string | null>(null);
+  const [selectedImportedFilterValue, setSelectedImportedFilterValue] = useState<string | null>(null);
   const [importedMetric, setImportedMetric] = useState<Metric>(launchQueryMode === "measure" ? "average" : "percent_selected");
   const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>(launchQueryMode);
-  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState(launchMeasureField?.id ?? "none");
+  const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState<string | null>(launchContext?.groupingScope === "all_respondents" && launchContext.importedFieldId ? launchField?.id ?? launchContext.importedFieldId : launchMeasureField?.id ?? null);
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
-  const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? importedDatasets[0] ?? null;
-  const importedDataset = importedDatasetBase && launchContext?.importedFieldSnapshot && importedDatasetBase.id === launchContext.importedDatasetId && !importedDatasetBase.fields.some((field) => field.id === launchContext.importedFieldSnapshot?.id)
-    ? { ...importedDatasetBase, fields: [launchContext.importedFieldSnapshot, ...importedDatasetBase.fields] }
-    : importedDatasetBase;
+  const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? null;
+  const missingRequestedStudy = datasetMode === "imported" && Boolean(selectedImportedDatasetId) && !importedDatasetBase;
+  const importedDataset = useMemo(() => withLaunchFieldSnapshot(importedDatasetBase, launchContext), [importedDatasetBase, launchContext?.importedDatasetId, launchContext?.importedFieldSnapshot]);
   const importedSummary = buildImportedDatasetStructureSummary(importedDataset);
   const importedPrimaryFieldCandidates = importedSummary.fields.filter((field) =>
     (field.type === "categorical" || field.modelingRole === "candidate_dimension") && isImportedFieldAnalysisCandidate(field)
@@ -111,7 +174,10 @@ export function GuidedDataQueryModal({
   const importedPrimaryFields = importedPrimaryFieldCandidates.length
     ? importedPrimaryFieldCandidates
     : importedSummary.fields.filter((field) => field.type === "categorical" || field.modelingRole === "candidate_dimension");
-  const importedField = importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? importedPrimaryFields[0] ?? null;
+  const groupingScope = overallSummarySelected ? "all_respondents" as const : undefined;
+  const overallSummaryOption = allRespondentsGroupingOption(importedDataset?.fields ?? [], overallSummarySelected ? null : selectedImportedFieldId);
+  const allRespondents = useMemo(() => allRespondentsGroupingField(importedDataset), [importedDataset]);
+  const importedField = groupingScope ? allRespondents : importedPrimaryFields.find((field) => field.id === selectedImportedFieldId) ?? null;
   const importedAnswerChoices = importedFieldAnswerChoices(importedField);
   const importedAnswerChoiceSummary = importedFieldAnswerChoiceSummary(importedField);
   const importedQuestionPrompt = importedSurveyQuestionPrompt(importedField);
@@ -121,43 +187,124 @@ export function GuidedDataQueryModal({
   const importedMeasureFields = importedMeasureFieldCandidates.length
     ? importedMeasureFieldCandidates
     : importedSummary.fields.filter((field) => field.type === "numeric" || field.modelingRole === "candidate_measure");
-  const importedBannerFields = importedSummary.banners.filter((field) => field.id !== importedField?.id);
+  const importedBannerFields = importedSummary.banners.filter((field) => Boolean(groupingScope) || field.id !== importedField?.id);
   const importedFilterFields = importedSummary.filters;
   const importedBannerField = importedBannerFields.find((field) => field.id === selectedImportedBannerFieldId) ?? null;
   const importedFilterField = importedFilterFields.find((field) => field.id === selectedImportedFilterFieldId) ?? null;
-  const importedFilterValues = importedFieldValues(importedDataset, importedFilterField);
-  const importedFilter =
-    importedFilterField && selectedImportedFilterValue !== "all"
+  const importedFilterChoices = importedFieldChoiceResult(importedDataset, importedFilterField);
+  const importedFilterValues = importedFilterChoices.values;
+  const importedFilter = useMemo(() =>
+    importedFilterField && selectedImportedFilterValue !== null
       ? { field: importedFilterField, value: selectedImportedFilterValue }
-      : null;
+      : null, [importedFilterField, selectedImportedFilterValue]);
   const importedMeasureField = importedMeasureFields.find((field) => field.id === selectedImportedMeasureFieldId) ?? null;
+  const emptyImportedBannerOption = importedEmptyFieldOption(importedBannerFields, selectedImportedBannerFieldId);
+  const emptyImportedFilterOption = importedEmptyFieldOption(importedFilterFields, selectedImportedFilterFieldId);
+  const emptyImportedMeasureOption = importedEmptyFieldOption(importedMeasureFields, selectedImportedMeasureFieldId);
   const importedFieldSuitability = importedField ? buildImportedFieldSuitability(importedField) : null;
-  const importedRecommendations = buildImportedQueryRecommendations(importedDataset, importedField, {
-    selectedQueryMode: importedQueryMode,
-    measureField: importedMeasureField,
-    bannerFields: importedBannerFields
-  });
   const effectiveImportedMetric: Metric =
     importedQueryMode === "measure"
       ? importedMetric === "sum" ? "sum" : "average"
       : importedMetric === "count" ? "count" : "percent_selected";
-  const questionOptions = useMemo(() => filteredQuestions.slice(0, 60), [filteredQuestions]);
+  const matchesResearchSearch = useMemo(() => researchSearchMatcher(fieldSearch), [fieldSearch]);
+  const sourceQuestions = launchContext?.sourceMode === "seeded" ? defaultDataset.questions : filteredQuestions;
+  const questionOptions = useMemo(() => sourceQuestions.filter(item => item.id === question || matchesResearchSearch([item.id, item.label, item.shortLabel, item.topic, item.sourceColumn, ...(item.sourceVariables ?? [])])), [sourceQuestions, matchesResearchSearch, question]);
+  const requestedChart = datasetMode === "imported" ? importedChartType : chartType;
   const selectedChart = outputMode === "table"
     ? "table"
-    : (importedBannerField || importedQueryMode === "measure") && chartType === "donut"
+    : datasetMode === "imported" && (importedBannerField || importedQueryMode === "measure") && requestedChart === "donut"
       ? "vertical_bar"
-      : chartType === "table"
+      : datasetMode === "imported" && !importedBannerField && ["grouped_bar", "stacked_bar", "line_chart"].includes(requestedChart)
+        ? "vertical_bar"
+      : requestedChart === "table"
         ? supportedChartType(selectedChartTypes)
-        : chartType;
-  const importedSupport = getImportedExecutionSupport(importedDataset, importedField, {
+        : requestedChart;
+  const filterChoiceSupport = getImportedFilterChoiceSupport(importedDataset);
+  const selectionIssue = importedQuerySelectionIssue({
+    grouping: { id: selectedImportedFieldId, fields: groupingScope ? [allRespondents] : importedPrimaryFields },
+    comparison: { id: selectedImportedBannerFieldId, fields: importedBannerFields },
+    filter: { id: selectedImportedFilterFieldId, fields: importedFilterFields },
+    ...(importedQueryMode === "measure" ? { measure: { id: selectedImportedMeasureFieldId, fields: importedMeasureFields } } : {}),
+    filterValue: selectedImportedFilterValue, filterValues: importedFilterValues, completeFilterValues: filterChoiceSupport.executable
+  });
+  const importedSupport = importedFilterChoices.issue ? {executable:false,reason:importedFilterChoices.issue} : selectionIssue ? { executable: false, reason: selectionIssue }
+    : importedFilterField && !filterChoiceSupport.executable
+    ? filterChoiceSupport
+    : importedFilterField && selectedImportedFilterValue === null
+    ? { executable: false, reason: "Choose a filter value or select No filter." }
+    : getImportedExecutionSupport(importedDataset, importedField, {
+    groupingScope,
     bannerField: importedBannerField,
     filter: importedFilter,
     measureField: importedQueryMode === "measure" ? importedMeasureField : null,
     metric: effectiveImportedMetric,
     chartType: selectedChart
   });
-  const canCreate = datasetMode === "seeded" || importedSupport.executable;
   const importedDatasetHasRows = importedDatasetHasQueryableRows(importedDataset);
+  const backgroundPreviewRequired = datasetMode === "imported" && !importedDataset?.remote && (importedDataset?.rowCount ?? 0) >= guidedPreviewLimits.threshold;
+  const backgroundPreviewConfig = useMemo<ImportedDatasetQueryConfig | null>(() => backgroundPreviewRequired && importedSupport.executable && importedDataset && importedField ? {
+    dataset: importedDataset, field: importedField, groupingScope, measureField: importedQueryMode === "measure" ? importedMeasureField : null,
+    bannerField: importedBannerField, filter: importedFilterField && selectedImportedFilterValue !== null ? {field: importedFilterField, value: selectedImportedFilterValue} : null,
+    chartType: selectedChart, metric: effectiveImportedMetric
+  } : null, [backgroundPreviewRequired, importedSupport.executable, importedDataset, importedField, groupingScope, importedQueryMode, importedMeasureField, importedBannerField, importedFilterField, selectedImportedFilterValue, selectedChart, effectiveImportedMetric]);
+  const backgroundPreview = useGuidedBackgroundPreview(backgroundPreviewConfig);
+  const backgroundAction = useRef<HTMLButtonElement | null>(null), displacedPreviewFocus = useRef<HTMLButtonElement | null>(null);
+  if ((!backgroundPreviewRequired || !backgroundPreviewConfig || creating) && backgroundAction.current && backgroundAction.current === document.activeElement) displacedPreviewFocus.current = backgroundAction.current;
+  useLayoutEffect(() => { const previous = displacedPreviewFocus.current; displacedPreviewFocus.current = null; if (previous && (!previous.isConnected || previous.disabled) && (!document.activeElement || document.activeElement === document.body || document.activeElement === previous)) modalRef.current?.focus(); });
+  const samplePreviewQuery = datasetMode === "seeded" ? props.query : null;
+  // Reference equality alone misses same-object row and field edits. Track only
+  // selected inputs; stable input bytes keep an open inspection stable.
+  let immediatePreviewKey: string | null = null, immediatePreviewKeyError: string | null = null;
+  if (datasetMode === "imported" && !backgroundPreviewRequired && importedSupport.executable && importedDataset && importedField && !importedDataset.remote) {
+    try { immediatePreviewKey = immediateGuidedPreviewKey({ dataset: importedDataset, field: importedField, groupingScope,
+      measureField: importedQueryMode === "measure" ? importedMeasureField : null, bannerField: importedBannerField,
+      filter: importedFilter, chartType: selectedChart, metric: effectiveImportedMetric }); }
+    catch (error) { immediatePreviewKeyError = error instanceof Error ? error.message : "The selected preview inputs could not be checked."; }
+  }
+  const previewState = useMemo(() => {
+    try {
+      if (samplePreviewQuery) return { result: runMockAnalyticsQuery({ ...samplePreviewQuery, chartType: selectedChart }), error: null };
+      if (immediatePreviewKeyError) return { result: null, error: immediatePreviewKeyError };
+      if (backgroundPreviewRequired || !importedSupport.executable || !importedDataset || !importedField || importedDataset.remote?.provider === "netlify") return { result: null, error: null };
+      return { result: runImportedDatasetQuery({ dataset: importedDataset, field: importedField, groupingScope, measureField: importedQueryMode === "measure" ? importedMeasureField : null,
+        bannerField: importedBannerField, filter: importedFilter, chartType: selectedChart, metric: effectiveImportedMetric }), error: null };
+    } catch (error) { return { result: null, error: error instanceof Error ? error.message : "This setup could not be calculated. Check the selected fields and values." }; }
+  }, [immediatePreviewKey, immediatePreviewKeyError, backgroundPreviewRequired, datasetMode, samplePreviewQuery, selectedChart, importedDataset, importedField, importedSupport.executable, importedQueryMode, importedMeasureField, importedBannerField, importedFilter, effectiveImportedMetric, groupingScope]);
+  const resultPreview = backgroundPreviewRequired ? backgroundPreview.result : previewState.result;
+  // Inspection belongs to this exact calculated result, never a later setup.
+  const [inspectedPreview, setInspectedPreview] = useState<AnalyticsQueryResponse | null>(null);
+  const showCompletePreview = Boolean(resultPreview && inspectedPreview === resultPreview);
+  const inspectAction = useRef<HTMLButtonElement | null>(null), completeRegion = useRef<HTMLElement | null>(null);
+  const openingPreviewOwner = useRef<Element | null>(null), displacedCompleteFocus = useRef(false), returningToSetup = useRef(false);
+  const bindCompleteRegion = useCallback((node: HTMLElement | null) => {
+    if (!node && completeRegion.current?.contains(document.activeElement)) displacedCompleteFocus.current = true;
+    completeRegion.current = node;
+  }, []);
+  useLayoutEffect(() => {
+    if (showCompletePreview && openingPreviewOwner.current) {
+      const previous = openingPreviewOwner.current; openingPreviewOwner.current = null;
+      if (document.activeElement === previous) completeRegion.current?.focus();
+    }
+    if (!showCompletePreview) {
+      const displaced = displacedCompleteFocus.current, returning = returningToSetup.current;
+      displacedCompleteFocus.current = false; returningToSetup.current = false;
+      if (inspectedPreview) setInspectedPreview(null);
+      if (displaced && (!document.activeElement || document.activeElement === document.body || document.activeElement === modalRef.current)) {
+        (returning ? inspectAction.current : modalRef.current)?.focus();
+      }
+    }
+  });
+  const previewTile = useMemo<DashboardTile | null>(() => resultPreview ? {
+    id: "temporary-complete-preview", name: "Temporary analysis preview", title: "Temporary analysis preview",
+    locked: true, hidden: false, layout: { x: 0, y: 0, width: 1000, height: 600, zIndex: 1 },
+    query: resultPreview.query, result: resultPreview, visualization: "table", appearance: { ...defaultAppearance, axisLabelOverrides: {} }
+  } : null, [resultPreview]);
+  const previewFailure = backgroundPreviewRequired ? backgroundPreview.error : previewState.error;
+  // Remote previews and illustrative sample queries are not evidence about the
+  // complete local study. Never derive matrix-specific advice from those rows.
+  const viewRecommendations = datasetMode === "imported" && !importedDataset?.remote
+    ? analysisViewRecommendations(resultPreview) : [];
+  const canCreate = (datasetMode === "seeded" || importedSupport.executable) && (backgroundPreviewRequired || Boolean(immediatePreviewKeyError) || !previewFailure);
   const importedGroupingLabel = importedFieldDisplayLabel(importedField);
   const importedMeasureLabel = importedFieldDisplayLabel(importedMeasureField);
   const importedRowCount = importedDataset?.rowCount ?? importedDataset?.rows?.length ?? 0;
@@ -170,8 +317,8 @@ export function GuidedDataQueryModal({
   const importedQueryLabel = importedQueryMode === "measure" && importedMeasureField
     ? `${effectiveImportedMetric === "sum" ? "Total" : "Average"} ${importedMeasureLabel} by ${importedGroupingLabel}`
     : importedBannerField
-      ? `Count responses for ${importedGroupingLabel}, broken out by ${importedFieldDisplayLabel(importedBannerField)}`
-      : `Count responses for ${importedGroupingLabel}`;
+      ? `${effectiveImportedMetric === "count" ? "Count responses" : "Show response percentages"} for ${importedGroupingLabel}, broken out by ${importedFieldDisplayLabel(importedBannerField)}`
+      : `${effectiveImportedMetric === "count" ? "Count responses" : "Show response percentages"} for ${importedGroupingLabel}`;
   const importedAnalysisIntent: ImportedAnalysisIntent =
     importedQueryMode === "measure" ? "measure" : importedBannerField ? "compare" : "responses";
   const importedIntentOptions: Array<{
@@ -183,21 +330,22 @@ export function GuidedDataQueryModal({
     {
       id: "responses",
       label: "Show answers for this question",
-      helper: `Count how respondents answered ${importedGroupingLabel || "the selected field"}.`
+      disabled: Boolean(groupingScope),
+      helper: `Fits “Which answers are common?” because ${importedGroupingLabel || "the selected field"} groups recorded responses into categories. Percentages describe the distribution; counts describe volume. No breakout is added.`
     },
     {
       id: "compare",
       label: "Compare by a group",
       helper: importedBannerFields.length
-        ? "Break the answers out by gender, segment, status, or another grouping field."
+        ? `Fits “Do answers differ by group?” because ${importedGroupingLabel} and ${importedFieldDisplayLabel(importedBannerField ?? importedBannerFields[0])} are modeled grouping fields. Separate group bases support percentage comparisons; this does not test significance. Choose the group below.`
         : "This dataset needs another group field before comparison is available.",
-      disabled: importedBannerFields.length === 0
+      disabled: Boolean(groupingScope) || importedBannerFields.length === 0
     },
     {
       id: "measure",
       label: "Summarize a number",
       helper: importedMeasureFields.length
-        ? "Average or total a numeric field across groups."
+        ? `Fits “How much, on average or in total?” because ${importedMeasureField ? importedMeasureLabel : importedFieldDisplayLabel(importedMeasureFields[0])} is available as a numeric measure. Summarizing it by ${importedGroupingLabel} describes amounts rather than answer frequencies. Confirm units before totaling.`
         : "No numeric fields are modeled as measures yet.",
       disabled: importedMeasureFields.length === 0
     }
@@ -206,21 +354,23 @@ export function GuidedDataQueryModal({
     datasetMode === "seeded"
       ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${selectedQuestion.shortLabel}`
       : importedSupport.executable
-        ? `${outputMode === "table" ? "Create a table" : `Create a ${getChartTypeLabel(selectedChart)} chart`} for ${importedQueryLabel} from ${importedDataset?.title ?? "imported data"}`
+        ? importedQueryLabel
       : !importedDatasetHasRows
-        ? "This SAV import contains labels and field metadata, but no respondent rows to analyze yet."
+        ? "The complete respondent data is unavailable. Re-import the study before analyzing."
         : `${importedFieldDisplayLabel(importedField)} needs a supported grouping, measure, filter, or chart setup before it can be created.`;
   const modalTitle =
+    missingRequestedStudy ? "Study unavailable" :
     datasetMode === "imported" && importedDataset
       ? importedSupport.executable
-        ? `Create a ${importedOutputLabel} from ${importedDataset.title}`
+        ? `Explore ${importedDataset.title}`
         : importedField
           ? `Build analysis from ${importedFieldDisplayLabel(importedField)}`
           : "Build analysis from imported data"
       : launchContext?.launchSource === "field" && launchField
         ? `Building analysis from: ${importedFieldDisplayLabel(launchField)}`
-        : "Start with a table, then design the view.";
+        : "What would you like to learn?";
   const modalHelper =
+    missingRequestedStudy ? "The requested study is not available in this workspace. Choose another study explicitly or import its source file." :
     datasetMode === "imported"
       ? importedField
         ? importedSupport.executable
@@ -236,23 +386,75 @@ export function GuidedDataQueryModal({
   const metricSummary = defaultDataset.metrics.find((item) => item.id === metric)?.label ?? metric;
   const weightSummary = weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted";
 
+  const backgroundCreationAvailable = datasetMode === "imported" && importedDataset?.sourceType === "local_file" && !importedDataset.remote
+    && !!importedDataset.rows && importedDataset.rows.length === importedDataset.rowCount
+    && importedDataset.rowCount >= localAnalysisLimits.threshold && importedDataset.rowCount <= localAnalysisLimits.rows
+    && importedDataset.fieldCount <= localAnalysisLimits.totalFields;
+  creationConfigRef.current = importedDataset && importedField ? {
+    dataset: importedDataset, field: importedField, groupingScope,
+    measureField: importedQueryMode === "measure" ? importedMeasureField : null, bannerField: importedBannerField,
+    filter: importedFilter, metric: effectiveImportedMetric,
+    chartType: outputMode === "table" ? "table" : selectedChart === "table" ? supportedChartType(selectedChartTypes) : selectedChart
+  } : null;
+
   async function createOutput(mode: GuidedOutputMode) {
-    if (!canCreate) return;
+    if (!canCreate || !destinationAvailable || creating || creationControl.current || isLoading || backgroundPreview.busy || showCompletePreview || !active.current) return;
+    const request = ++requestSequence.current;
+    const controller = new AbortController(); creationControl.current = controller;
+    const background = creationMode === "background" && backgroundCreationAvailable;
+    if (background && document.activeElement === createActionRef.current) cancelCreationRef.current?.focus();
+    const isCurrent = () => active.current && requestSequence.current === request && !controller.signal.aborted;
+    setCreating(true);
+    setCreationError(null); setCreationProgress(null);
+    try {
     const nextChartType = mode === "table"
       ? "table"
       : selectedChart === "table" ? supportedChartType(selectedChartTypes) : selectedChart;
     if (datasetMode === "imported") {
       if (!importedDataset || !importedField) return;
       const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, effectiveImportedMetric, {
+        background: background ? {
+          signal: controller.signal,
+          getCurrentConfig: () => creationConfigRef.current,
+          onProgress: progress => { if (isCurrent()) setCreationProgress(previous => previous?.phase === "preparing" && progress.phase === "preparing" && Math.floor(previous.done / previous.total * 20) === Math.floor(progress.done / progress.total * 20) ? previous : progress); }
+        } : undefined,
+        destination,
+        groupingScope,
+        isCurrent,
         measureField: importedQueryMode === "measure" ? importedMeasureField : null,
         bannerField: importedBannerField,
         filter: importedFilter
       });
-      if (created) onClose();
+      if (!isCurrent()) return;
+      if (created) { onClose(); onCreated?.(created); }
+      else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
       return;
     }
-    const created = await addTileFromSourceWithVisualization(nextChartType);
-    if (created) onClose();
+    const created = await addTileFromSourceWithVisualization(nextChartType, isCurrent, destination);
+    if (!isCurrent()) return;
+    if (created) { onClose(); onCreated?.(created); }
+    else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
+    } catch (error) { if (isCurrent()) setCreationError(error instanceof Error ? error.message : "Analysis failed. Please try again."); }
+    finally { if (creationControl.current === controller) creationControl.current = null; if (isCurrent()) { setCreating(false); setCreationProgress(null); } }
+  }
+
+  async function importStudy(file: File | undefined) {
+    if (!file) return;
+    setImporting(true); setCreationError(null);
+    try {
+      const dataset = await props.importDataset(file);
+      if (!dataset) { setCreationError("We couldn't import this file. Check the format and try again."); return; }
+      setDatasetMode("imported");
+      setSelectedImportedDatasetId(dataset.id);
+      setSelectedImportedBannerFieldId(null);
+      setSelectedImportedFilterFieldId(null);
+      setSelectedImportedFilterValue(null);
+      setOverallSummarySelected(false);
+      setSelectedImportedFieldId(firstImportedDimensionField(dataset)?.id ?? "");
+      setSelectedImportedMeasureFieldId(firstImportedMeasureField(dataset)?.id ?? null);
+      setFieldSearch("");
+    } catch (error) { setCreationError(error instanceof Error ? error.message : "Import failed."); }
+    finally { setImporting(false); if (importRef.current) importRef.current.value = ""; }
   }
 
   function selectSeededQuestion(questionId: QuestionId) {
@@ -261,54 +463,57 @@ export function GuidedDataQueryModal({
     if (nextQuestion) applyQuestionSelection(nextQuestion);
   }
 
-  function applyImportedRecommendation(recommendation: typeof importedRecommendations[number]) {
-    setImportedQueryMode(recommendation.id === "measure" ? "measure" : "categorical");
-    setImportedMetric(recommendation.metric);
-    setSelectedImportedBannerFieldId(recommendation.bannerFieldId ?? "none");
-    setSelectedImportedMeasureFieldId(recommendation.measureFieldId ?? "none");
-    setOutputMode("chart");
-    setChartType(recommendation.chartType);
+  function chooseImportedGrouping(fieldId: string) {
+    const overall = fieldId === overallSummaryOption;
+    setOverallSummarySelected(overall);
+    setSelectedImportedFieldId(overall ? allRespondentsGroupingId : fieldId);
+    if (overall) {
+      setImportedQueryMode("measure");
+      setImportedMetric("average");
+    }
+    if (fieldId === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId(null);
   }
 
   function applyImportedAnalysisIntent(intent: ImportedAnalysisIntent) {
     if (intent === "responses") {
       setImportedQueryMode("categorical");
       setImportedMetric("percent_selected");
-      setSelectedImportedBannerFieldId("none");
-      setSelectedImportedMeasureFieldId("none");
-      if (chartType === "table") setChartType("vertical_bar");
+      setSelectedImportedBannerFieldId(null);
+      setSelectedImportedMeasureFieldId(null);
+      if (importedChartType === "table") setImportedChartType("vertical_bar");
       return;
     }
 
     if (intent === "compare") {
       setImportedQueryMode("categorical");
       setImportedMetric("percent_selected");
-      setSelectedImportedBannerFieldId(importedBannerField?.id ?? importedBannerFields[0]?.id ?? "none");
-      setSelectedImportedMeasureFieldId("none");
-      if (chartType === "donut" || chartType === "table") setChartType("grouped_bar");
+      setSelectedImportedBannerFieldId(importedBannerField?.id ?? importedBannerFields[0]?.id ?? null);
+      setSelectedImportedMeasureFieldId(null);
+      if (importedChartType === "donut" || importedChartType === "table") setImportedChartType("grouped_bar");
       return;
     }
 
     setImportedQueryMode("measure");
     setImportedMetric("average");
-    setSelectedImportedMeasureFieldId(importedMeasureField?.id ?? importedMeasureFields[0]?.id ?? "none");
-    setSelectedImportedBannerFieldId(importedBannerField?.id ?? "none");
-    if (chartType === "donut" || chartType === "table") setChartType("vertical_bar");
+    setSelectedImportedMeasureFieldId(importedMeasureField?.id ?? importedMeasureFields[0]?.id ?? null);
+    setSelectedImportedBannerFieldId(importedBannerField?.id ?? null);
+    if (importedChartType === "donut" || importedChartType === "table") setImportedChartType("vertical_bar");
   }
 
   return (
-    <div className="guided-query-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="guided-query-modal" role="dialog" aria-modal="true" aria-label="Create data object" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="guided-query-backdrop" role="presentation" onMouseDown={dismiss}>
+      <section ref={modalRef} tabIndex={-1} className="guided-query-modal" style={showCompletePreview ? { gridTemplateRows: "auto minmax(0, 1fr)" } : undefined} role="dialog" aria-modal="true" aria-labelledby="analysis-dialog-title" aria-describedby="analysis-dialog-helper" onMouseDown={(event) => event.stopPropagation()}>
         <header className="guided-query-header">
           <div>
-            <p className="workspace-home-kicker">Guided Data Query</p>
-            <h2>{modalTitle}</h2>
-            <small>{modalHelper}</small>
+            <p className="workspace-home-kicker">CREATE AN ANALYSIS</p>
+            <h2 id="analysis-dialog-title">{showCompletePreview ? "Inspect complete preview" : modalTitle}</h2>
+            <small id="analysis-dialog-helper">{showCompletePreview ? "Browse all calculated answers and groups before returning to your setup." : modalHelper}</small>
           </div>
-          <button type="button" className="guided-query-close" onClick={onClose} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
+          <button type="button" className="guided-query-close" onClick={dismiss} aria-label="Close guided data query"><X className="modal-close-icon" aria-hidden="true" strokeWidth={2} /></button>
         </header>
 
-        <div className="guided-query-body">
+        {onStartQuestion&&!showCompletePreview&&<div className="guided-query-question-entry"><button type="button" disabled={creating||importing} onClick={()=>{dismiss();onStartQuestion();}}>Start with a business question</button><small>Question, audience, reviewed result and editable insight pages.</small></div>}
+        <fieldset className="guided-query-body" disabled={creating} aria-label="Analysis setup and preview" hidden={showCompletePreview} style={{ border: 0, margin: 0, minWidth: 0, ...(showCompletePreview ? { display: "none" } : {}) }}>
           <section className="guided-query-step">
             <div className="guided-query-step__header">
               <span>1</span>
@@ -316,31 +521,37 @@ export function GuidedDataQueryModal({
             </div>
             <div className="guided-query-choice-grid">
               <button type="button" className={datasetMode === "seeded" ? "active" : ""} onClick={() => setDatasetMode("seeded")}>
-                <strong>EcoFocus study library</strong>
-                <small>Fully queryable demo metadata with charts, tables, banners, filters, and weights.</small>
+                <strong>Explore the sample study</strong>
+                <small>Illustrative EcoFocus data for learning the tools. Not your imported research.</small>
               </button>
-              <button type="button" className={datasetMode === "imported" ? "active" : ""} onClick={() => setDatasetMode("imported")} disabled={!importedDatasets.length}>
-                <strong>Imported workspace datasets</strong>
+              <button type="button" className={datasetMode === "imported" ? "active" : ""} onClick={() => importedDatasets.length ? setDatasetMode("imported") : importRef.current?.click()}>
+                <strong>{importedDatasets.length ? "Your imported studies" : "Import your study"}</strong>
                 <small>{importedDatasets.length ? `${importedDatasets.length} imported dataset${importedDatasets.length === 1 ? "" : "s"} available. SAV labels appear when the source file provides them.` : "Import CSV, XLSX, or SAV data to start modeling fields."}</small>
               </button>
             </div>
+            <input ref={importRef} type="file" accept=".csv,.xlsx,.sav" hidden aria-label="Import study file" onChange={(event) => void importStudy(event.target.files?.[0])} />
+            <button type="button" className="guided-import-action" disabled={importing} onClick={() => importRef.current?.click()}>{importing ? "Importing study…" : "Import CSV, Excel or SPSS"}</button>
+            {missingRequestedStudy && <p role="alert">The requested study is unavailable. No replacement study has been selected.</p>}
+            {datasetMode === "imported" && importedDataset && selectionIssue && <p role="alert">{selectionIssue}</p>}
             {datasetMode === "imported" && importedDatasets.length > 0 && (
               <label>
                 Imported dataset
                 <select
                   value={importedDataset?.id ?? ""}
                   onChange={(event) => {
-                    const dataset = importedDatasets.find((item) => item.id === event.target.value);
+                    const dataset = withLaunchFieldSnapshot(importedDatasets.find((item) => item.id === event.target.value) ?? null, launchContext);
                     const primaryField = firstImportedDimensionField(dataset);
                     const measureField = firstImportedMeasureField(dataset);
                     setSelectedImportedDatasetId(event.target.value);
+                    setOverallSummarySelected(false);
                     setSelectedImportedFieldId(primaryField?.id ?? "");
-                    setSelectedImportedBannerFieldId("none");
-                    setSelectedImportedFilterFieldId("none");
-                    setSelectedImportedFilterValue("all");
-                    setSelectedImportedMeasureFieldId(measureField?.id ?? "none");
+                    setSelectedImportedBannerFieldId(null);
+                    setSelectedImportedFilterFieldId(null);
+                    setSelectedImportedFilterValue(null);
+                    setSelectedImportedMeasureFieldId(measureField?.id ?? null);
                   }}
                 >
+                  {!importedDataset && <option value="" disabled>Choose an available study...</option>}
                   {importedDatasets.map((dataset) => (
                     <option value={dataset.id} key={dataset.id}>{dataset.title}</option>
                   ))}
@@ -354,32 +565,38 @@ export function GuidedDataQueryModal({
               <span>2</span>
               <strong>Choose variable</strong>
             </div>
+            <label className="guided-field-search">Find a question or field<input type="search" placeholder="Search wording, topic or field name" value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)} /></label>
+            {fieldSearch && <p className="field-search-help" role="status">Your selected question stays available while you search. <button type="button" onClick={() => setFieldSearch("")}>Clear field search</button></p>}
+            {datasetMode === "imported" && importedDataset?.remote?.provider === "netlify" && importedDataset.fields.length < importedDataset.fieldCount && <p className="field-search-help">Search covers loaded fields. Use Advanced sources to browse the full remote field list.</p>}
             {datasetMode === "seeded" ? (
-              <label>
+              <><label>
                 Question / variable
                 <select value={question} onChange={(event) => selectSeededQuestion(event.target.value as QuestionId)}>
                   {questionOptions.map((item) => (
                     <option value={item.id} key={item.id}>{item.shortLabel}</option>
                   ))}
                 </select>
-              </label>
+              </label><div className="guided-query-variable-card"><strong>{selectedQuestion.label}</strong><small>Topic: {selectedQuestion.topic}</small></div></>
             ) : importedDataset ? (
               <>
                 <label>
                   Group responses by
                   <select
-                    value={importedField?.id ?? ""}
-                    onChange={(event) => {
-                      setSelectedImportedFieldId(event.target.value);
-                      if (event.target.value === selectedImportedBannerFieldId) setSelectedImportedBannerFieldId("none");
-                    }}
+                    ref={importedGroupingRef}
+                    value={groupingScope ? overallSummaryOption : importedField?.id ?? ""}
+                    onChange={(event) => chooseImportedGrouping(event.target.value)}
                   >
-                    {importedPrimaryFields.map((field) => (
+                    {!importedField && <option value="" disabled>Choose an available grouping field...</option>}
+                    <option value={overallSummaryOption}>All respondents (numeric summary)</option>
+                    {importedPrimaryFields.filter((field) => field.id === importedField?.id || matchesResearchSearch([importedFieldDisplayLabel(field), field.label, field.variableLabel, field.id, field.sourceColumn])).map((field) => (
                       <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                     ))}
                   </select>
                 </label>
-                {importedField && (
+                {groupingScope && <div className="guided-query-variable-card"><strong>All respondents</strong>
+                  <span>Summarize the selected number across the study, with any chosen filter.</span>
+                  <small>Only valid numeric values contribute to the result and its sample base.</small></div>}
+                {importedField && !groupingScope && (
                   <div className="guided-query-variable-card">
                     <strong>{importedFieldDisplayLabel(importedField)}</strong>
                     <span>
@@ -443,9 +660,26 @@ export function GuidedDataQueryModal({
               <span>3</span>
               <strong>Shape analysis</strong>
             </div>
+            <div className="guided-query-placement">
+          <label>Place analysis
+            <select value={destination} disabled={creating} onChange={(event) => setDestination(event.target.value as AnalysisDestination)}>
+              <option value="current_page" disabled={!currentPageHasRoom}>Current page{currentPageHasRoom ? "" : " — no room"}</option>
+              <option value="new_page">New page</option>
+            </select>
+          </label>
+          {!currentPageHasRoom && <p>This page has no clear space for a full-size analysis. A new page keeps existing objects in place.</p>}
+          {!destinationAvailable && <p role="alert">Choose a new page or make space on the current page before creating this analysis.</p>}
+            </div>
+            {backgroundCreationAvailable && <label>Calculation mode
+              <select value={creationMode} onChange={event => setCreationMode(event.target.value as "foreground" | "background")}>
+                <option value="foreground">This tab (existing calculation)</option>
+                <option value="background">Background worker with cancel</option>
+              </select>
+              <small>Background mode calculates a fresh result from selected columns: up to 50,000 rows, four fields and 5,000 result cells. If unavailable, choose this tab. The temporary preview is never saved.</small>
+            </label>}
             <div className="guided-query-output-toggle" aria-label="Output type">
-              <button type="button" className={outputMode === "table" ? "active" : ""} onClick={() => setOutputMode("table")}>Table first</button>
-              <button type="button" className={outputMode === "chart" ? "active" : ""} onClick={() => setOutputMode("chart")}>Chart view</button>
+              <button type="button" aria-pressed={outputMode === "table"} className={outputMode === "table" ? "active" : ""} onClick={() => setOutputMode("table")}>Table</button>
+              <button type="button" aria-pressed={outputMode === "chart"} className={outputMode === "chart" ? "active" : ""} onClick={() => setOutputMode("chart")}>Chart</button>
             </div>
             {datasetMode === "seeded" ? (
               <>
@@ -541,19 +775,21 @@ export function GuidedDataQueryModal({
                         <strong>Labels imported, but no response rows are available</strong>
                         <small>
                           {[
-                            importedDataset.importStatus?.detail,
-                            importedDataset.importMetadata?.parserNotes.at(-1),
+                            importedDataset?.importStatus?.detail,
+                            importedDataset?.importMetadata?.parserNotes.at(-1),
                             "You can review/model the fields, but charts and tables need respondent rows. Try exporting the file as CSV/XLSX, or re-save the SAV with standard SPSS compression if this file uses an unsupported SAV variant."
                           ].filter(Boolean).join(" ")}
                         </small>
                       </div>
                     )}
+                    <p className="guided-query-purpose-note">Choose the purpose that matches your research question. These options use available modeled fields; they do not infer business meaning or validate measurement units.</p>
                     <div className="guided-query-intent-grid" aria-label="What to show">
                       {importedIntentOptions.map((intent) => (
                         <button
                           type="button"
                           key={intent.id}
                           className={importedAnalysisIntent === intent.id ? "active" : ""}
+                          aria-pressed={importedAnalysisIntent === intent.id}
                           disabled={intent.disabled}
                           onClick={() => applyImportedAnalysisIntent(intent.id)}
                         >
@@ -566,9 +802,10 @@ export function GuidedDataQueryModal({
                       {importedQueryMode === "measure" && (
                         <label>
                           Number to summarize
-                          <select value={selectedImportedMeasureFieldId} onChange={(event) => setSelectedImportedMeasureFieldId(event.target.value)}>
-                            <option value="none">Choose a numeric field...</option>
-                            {importedMeasureFields.map((field) => (
+                          <select value={selectedImportedMeasureFieldId ?? emptyImportedMeasureOption} onChange={(event) => setSelectedImportedMeasureFieldId(event.target.value === emptyImportedMeasureOption ? null : event.target.value)}>
+                            <option value={emptyImportedMeasureOption}>Choose a numeric field...</option>
+                            {selectedImportedMeasureFieldId !== null && !importedMeasureField && <option value={selectedImportedMeasureFieldId} disabled>Unavailable numeric field</option>}
+                    {importedMeasureFields.filter((field) => field.id === importedMeasureField?.id || matchesResearchSearch([importedFieldDisplayLabel(field), field.label, field.variableLabel, field.id, field.sourceColumn])).map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
                           </select>
@@ -577,7 +814,8 @@ export function GuidedDataQueryModal({
                       {importedAnalysisIntent === "compare" && (
                         <label>
                           Compare by
-                          <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
+                          <select value={selectedImportedBannerFieldId ?? emptyImportedBannerOption} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value === emptyImportedBannerOption ? null : event.target.value)}>
+                            {selectedImportedBannerFieldId !== null && !importedBannerField && <option value={selectedImportedBannerFieldId} disabled>Unavailable comparison field</option>}
                             {importedBannerFields.map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
@@ -607,8 +845,9 @@ export function GuidedDataQueryModal({
                         {importedAnalysisIntent !== "compare" && (
                           <label>
                             Optional comparison group
-                            <select value={selectedImportedBannerFieldId} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value)}>
-                              <option value="none">No group - all respondents</option>
+                            <select value={selectedImportedBannerFieldId ?? emptyImportedBannerOption} onChange={(event) => setSelectedImportedBannerFieldId(event.target.value === emptyImportedBannerOption ? null : event.target.value)}>
+                              <option value={emptyImportedBannerOption}>No group - all respondents</option>
+                              {selectedImportedBannerFieldId !== null && !importedBannerField && <option value={selectedImportedBannerFieldId} disabled>Unavailable comparison field</option>}
                               {importedBannerFields.map((field) => (
                                 <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                               ))}
@@ -618,9 +857,11 @@ export function GuidedDataQueryModal({
                         {outputMode === "chart" && (
                           <label>
                             Chart type
-                            <select value={selectedChart} onChange={(event) => setChartType(event.target.value as ChartType)}>
+                            <select value={selectedChart} onChange={(event) => setImportedChartType(event.target.value as ChartType)}>
                               <option value="vertical_bar">Column</option>
                               <option value="horizontal_bar">Horizontal bar</option>
+                              <option value="heatmap">Heatmap — shared cell colors</option>
+                              <option value="dot_plot">Dot plot — shared numeric scale (up to 30 rows / six series)</option>
                               {!importedBannerField && importedQueryMode === "categorical" && <option value="donut">Donut</option>}
                               {importedBannerField && <option value="grouped_bar">Grouped bar</option>}
                               {importedBannerField && <option value="stacked_bar">Stacked bar</option>}
@@ -631,13 +872,14 @@ export function GuidedDataQueryModal({
                         <label>
                           Limit to
                           <select
-                            value={selectedImportedFilterFieldId}
+                            value={selectedImportedFilterFieldId ?? emptyImportedFilterOption}
                             onChange={(event) => {
-                              setSelectedImportedFilterFieldId(event.target.value);
-                              setSelectedImportedFilterValue("all");
+                              setSelectedImportedFilterFieldId(event.target.value === emptyImportedFilterOption ? null : event.target.value);
+                              setSelectedImportedFilterValue(null);
                             }}
                           >
-                            <option value="none">No filter</option>
+                            <option value={emptyImportedFilterOption}>No filter</option>
+                            {selectedImportedFilterFieldId !== null && !importedFilterField && <option value={selectedImportedFilterFieldId} disabled>Unavailable filter field</option>}
                             {importedFilterFields.map((field) => (
                               <option value={field.id} key={field.id}>{importedFieldDisplayLabel(field)}</option>
                             ))}
@@ -646,8 +888,9 @@ export function GuidedDataQueryModal({
                         {importedFilterField && (
                           <label>
                             Keep responses where
-                            <select value={selectedImportedFilterValue} onChange={(event) => setSelectedImportedFilterValue(event.target.value)}>
-                              <option value="all">Choose value...</option>
+                            <select disabled={!filterChoiceSupport.executable} value={selectedImportedFilterValue ?? ""} onChange={(event) => setSelectedImportedFilterValue(event.target.value || null)}>
+                              <option value="">Choose value...</option>
+                              {selectedImportedFilterValue !== null && filterChoiceSupport.executable && !importedFilterValues.includes(selectedImportedFilterValue) && <option value={selectedImportedFilterValue} disabled>Unavailable value: {selectedImportedFilterValue}</option>}
                               {importedFilterValues.map((value) => (
                                 <option value={value} key={value}>{value}</option>
                               ))}
@@ -656,44 +899,44 @@ export function GuidedDataQueryModal({
                         )}
                       </div>
                     </details>
-                    {importedRecommendations.length > 0 && (
-                      <details className="guided-query-analysis-details">
-                        <summary>Suggested setups</summary>
-                        <div className="guided-query-recommendations" aria-label="Imported query recommendations">
-                          {importedRecommendations.map((recommendation) => (
-                            <button
-                              type="button"
-                              className={recommendation.recommended && (recommendation.id === importedQueryMode || (recommendation.id === "categorical_breakout" && importedQueryMode === "categorical")) ? "guided-query-recommendation active" : "guided-query-recommendation"}
-                              key={recommendation.id}
-                              onClick={() => applyImportedRecommendation(recommendation)}
-                            >
-                              <div>
-                                <strong>{recommendation.label}</strong>
-                                <small>{recommendation.description}</small>
-                              </div>
-                              <span>{recommendation.actionLabel}</span>
-                            </button>
-                          ))}
+                    <section className="guided-query-view-advice" aria-label="Advice for your analysis">
+                      <h3>Choose a view for your question</h3>
+                      <p>{importedQueryLabel}</p>
+                      {viewRecommendations.length ? <>
+                        <small>Based on this study's calculated result. These choices change only the view; your question, measure, groups and filter stay fixed.</small>
+                        <div className="guided-query-recommendations" aria-label="Recommended views">
+                          {viewRecommendations.map((recommendation, index) => <button type="button" key={recommendation.chartType}
+                            aria-pressed={selectedChart === recommendation.chartType}
+                            className={selectedChart === recommendation.chartType ? "guided-query-recommendation active" : "guided-query-recommendation"}
+                            onClick={() => { setOutputMode(recommendation.chartType === "table" ? "table" : "chart"); setImportedChartType(recommendation.chartType); }}>
+                            <div><strong>{recommendation.label}</strong><small>{recommendation.rationale}</small></div>
+                            <span>{index === 0 ? "Suggested: " : "Alternative: "}{getChartTypeLabel(recommendation.chartType)}</span>
+                          </button>)}
                         </div>
-                      </details>
-                    )}
-                    <div className={importedSupport.executable ? "guided-query-supported" : "guided-query-unsupported"}>
-                      <strong>{importedSupport.executable ? "Ready to create" : importedSupport.reason}</strong>
-                      <small>{importedSupport.executable ? "This will create a normal editable table or chart on the current slide." : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
+                        <small>Choose the research purpose above to change the analysis itself. No trend, cause or significance is inferred; part-to-whole and time-series views require separate checks.</small>
+                      </> : <small>{importedDataset?.remote ? "Result-based view advice needs a complete local study; remote preview rows do not establish the full shape." : previewFailure ?? importedSupport.reason}</small>}
+                    </section>
+                    <div className={canCreate ? "guided-query-supported" : "guided-query-unsupported"}>
+                      <strong>{canCreate ? backgroundPreviewRequired && !resultPreview ? "Ready for a fresh calculation" : "Ready to create" : previewFailure ?? importedSupport.reason}</strong>
+                      <small>{canCreate ? `This will create a normal editable table or chart on ${destination === "new_page" ? "a new page" : "the current page"}.` : "Adjust the field, measure, breakout, filter, or chart type above."}</small>
                     </div>
                   </>
                 ) : (
                   <div className="guided-query-unsupported">
-                    <strong>Modeled-only for now.</strong>
+                    <strong>{importedField ? "Modeled-only for now." : "Choose what to analyze"}</strong>
                     <small>{importedSupport.reason}</small>
+                    {!importedField && importedPrimaryFieldCandidates.length === 0 && importedMeasureFieldCandidates.length > 0 && importedDataset?.remote?.provider !== "netlify" && <>
+                      <small>This study has numeric fields. Summarize a number across all respondents, then review the calculation before creating it.</small>
+                      <button type="button" onClick={() => { chooseImportedGrouping(overallSummaryOption); importedGroupingRef.current?.focus(); }}>Summarize all respondents</button>
+                    </>}
                   </div>
                 )}
               </>
             )}
           </section>
 
-          <aside className="guided-query-summary">
-            <span>Summary</span>
+          <aside className="guided-query-summary" aria-label="Analysis plan and result preview" tabIndex={0}>
+            <span>YOUR ANALYSIS</span>
             <strong>{querySummary}</strong>
             <ul>
               {datasetMode === "imported" && importedDataset && <li>Dataset: {importedDataset.title}</li>}
@@ -708,18 +951,43 @@ export function GuidedDataQueryModal({
               {datasetMode === "seeded" && <li>Values: {metricSummary}</li>}
               {datasetMode === "seeded" && <li>Weight: {weightSummary}</li>}
             </ul>
+            <section className="analysis-result-preview" aria-label="Analysis result preview">
+              <h3>Result preview</h3>
+              {backgroundPreviewRequired && <div aria-label="Background analysis preview">
+                <p>For larger studies, calculate this optional preview in the background. Only selected columns are copied in short batches; source preparation and validation still use this tab. Supports up to 50,000 complete local rows and 5,000 result cells within bounded inputs.</p>
+                <button ref={backgroundAction} type="button" className="secondary" disabled={!backgroundPreviewConfig || creating} onClick={() => backgroundPreview.busy ? backgroundPreview.cancel() : void backgroundPreview.run()}>{backgroundPreview.busy ? "Cancel background preview" : resultPreview ? "Recalculate preview in background" : "Calculate preview in background"}</button>
+                {backgroundPreview.progress && <p role="status">{backgroundPreview.progress.phase === "preparing" ? `Preparing selected values: ${backgroundPreview.progress.done.toLocaleString()} of ${backgroundPreview.progress.total.toLocaleString()} rows.` : `Calculating all ${backgroundPreview.progress.total.toLocaleString()} rows in a background worker…`}</p>}
+                {resultPreview && <p role="status">Complete selected-column preview ready. Creating still runs a fresh calculation.</p>}
+                <small>This temporary preview is never inserted or saved. Creating reruns the original complete study through the existing query path and may still take time. A missing or failed optional preview does not replace that fresh calculation; finish or cancel a running preview before creating.</small>
+              </div>}
+              {resultPreview ? <>
+                <p>{datasetMode === "seeded" ? "Illustrative sample results" : "Calculated from your complete imported study"} · {resultPreview.metric.label}</p>
+                <div className="analysis-preview-scroll"><table><thead><tr><th scope="col">Answer</th>{resultPreview.columns.slice(0, 3).map((column) => <th scope="col" key={column.id}>{column.label}</th>)}</tr></thead>
+                  <tbody>{resultPreview.table.slice(0, 6).map((row) => <tr key={row.optionId}><th scope="row">{row.label}</th>{resultPreview.columns.slice(0, 3).map((column) => <td key={column.id}>{analyticalCell(resultPreview, row, column.id).value === null ? "Unavailable" : resultPreview.metric.valueFormat === "number" ? formatImportedMeasureValue(row.values[column.id], resultPreview.metric.id) : formatPercentageSample(row.values[column.id])}{resultPreview.metric.valueFormat === "percent" && analyticalCell(resultPreview, row, column.id).value !== null ? "%" : ""}{datasetMode === "imported" && groupingScope && <small> (n={row.bases[column.id] ?? 0} valid values)</small>}</td>)}</tr>)}</tbody></table></div>
+                <small>Showing up to 6 answers and 3 groups. Creating calculates the full result again and adds it to the page. Numeric results retain calculation precision; displayed values may be rounded.</small>
+                <button ref={inspectAction} type="button" className="secondary" disabled={creating || backgroundPreview.busy} onClick={() => { openingPreviewOwner.current = document.activeElement; setInspectedPreview(resultPreview); }}>Inspect complete preview</button>
+                {resultPreview.warnings.length > 0 && <ul aria-label="Analysis data quality notices">{resultPreview.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
+              </> : previewFailure ? <p role="alert">{previewFailure}</p> : <p>{importedDataset?.remote?.provider === "netlify" ? "This study is queried securely on the server when you create the analysis." : backgroundPreviewRequired ? "Choose Calculate preview in background to inspect this setup before creating." : "Choose a supported question and calculation to preview the results."}</p>}
+            </section>
           </aside>
-        </div>
+        </fieldset>
 
-        <footer className="guided-query-footer">
-          <small>{canCreate ? "The table/chart will be placed on the current slide and selected for editing." : importedSupport.reason}</small>
+        {showCompletePreview && previewTile && <section ref={bindCompleteRegion} tabIndex={-1} role="region" aria-label="Complete analysis preview" className="guided-complete-preview" data-canvas-keyboard-scope="controls">
+          <header><div><h3>Temporary preview</h3><p>{datasetMode === "seeded" ? "Illustrative sample results. " : "Calculated for the current setup. "}Nothing has been added to your report.</p></div>
+            <button type="button" onClick={event => { returningToSetup.current = document.activeElement === event.currentTarget; setInspectedPreview(null); }}>Return to analysis setup</button></header>
+          <ResultTableBrowser tile={previewTile} fallback={modalRef} preview />
+        </section>}
+        <footer className="guided-query-footer" hidden={showCompletePreview} style={showCompletePreview ? { display: "none" } : undefined}>
+          {creating && <p role="status">{creationMode === "background" && backgroundCreationAvailable
+            ? creationProgress?.phase === "preparing" ? `Preparing selected columns: ${creationProgress.done.toLocaleString()} of ${creationProgress.total.toLocaleString()} rows.` : "Calculating a fresh analysis in a background worker. You can cancel and keep your setup."
+            : "Closing will ignore this analysis result; the request may finish in the background."}</p>}
+          {isLoading && !creating && <p role="status">A data request is still finishing. Your setup is kept; creation will be available when it settles.</p>}
+          {(creationError || props.error) && <p role="alert" className="analysis-create-error">{creationError || props.error}</p>}
+          <small>{canCreate ? `The table/chart will be placed on ${destination === "new_page" ? "a new page" : "the current page"} and selected for editing.` : previewFailure ?? importedSupport.reason}</small>
           <div>
-            <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="secondary" onClick={() => void createOutput("table")} disabled={!canCreate || isLoading}>
-              {isLoading && outputMode === "table" ? "Creating..." : "Create table"}
-            </button>
-            <button type="button" onClick={() => void createOutput("chart")} disabled={!canCreate || isLoading}>
-              {isLoading && outputMode === "chart" ? "Creating..." : "Create chart"}
+            <button ref={cancelCreationRef} type="button" className="secondary" onClick={creating && creationMode === "background" && backgroundCreationAvailable ? cancelCalculation : dismiss}>{creating && creationMode === "background" && backgroundCreationAvailable ? "Cancel calculation" : "Cancel"}</button>
+            <button ref={createActionRef} type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || !destinationAvailable || isLoading || creating || importing || backgroundPreview.busy || showCompletePreview}>
+              {creating ? "Creating analysis..." : isLoading ? "Waiting for data request" : `${outputMode === "table" ? "Create table" : "Create chart"}${destination === "new_page" ? " on new page" : ""}`}
             </button>
           </div>
         </footer>

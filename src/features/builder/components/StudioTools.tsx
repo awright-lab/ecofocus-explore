@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
+  BookOpenText,
   Check,
   Command,
   Database,
@@ -26,9 +27,9 @@ export interface StudioCommand {
 }
 const tools: Array<{ id: LeftPanelView; label: string; icon: LucideIcon }> = [
   { id: "pages", label: "Pages", icon: FileText },
-  { id: "data", label: "Data", icon: Database },
-  { id: "insert", label: "Elements", icon: Plus },
-  { id: "brand", label: "Design", icon: Palette },
+  { id: "data", label: "Studies", icon: Database },
+  { id: "insert", label: "Insert", icon: Plus },
+  { id: "brand", label: "Styles", icon: Palette },
   { id: "layers", label: "Layers", icon: Layers },
 ];
 
@@ -37,14 +38,18 @@ export function StudioRail({
   onChange,
   onSearch,
   onAnalyze,
+  onStory,
+  onExplore,
 }: {
   active: LeftPanelView | null;
   onChange: (view: LeftPanelView) => void;
   onSearch: () => void;
   onAnalyze: () => void;
+  onStory?: () => void;
+  onExplore?: () => void;
 }) {
   return (
-    <nav className="studio-rail" aria-label="Studio tools">
+    <nav className="studio-rail" aria-label="Studio tools" data-canvas-keyboard-scope="controls">
       <button
         className="studio-rail-create"
         type="button"
@@ -53,8 +58,10 @@ export function StudioRail({
         title="Create a table or chart"
       >
         <Plus size={21} />
-        <span>Create</span>
+        <span>Analyze</span>
       </button>
+      {onStory&&<button type="button" className="studio-rail-story" onClick={onStory} aria-label="Build a story" title="Turn selected findings into an editable story"><BookOpenText size={20}/><span>Story</span></button>}
+      {onExplore&&<button type="button" onClick={onExplore} aria-label="Explore linked views" title="Select groups across related analyses"><SlidersHorizontal size={20}/><span>Explore</span></button>}
       <div className="studio-rail-divider" />
       {tools.map(({ id, label, icon: Icon }) => (
         <button
@@ -91,15 +98,18 @@ export function StudioCommandMenu({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Capture before the dialog input receives React autoFocus during commit.
+  const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [group, setGroup] = useState("All tools");
+  const groups = ["All tools", ...new Set(commands.map((command) => command.group))];
   const matches = commands.filter((command) =>
-    `${command.label} ${command.group}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+    (group === "All tools" || command.group === group) && query.toLowerCase().trim().split(/\s+/).every((word) => `${command.label} ${command.group} ${command.shortcut ?? ""}`.toLowerCase().includes(word)),
   );
   useEffect(() => {
     ref.current?.showModal();
+    return () => { if (opener.current?.isConnected) opener.current.focus(); };
   }, []);
   useEffect(() => {
     ref.current
@@ -129,6 +139,10 @@ export function StudioCommandMenu({
           autoFocus
           placeholder="What would you like to do?"
           aria-label="Search commands"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="studio-command-options"
+          aria-activedescendant={matches[active] ? `command-${matches[active].id}` : undefined}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -137,7 +151,7 @@ export function StudioCommandMenu({
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
               event.preventDefault();
-              setActive((index) => Math.min(index + 1, matches.length - 1));
+              setActive((index) => Math.max(0, Math.min(index + 1, matches.length - 1)));
             }
             if (event.key === "ArrowUp") {
               event.preventDefault();
@@ -153,13 +167,17 @@ export function StudioCommandMenu({
           <X size={18} />
         </button>
       </div>
-      <div className="studio-command-results">
+      <nav className="command-categories" aria-label="Tool categories">{groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => { setGroup(item); setActive(0); }}>{item}</button>)}</nav>
+      <div className="studio-command-results" role="listbox" id="studio-command-options" aria-label="Matching tools">
         {matches.length ? (
           matches.map((command, index) => {
             const Icon = command.icon ?? ArrowUpRight;
             return (
               <button
                 type="button"
+                id={`command-${command.id}`}
+                role="option"
+                aria-selected={active === index}
                 className={active === index ? "active" : ""}
                 key={command.id}
                 onClick={() => execute(index)}
@@ -199,10 +217,13 @@ export function StudioCommandMenu({
   );
 }
 
-export function StudioHelp({ onClose }: { onClose: () => void }) {
+export function StudioHelp({ onClose, actions = [] }: { onClose: () => void; actions?: StudioCommand[] }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Capture before the dialog input receives React autoFocus during commit.
+  const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   useEffect(() => {
     ref.current?.showModal();
+    return () => { if (opener.current?.isConnected) opener.current.focus(); };
   }, []);
   return (
     <dialog
@@ -235,19 +256,19 @@ export function StudioHelp({ onClose }: { onClose: () => void }) {
             Database,
             "01",
             "Find your evidence",
-            "Use Create to build a table or chart. Import a study in Data, or explore the included EcoFocus sample.",
+            "Choose Analyze to build a table or chart. Open Studies for your imported research and advanced analysis. Sample data is labeled separately.",
           ],
           [
             LayoutTemplate,
             "02",
             "Make it your own",
-            "Select any object to reveal its controls. Use Design for themes, type styles, and reusable story sections.",
+            "Use Pages to organize the story, Insert to add content, and Styles for themes, typography and reusable sections. Select an object to edit its properties.",
           ],
           [
             ArrowUpRight,
             "03",
             "Deliver the story",
-            "Preview as a report, dashboard, or presentation. Share a snapshot or export to PowerPoint, PDF, or Excel.",
+            "Preview the report and save a snapshot in this browser. Export PowerPoint, PDF or Excel to deliver it to someone else; snapshots are not online sharing.",
           ],
         ].map(([Icon, number, title, body]) => {
           const StepIcon = Icon as LucideIcon;
@@ -265,6 +286,7 @@ export function StudioHelp({ onClose }: { onClose: () => void }) {
           );
         })}
       </div>
+      {actions.length > 0 && <div className="studio-help-actions" aria-label="Try a workflow">{actions.map((action) => <button type="button" key={action.id} onClick={() => { onClose(); action.run(); }}><span>{action.group}</span><strong>{action.label}</strong><ArrowUpRight size={18} /></button>)}</div>}
       <div className="studio-help-note">
         <Check size={16} />
         <span>
@@ -274,7 +296,7 @@ export function StudioHelp({ onClose }: { onClose: () => void }) {
       </div>
       <div className="studio-help-shortcut">
         <Command size={16} />
-        <strong>Ctrl / ⌘ K</strong>
+        <strong>Ctrl / Command + K</strong>
         <span>Find any tool instantly</span>
         <SlidersHorizontal size={16} />
       </div>

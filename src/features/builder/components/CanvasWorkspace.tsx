@@ -26,7 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Rnd } from "react-rnd";
-import { canvasHeight, canvasWidth } from "../builderConstants";
+import { canvasHeight, canvasWidth, chartFrameMinimum } from "../builderConstants";
 import {
   buildCompositionGuideObjects,
   buildCompositionGuideState,
@@ -255,8 +255,8 @@ const CanvasTileFrame = memo(function CanvasTileFrame({
       bounds="parent"
       scale={canvasScale}
       dragHandleClassName="tile-drag-handle"
-      minWidth={320}
-      minHeight={220}
+      minWidth={chartFrameMinimum.width}
+      minHeight={chartFrameMinimum.height}
       size={{ width: tile.layout.width, height: tile.layout.height }}
       position={{ x: tile.layout.x, y: tile.layout.y }}
       style={{ zIndex: tile.layout.zIndex }}
@@ -344,6 +344,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
   onOpenInsertPanel,
   onBringForward,
   onDuplicateSelection,
+  onMoveSelection,
   onDeleteSelection,
   onAddPage,
   onSetActivePage,
@@ -382,6 +383,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
   onOpenInsertPanel: () => void;
   onBringForward: () => void;
   onDuplicateSelection: () => void;
+  onMoveSelection?: (trigger?:HTMLButtonElement) => void;
   onDeleteSelection: () => void;
   onAddPage: () => void;
   onSetActivePage: (pageId: string) => void;
@@ -589,19 +591,19 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
       const zoom =
         Math.floor(
           (Math.min(
-            (width - 80) / canvasWidth,
+              (width - (width < 600 ? 24 : 80)) / canvasWidth,
             (height - 64) / canvasHeight,
             1.2,
           ) *
             100) /
             5,
         ) * 5;
-      zoomCallback.current(Math.max(35, zoom));
+      zoomCallback.current(Math.max(10, zoom));
     };
-    const observer = new ResizeObserver(fit);
-    observer.observe(viewport);
-    fit();
-    return () => observer.disconnect();
+    // Fit initially or when explicitly requested. Opening an inspector or
+    // selecting an object must not silently replace the user's zoom level.
+    const frame = requestAnimationFrame(fit);
+    return () => cancelAnimationFrame(frame);
   }, [fitRequest]);
 
   async function toggleCanvasFullscreen() {
@@ -629,7 +631,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
         .join(" ")}
       aria-label="Dashboard canvas"
     >
-      <div className="page-header">
+      <div className="page-header" data-canvas-keyboard-scope="controls">
         <div className="page-header__identity">
           <p className="eyebrow">Story canvas · Slide {activePage.order}</p>
           <h2>{activePage.title}</h2>
@@ -655,7 +657,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
             </button>
             <input
               type="range"
-              min="35"
+                min="10"
               max="160"
               step="5"
               value={canvasZoom}
@@ -684,6 +686,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
             : "floating-format-bar"
         }
         aria-label="Quick actions"
+        data-canvas-keyboard-scope="controls"
       >
         <div className="floating-format-bar__context">
           <span>{hasSelection ? "Editing" : "Canvas"}</span>
@@ -718,6 +721,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
             <button type="button" onClick={onDuplicateSelection}>
               Duplicate
             </button>
+            {onMoveSelection && <button type="button" aria-disabled={multiSelectionSummary.count > 1 || !!selectedTile?.locked || !!selectedElement?.locked} title="Move one unlocked object to another report page" onClick={event=>{if(multiSelectionSummary.count <= 1 && !selectedTile?.locked && !selectedElement?.locked)onMoveSelection(event.currentTarget);}}>Move to page</button>}
             <button
               type="button"
               className="danger-action"
@@ -861,7 +865,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
         </div>
       </div>
       {storyHintVisible && (
-        <div className="story-arc-pill" role="status">
+        <div className="story-arc-pill" role="status" data-canvas-keyboard-scope="controls">
           <span className="story-arc-pill__icon" aria-hidden="true">
             <Sparkles className="story-arc-icon" strokeWidth={1.9} />
           </span>
@@ -880,7 +884,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
           </button>
         </div>
       )}
-      <div className="canvas-bottom-bar" aria-label="Story page actions">
+      <div className="canvas-bottom-bar" aria-label="Story page actions" data-canvas-keyboard-scope="controls">
         <div className="slide-nav-controls">
           <button
             type="button"

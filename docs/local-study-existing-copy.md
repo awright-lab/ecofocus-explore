@@ -1,0 +1,17 @@
+# Avoiding repeated local CSV copies
+
+Before adding a parsed local CSV, the importer checks for an identical complete local study already in the current workspace. A match offers **Show existing study** or **Import as a separate study**. Showing the existing study preserves its ID and every report reference, makes no workspace save, and returns keyboard focus to its analysis action in the study library. A separate import deliberately keeps both records with separate generated IDs; it does not replace or merge the existing study.
+
+The comparison includes the title, file name, all field metadata, parser metadata, original string values, row order and respondent key order. It does not normalize numbers, trim answers, sample rows or compare only previews. Different labels, roles, value labels, research topics, notes or raw values remain distinct. Top-level metadata property order is treated as named properties, so worker transport and saved records can match.
+
+Only generated IDs/import times, ordinary generated local source/status records, derived preview rows and the known workspace-compaction note are excluded. Loaded row and field arrays must agree with their declared counts. Remote sources, prepared studies, non-CSV formats, missing respondent rows and custom source/status descriptors are outside this check. Renamed files or differently titled studies are conservatively distinct. The existing Excel/SPSS/remote import paths are unchanged.
+
+This is recorded-content equality, not file-byte identity, source authentication or proof of the same respondents or collection wave. Choose a separate study for a distinct wave or source even when its values match. At activation, the chosen existing record is compared again and its selected ID and import timestamp must still match; changes, removal or replacement cannot silently redirect the choice to another version.
+
+The comparison makes no new whole-row JSON string. It uses a bounded own-property walk: at most 1,000 catalog entries, 250,000 visits, 8,388,608 UTF-16 code units across inspected keys/strings, and depth 16. An incomplete or unsupported check is reported as unverified, never as no match. The user can then explicitly import a separate study. These are logical comparison limits, not a total browser memory or responsiveness guarantee.
+
+Until the user chooses an outcome, the parsed preview keeps its existing close and unload protection. The new decision/result transitions preserve focus without moving it from unrelated controls. Repeated activation cannot launch concurrent additions. Failed saves retain the existing additive pending candidate and use the normal global save recovery controls.
+
+Synthetic verification covers literal reserved column names, raw numeric spellings, changed metadata/data/order, malformed/accessor/hidden runtime inputs, resource limits, stale choices and UI focus. An actual application workflow reimports a 1,000-row, 30-field study: reuse leaves the saved workspace text byte-identical; deliberate duplication survives quota failure, Retry saving and cold reopen with the original study, report and all rows intact. No fetch is needed by this local route.
+
+This prevents future repeated copies through the local CSV path. It does not reclaim existing duplicates, deduplicate historical snapshot versions, migrate storage or activate restore/recovery. Goal 4 remains partial. Independent/native browser, accessibility, performance and cross-tab acceptance remain open. No publication, merge, deployment or security-setting change is included.

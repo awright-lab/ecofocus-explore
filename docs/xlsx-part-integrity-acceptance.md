@@ -1,0 +1,13 @@
+# XLSX consumed-part integrity
+
+Browser XLSX import now verifies the decoded size and CRC32 of the workbook metadata, workbook relationships, selected first worksheet and optional shared-string table before building a study. A damaged response with stale checksum previously imported as an ordinary value. Duplicate selected part names previously selected the last entry silently; they now produce an explicit ambiguous-part error. Original files and saved workspaces are retained on failure.
+
+CRC32 and decoded sizes use central-directory metadata. Valid streamed ZIPs may leave those local-header fields zero when they use a data descriptor; this correction retains that behavior. See [PKWARE ZIP specification](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT), sections 4.4.7–4.4.9. CRC detects inconsistent bytes; it does not authenticate the source or validate the truth of measurements. A legitimately modified workbook with matching checksum remains importable.
+
+Only consumed parts are checked. Unused or unselected duplicate entries retain the existing first-worksheet import scope. The importer reuses the exact existing ZIP writer CRC implementation; export construction and checksum computation are unchanged. It does not repair source ZIPs, normalize part names, support new encryption/compression formats or certify complete ZIP/OOXML conformance.
+
+Two prior-source controls reproduce a stale-checksum response imported as90 and duplicate worksheets silently importing999. New regressions cover corrupted workbook/relationship/shared-string/numeric content, duplicate consumed parts, exact decoded sizes, unrelated duplicates, correctly updated content, standard CRC vectors and byte-view boundaries. Python independently generates stored and deflated streamed ZIP fixtures, checks every CRC with its ZIP reader and confirms descriptor flags plus zero local checksum/size fields. Node inflater/jsdom tests verify positive imports and rejection of wrong central size/CRC in both fixtures. These are not native browser/Excel acceptance.
+
+Actual App/Home rejection checks preserve exact saved bytes, pending state, input bytes, previous reports and all rows/fields of an existing synthetic1,000x30study through cold reopen, with no fetch. Full test/type/build and byte-verified backups are recorded in the separate checkpoint packet.
+
+This correction does not bound decompression or XML/DOM allocation, validate every ZIP structure/descriptor or unused part, authenticate input, recalculate formulas, or complete goal15 background analysis. Native browser, Excel, OS file chooser/download, low-memory/performance and live backend acceptance remain unverified. No publication, merge, deployment or environment security changes are included.

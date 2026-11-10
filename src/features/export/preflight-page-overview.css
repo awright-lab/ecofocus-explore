@@ -1,0 +1,9 @@
+.preflight-page-overview { border: 1px solid #cbd7d0; border-radius: 10px; padding: 14px; margin: 16px 0; }
+.preflight-page-overview h3 { margin-top: 0; }
+.preflight-page-overview h3:focus-visible { outline: 3px solid #27644c; outline-offset: 3px; }
+.preflight-page-overview ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px; max-height: 260px; overflow: auto; padding: 4px; list-style: none; }
+.preflight-page-overview li { min-width: 0; }
+.preflight-page-overview button { display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 48px; padding: 10px; text-align: left; color: #183d2d; background: #fff; border: 1px solid #b6c9bf; border-radius: 6px; overflow-wrap: anywhere; }
+.preflight-page-overview button[aria-pressed="true"] { border-color: #27644c; background: #eaf3ee; }
+.preflight-page-overview button:focus-visible { outline: 3px solid #27644c; outline-offset: 2px; }
+.preflight-page-overview button span, .preflight-page-overview-note { font-size: .875rem; }

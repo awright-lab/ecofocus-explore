@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { importDatasetBuffer, importDatasetFile } from "../datasetImportModel";
+import { importDatasetBuffer, importDatasetFile, type DatasetImportLimits } from "../datasetImportModel";
 import { importedFieldValues } from "../importedDatasetAnalytics";
 
 function textBytes(value: string, length: number) {
@@ -237,5 +237,92 @@ describe("datasetImportModel", () => {
       }
     });
     expect(result.dataset?.notes).toContain("This SAV file appears to use ZLIB-compressed case data, which is not supported yet; imported metadata without rows.");
+  });
+});
+
+describe("bounded local parser", () => {
+  const budget: DatasetImportLimits = { maxRows: 2, maxFields: 3, maxCells: 6, maxValueChars: 20, maxPhysicalSlots: 3 };
+  const csv = (text: string, limits = budget) => importDatasetBuffer(new TextEncoder().encode(text).buffer, "local.csv", "csv", limits);
+  it("retains the exact rectangular boundary and existing duplicate-header behavior", async () => {
+    const text = 'A,A,\n1,2,3\n4,5,6';
+    const bounded = (await csv(text)).dataset!;
+    const ordinary = (await importDatasetBuffer(new TextEncoder().encode(text).buffer, "local.csv", "csv")).dataset!;
+    expect(bounded.rows).toEqual(ordinary.rows);
+    expect(bounded.fields).toEqual(ordinary.fields);
+    expect(bounded.previewRows).toEqual(ordinary.previewRows);
+    expect(bounded.notes).toEqual(ordinary.notes);
+    expect(bounded.rowCount).toBe(2);
+  });
+  it.each([
+    ['A\n1\n2\n3', budget],
+    ['A,B,C,D\n1,2,3,4', budget],
+    ['A\n1\n2,3,4', { ...budget, maxCells: 5 }],
+    ['A\n"123456"', { ...budget, maxValueChars: 5 }],
+    ['A\n"12\n3456"', { ...budget, maxValueChars: 5 }],
+    ['A\n"12""3456"', { ...budget, maxValueChars: 5 }],
+  ])("rejects overflow before returning any partial study (%s)", async (text, limits) => {
+    const result = await csv(text, limits);
+    expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/limit|budget/);
+  });
+  it("rejects missing, nonpositive, fractional and unsafe budgets", async () => {
+    for (const value of [undefined, 0, -1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      const result = await csv('A\n1', { ...budget, maxRows: value } as DatasetImportLimits);
+      expect(result.error).toBe('Invalid local import budgets.'); expect(result.dataset).toBeUndefined();
+      if (value !== undefined) expect((await csv('A\n1', { ...budget, maxExpandedRowJsonChars: value })).error).toBe('Invalid local import budgets.');
+    }
+  });
+  it("retains classic SAV at its boundary and refuses a declared oversized study", async () => {
+    const result = await importDatasetBuffer(minimalSavFile(), 'local.sav', 'sav', budget);
+    expect(result.dataset?.rows).toEqual([{ Q1: '1' }, { Q1: '2' }]);
+    const large = minimalSavFile(); new DataView(large).setInt32(80, 3, true);
+    const rejected = await importDatasetBuffer(large, 'local.sav', 'sav', budget);
+    expect(rejected.dataset).toBeUndefined(); expect(rejected.error).toContain('budget');
+  });
+  it("does not turn unknown-count SAV budget failures into a metadata-only success", async () => {
+    for (const compressed of [false, true]) {
+      let buffer = minimalSavFile();
+      new DataView(buffer).setInt32(80, -1, true);
+      if (compressed) {
+        new DataView(buffer).setInt32(72, 1, true);
+        buffer = concatBytes([new Uint8Array(buffer).slice(0, -16), new Uint8Array([101, 102, 103, 252, 0, 0, 0, 0])]).buffer;
+      }
+      const result = await importDatasetBuffer(buffer, 'local.sav', 'sav', { ...budget, maxRows: 1 });
+      expect(result.dataset).toBeUndefined(); expect(result.error).toContain('budget');
+    }
+  });
+  it("bounds SAV physical slots, logical fields, cells and string values", async () => {
+    const cases: Array<[ArrayBuffer, DatasetImportLimits]> = [
+      [minimalSavFileWithStringContinuation(), { ...budget, maxPhysicalSlots: 2 }],
+      [minimalSavFileWithStringContinuation(), { ...budget, maxFields: 1 }],
+      [minimalSavFile(), { ...budget, maxCells: 1 }],
+      [minimalSavFileWithStringContinuation(), { ...budget, maxValueChars: 15 }],
+    ];
+    for (const [buffer, limits] of cases) {
+      const result = await importDatasetBuffer(buffer, 'local.sav', 'sav', limits);
+      expect(result.dataset).toBeUndefined(); expect(result.error).toMatch(/limit|budget/);
+    }
+  });
+  it("counts repeated keys, padding and escaped values at the exact expanded JSON boundary", async () => {
+    for (const text of ['Long field,B\n1,2\n3', 'A,A\n"quote""value",x\ny,z', '"Line\nheader",B\n"Line\nvalue",\n😀,x', '__proto__,toJSON\nconstructor,plain']) {
+      const ordinary = (await importDatasetBuffer(new TextEncoder().encode(text).buffer, 'local.csv', 'csv')).dataset!;
+      const exact = JSON.stringify(ordinary.rows).length;
+      const generous = { ...budget, maxRows: 20, maxFields: 20, maxCells: 400, maxValueChars: 100, maxExpandedRowJsonChars: exact };
+      expect((await csv(text, generous)).dataset?.rows).toEqual(ordinary.rows);
+      const refused = await csv(text, { ...generous, maxExpandedRowJsonChars: exact - 1 });
+      expect(refused.dataset).toBeUndefined(); expect(refused.error).toContain('Expanded study rows');
+    }
+  });
+  it("rejects a roughly 112 KB CSV with theoretical 600M repeated-key characters before creating row objects", async () => {
+    const text = 'H'.repeat(100_000) + '\n' + 'x\n'.repeat(6_000);
+    const result = await csv(text, { ...budget, maxRows: 10_000, maxCells: 10_000, maxValueChars: 128 * 1024, maxExpandedRowJsonChars: 16 * 1024 * 1024 });
+    expect(new TextEncoder().encode(text).length).toBe(112_001);
+    expect(result.dataset).toBeUndefined(); expect(result.error).toContain('Long field names repeat');
+  });
+  it("does not let the optional expanded-row guard become a metadata-only SAV success", async () => {
+    const ordinary = (await importDatasetBuffer(minimalSavFile(), 'local.sav', 'sav')).dataset!;
+    const exact = JSON.stringify(ordinary.rows).length;
+    expect((await importDatasetBuffer(minimalSavFile(), 'local.sav', 'sav', { ...budget, maxExpandedRowJsonChars: exact })).dataset?.rows).toEqual(ordinary.rows);
+    const result = await importDatasetBuffer(minimalSavFile(), 'local.sav', 'sav', { ...budget, maxExpandedRowJsonChars: exact - 1 });
+    expect(result.dataset).toBeUndefined(); expect(result.error).toContain('Expanded study rows');
   });
 });

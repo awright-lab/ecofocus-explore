@@ -1,0 +1,677 @@
+{
+  "provenance": {
+    "head": "82e7a370ec81fdb997aa1535a0258a82729b0538",
+    "capturedOriginalModule": true
+  },
+  "cases": [
+    {
+      "kind": "duplicate",
+      "sourceBase64": "JEZMMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAACAAAAAAAAAAAAAAADAAAAAAAAAAAAWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAABQAAAAUAAABJRCAgICAgIAIAAAAAAAAAAAAAAAAAAAAFAAAABQAAAElEICAgICAg5wMAAAAAAAAAAAAAAADwPwAAAAAAACRAAAAAAAAAAEAAAAAAAAA0QAAAAAAAAAhAAAAAAAAAPkA=",
+      "sourceSha256": "31682305090d8e3bc5d2bd2791c48a1611a94ede4248e301290160484213703d",
+      "dataset": {
+        "id": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+        "title": "synthetic-duplicate-names",
+        "sourceType": "local_file",
+        "fileName": "synthetic-duplicate-names.sav",
+        "fileType": "sav",
+        "importMetadata": {
+          "formatLabel": "SAV survey metadata import",
+          "metadataQuality": "metadata_rich",
+          "parserNotes": [
+            "Imported variable labels and value labels from the SPSS dictionary where available.",
+            "Read uncompressed SPSS case data."
+          ]
+        },
+        "importedAt": "2026-11-07T18:00:00.000Z",
+        "rowCount": 3,
+        "fieldCount": 2,
+        "fields": [
+          {
+            "id": "id_1",
+            "label": "ID",
+            "sourceColumn": "ID",
+            "variableLabel": "ID",
+            "sourceFormat": "SPSS format 5",
+            "type": "numeric",
+            "nonEmptyCount": 3,
+            "distinctCount": 3,
+            "sampleValues": [
+              "1",
+              "2",
+              "3"
+            ],
+            "modelingRole": "candidate_measure",
+            "eligibleForFilter": false,
+            "eligibleForSegment": false,
+            "eligibleForBanner": false
+          },
+          {
+            "id": "id_2",
+            "label": "ID",
+            "sourceColumn": "ID",
+            "variableLabel": "ID",
+            "sourceFormat": "SPSS format 5",
+            "type": "numeric",
+            "nonEmptyCount": 3,
+            "distinctCount": 3,
+            "sampleValues": [
+              "10",
+              "20",
+              "30"
+            ],
+            "modelingRole": "candidate_measure",
+            "eligibleForFilter": false,
+            "eligibleForSegment": false,
+            "eligibleForBanner": false
+          }
+        ],
+        "rows": [
+          {
+            "ID": "10"
+          },
+          {
+            "ID": "20"
+          },
+          {
+            "ID": "30"
+          }
+        ],
+        "previewRows": [
+          {
+            "ID": "10"
+          },
+          {
+            "ID": "20"
+          },
+          {
+            "ID": "30"
+          }
+        ],
+        "modelingStatus": "initial_model",
+        "notes": [
+          "Initial model inferred from SAV variable metadata, variable labels, and value labels.",
+          "SAV value labels are used for categorical display while raw codes remain stored in imported rows."
+        ]
+      },
+      "result": {
+        "calculationInputs": {
+          "version": 1,
+          "method": "local_unweighted_v1",
+          "query": {
+            "dataset": "ecofocus_2025",
+            "question": "Q_PACKAGING_TRUST",
+            "breakBy": "SUMMARY",
+            "filters": [],
+            "weight": null,
+            "metric": "average",
+            "chartType": "table",
+            "confidenceLevel": 0.95,
+            "comparisonMode": "none",
+            "comparisonDatasets": [],
+            "sourceRef": {
+              "id": "imported:dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+              "kind": "imported_file",
+              "provider": "local_file",
+              "label": "synthetic-duplicate-names",
+              "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683"
+            },
+            "sourceIdentity": {
+              "kind": "imported",
+              "datasetImportedAt": "2026-11-07T18:00:00.000Z",
+              "measureBaseScope": "cell",
+              "queryKind": "measure",
+              "groupingScope": "all_respondents",
+              "sourceRef": {
+                "id": "imported:dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+                "kind": "imported_file",
+                "provider": "local_file",
+                "label": "synthetic-duplicate-names",
+                "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683"
+              },
+              "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+              "datasetLabel": "synthetic-duplicate-names",
+              "primaryFieldId": "__ecofocus_all_respondents__",
+              "primaryFieldLabel": "All respondents",
+              "measureFieldId": "id_1",
+              "measureFieldLabel": "ID"
+            }
+          },
+          "columns": {
+            "summary": "Total"
+          },
+          "rows": {
+            "all_respondents_1": {
+              "label": "All respondents",
+              "cells": {
+                "summary": {
+                  "numerator": 60,
+                  "denominator": 3
+                }
+              }
+            }
+          }
+        },
+        "query": {
+          "dataset": "ecofocus_2025",
+          "question": "Q_PACKAGING_TRUST",
+          "breakBy": "SUMMARY",
+          "filters": [],
+          "weight": null,
+          "metric": "average",
+          "chartType": "table",
+          "confidenceLevel": 0.95,
+          "comparisonMode": "none",
+          "comparisonDatasets": [],
+          "sourceRef": {
+            "id": "imported:dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+            "kind": "imported_file",
+            "provider": "local_file",
+            "label": "synthetic-duplicate-names",
+            "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683"
+          },
+          "sourceIdentity": {
+            "kind": "imported",
+            "datasetImportedAt": "2026-11-07T18:00:00.000Z",
+            "measureBaseScope": "cell",
+            "queryKind": "measure",
+            "groupingScope": "all_respondents",
+            "sourceRef": {
+              "id": "imported:dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+              "kind": "imported_file",
+              "provider": "local_file",
+              "label": "synthetic-duplicate-names",
+              "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683"
+            },
+            "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+            "datasetLabel": "synthetic-duplicate-names",
+            "primaryFieldId": "__ecofocus_all_respondents__",
+            "primaryFieldLabel": "All respondents",
+            "measureFieldId": "id_1",
+            "measureFieldLabel": "ID"
+          }
+        },
+        "labels": [
+          "Total"
+        ],
+        "series": [
+          {
+            "id": "all_respondents_1",
+            "label": "All respondents",
+            "values": [
+              20
+            ],
+            "bases": [
+              3
+            ]
+          }
+        ],
+        "columns": [
+          {
+            "sourceCategoryKey": "null",
+            "id": "summary",
+            "label": "Total"
+          }
+        ],
+        "table": [
+          {
+            "sourceCategoryKey": "\"All respondents\"",
+            "optionId": "all_respondents_1",
+            "label": "All respondents",
+            "values": {
+              "summary": 20
+            },
+            "bases": {
+              "summary": 3
+            },
+            "presentation": {
+              "rowKind": "option",
+              "emphasis": "detail"
+            }
+          }
+        ],
+        "metric": {
+          "id": "average",
+          "label": "Average ID",
+          "valueFormat": "number"
+        },
+        "weighting": {
+          "applied": false,
+          "id": null,
+          "label": "Unweighted"
+        },
+        "annotations": [],
+        "statistics": {
+          "confidenceLevel": 0.95,
+          "significanceMethod": "none",
+          "significanceExecutionPlan": {
+            "status": "not_applicable",
+            "candidateMethod": "none",
+            "queryShapeSupported": false,
+            "providerCanExecute": false,
+            "executionInputContract": null,
+            "reasonCodes": [
+              "summary_only",
+              "no_comparison_basis"
+            ],
+            "unmetPrerequisites": [
+              "comparison_basis"
+            ]
+          },
+          "significanceExecutionInput": null,
+          "significanceExecutionReport": null,
+          "significance": {
+            "status": "none",
+            "method": "none",
+            "readiness": {
+              "status": "not_applicable",
+              "method": "none",
+              "reasonCodes": [
+                "summary_only",
+                "no_comparison_basis"
+              ],
+              "comparisonBasis": "summary"
+            },
+            "reasonCodes": [
+              "summary_only"
+            ],
+            "comparisonBasis": "summary",
+            "hasPlaceholders": false,
+            "details": []
+          }
+        },
+        "warnings": [],
+        "notes": [
+          "Imported dataset: synthetic-duplicate-names.",
+          "Aggregated ID by All respondents.",
+          "Imported-data support is currently limited to one categorical grouping field, one optional breakout, one optional filter, and one optional numeric measure."
+        ],
+        "metadataRefs": {
+          "dataset": "ecofocus_2025",
+          "question": "Q_PACKAGING_TRUST",
+          "breakBy": "SUMMARY",
+          "source": {
+            "kind": "imported",
+            "datasetImportedAt": "2026-11-07T18:00:00.000Z",
+            "measureBaseScope": "cell",
+            "queryKind": "measure",
+            "groupingScope": "all_respondents",
+            "sourceRef": {
+              "id": "imported:dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+              "kind": "imported_file",
+              "provider": "local_file",
+              "label": "synthetic-duplicate-names",
+              "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683"
+            },
+            "datasetId": "dataset_synthetic_duplicate_names_mw6pkqo0_1_317003f1-93c0-4f32-b570-93bce306b683",
+            "datasetLabel": "synthetic-duplicate-names",
+            "primaryFieldId": "__ecofocus_all_respondents__",
+            "primaryFieldLabel": "All respondents",
+            "measureFieldId": "id_1",
+            "measureFieldLabel": "ID"
+          },
+          "comparisonMode": "none",
+          "comparisonDatasets": []
+        }
+      },
+      "profile": {
+        "status": "ready",
+        "rows": 3,
+        "valid": 3,
+        "blank": 0,
+        "invalid": 0,
+        "distinct": 3,
+        "minimum": 10,
+        "maximum": 30,
+        "mean": 20,
+        "median": 20,
+        "total": 60,
+        "distribution": [
+          {
+            "lower": 10,
+            "upper": 20,
+            "count": 1,
+            "includesUpper": false
+          },
+          {
+            "lower": 20,
+            "upper": 30,
+            "count": 2,
+            "includesUpper": true
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "kind": "empty",
+      "sourceBase64": "JEZMMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAACAAAAAAAAAAAAAAADAAAAAAAAAAAAWUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAABQAAAAUAAAAgICAgICAgIAIAAAAAAAAAAAAAAAAAAAAFAAAABQAAAEFNT1VOVCAg5wMAAAAAAAAAAAAAAADwPwAAAAAAACRAAAAAAAAAAEAAAAAAAAA0QAAAAAAAAAhAAAAAAAAAPkA=",
+      "sourceSha256": "0ca1ef1752dfda43bef19a6d9c2366e2c2c1332db91a8d096f867eaafbf4d7e0",
+      "dataset": {
+        "id": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+        "title": "synthetic-empty-names",
+        "sourceType": "local_file",
+        "fileName": "synthetic-empty-names.sav",
+        "fileType": "sav",
+        "importMetadata": {
+          "formatLabel": "SAV survey metadata import",
+          "metadataQuality": "metadata_rich",
+          "parserNotes": [
+            "Imported variable labels and value labels from the SPSS dictionary where available.",
+            "Read uncompressed SPSS case data."
+          ]
+        },
+        "importedAt": "2026-11-07T18:00:00.000Z",
+        "rowCount": 3,
+        "fieldCount": 2,
+        "fields": [
+          {
+            "id": "column_1_1",
+            "label": "",
+            "sourceColumn": "Column 1",
+            "variableLabel": "",
+            "sourceFormat": "SPSS format 5",
+            "type": "numeric",
+            "nonEmptyCount": 3,
+            "distinctCount": 3,
+            "sampleValues": [
+              "1",
+              "2",
+              "3"
+            ],
+            "modelingRole": "candidate_measure",
+            "eligibleForFilter": false,
+            "eligibleForSegment": false,
+            "eligibleForBanner": false
+          },
+          {
+            "id": "amount_2",
+            "label": "AMOUNT",
+            "sourceColumn": "AMOUNT",
+            "variableLabel": "AMOUNT",
+            "sourceFormat": "SPSS format 5",
+            "type": "numeric",
+            "nonEmptyCount": 3,
+            "distinctCount": 3,
+            "sampleValues": [
+              "10",
+              "20",
+              "30"
+            ],
+            "modelingRole": "candidate_measure",
+            "eligibleForFilter": false,
+            "eligibleForSegment": false,
+            "eligibleForBanner": false
+          }
+        ],
+        "rows": [
+          {
+            "": "1",
+            "AMOUNT": "10"
+          },
+          {
+            "": "2",
+            "AMOUNT": "20"
+          },
+          {
+            "": "3",
+            "AMOUNT": "30"
+          }
+        ],
+        "previewRows": [
+          {
+            "": "1",
+            "AMOUNT": "10"
+          },
+          {
+            "": "2",
+            "AMOUNT": "20"
+          },
+          {
+            "": "3",
+            "AMOUNT": "30"
+          }
+        ],
+        "modelingStatus": "initial_model",
+        "notes": [
+          "Initial model inferred from SAV variable metadata, variable labels, and value labels.",
+          "SAV value labels are used for categorical display while raw codes remain stored in imported rows."
+        ]
+      },
+      "result": {
+        "calculationInputs": {
+          "version": 1,
+          "method": "local_unweighted_v1",
+          "query": {
+            "dataset": "ecofocus_2025",
+            "question": "Q_PACKAGING_TRUST",
+            "breakBy": "SUMMARY",
+            "filters": [],
+            "weight": null,
+            "metric": "average",
+            "chartType": "table",
+            "confidenceLevel": 0.95,
+            "comparisonMode": "none",
+            "comparisonDatasets": [],
+            "sourceRef": {
+              "id": "imported:dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+              "kind": "imported_file",
+              "provider": "local_file",
+              "label": "synthetic-empty-names",
+              "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5"
+            },
+            "sourceIdentity": {
+              "kind": "imported",
+              "datasetImportedAt": "2026-11-07T18:00:00.000Z",
+              "measureBaseScope": "cell",
+              "queryKind": "measure",
+              "groupingScope": "all_respondents",
+              "sourceRef": {
+                "id": "imported:dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+                "kind": "imported_file",
+                "provider": "local_file",
+                "label": "synthetic-empty-names",
+                "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5"
+              },
+              "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+              "datasetLabel": "synthetic-empty-names",
+              "primaryFieldId": "__ecofocus_all_respondents__",
+              "primaryFieldLabel": "All respondents",
+              "measureFieldId": "amount_2",
+              "measureFieldLabel": "AMOUNT"
+            }
+          },
+          "columns": {
+            "summary": "Total"
+          },
+          "rows": {
+            "all_respondents_1": {
+              "label": "All respondents",
+              "cells": {
+                "summary": {
+                  "numerator": 60,
+                  "denominator": 3
+                }
+              }
+            }
+          }
+        },
+        "query": {
+          "dataset": "ecofocus_2025",
+          "question": "Q_PACKAGING_TRUST",
+          "breakBy": "SUMMARY",
+          "filters": [],
+          "weight": null,
+          "metric": "average",
+          "chartType": "table",
+          "confidenceLevel": 0.95,
+          "comparisonMode": "none",
+          "comparisonDatasets": [],
+          "sourceRef": {
+            "id": "imported:dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+            "kind": "imported_file",
+            "provider": "local_file",
+            "label": "synthetic-empty-names",
+            "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5"
+          },
+          "sourceIdentity": {
+            "kind": "imported",
+            "datasetImportedAt": "2026-11-07T18:00:00.000Z",
+            "measureBaseScope": "cell",
+            "queryKind": "measure",
+            "groupingScope": "all_respondents",
+            "sourceRef": {
+              "id": "imported:dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+              "kind": "imported_file",
+              "provider": "local_file",
+              "label": "synthetic-empty-names",
+              "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5"
+            },
+            "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+            "datasetLabel": "synthetic-empty-names",
+            "primaryFieldId": "__ecofocus_all_respondents__",
+            "primaryFieldLabel": "All respondents",
+            "measureFieldId": "amount_2",
+            "measureFieldLabel": "AMOUNT"
+          }
+        },
+        "labels": [
+          "Total"
+        ],
+        "series": [
+          {
+            "id": "all_respondents_1",
+            "label": "All respondents",
+            "values": [
+              20
+            ],
+            "bases": [
+              3
+            ]
+          }
+        ],
+        "columns": [
+          {
+            "sourceCategoryKey": "null",
+            "id": "summary",
+            "label": "Total"
+          }
+        ],
+        "table": [
+          {
+            "sourceCategoryKey": "\"All respondents\"",
+            "optionId": "all_respondents_1",
+            "label": "All respondents",
+            "values": {
+              "summary": 20
+            },
+            "bases": {
+              "summary": 3
+            },
+            "presentation": {
+              "rowKind": "option",
+              "emphasis": "detail"
+            }
+          }
+        ],
+        "metric": {
+          "id": "average",
+          "label": "Average AMOUNT",
+          "valueFormat": "number"
+        },
+        "weighting": {
+          "applied": false,
+          "id": null,
+          "label": "Unweighted"
+        },
+        "annotations": [],
+        "statistics": {
+          "confidenceLevel": 0.95,
+          "significanceMethod": "none",
+          "significanceExecutionPlan": {
+            "status": "not_applicable",
+            "candidateMethod": "none",
+            "queryShapeSupported": false,
+            "providerCanExecute": false,
+            "executionInputContract": null,
+            "reasonCodes": [
+              "summary_only",
+              "no_comparison_basis"
+            ],
+            "unmetPrerequisites": [
+              "comparison_basis"
+            ]
+          },
+          "significanceExecutionInput": null,
+          "significanceExecutionReport": null,
+          "significance": {
+            "status": "none",
+            "method": "none",
+            "readiness": {
+              "status": "not_applicable",
+              "method": "none",
+              "reasonCodes": [
+                "summary_only",
+                "no_comparison_basis"
+              ],
+              "comparisonBasis": "summary"
+            },
+            "reasonCodes": [
+              "summary_only"
+            ],
+            "comparisonBasis": "summary",
+            "hasPlaceholders": false,
+            "details": []
+          }
+        },
+        "warnings": [],
+        "notes": [
+          "Imported dataset: synthetic-empty-names.",
+          "Aggregated AMOUNT by All respondents.",
+          "Imported-data support is currently limited to one categorical grouping field, one optional breakout, one optional filter, and one optional numeric measure."
+        ],
+        "metadataRefs": {
+          "dataset": "ecofocus_2025",
+          "question": "Q_PACKAGING_TRUST",
+          "breakBy": "SUMMARY",
+          "source": {
+            "kind": "imported",
+            "datasetImportedAt": "2026-11-07T18:00:00.000Z",
+            "measureBaseScope": "cell",
+            "queryKind": "measure",
+            "groupingScope": "all_respondents",
+            "sourceRef": {
+              "id": "imported:dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+              "kind": "imported_file",
+              "provider": "local_file",
+              "label": "synthetic-empty-names",
+              "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5"
+            },
+            "datasetId": "dataset_synthetic_empty_names_mw6pkqo0_2_a05723bc-7889-4c5f-8683-8d6f18151ee5",
+            "datasetLabel": "synthetic-empty-names",
+            "primaryFieldId": "__ecofocus_all_respondents__",
+            "primaryFieldLabel": "All respondents",
+            "measureFieldId": "amount_2",
+            "measureFieldLabel": "AMOUNT"
+          },
+          "comparisonMode": "none",
+          "comparisonDatasets": []
+        }
+      },
+      "profile": {
+        "status": "ready",
+        "rows": 3,
+        "valid": 0,
+        "blank": 3,
+        "invalid": 0,
+        "distinct": 0,
+        "minimum": null,
+        "maximum": null,
+        "mean": null,
+        "median": null,
+        "total": null,
+        "distribution": [],
+        "warnings": []
+      }
+    }
+  ]
+}

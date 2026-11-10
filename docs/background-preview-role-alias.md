@@ -1,0 +1,9 @@
+# Reject aliased virtual grouping roles before background preview
+
+An explicit overall-preview configuration can reuse one registered physical field object as both its grouping placeholder and a physical measure, breakout or filter. Direct execution treats overall grouping as virtual. The projection previously deduplicated the shared object into one slot and then blanked that slot for virtual grouping. In the reproduced breakout case, direct execution returned separate groups while the background path returned one blank aggregate. Normal authoring supplies a separate virtual object; ordinary UI reachability of the aliased configuration was not established.
+
+Background selection now refuses this object alias before preparing source values or creating a worker, with an instruction to supply a separate virtual grouping field. It does not refuse distinct objects merely because they share an ID or identical metadata. Direct execution, normal authoring, saved IDs/scopes, request protocol, limits and source data are unchanged.
+
+Seven regressions cover rejection for measure/breakout/filter object aliases, direct/worker parity for separate virtual objects with the same physical ID, and parity when distinct grouping-placeholder and breakout objects have identical metadata. The aliased direct-engine result is calculated independently in each case. Inputs remain unchanged and valid accepted previews retain current source bindings. Three negative assertions fail on the original background selector.
+
+This is a worker-boundary correction, not universal metadata validation or a demonstrated public exploit. Native browser/Worker/CSP and live-service acceptance remain open. No cached result or original row is rewritten, and no publication, deployment, production or security-setting change is performed.

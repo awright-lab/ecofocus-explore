@@ -47,6 +47,8 @@ export function useBuilderDesignCommands({
   function applyPaletteToTile(palette: DesignColorPalette, scope: "selected" | "all" = "selected") {
     const updateAppearance = (appearance: TileAppearance): TileAppearance => ({
       ...appearance,
+      reportColorsEnabled: false,
+      reportColorSlots: undefined,
       primaryColor: palette.colors[0],
       palette: palette.colors,
       labelColor: palette.colors[0],
@@ -120,7 +122,7 @@ export function useBuilderDesignCommands({
 
   function updateSelectedAppearance(updates: Partial<TileAppearance>) {
     if (!selectedTile) return;
-    updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates } });
+    updateSelectedTile({ appearance: { ...selectedTile.appearance, ...updates, ...(updates.palette ? { reportColorsEnabled: false, reportColorSlots: undefined } : {}) } });
   }
 
   function applySelectedElementEffectPreset(preset: EffectPreset) {

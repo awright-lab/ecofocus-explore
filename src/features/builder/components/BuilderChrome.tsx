@@ -1,8 +1,13 @@
+import type { ExportIssueTarget } from "../../export/exportIssueTarget";
+import { AudienceControl } from "../../audiences/AudienceControl";
+import { ReportThemeControl } from "./ReportThemeControl";
+import { ExportPreflightDialog } from "../../export/ExportPreflightDialog";
 import {
   memo,
   useEffect,
   useMemo,
   useState,
+  useRef,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -191,6 +196,12 @@ export const BuilderHeader = memo(function BuilderHeader({
   onHome,
   onSearch,
   onHelp,
+  onReportThemeChange,
+  onAudienceChange,
+  audienceDatasets,
+  selectedTileId,
+  activePageId,
+  onShowExportIssue,
 }: {
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
@@ -211,6 +222,12 @@ export const BuilderHeader = memo(function BuilderHeader({
   onHome: () => void;
   onSearch: () => void;
   onHelp: () => void;
+  onReportThemeChange?: (update: (current: DashboardDraft) => DashboardDraft) => void;
+  onAudienceChange?: (update:(current:DashboardDraft)=>DashboardDraft)=>boolean;
+  audienceDatasets?: DashboardDraft["importedDatasets"];
+  selectedTileId?: string|null;
+  activePageId?: string;
+  onShowExportIssue?: (target: ExportIssueTarget, canMoveFocus: () => boolean) => boolean;
 }) {
   const readiness = useMemo(
     () => buildPublishReadinessView(dashboard),
@@ -222,6 +239,10 @@ export const BuilderHeader = memo(function BuilderHeader({
   );
   const [exportConfirmation, setExportConfirmation] =
     useState<ExportPackageConfirmationView | null>(null);
+  const [exporting, setExporting] = useState<CoreExportTarget | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [preflightOpen, setPreflightOpen] = useState(false);
+  const exportLock = useRef(false);
   const activeOutcomeMode = useMemo(
     () => outcomeModeView(activeProductMode),
     [activeProductMode],
@@ -234,14 +255,18 @@ export const BuilderHeader = memo(function BuilderHeader({
   }, [exportConfirmation]);
 
   async function handleExport(target: CoreExportTarget) {
-    await onExport(target);
-    setExportConfirmation(
-      buildExportPackageConfirmationView(dashboard, exportContext, target),
-    );
+    if (exportLock.current) return;
+    exportLock.current = true;
+    setExporting(target); setExportError(null); setExportConfirmation(null);
+    try {
+      await onExport(target);
+      setExportConfirmation(buildExportPackageConfirmationView(dashboard, exportContext, target));
+    } catch (error) { setExportError(error instanceof Error ? error.message : "Export failed. Please try again."); }
+    finally { exportLock.current = false; setExporting(null); }
   }
 
   return (
-    <header className="builder-header">
+    <header className="builder-header" data-canvas-keyboard-scope="controls">
       <div className="top-nav" aria-label="Product navigation">
         <button
           type="button"
@@ -291,24 +316,14 @@ export const BuilderHeader = memo(function BuilderHeader({
           </div>
         </details>
       </div>
-      <nav className="workspace-product-nav" aria-label="Workspace modes">
-        {workspaceProductModes
-          .filter((mode) => ["data", "design", "story"].includes(mode.id))
-          .map((mode) => (
-            <button
-              type="button"
-              key={mode.id}
-              data-mode={mode.id}
-              className={activeProductMode === mode.id ? "active" : ""}
-              aria-pressed={activeProductMode === mode.id}
-              onClick={() => setActiveProductMode(mode.id)}
-            >
-              <ChromeIcon icon={mode.id} />
-              {mode.id === "story" ? "Compose" : mode.label}
-            </button>
-          ))}
+      <nav className="editor-location" aria-label="Editor location">
+        <span>Report editor</span><span aria-hidden="true">/</span>
+        <strong>{activeProductMode === "data" ? "Study workspace" : activeProductMode === "design" ? "Styles & brand" : "Page canvas"}</strong>
+        {activeProductMode !== "story" && <button type="button" onClick={() => setActiveProductMode("story")}>Back to page</button>}
       </nav>
       <div className="publish-controls">
+        {onReportThemeChange && <ReportThemeControl dashboard={dashboard} onChange={onReportThemeChange} />}
+        {onAudienceChange && <AudienceControl dashboard={dashboard} importedDatasets={audienceDatasets} selectedTileId={selectedTileId} onChange={onAudienceChange}/>}
         <button
           type="button"
           className="studio-search-trigger"
@@ -351,6 +366,8 @@ export const BuilderHeader = memo(function BuilderHeader({
             <small>{exportConfirmation.helper}</small>
           </div>
         )}
+        {exporting && <span role="status" className="export-progress">Preparing {exporting.toUpperCase()}…</span>}
+        {exportError && <div role="alert" className="export-error">Export failed: {exportError}</div>}
         <details className="studio-preview-menu">
           <summary>
             <Presentation size={16} />
@@ -383,7 +400,7 @@ export const BuilderHeader = memo(function BuilderHeader({
             {dashboard.publishMetadata.publishCount > 0 && (
               <button type="button" onClick={onOpenPublished}>
                 <ChromeIcon icon="share" />
-                Published snapshot
+                Saved browser snapshot
               </button>
             )}
             {dashboard.status === "published" && (
@@ -393,19 +410,21 @@ export const BuilderHeader = memo(function BuilderHeader({
             )}
           </div>
         </details>
-        <button type="button" className="share-action" onClick={onPublish}>
+        <button type="button" className="share-action" onClick={onPublish} title="Save a version in this browser. This does not publish an online link.">
           <ChromeIcon icon="share" />
-          {dashboard.status === "published" ? "Update snapshot" : "Share"}
+          {dashboard.status === "published" ? "Update snapshot" : "Save snapshot"}
         </button>
         <details className="export-menu">
           <summary className="export-action">
             <ChromeIcon icon="export" />
-            Export
+            {exporting ? "Exporting…" : "Export"}
             <ChevronDown size={13} />
           </summary>
           <div>
+            <button type="button" disabled={Boolean(exporting)} data-export-review-trigger="" onClick={() => setPreflightOpen(true)}>Review before exporting</button>
             <button
               type="button"
+              disabled={Boolean(exporting)}
               onClick={(event) => {
                 event.currentTarget.closest("details")?.removeAttribute("open");
                 void handleExport("pptx");
@@ -413,13 +432,13 @@ export const BuilderHeader = memo(function BuilderHeader({
             >
               PowerPoint (.pptx)
             </button>
-            <button type="button" onClick={() => void handleExport("pdf")}>
+            <button type="button" disabled={Boolean(exporting)} onClick={() => void handleExport("pdf")}>
               PDF document (.pdf)
             </button>
-            <button type="button" onClick={() => void handleExport("xlsx")}>
+            <button type="button" disabled={Boolean(exporting)} onClick={() => void handleExport("xlsx")}>
               Excel tables (.xlsx)
             </button>
-            <button type="button" onClick={() => void handleExport("json")}>
+            <button type="button" disabled={Boolean(exporting)} onClick={() => void handleExport("json")}>
               JSON package
             </button>
           </div>
@@ -443,11 +462,12 @@ export const BuilderHeader = memo(function BuilderHeader({
           <span>{activeOutcomeMode.helper}</span>
         </div>
       )}
+      {preflightOpen && <ExportPreflightDialog dashboard={dashboard} activePageId={activePageId} onShowIssue={onShowExportIssue} onClose={() => setPreflightOpen(false)} />}
     </header>
   );
 });
 
-const zoomOptions = Array.from({ length: 26 }, (_, index) => 35 + index * 5);
+const zoomOptions = Array.from({ length: 31 }, (_, index) => 10 + index * 5);
 
 export const WorkspaceModeStrip = memo(function WorkspaceModeStrip({
   pageTitle,
@@ -515,7 +535,7 @@ export const WorkspaceModeStrip = memo(function WorkspaceModeStrip({
   }
 
   return (
-    <div className="workspace-mode-strip" aria-label="Workspace mode">
+    <div className="workspace-mode-strip" aria-label="Workspace mode" data-canvas-keyboard-scope="controls">
       <div className="workspace-strip-document">
         <button
           type="button"
@@ -631,7 +651,7 @@ export function ToolRail({
   onChange: (view: "pages" | "layers" | "insert" | "data" | "brand") => void;
 }) {
   return (
-    <nav className="tool-rail" aria-label="Design tools">
+    <nav className="tool-rail" aria-label="Design tools" data-canvas-keyboard-scope="controls">
       <button
         type="button"
         className={activeView === "pages" ? "active" : ""}
@@ -712,7 +732,7 @@ export function BuilderPanel({
   children: ReactNode;
 }) {
   return (
-    <aside className={className} aria-label={label}>
+    <aside className={className} aria-label={label} data-canvas-keyboard-scope="controls">
       {children}
     </aside>
   );

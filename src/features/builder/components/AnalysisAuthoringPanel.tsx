@@ -1,3 +1,6 @@
+import type { StudyUsageInspection } from "../../document/studyUsageInspection";
+import type { LocalAnalysisControl } from "../../data/localAnalysisJob";
+import type { AnalysisDestination } from "../analysisPlacement";
 import { lazy, memo, Suspense, useMemo, useState } from "react";
 import { BuilderPanel } from "./BuilderChrome";
 import {
@@ -37,6 +40,8 @@ const ReportPageTree = lazy(() =>
 );
 
 export type GuidedDataQueryLaunchOptions = {
+  sourceMode?: "seeded" | "imported";
+  groupingScope?: "all_respondents";
   outputMode?: "table" | "chart";
   importedDatasetId?: string;
   importedFieldId?: string;
@@ -112,9 +117,10 @@ export type AnalysisAuthoringPanelProps = {
   updateImportedDatasetField: (
     datasetId: string,
     fieldId: string,
-    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner">>
-  ) => void;
-  removeImportedDataset: (datasetId: string) => void;
+    updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner" | "researchTopic" | "researchConcepts">>
+  ) => boolean | void;
+  removeImportedDataset: (datasetId: string) => string | null;
+  inspectImportedDataset?: (datasetId: string) => StudyUsageInspection;
   openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
@@ -181,7 +187,7 @@ export type AnalysisAuthoringPanelProps = {
   setVariableSetOptionSelection: React.Dispatch<React.SetStateAction<string[]>>;
   addCanvasElement: (type: DashboardCanvasElement["type"]) => void;
   addTileFromQuery: () => void;
-  addTileFromSourceWithVisualization: (chartType: ChartType) => Promise<string | null>;
+  addTileFromSourceWithVisualization: (chartType: ChartType, isCurrent?: () => boolean, destination?: AnalysisDestination) => Promise<string | null>;
   addTileFromVariableSet: (variableSet: SavedVariableSet, chartType: ChartType) => Promise<string | null>;
   addTileFromImportedDatasetField: (
     dataset: ImportedDatasetRecord,
@@ -189,6 +195,10 @@ export type AnalysisAuthoringPanelProps = {
     chartType: ChartType,
     metric: Metric,
     options?: {
+      background?: LocalAnalysisControl;
+      destination?: AnalysisDestination;
+      groupingScope?: "all_respondents";
+      isCurrent?: () => boolean;
       measureField?: ImportedDatasetField | null;
       bannerField?: ImportedDatasetField | null;
       filter?: {
@@ -477,10 +487,11 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
   }
 
   const [dataWorkbenchOpen, setDataWorkbenchOpen] = useState(false);
+  const [brandCategory, setBrandCategory] = useState("all");
   const showWorkbench = dataWorkbenchOpen || exploreView !== "source";
 
   return (
-<BuilderPanel className="panel controls" label="Data controls">
+<BuilderPanel className="panel controls" label={leftPanelView === "pages" ? "Report outline" : leftPanelView === "layers" ? "Object layers" : leftPanelView === "insert" ? "Insert tools" : leftPanelView === "brand" ? "Brand styles" : "Data controls"}>
           {leftPanelView === "layers" ? (
             <>
               <div className="panel-title with-action">
@@ -587,7 +598,8 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
               <div className="panel-title">
                 <h2>Brand</h2>
               </div>
-              <div className="brand-panel">
+              <div className="brand-panel" data-category={brandCategory}>
+                <nav className="brand-category-tabs" aria-label="Style categories">{[["all", "All"], ["layouts", "Layouts"], ["colors", "Colors"], ["text", "Text"], ["assets", "Images"]].map(([id, label]) => <button type="button" key={id} aria-pressed={brandCategory === id} onClick={() => setBrandCategory(id)}>{label}</button>)}</nav>
                 <div className="color-summary-card">
                   <div>
                     <span>Design library</span>
@@ -620,7 +632,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                     Save selection as block
                   </button>
                 </div>
-                <div className="explorer-section-card composition-starter-library-card">
+                <div className="explorer-section-card composition-starter-library-card" data-style-category="layouts">
                   <div className="explorer-section-header">
                     <strong>Start with a section</strong>
                     <small>{compositionStarters.length} curated</small>
@@ -709,7 +721,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                   </div>
                   </div>
                 </div>
-                <div className="explorer-section-card composition-library-card">
+                <div className="explorer-section-card composition-library-card" data-style-category="layouts">
                   <div className="explorer-section-header">
                     <strong>Composition blocks</strong>
                     <small>{savedCompositionBlocks.length} saved</small>
@@ -804,7 +816,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                     )}
                   </div>
                 </div>
-                <div className="explorer-section-card">
+                <div className="explorer-section-card" data-style-category="assets">
                   <div className="explorer-section-header">
                     <strong>Image assets</strong>
                     <small>{designAssets.length} local assets</small>
@@ -821,7 +833,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                     ))}
                   </div>
                 </div>
-                <div className="explorer-section-card">
+                <div className="explorer-section-card" data-style-category="colors">
                   <div className="explorer-section-header">
                     <strong>Palettes</strong>
                     <small>{designPalettes.length} saved</small>
@@ -852,7 +864,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                     ))}
                   </div>
                 </div>
-                <div className="explorer-section-card">
+                <div className="explorer-section-card" data-style-category="text">
                   <div className="explorer-section-header">
                     <strong>Text styles</strong>
                     <small>{textStylePresets.length} presets</small>
@@ -877,7 +889,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                     ))}
                   </div>
                 </div>
-                <div className="explorer-section-card">
+                <div className="explorer-section-card" data-style-category="text">
                   <div className="explorer-section-header">
                     <strong>Content blocks</strong>
                     <small>{textBlockPresets.length} ready to place</small>
@@ -895,7 +907,7 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                     ))}
                   </div>
                 </div>
-                <div className="explorer-section-card">
+                <div className="explorer-section-card" data-style-category="layouts">
                   <div className="explorer-section-header">
                     <strong>Page themes</strong>
                     <small>{pageThemes.length} saved</small>

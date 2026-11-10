@@ -141,6 +141,18 @@ const sharedChartTypes: ChartTypeMetadata[] = [
     label: "Donut",
     description: "Show a single summary column as a proportional donut chart.",
     supportedMetrics: ["percent_selected", "column_percent", "count"]
+  },
+  {
+    id: "dot_plot",
+    label: "Dot plot",
+    description: "Compare recorded values as points on one shared scale, with no connecting lines or implied intervals.",
+    supportedMetrics: ["percent_selected", "column_percent", "count", "average", "sum"]
+  },
+  {
+    id: "heatmap",
+    label: "Heatmap",
+    description: "Compare recorded cells with a shared zero-based color scale, printed values and sample bases.",
+    supportedMetrics: ["percent_selected", "column_percent", "count", "average", "sum"]
   }
 ];
 
@@ -165,7 +177,7 @@ const sharedQuestions: QuestionMetadata[] = [
     sourceVariables: ["Q15r1", "Q15r2", "Q15r7", "Q15r8", "Q15r9"],
     universe: "Total respondents",
     defaultMetric: "percent_selected",
-    allowedChartTypes: ["vertical_bar", "horizontal_bar", "donut", "table"],
+    allowedChartTypes: ["vertical_bar", "horizontal_bar", "table", "heatmap", "dot_plot"],
     allowedMetrics: ["percent_selected", "count"],
     allowedBreakBys: ["SUMMARY"],
     options: [
@@ -185,7 +197,7 @@ const sharedQuestions: QuestionMetadata[] = [
     sourceColumn: "q_packaging_trust",
     universe: "Total respondents",
     defaultMetric: "column_percent",
-    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table", "donut"],
+    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table", "donut", "heatmap", "dot_plot"],
     allowedMetrics: ["column_percent", "count"],
     allowedBreakBys: ["GENERATION", "REGION", "SUMMARY"],
     options: [
@@ -204,7 +216,7 @@ const sharedQuestions: QuestionMetadata[] = [
     sourceColumn: "q_sustainability_importance",
     universe: "Total respondents",
     defaultMetric: "column_percent",
-    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table", "donut"],
+    allowedChartTypes: ["grouped_bar", "stacked_bar", "line_chart", "table", "donut", "heatmap", "dot_plot"],
     allowedMetrics: ["column_percent", "count"],
     allowedBreakBys: ["GENERATION", "REGION", "SUMMARY"],
     options: [

@@ -1,4 +1,6 @@
+import { reconcileReportColors } from "../../design-system/reportColors";
 import type React from "react";
+import type { DocumentCommandCommit } from "./useDocumentCommandState";
 import { canvasHeight, canvasWidth, historyLimit } from "../builderConstants";
 import {
   buildPageFromTemplate,
@@ -37,13 +39,12 @@ import type {
   TextBlockPreset
 } from "../../../../shared/types/dashboard";
 
-type SetDashboardState = React.Dispatch<React.SetStateAction<DashboardDraft>>;
 type SetDashboardList = React.Dispatch<React.SetStateAction<DashboardDraft[]>>;
 type SetNullableId = React.Dispatch<React.SetStateAction<string | null>>;
 
 type UseBuilderDocumentSessionCommandsArgs = {
   dashboard: DashboardDraft;
-  setDashboardState: SetDashboardState;
+  commitDashboardChange: DocumentCommandCommit<DashboardDraft>;
   history: DashboardDraft[];
   setHistory: SetDashboardList;
   future: DashboardDraft[];
@@ -67,13 +68,14 @@ type UseBuilderDocumentSessionCommandsArgs = {
   setLeftPanelView: (view: LeftPanelView) => void;
   setCanvasZoom: (value: number) => void;
   setViewerMode: (value: boolean) => void;
-  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft;
+  createPublishedSnapshot?: (dashboard: DashboardDraft) => DashboardDraft | null | Promise<DashboardDraft | null>;
+  getDocumentEditVersion?: () => number;
   openPublishedSnapshot?: (dashboard: DashboardDraft) => void;
 };
 
 export function useBuilderDocumentSessionCommands({
   dashboard,
-  setDashboardState,
+  commitDashboardChange,
   history,
   setHistory,
   future,
@@ -98,20 +100,15 @@ export function useBuilderDocumentSessionCommands({
   setCanvasZoom,
   setViewerMode,
   createPublishedSnapshot,
+  getDocumentEditVersion,
   openPublishedSnapshot
 }: UseBuilderDocumentSessionCommandsArgs) {
   function setDashboard(updater: DashboardDraft | ((current: DashboardDraft) => DashboardDraft), trackHistory = true) {
-    setDashboardState((current) => {
-      const nextDashboard = typeof updater === "function" ? updater(current) : updater;
-
-      if (trackHistory) {
+    return commitDashboardChange(typeof updater === "function" ? current => { const next = updater(current); return next === current ? current : reconcileReportColors(next); } : reconcileReportColors(updater), trackHistory ? (current) => {
         setHistory((items) => [...items.slice(-historyLimit + 1), current]);
         setFuture([]);
         setSaveState("Saving...");
-      }
-
-      return nextDashboard;
-    });
+    } : undefined);
   }
 
   function undo() {
@@ -732,23 +729,27 @@ export function useBuilderDocumentSessionCommands({
   }
 
   function updateCanvasZoom(value: number) {
-    setCanvasZoom(Math.min(160, Math.max(35, value)));
+    setCanvasZoom(Math.min(160, Math.max(10, value)));
   }
 
-  function publishDashboard() {
-    setDashboard((current) => {
-      if (createPublishedSnapshot) return createPublishedSnapshot(current);
-      const nextPublishCount = current.publishMetadata.publishCount + 1;
-      return {
-        ...current,
+  async function publishDashboard() {
+    if (createPublishedSnapshot) {
+      const version = getDocumentEditVersion?.();
+      const published = await createPublishedSnapshot(dashboard);
+      if (!published || getDocumentEditVersion?.() !== version) return;
+      setDashboard(published);
+    } else {
+      const nextPublishCount = dashboard.publishMetadata.publishCount + 1;
+      setDashboard({
+        ...dashboard,
         status: "published",
         publishMetadata: {
           publishedAt: new Date().toISOString(),
           publishCount: nextPublishCount,
           versionLabel: `v${nextPublishCount}`
         }
-      };
-    });
+      });
+    }
     setViewerMode(true);
   }
 

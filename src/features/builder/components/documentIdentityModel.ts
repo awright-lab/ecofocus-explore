@@ -15,10 +15,10 @@ export function normalizeDocumentTitle(value: string, fallback: string) {
 export function buildDocumentSaveStateView(saveState: string): DocumentSaveStateView {
   const normalized = saveState.toLowerCase();
 
-  if (normalized.includes("error")) {
+  if (normalized.includes("error") || normalized.includes("not saved")) {
     return {
-      label: "Save error",
-      helper: "Local draft could not be saved.",
+      label: "Changes not saved",
+      helper: "Local draft could not be saved. Retry saving or download a workspace backup.",
       tone: "error",
       showSpinner: false
     };

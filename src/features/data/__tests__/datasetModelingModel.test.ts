@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ImportedDatasetField, ImportedDatasetRecord } from "../../../../shared/types/dashboard";
 import {
   buildImportedDatasetModelingHealth,
+  describeFieldModeling,
   buildImportedFieldModelingProfile,
   buildImportedDatasetStructureSummary,
   importedFieldAnswerChoiceSummary,
@@ -161,4 +162,37 @@ describe("imported dataset modeling model", () => {
     expect(importedFieldDisplayLabel(q2g1)).toBe("Q2G1: Use cloth or reusable shopping bag when grocery shopping");
     expect(importedSurveyQuestionPrompt(q2g1)).toBe("We are interested in learning about some of your everyday activities and lifestyle choices.");
   });
+});
+
+describe("effective field capability summaries", () => {
+  it("does not advertise categorical operations from stale numeric/date/raw flags", () => {
+    const fields = [
+      field("segment", "Segment"),
+      field("spend", "Spend", { type: "numeric", modelingRole: "candidate_measure", nonEmptyCount: 100, distinctCount: 100 }),
+      field("date", "Date", { type: "date", modelingRole: "candidate_date" }),
+      field("note", "Note", { type: "text", modelingRole: "raw_variable" }),
+      field("respondent_id", "Respondent ID")
+    ];
+    const before = structuredClone(fields); const summary = buildImportedDatasetStructureSummary(dataset(fields));
+    expect(summary.dimensions.map(item => item.id)).toEqual(["segment"]);
+    expect(summary.measures.map(item => item.id)).toEqual(["spend"]);
+    for (const key of ["filters", "segments", "banners"] as const) expect(summary[key].map(item => item.id)).toEqual(["segment"]);
+    expect(summary.health).toMatchObject({ queryReadyDimensions: 1, queryReadyMeasures: 1, filterReadyFields: 1, bannerReadyFields: 1 });
+    expect(describeFieldModeling(fields[1]).eligibilityLabel).not.toContain("Eligible for filter");
+    expect(buildImportedFieldModelingProfile(fields[1]).structureSummary).not.toContain("can filter results");
+    expect(buildImportedFieldModelingProfile(fields[1]).distinctValueSummary).toContain("numeric");
+    expect(fields).toEqual(before);
+  });
+  it("preserves categorical modeling of coded numeric survey questions", () => {
+    const coded = field("Q10", "Q10", { type: "numeric", modelingRole: "candidate_dimension" });
+    const summary = buildImportedDatasetStructureSummary(dataset([coded]));
+    expect(summary.dimensions).toEqual([coded]); expect(summary.filters).toEqual([coded]); expect(summary.banners).toEqual([coded]);
+  });
+});
+
+it('does not describe named numeric identifiers as continuous measurements or advertise their aggregation', () => {
+ const profile = buildImportedFieldModelingProfile(field("respondent_id", "Respondent ID", { type: "numeric", modelingRole: "candidate_measure", nonEmptyCount: 100, distinctCount: 100 }));
+ expect(profile.distinctValueSummary).toContain("reference values"); expect(profile.analyticalRoleSummary).toContain("identify records");
+ expect(profile.chips).not.toContain("Measure aggregation"); expect(profile.chips).not.toContain("Grouping field");
+ expect(profile.structureSummary).not.toContain("can filter results");
 });

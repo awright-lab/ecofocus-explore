@@ -1,3 +1,12 @@
+import {newImportIdentityIssue} from "../document/newImportIdentity";
+import { localImportReviewSession } from "./localImportReviewSession";
+import { checkLocalStudyDuplicate,isLocalFileCopyCandidate } from "../data/localStudyDuplicate";
+import { createManagedSourceRequests,managedConnectionTarget,managedInspectionTarget,type ManagedSourceRequest } from "./managedSourceRequest";
+import { readManagedVerification,readManagedInspection,managedResponseError,managedFailureDiagnostics } from "./managedSourceResponse";
+import { WorkspaceBackupInspector } from "./WorkspaceBackupInspector";
+import { LocalCsvImportDialog } from "./LocalCsvImportDialog";
+import { WorkspaceStoragePanel } from "./WorkspaceStoragePanel";
+import { WorkspaceBackupButton } from "../document/WorkspaceBackupButton";
 import {
   ArrowRight,
   Atom,
@@ -15,10 +24,15 @@ import {
 } from "lucide-react";
 import { DocumentPreview } from "../document/DocumentPreview";
 import { StudioHelp } from "../builder/components/StudioTools";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { workspaceSaveFailureMessage, workspaceSaveSession } from "../document/workspaceSaveSession";
+import { useSessionPreference } from "./useSessionPreference";
+import { deferredWorkspaceImports } from "../document/deferredWorkspaceImports";
+import { importedDatasetHasQueryableRows } from "../data/importedDatasetAnalytics";
 import type {
   DashboardReportRecord,
   DashboardWorkspace,
+  ImportedDatasetRecord,
   PublishedDashboardSnapshot,
 } from "../../../shared/types/dashboard";
 import type {
@@ -59,6 +73,7 @@ import {
 } from "../data/liveDatasetQueryDefinitionModel";
 import { buildLiveDatasetSourceReadinessView } from "../data/liveDatasetSourceModel";
 import {
+  readStoredWorkspaceCopy,
   createNewReportFromSeed,
   createExampleReport,
   duplicateReportRecord,
@@ -68,7 +83,6 @@ import {
   markReportOpened,
   removeWorkspaceDatasetConnection,
   removeWorkspaceLiveDatasetSource,
-  saveDashboardWorkspace,
   updateWorkspaceDatasetConnectionVerification,
   updateWorkspaceLiveDatasetSourceInspection,
   updateWorkspaceLiveDatasetSourceFields,
@@ -260,14 +274,14 @@ function buildReportLibraryItem(
       state === "draft"
         ? "Draft only"
         : state === "published"
-          ? "Published"
+          ? "Snapshot saved"
           : "Draft changes",
     stateHelper:
       state === "draft"
-        ? "No published snapshot yet."
+        ? "No saved browser snapshot yet."
         : state === "published"
-          ? "Latest draft matches the current published build."
-          : "Published snapshot exists, with newer local draft edits.",
+          ? "Latest draft matches the saved browser snapshot."
+          : "A browser snapshot exists, with newer local draft edits.",
     updatedLabel: formatDateTime(report.updatedAt),
     openedLabel: formatDateTime(report.lastOpenedAt),
     pageCount,
@@ -279,19 +293,11 @@ function buildReportLibraryItem(
   };
 }
 
-function isConnectionVerificationError(
-  payload:
-    | DatasetConnectionVerificationReport
-    | { error?: string; details?: string[] },
-): payload is { error?: string; details?: string[] } {
-  return "error" in payload || !("status" in payload);
+function isConnectionVerificationError(payload:unknown):payload is {error:string;details?:string[]}{
+  return !!payload&&typeof payload==="object"&&!Array.isArray(payload)&&Object.hasOwn(payload,"error")&&typeof (payload as {error:unknown}).error==="string";
 }
-
-function isSourceInspectionError(
-  payload:
-    LiveDatasetSourceInspectionReport | { error?: string; details?: string[] },
-): payload is { error?: string; details?: string[] } {
-  return "error" in payload || !("status" in payload);
+function isSourceInspectionError(payload:unknown):payload is {error:string;details?:string[]}{
+  return isConnectionVerificationError(payload);
 }
 
 function isLiveQueryExecutionError(
@@ -308,19 +314,76 @@ export function WorkspaceHome({
   workspace: DashboardWorkspace;
   onWorkspaceChange: (workspace: DashboardWorkspace) => void;
 }) {
+  const saveDashboardWorkspace = workspaceSaveSession.save;
+  const saveDashboardWorkspaceAsync = workspaceSaveSession.saveAsync;
+  const [isSavingNavigation, setIsSavingNavigation] = useState(false);
+  const navigationOwner = useRef<{ token: symbol; workspace: DashboardWorkspace } | null>(null);
+  const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const [introductionExpanded, setIntroductionExpanded] = useState(false);
-  const [homeSection, setHomeSection] = useState<"reports" | "data">("reports");
+  const [homeSection, setHomeSection] = useSessionPreference("workspace-section", "reports", ["reports", "data"] as const);
+  const [reportSort, setReportSort] = useSessionPreference("report-sort", "updated", ["updated", "opened", "title"] as const);
+  const [studySort, setStudySort] = useSessionPreference("study-sort", "imported", ["imported", "title", "rows"] as const);
+  const [studySearch, setStudySearch] = useState("");
+  const [studyFilter, setStudyFilter] = useState<"all" | "ready" | "incomplete">("all");
   const [search, setSearch] = useState("");
-  const [reportFilter, setReportFilter] = useState<"all" | "published">("all");
+  const [reportFilter, setReportFilter] = useState<"all" | "published" | "draft" | "changed">("all");
   const [showHelp, setShowHelp] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState<{text: string; failed: boolean} | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [showLocalCsvImport, setShowLocalCsvImport] = useState(false);
+  const [importCopyReview,setImportCopyReview]=useState<{dataset:ImportedDatasetRecord;notice?:string}|null>(()=>localImportReviewSession.peek());
+  function closeImportCopyReview(){if(importCopyReview)localImportReviewSession.clear(importCopyReview.dataset);setImportCopyReview(null);}
+  const reuseStudyFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (showLocalCsvImport || importCopyReview || !reuseStudyFocus.current) return;
+    const id = reuseStudyFocus.current; reuseStudyFocus.current = null;
+    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+    const control = Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-local-study-id]')).find(node => node.dataset.localStudyId === id);
+    control?.focus(); control?.scrollIntoView?.({block: "nearest"});
+  }, [showLocalCsvImport, importCopyReview, homeSection, studySearch, workspace]);
+  function showExistingLocalStudy(id: string) {
+    const study = workspace.importedDatasets.find(item => item.id === id);
+    if (!study) return false;
+    reuseStudyFocus.current = id;
+    setHomeSection("data"); setStudySearch(study.title); setStudyFilter("all");
+    setImportFeedback({tone: "success", label: "Showing the existing study. No additional study was added."});
+    setShowLocalCsvImport(false);
+    closeImportCopyReview();
+    return true;
+  }
+
+  const workspaceRef = useRef(workspace);
+  useEffect(() => {
+    workspaceRef.current = workspace;
+    if (navigationOwner.current && navigationOwner.current.workspace !== workspace) {
+      navigationOwner.current = null;
+      setIsSavingNavigation(false);
+    }
+  }, [workspace]);
+  const importOwnerMounted = useRef(true);
+  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; navigationOwner.current = null; }; }, []);
+  useEffect(() => {
+    function cancelNavigation() {
+      navigationOwner.current = null;
+      if (importOwnerMounted.current) setIsSavingNavigation(false);
+    }
+    window.addEventListener("hashchange", cancelNavigation);
+    window.addEventListener("popstate", cancelNavigation);
+    return () => {
+      window.removeEventListener("hashchange", cancelNavigation);
+      window.removeEventListener("popstate", cancelNavigation);
+    };
+  }, []);
   const [isImporting, setIsImporting] = useState(false);
+  const importInFlight=useRef(false);
   const [importFeedback, setImportFeedback] = useState<{
     tone: "success" | "error";
     label: string;
+    requiresSave?: boolean;
+    savedLabel?: string;
   } | null>(null);
   const [showConnectionOptions, setShowConnectionOptions] = useState(false);
-  const [selectedConnectionProvider, setSelectedConnectionProvider] =
+  const [selectedConnectionProvider, setSelectedConnectionProviderState] =
     useState<DatasetConnectionProfile["provider"]>("snowflake");
   const [connectionVerification, setConnectionVerification] =
     useState<DatasetConnectionVerificationReport | null>(null);
@@ -344,13 +407,30 @@ export function WorkspaceHome({
     rowCountEstimate: "",
     fieldCount: "",
   });
+  const selectedProviderRef = useRef(selectedConnectionProvider);
+  function setSelectedConnectionProvider(provider:DatasetConnectionProfile["provider"]){selectedProviderRef.current=provider;setSelectedConnectionProviderState(provider);}
+  useEffect(()=>{selectedProviderRef.current=selectedConnectionProvider;},[selectedConnectionProvider]);
+  const managedRequests=useRef<ReturnType<typeof createManagedSourceRequests>|null>(null);
+  if(!managedRequests.current)managedRequests.current=createManagedSourceRequests(()=>({workspace:workspaceRef.current,pending:workspaceSaveSession.getPending(),route:window.location.hash,mounted:importOwnerMounted.current,selection:selectedProviderRef.current}),readStoredWorkspaceCopy);
+  useEffect(()=>()=>managedRequests.current?.cancel(),[]);
+  function staleManagedReply(request:ManagedSourceRequest){
+    if(request.owns())setImportFeedback({tone:"error",label:"The workspace or source changed or could not be checked. This response was not applied; review the source and check again."});
+  }
+  async function saveManagedReply(request:ManagedSourceRequest,next:DashboardWorkspace){
+    workspaceRef.current=next;onWorkspaceChange(next);
+    let saved=false;try{saved=await saveDashboardWorkspaceAsync(next);}catch{/* Keep the exact candidate for recovery, without replacing newer pending work. */}
+    if(!saved&&request.owns()&&workspaceRef.current===next&&workspaceSaveSession.getPending()===null)workspaceSaveSession.remember(next);
+    return saved;
+  }
+  function managedReplyStillVisible(request:ManagedSourceRequest,next:DashboardWorkspace){const pending=workspaceSaveSession.getPending();return request.owns()&&request.selectionCurrent()&&workspaceRef.current===next&&(!pending||pending===next);}
   const reports = workspace.reports
     .filter((report) => !report.archived)
     .map((report) => buildReportLibraryItem(workspace, report))
     .sort(
       (a, b) =>
-        new Date(b.report.updatedAt).getTime() -
-        new Date(a.report.updatedAt).getTime(),
+        reportSort === "title" ? a.report.title.localeCompare(b.report.title) :
+        new Date(reportSort === "opened" ? b.report.lastOpenedAt : b.report.updatedAt).getTime() -
+        new Date(reportSort === "opened" ? a.report.lastOpenedAt : a.report.updatedAt).getTime(),
     );
   const publishedCount = reports.filter(
     (item) => item.state === "published" || item.state === "changed",
@@ -363,7 +443,14 @@ export function WorkspaceHome({
     (a, b) =>
       new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime(),
   );
-  const latestReport = reports[0] ?? null;
+  const visibleStudies = importedDatasets.filter((dataset) => {
+    const matches = `${dataset.title} ${dataset.fileName} ${dataset.fields.map((field) => field.label).join(" ")}`.toLowerCase().includes(studySearch.toLowerCase());
+    const ready = importedDatasetHasQueryableRows(dataset);
+    return matches && (studyFilter === "all" || (studyFilter === "ready" ? ready : !ready));
+  }).sort((a, b) => studySort === "title" ? a.title.localeCompare(b.title) : studySort === "rows" ? b.rowCount - a.rowCount : new Date(b.importedAt).getTime() - new Date(a.importedAt).getTime());
+  const latestReport = [...reports].sort((a, b) =>
+    new Date(b.report.lastOpenedAt).getTime() - new Date(a.report.lastOpenedAt).getTime(),
+  )[0] ?? null;
   const hasWorkspaceActivity =
     importedDatasets.length > 0 ||
     reports.some(
@@ -372,10 +459,9 @@ export function WorkspaceHome({
         item.report.lastOpenedAt !== item.report.createdAt ||
         item.report.draft.publishMetadata.publishCount > 0,
     );
-  const compactHome =
-    homeSection === "data" || (hasWorkspaceActivity && !introductionExpanded);
+  const compactHome = homeSection === "data" || !introductionExpanded;
   const usableDatasets = importedDatasets.filter(
-    (dataset) => dataset.rowCount > 0,
+    importedDatasetHasQueryableRows,
   );
   const metadataRichDatasets = importedDatasets.filter(
     (dataset) => dataset.importMetadata?.metadataQuality === "metadata_rich",
@@ -394,8 +480,32 @@ export function WorkspaceHome({
   const visibleReports = reports.filter(
     (item) =>
       item.report.title.toLowerCase().includes(search.toLowerCase()) &&
-      (reportFilter === "all" || item.latestSnapshot),
+      (reportFilter === "all" || reportFilter === "published" && Boolean(item.latestSnapshot) || reportFilter === "draft" && item.state === "draft" || reportFilter === "changed" && item.state === "changed"),
   );
+  async function saveBeforeNavigation(nextWorkspace: DashboardWorkspace, path: string) {
+    if (navigationOwner.current) return;
+    const token = Symbol("workspace-navigation");
+    navigationOwner.current = { token, workspace: nextWorkspace };
+    setIsSavingNavigation(true);
+    onWorkspaceChange(nextWorkspace);
+    try {
+      const saved = await saveDashboardWorkspaceAsync(nextWorkspace);
+      if (!importOwnerMounted.current || navigationOwner.current?.token !== token) return;
+      if (saved) navigate(path);
+      else setImportFeedback({ tone: "error", requiresSave: true, label: workspaceSaveFailureMessage });
+    } catch {
+      if (importOwnerMounted.current && navigationOwner.current?.token === token) {
+        workspaceSaveSession.remember(nextWorkspace);
+        setImportFeedback({ tone: "error", requiresSave: true, label: workspaceSaveFailureMessage });
+      }
+    } finally {
+      if (navigationOwner.current?.token === token) {
+        navigationOwner.current = null;
+        if (importOwnerMounted.current) setIsSavingNavigation(false);
+      }
+    }
+  }
+
   function openExample() {
     const example = reports.find((item) =>
       item.report.draft.pages.some((page) =>
@@ -407,34 +517,35 @@ export function WorkspaceHome({
       return;
     }
     const next = createExampleReport(workspace);
-    onWorkspaceChange(next.workspace);
-    saveDashboardWorkspace(next.workspace);
-    navigate(makeBuilderReportPath(next.report.id));
+    void saveBeforeNavigation(next.workspace, makeBuilderReportPath(next.report.id));
   }
 
   function navigate(path: string) {
+    navigationOwner.current = null;
+    if (importOwnerMounted.current) setIsSavingNavigation(false);
     window.location.hash = path.replace(/^#/, "");
   }
 
   function openReport(reportId: string) {
     const nextWorkspace = markReportOpened(workspace, reportId);
-    onWorkspaceChange(nextWorkspace);
-    saveDashboardWorkspace(nextWorkspace);
-    navigate(makeBuilderReportPath(reportId));
+    void saveBeforeNavigation(nextWorkspace, makeBuilderReportPath(reportId));
   }
 
   function createReport() {
     const next = createNewReportFromSeed(workspace);
-    onWorkspaceChange(next.workspace);
-    saveDashboardWorkspace(next.workspace);
-    navigate(makeBuilderReportPath(next.report.id));
+    void saveBeforeNavigation(next.workspace, makeBuilderReportPath(next.report.id));
+  }
+
+  function analyzeStudy(dataset: ImportedDatasetRecord) {
+    const next = createNewReportFromSeed(workspace);
+    next.report.title = `${dataset.title} analysis`;
+    next.report.draft.title = next.report.title;
+    void saveBeforeNavigation(next.workspace, `${makeBuilderReportPath(next.report.id)}?study=${encodeURIComponent(dataset.id)}`);
   }
 
   function duplicateReport(report: DashboardReportRecord) {
     const next = duplicateReportRecord(workspace, report);
-    onWorkspaceChange(next.workspace);
-    saveDashboardWorkspace(next.workspace);
-    navigate(makeBuilderReportPath(next.report.id));
+    void saveBeforeNavigation(next.workspace, makeBuilderReportPath(next.report.id));
   }
 
   function openPublished(item: ReportLibraryItem) {
@@ -444,11 +555,17 @@ export function WorkspaceHome({
   }
 
   async function handleImportFile(file: File | undefined) {
+    if (importInFlight.current || importCopyReview || showLocalCsvImport) return;
     if (!file) return;
+    importInFlight.current=true;
     setIsImporting(true);
     setImportFeedback(null);
     try {
       const result = await importDatasetForWorkspace(file);
+      if (!importOwnerMounted.current) {
+        if (result.dataset) deferredWorkspaceImports.remember(result.dataset);
+        return;
+      }
       if (result.error || !result.dataset) {
         setImportFeedback({
           tone: "error",
@@ -456,23 +573,72 @@ export function WorkspaceHome({
         });
         return;
       }
+      const candidate=result.dataset;
+      const pending=workspaceSaveSession.getPending();
+      const identityIssue=newImportIdentityIssue(workspaceRef.current,candidate.id);
+      if(identityIssue||pending&&pending!==workspaceRef.current){
+        deferredWorkspaceImports.remember(candidate);
+        setImportFeedback({tone:"error",label:identityIssue??"Another unsaved workspace needs recovery first. The complete imported study was kept for recovery; no older workspace was saved."});
+        return;
+      }
+      if(result.storage.provider==="local" && isLocalFileCopyCandidate(candidate)){
+        const duplicate=checkLocalStudyDuplicate(candidate,workspaceRef.current.importedDatasets);
+        if(duplicate.status!=="no_match"){
+          const review={dataset:candidate,notice:result.storage.warning};
+          localImportReviewSession.remember(review);
+          setImportCopyReview(review);
+          return;
+        }
+      }
       const nextWorkspace = upsertWorkspaceImportedDataset(
-        workspace,
+        workspaceRef.current,
         result.dataset,
       );
+      workspaceRef.current=nextWorkspace;
       onWorkspaceChange(nextWorkspace);
-      saveDashboardWorkspace(nextWorkspace);
+      const saved = await saveDashboardWorkspaceAsync(nextWorkspace);
+      if (!importOwnerMounted.current) return;
       setImportFeedback({
-        tone: "success",
+        tone: saved ? "success" : "error",
+        requiresSave: !saved,
         label: importedDatasetImportFeedback(
           result.dataset,
           result.storage.warning,
         ),
       });
     } finally {
-      setIsImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      importInFlight.current=false;
+      if (importOwnerMounted.current) {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
     }
+  }
+
+  async function addLocalCsvStudy(dataset: ImportedDatasetRecord) {
+    if (!importOwnerMounted.current) throw new Error("The workspace was closed. Reopen local import to add this study.");
+    const identityIssue=newImportIdentityIssue(workspaceRef.current,dataset.id);
+    if(identityIssue)throw new Error(identityIssue.replace("was kept for recovery", "remains in this import review"));
+    const next = upsertWorkspaceImportedDataset(workspaceRef.current, dataset);
+    // Keep the additive candidate in the real session on quota/conflict failure.
+    workspaceRef.current = next;
+    onWorkspaceChange(next);
+    const saved = await saveDashboardWorkspaceAsync(next);
+    if (importOwnerMounted.current) setImportFeedback({
+      tone: saved ? "success" : "error", requiresSave: !saved,
+      label: saved ? `${dataset.title} was imported locally and saved.` : `${dataset.title} was added locally, but saving failed. Keep this session open and retry saving.`,
+    });
+    return saved;
+  }
+
+  async function addReviewedLocalStudy(dataset:ImportedDatasetRecord){
+    if(localImportReviewSession.peek()?.dataset!==dataset)throw Error("This import review is no longer current. No study was added.");
+    const pending=workspaceSaveSession.getPending();
+    if(pending && pending!==workspaceRef.current)throw Error("Another unsaved workspace needs recovery first. The parsed import was retained.");
+    const saved=await addLocalCsvStudy(dataset);
+    // Failed saves are already retained by the actual workspace save session.
+    localImportReviewSession.clear(dataset);
+    return saved;
   }
 
   function planConnection(
@@ -497,87 +663,27 @@ export function WorkspaceHome({
   }
 
   async function verifySelectedConnection() {
-    setIsVerifyingConnection(true);
-    setConnectionVerification(null);
-    try {
-      const response = await fetch(
-        "/.netlify/functions/dataset-connection-verify",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: selectedConnectionProvider,
-            connectionId: selectedConnectionProfile?.id,
-          }),
-        },
-      );
-      const payload = (await response.json()) as
-        | DatasetConnectionVerificationReport
-        | { error?: string; details?: string[] };
-      if (!response.ok) {
-        const errorPayload = isConnectionVerificationError(payload)
-          ? payload
-          : {};
-        const failureReport: DatasetConnectionVerificationReport = {
-          provider: selectedConnectionProvider,
-          connectionId: selectedConnectionProfile?.id,
-          status: "failed",
-          statusLabel: errorPayload.error ?? "Verification failed",
-          checkedAt: new Date().toISOString(),
-          diagnostics: errorPayload.details ?? [
-            "The server readiness check failed.",
-          ],
-          nextStep:
-            "Check Netlify function logs and server environment variables.",
-        };
-        setConnectionVerification(failureReport);
-        if (selectedConnectionProfile) {
-          const nextWorkspace = updateWorkspaceDatasetConnectionVerification(
-            workspace,
-            failureReport,
-          );
-          onWorkspaceChange(nextWorkspace);
-          saveDashboardWorkspace(nextWorkspace);
-        }
-        return;
-      }
-      if (isConnectionVerificationError(payload)) return;
-      setConnectionVerification(payload);
-      if (selectedConnectionProfile) {
-        const nextWorkspace = updateWorkspaceDatasetConnectionVerification(
-          workspace,
-          payload,
-        );
-        onWorkspaceChange(nextWorkspace);
-        saveDashboardWorkspace(nextWorkspace);
-      }
-    } catch (error) {
-      const failureReport: DatasetConnectionVerificationReport = {
-        provider: selectedConnectionProvider,
-        connectionId: selectedConnectionProfile?.id,
-        status: "failed",
-        statusLabel: "Verification unavailable",
-        checkedAt: new Date().toISOString(),
-        diagnostics: [
-          error instanceof Error
-            ? error.message
-            : "The server readiness check could not be reached.",
-        ],
-        nextStep:
-          "Run the app through Netlify Dev or deploy the verification function before checking readiness.",
-      };
-      setConnectionVerification(failureReport);
-      if (selectedConnectionProfile) {
-        const nextWorkspace = updateWorkspaceDatasetConnectionVerification(
-          workspace,
-          failureReport,
-        );
-        onWorkspaceChange(nextWorkspace);
-        saveDashboardWorkspace(nextWorkspace);
-      }
-    } finally {
-      setIsVerifyingConnection(false);
+    const provider=selectedConnectionProvider,profile=selectedConnectionProfile;
+    let request:ManagedSourceRequest;
+    try{request=managedRequests.current!.begin("readiness",context=>{const target=managedConnectionTarget(context,provider);if((target.profile??undefined)!==profile)throw Error("The connection changed. Review and retry.");return target;});}
+    catch(error){setImportFeedback({tone:"error",label:error instanceof Error?error.message:"The source context could not be checked."});return;}
+    setIsVerifyingConnection(true);setConnectionVerification(null);setImportFeedback(null);
+    async function apply(report:DatasetConnectionVerificationReport){
+      if(!request.isCurrent()){staleManagedReply(request);return;}
+      if(!profile){setConnectionVerification(report);return;}
+      const next=updateWorkspaceDatasetConnectionVerification(request.workspace,report),saved=await saveManagedReply(request,next);
+      if(!managedReplyStillVisible(request,next))return;
+      setConnectionVerification(report);setImportFeedback({tone:saved&&["ready_to_verify","verified"].includes(report.status)?"success":"error",requiresSave:!saved,savedLabel:`${profile.label}: the check result is saved to this browser.`,label:saved?`${profile.label}: ${report.statusLabel}. This check was saved to this browser.`:`${profile.label}: the check finished, but its result was not saved. ${workspaceSaveFailureMessage}`});
     }
+    try{
+      const response=await fetch("/.netlify/functions/dataset-connection-verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,connectionId:profile?.id})});
+      const payload:unknown=await response.json();if(!request.isCurrent()){staleManagedReply(request);return;}
+      if(!response.ok||isConnectionVerificationError(payload))throw managedResponseError(payload,"The server readiness check failed.");
+      await apply(readManagedVerification(payload,provider,profile?.id));
+    }catch(error){
+      if(!request.isCurrent()){staleManagedReply(request);return;}
+      await apply({provider,connectionId:profile?.id,status:"failed",statusLabel:"Verification unavailable",checkedAt:new Date().toISOString(),diagnostics:managedFailureDiagnostics(error,"The server readiness check could not be reached."),nextStep:"Review the server readiness diagnostics before checking this source again."});
+    }finally{if(request.finish())setIsVerifyingConnection(false);}
   }
 
   function removeConnectionPlan(connection: DatasetConnectionProfile) {
@@ -632,96 +738,27 @@ export function WorkspaceHome({
   }
 
   async function inspectLiveSource(source: LiveDatasetSourceDescriptor) {
-    setInspectingLiveSourceId(source.sourceRef.id);
-    setImportFeedback(null);
-    try {
-      const response = await fetch(
-        "/.netlify/functions/dataset-source-inspect",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: source.sourceRef.provider,
-            connectionId: source.connectionId,
-            sourceRefId: source.sourceRef.id,
-            objectPath: source.objectPath,
-            objectType: source.objectType,
-            limit: 200,
-          }),
-        },
-      );
-      const payload = (await response.json()) as
-        | LiveDatasetSourceInspectionReport
-        | { error?: string; details?: string[] };
-      const report: LiveDatasetSourceInspectionReport =
-        !response.ok || isSourceInspectionError(payload)
-          ? {
-              provider: source.sourceRef
-                .provider as DatasetConnectionProfile["provider"],
-              connectionId: source.connectionId,
-              sourceRefId: source.sourceRef.id,
-              objectPath: source.objectPath,
-              objectType: source.objectType,
-              status: "failed",
-              statusLabel: isSourceInspectionError(payload)
-                ? (payload.error ?? "Inspection failed")
-                : "Inspection failed",
-              inspectedAt: new Date().toISOString(),
-              fields: [],
-              diagnostics: isSourceInspectionError(payload)
-                ? (payload.details ?? ["The source inspection failed."])
-                : ["The source inspection failed."],
-              nextStep:
-                "Check Netlify function logs, server credentials, and the mapped source path.",
-            }
-          : payload;
-
-      const nextWorkspace = updateWorkspaceLiveDatasetSourceInspection(
-        workspace,
-        report,
-      );
-      onWorkspaceChange(nextWorkspace);
-      saveDashboardWorkspace(nextWorkspace);
-      setImportFeedback({
-        tone: report.status === "inspected" ? "success" : "error",
-        label:
-          report.status === "inspected"
-            ? `${source.label} inspected with ${report.fields.length.toLocaleString()} fields.`
-            : `${source.label}: ${report.statusLabel.toLowerCase()}.`,
-      });
-    } catch (error) {
-      const failureReport: LiveDatasetSourceInspectionReport = {
-        provider: source.sourceRef
-          .provider as DatasetConnectionProfile["provider"],
-        connectionId: source.connectionId,
-        sourceRefId: source.sourceRef.id,
-        objectPath: source.objectPath,
-        objectType: source.objectType,
-        status: "failed",
-        statusLabel: "Inspection unavailable",
-        inspectedAt: new Date().toISOString(),
-        fields: [],
-        diagnostics: [
-          error instanceof Error
-            ? error.message
-            : "The source inspection function could not be reached.",
-        ],
-        nextStep:
-          "Run through Netlify Dev or deploy the inspection function before checking source fields.",
-      };
-      const nextWorkspace = updateWorkspaceLiveDatasetSourceInspection(
-        workspace,
-        failureReport,
-      );
-      onWorkspaceChange(nextWorkspace);
-      saveDashboardWorkspace(nextWorkspace);
-      setImportFeedback({
-        tone: "error",
-        label: `${source.label}: inspection unavailable.`,
-      });
-    } finally {
-      setInspectingLiveSourceId(null);
+    let request:ManagedSourceRequest;
+    try{request=managedRequests.current!.begin("inspection",context=>{const target=managedInspectionTarget(context,source.sourceRef.id);if(target.source!==source)throw Error("The source mapping changed. Review and retry.");return target;});}
+    catch(error){setImportFeedback({tone:"error",label:error instanceof Error?error.message:"The source context could not be checked."});return;}
+    setInspectingLiveSourceId(source.sourceRef.id);setImportFeedback(null);
+    async function apply(report:LiveDatasetSourceInspectionReport){
+      if(!request.isCurrent()){staleManagedReply(request);return;}
+      // A failed metadata request cannot erase previously authored field roles.
+      const retained=report.status==="inspected"?report:{...report,fields:source.inspection?.fields??[]};
+      const next=updateWorkspaceLiveDatasetSourceInspection(request.workspace,retained),saved=await saveManagedReply(request,next);
+      if(!managedReplyStillVisible(request,next))return;
+      setImportFeedback({tone:saved&&report.status==="inspected"?"success":"error",requiresSave:!saved,savedLabel:`${source.label}: the inspection result is saved to this browser.`,label:!saved?`${source.label}: the check finished, but its result was not saved. ${workspaceSaveFailureMessage}`:report.status==="inspected"?`${source.label} inspected with ${report.fields.length.toLocaleString()} fields. Saved to this browser.`:`${source.label}: ${report.statusLabel.toLowerCase()}. Previous field metadata was kept; inspect again before running definitions.`});
     }
+    try{
+      const response=await fetch("/.netlify/functions/dataset-source-inspect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:source.sourceRef.provider,connectionId:source.connectionId,sourceRefId:source.sourceRef.id,objectPath:source.objectPath,objectType:source.objectType,limit:200})});
+      const payload:unknown=await response.json();if(!request.isCurrent()){staleManagedReply(request);return;}
+      if(!response.ok||isSourceInspectionError(payload))throw managedResponseError(payload,"The source inspection failed.");
+      await apply(readManagedInspection(payload,source));
+    }catch(error){
+      if(!request.isCurrent()){staleManagedReply(request);return;}
+      await apply({provider:source.sourceRef.provider as DatasetConnectionProfile["provider"],connectionId:source.connectionId,sourceRefId:source.sourceRef.id,objectPath:source.objectPath,objectType:source.objectType,status:"failed",statusLabel:"Inspection unavailable",inspectedAt:new Date().toISOString(),fields:[],diagnostics:managedFailureDiagnostics(error,"The inspection function could not be reached."),nextStep:"Review the source mapping and inspect its fields again."});
+    }finally{if(request.finish())setInspectingLiveSourceId(null);}
   }
 
   function startEditingLiveSource(source: LiveDatasetSourceDescriptor) {
@@ -962,7 +999,7 @@ export function WorkspaceHome({
           Study library<span>{importedDatasets.length}</span>
         </button>
         <div className="studio-nav-divider" />
-        <button type="button" onClick={openExample}>
+        <button type="button" onClick={openExample} disabled={isSavingNavigation}>
           <Leaf size={18} />
           Explore an example
           <ChevronRight size={14} />
@@ -986,6 +1023,8 @@ export function WorkspaceHome({
             </strong>
           </div>
           <div className="workspace-home-header__actions">
+            <button type="button" className="workspace-home-secondary" disabled={isImporting} onClick={() => setShowLocalCsvImport(true)}>Import local CSV or SPSS</button>
+            <WorkspaceBackupButton getWorkspace={() => workspaceRef.current} className="workspace-home-secondary" onFeedback={(text, failed) => setBackupFeedback({text, failed})} />
             <button
               type="button"
               className="workspace-home-secondary"
@@ -1003,14 +1042,22 @@ export function WorkspaceHome({
                   : "workspace-home-primary"
               }
               onClick={createReport}
+              disabled={isSavingNavigation}
             >
               <Plus size={16} />
               New report
             </button>
           </div>
         </header>
+        {backupFeedback && <p className="workspace-backup-feedback" role={backupFeedback.failed ? "alert" : "status"}>{backupFeedback.text}</p>}
+        {isSavingNavigation && <p className="workspace-backup-feedback" role="status">Saving workspace before opening...</p>}
+        <WorkspaceStoragePanel workspace={workspace} />
+        <WorkspaceBackupInspector workspace={workspace} />
+        {showLocalCsvImport && !importCopyReview && <LocalCsvImportDialog studies={workspace.importedDatasets} onShowExisting={showExistingLocalStudy} onAdd={addLocalCsvStudy} onClose={() => setShowLocalCsvImport(false)} />}
+        {importCopyReview && <LocalCsvImportDialog key={importCopyReview.dataset.id} initialDataset={importCopyReview.dataset} importNotice={importCopyReview.notice} studies={workspace.importedDatasets} onShowExisting={showExistingLocalStudy} onAdd={addReviewedLocalStudy} onClose={closeImportCopyReview} />}
         <input
           ref={fileInputRef}
+          aria-label="Import study file"
           type="file"
           accept=".csv,.xlsx,.sav,text/csv"
           className="visually-hidden"
@@ -1018,11 +1065,11 @@ export function WorkspaceHome({
         />
         {importFeedback && (
           <div
-            className={`studio-import-toast ${importFeedback.tone}`}
-            role="status"
+            className={`studio-import-toast ${hasUnsavedWorkspace ? "error" : importFeedback.requiresSave ? "success" : importFeedback.tone}`}
+            role={hasUnsavedWorkspace || (!importFeedback.requiresSave && importFeedback.tone === "error") ? "alert" : "status"}
           >
-            <CheckCircle2 size={18} />
-            <span>{importFeedback.label}</span>
+            {hasUnsavedWorkspace || (!importFeedback.requiresSave && importFeedback.tone === "error") ? <X size={18} /> : <CheckCircle2 size={18} />}
+            <span>{hasUnsavedWorkspace ? workspaceSaveFailureMessage : importFeedback.requiresSave && importFeedback.savedLabel ? importFeedback.savedLabel : importFeedback.label}</span>
             <button
               type="button"
               onClick={() => setImportFeedback(null)}
@@ -1050,7 +1097,7 @@ export function WorkspaceHome({
             <h1>
               {compactHome ? (
                 homeSection === "reports" ? (
-                  "Back to your research."
+                  hasWorkspaceActivity ? "Your research, in focus." : "Your next insight starts here."
                 ) : (
                   "Your study library."
                 )
@@ -1130,7 +1177,7 @@ export function WorkspaceHome({
               <div>
                 <CheckCircle2 size={17} />
                 <strong>{publishedCount}</strong>
-                <span>published</span>
+                <span>snapshots</span>
               </div>
               <div>
                 <Database size={17} />
@@ -1173,6 +1220,11 @@ export function WorkspaceHome({
               </div>
             </button>
           )}
+        </section>
+        <section className="workspace-task-launchpad" aria-label="Start a research task">
+          <button type="button" onClick={() => fileInputRef.current?.click()}><Upload size={22} /><span><strong>Bring in a study</strong><small>CSV, Excel or SPSS · keep your labels</small></span><ArrowRight size={17} /></button>
+          <button type="button" onClick={() => usableDatasets[0] ? analyzeStudy(usableDatasets[0]) : openExample()}><Atom size={22} /><span><strong>Find an insight</strong><small>{usableDatasets.length ? "Start an analysis from your latest study" : "Try a guided analysis with sample data"}</small></span><ArrowRight size={17} /></button>
+          <button type="button" onClick={createReport}><FileText size={22} /><span><strong>Build a report</strong><small>A clean canvas for a clear story</small></span><ArrowRight size={17} /></button>
         </section>
         <section className="workspace-home-body">
           {homeSection === "reports" && (
@@ -1225,8 +1277,11 @@ export function WorkspaceHome({
                   aria-pressed={reportFilter === "published"}
                   onClick={() => setReportFilter("published")}
                 >
-                  Published<span>{publishedCount}</span>
+                  Snapshots<span>{publishedCount}</span>
                 </button>
+                <button type="button" aria-pressed={reportFilter === "draft"} className={reportFilter === "draft" ? "active" : ""} onClick={() => setReportFilter("draft")}>Drafts<span>{draftOnlyCount}</span></button>
+                <button type="button" aria-pressed={reportFilter === "changed"} className={reportFilter === "changed" ? "active" : ""} onClick={() => setReportFilter("changed")}>Changed since snapshot</button>
+                <label className="report-sort-control">Sort by<select aria-label="Sort reports" value={reportSort} onChange={(event) => setReportSort(event.target.value as typeof reportSort)}><option value="updated">Recently edited</option><option value="opened">Recently opened</option><option value="title">Report name</option></select></label>
               </div>
               <div className="workspace-report-grid">
                 {visibleReports.map((item) => (
@@ -1296,7 +1351,7 @@ export function WorkspaceHome({
                           onClick={() => openPublished(item)}
                         >
                           <HomeIcon icon="published" />
-                          Published view
+                          Snapshot preview
                         </button>
                       </div>
                     </div>
@@ -1308,20 +1363,21 @@ export function WorkspaceHome({
                 <div className="workspace-home-empty">
                   <HomeIcon icon="deck" />
                   <h2>
-                    {search || reportFilter === "published"
+                    {search || reportFilter !== "all"
                       ? "No matching reports"
                       : "A fresh canvas awaits"}
                   </h2>
                   <p>
-                    Create a report, or explore the sample to see what’s
-                    possible.
+                    {search || reportFilter !== "all"
+                      ? "Try another report name or show all reports."
+                      : "Create a report, or explore the sample to see what's possible."}
                   </p>
                   <button
                     type="button"
                     className="workspace-home-primary"
-                    onClick={createReport}
+                    onClick={search || reportFilter !== "all" ? () => { setSearch(""); setReportFilter("all"); } : createReport}
                   >
-                    Create report
+                    {search || reportFilter !== "all" ? "Show all reports" : "Create report"}
                   </button>
                 </div>
               )}
@@ -2049,8 +2105,14 @@ export function WorkspaceHome({
                   </div>
                 </section>
               )}
+              <div className="workspace-library-tools">
+                <label>Find a study<input type="search" aria-label="Search studies" placeholder="Study, file or question name" value={studySearch} onChange={(event) => setStudySearch(event.target.value)} /></label>
+                <label>Show<select aria-label="Study readiness" value={studyFilter} onChange={(event) => setStudyFilter(event.target.value as typeof studyFilter)}><option value="all">All studies</option><option value="ready">Ready to analyze</option><option value="incomplete">Needs respondent data</option></select></label>
+                <label>Sort by<select aria-label="Sort studies" value={studySort} onChange={(event) => setStudySort(event.target.value as typeof studySort)}><option value="imported">Recently imported</option><option value="title">Study name</option><option value="rows">Most respondents</option></select></label>
+              </div>
+              <p className="workspace-results-count" role="status">{visibleStudies.length} of {importedDatasets.length} studies</p>
               <div className="workspace-dataset-grid">
-                {importedDatasets.map((dataset) => {
+                {visibleStudies.map((dataset) => {
                   const summary = buildImportedDatasetStructureSummary(dataset);
                   return (
                     <article
@@ -2073,9 +2135,9 @@ export function WorkspaceHome({
                       </div>
                       <div className="workspace-dataset-structures">
                         <span>
-                          {dataset.rowCount > 0
+                          {importedDatasetHasQueryableRows(dataset)
                             ? "Ready for analysis"
-                            : "Labels imported"}
+                            : dataset.rowCount > 0 ? "Re-import to analyze" : "Labels imported"}
                         </span>
                         <span>
                           {dataset.remote?.provider
@@ -2095,12 +2157,11 @@ export function WorkspaceHome({
                         <div>
                           <dt>Modeled</dt>
                           <dd>
-                            {summary.filters.length +
-                              summary.segments.length +
-                              summary.banners.length}
+                            {new Set([...summary.filters, ...summary.segments, ...summary.banners].map((field) => field.id)).size}
                           </dd>
                         </div>
                       </dl>
+                      <button data-local-study-id={dataset.id} type="button" className="workspace-study-analyze" onClick={() => analyzeStudy(dataset)} disabled={!importedDatasetHasQueryableRows(dataset)}>Analyze this study <ArrowRight size={16} /></button>
                       <div className="workspace-dataset-structures">
                         <span>
                           {dataset.importMetadata?.metadataQuality ===
@@ -2143,6 +2204,7 @@ export function WorkspaceHome({
                   );
                 })}
               </div>
+              {importedDatasets.length > 0 && visibleStudies.length === 0 && <div className="workspace-home-empty compact"><h2>No matching studies</h2><p>Try another study or question name, or clear the readiness filter.</p><button type="button" onClick={() => { setStudySearch(""); setStudyFilter("all"); }}>Show all studies</button></div>}
               {!importedDatasets.length && (
                 <div className="workspace-home-empty compact">
                   <HomeIcon icon="dataset" />
@@ -2164,7 +2226,11 @@ export function WorkspaceHome({
           </span>
         </footer>
       </div>
-      {showHelp && <StudioHelp onClose={() => setShowHelp(false)} />}
+      {showHelp && <StudioHelp onClose={() => setShowHelp(false)} actions={[
+        { id: "import", label: "Import your study", group: "Start with data", run: () => fileInputRef.current?.click() },
+        { id: "example", label: "Explore a sample report", group: "Learn by doing", run: openExample },
+        { id: "report", label: "Create a blank report", group: "Start composing", run: createReport }
+      ]} />}
     </main>
   );
 }

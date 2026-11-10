@@ -1,0 +1,11 @@
+# Locate an export warning in the report
+
+Export review now opens on the active authoring page. Each existing page or object warning offers Show page properties or Show object properties. Choosing an action verifies the current report, unique page, and unique visible object before selecting it and opening its properties. A stale or ambiguous target keeps the review open with an explanation. Standalone reviews without an authoring callback retain their previous behavior.
+
+After the modal closes and restores its trigger, focus moves to Close properties only if that trigger still owns focus and the destination remains valid. The inspector container now owns canvas keyboard shortcuts, including its Close properties control: Delete and Backspace there do not delete the selected report object. Closing review normally retains ordinary trigger restoration. Opening review again starts on the currently selected authoring page.
+
+Navigation does not change report content, history, data, or saved results. Fixes use the existing inspector editing, undo, autosave and save/reopen paths. No export renderer, preflight check, download, storage schema or writer was changed.
+
+Verification includes refusal tests for changed report, missing page/object, duplicate IDs, cross-kind collisions and hidden objects; dialog routing and error behavior; and actual App/jsdom with a 1,000-row, 30-field synthetic imported study. The application workflow navigates a missing-background warning and cross-page text/analysis clipping warnings, checks keyboard safety, edits only the two requested X coordinates, reopens review on that page, and cold reopens the exact expected report and study. Wall-clock Date is fixed while real UI/autosave timers run to preserve exact timestamp comparisons.
+
+This is a partial improvement to export preflight and accessible navigation, not completion of goals 16 or 36. It does not certify every issue, rendering fidelity or export format. Native browser, fullscreen, screen-reader, touch, visual layout, OS download, Office and live backend acceptance remain unverified; earlier denied operations were not retried. Unrelated missing assets or unsupported chart issues still need their existing editing workflows.

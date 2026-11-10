@@ -1,0 +1,6 @@
+import{expect,it}from'vitest';import{resultIdentityIssue}from'../resultIdentities';
+const valid=()=>({table:[{optionId:'north'},{optionId:'south'}],columns:[{id:'first'},{id:'second'}]});
+it('allows empty collections to use the existing no-cells UI and preserves exact distinct identities',()=>{expect(resultIdentityIssue({table:[],columns:[]})).toBeNull();expect(resultIdentityIssue({table:[{optionId:'1'},{optionId:'01'},{optionId:' 1'}],columns:[{id:'constructor'},{id:'__proto__'}]})).toBeNull();});
+it.each([undefined,null,{},[],{table:null,columns:[]},{table:[],columns:{}},{table:[null],columns:[]},{table:[],columns:[[]]}])('fails closed on an unsupported identity collection %j',value=>{expect(resultIdentityIssue(value)).toContain('missing or duplicate');});
+it.each(['', ' ', 1, null, undefined])('does not invent a missing/string identity from %s',id=>{const record=valid();(record.table[0]as{optionId:unknown}).optionId=id;expect(resultIdentityIssue(record)).toContain('row IDs');});
+it('uses exact scoped identity strings and never mutates or collapses a duplicate',()=>{const value=valid();value.columns[1].id='first';const before=structuredClone(value);expect(resultIdentityIssue(value)).toContain('column IDs');expect(value).toEqual(before);});

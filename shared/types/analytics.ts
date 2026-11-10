@@ -1,3 +1,5 @@
+import type { SavedImportedAudience } from "./audience";
+import type { LocalExecutionEvidence } from "./localExecution";
 import type { DatasetSourceRef } from "./dataSource";
 
 export type DatasetId = "ecofocus_2023" | "ecofocus_2024" | "ecofocus_2025";
@@ -12,7 +14,7 @@ export type DimensionId = FilterFieldId;
 
 export type Metric = "column_percent" | "percent_selected" | "count" | "average" | "sum";
 
-export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "stacked_bar" | "line_chart" | "donut" | "table";
+export type ChartType = "vertical_bar" | "horizontal_bar" | "grouped_bar" | "stacked_bar" | "line_chart" | "donut" | "table" | "heatmap" | "dot_plot";
 
 export type WeightId = "weightvar";
 
@@ -26,7 +28,14 @@ export interface AnalyticsFilter {
 }
 
 export interface ImportedAnalyticsSourceIdentity {
+  /** Recorded import event for version-safe follow-up execution. */
+  datasetImportedAt?: string;
+  audience?: SavedImportedAudience;
+  /** Temporary local intersection, validated separately from the saved audience. Ordinary saved-query replay rejects it. */
+  intersectionAudience?: SavedImportedAudience;
   kind: "imported";
+  measureBaseScope?: "cell";
+  groupingScope?: "all_respondents";
   queryKind?: "categorical" | "measure";
   sourceRef?: DatasetSourceRef;
   datasetId: string;
@@ -110,6 +119,7 @@ export interface AnalyticsSeries {
 }
 
 export interface AnalyticsTableRow {
+  sourceCategoryKey?: string;
   optionId: string;
   label: string;
   values: Record<string, number>;
@@ -121,6 +131,7 @@ export interface AnalyticsTableRow {
 }
 
 export interface AnalyticsTableColumn {
+  sourceCategoryKey?: string;
   id: string;
   label: string;
 }
@@ -137,6 +148,8 @@ export type SignificanceMethod = "none" | "mock_placeholder" | "column_compariso
 export type SignificanceStatus = "none" | "placeholder" | "unsupported" | "eligible" | "tested";
 
 export type SignificanceReasonCode =
+  | "weighted_inference_unsupported"
+  | "inference_precision_unverified"
   | "mock_provider_placeholder"
   | "mock_provider_not_available"
   | "wave_comparison_unsupported"
@@ -175,6 +188,7 @@ export interface AnalyticsSignificanceExecutionPlan {
 }
 
 export interface AnalyticsColumnComparisonExecutionInput {
+  inferenceBasis?: "unweighted_full_precision_v1";
   method: "column_comparison";
   confidenceLevel: ConfidenceLevel;
   metric: {
@@ -202,6 +216,7 @@ export interface AnalyticsColumnComparisonExecutionInput {
 }
 
 export interface AnalyticsWaveComparisonExecutionInput {
+  inferenceBasis?: "unweighted_full_precision_v1";
   method: "wave_comparison";
   confidenceLevel: ConfidenceLevel;
   metric: {
@@ -338,13 +353,22 @@ export interface AnalyticsSignificanceResult {
 }
 
 export interface AnalyticsQueryResponse {
+  localExecution?: LocalExecutionEvidence;
+  calculationInputs?: {
+    version: 1;
+    method: "local_unweighted_v1";
+    percentageValueMode?: "unrounded_ratio_v1";
+    query: AnalyticsQueryRequest;
+    columns: Record<string, string>;
+    rows: Record<string, { label: string; cells: Record<string, { numerator: number; denominator: number }> }>;
+  };
   query: AnalyticsQueryRequest;
   labels: string[];
   series: AnalyticsSeries[];
   columns: AnalyticsTableColumn[];
   table: AnalyticsTableRow[];
   metric: {
-    id: Metric;
+    id: Metric | "calculated";
     label: string;
     valueFormat: "percent" | "number";
   };
@@ -355,6 +379,7 @@ export interface AnalyticsQueryResponse {
   };
   annotations: AnalyticsAnnotation[];
   statistics: {
+    inferenceBasis?: "unweighted_full_precision_v1";
     confidenceLevel: ConfidenceLevel;
     significanceMethod: SignificanceMethod;
     significanceExecutionPlan: AnalyticsSignificanceExecutionPlan;

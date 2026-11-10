@@ -1,8 +1,19 @@
+import { normalizeSnowflakeRows } from "../../../../../shared/analytics/providers/snowflakeProvider";
 import { describe, expect, it } from "vitest";
-import { runMockAnalyticsQuery } from "../../../../../shared/mock/analytics";
+import { runMockAnalyticsQuery as runMockMeasurements } from "../../../../../shared/mock/analytics";
 import type { AnalyticsQueryRequest, AnalyticsQueryResponse } from "../../../../../shared/types/analytics";
 import type { DashboardTile } from "../../../../../shared/types/dashboard";
 import { buildAnalysisStatisticsContext } from "../analysisStatisticsContextModel";
+
+
+// Provider-shaped fixture for presentation tests. These invented aggregate
+// values exercise rendering; independent statistical tests live separately.
+function runMockAnalyticsQuery(query: AnalyticsQueryRequest) {
+  const measurements = runMockMeasurements({ ...query, weight: null });
+  return normalizeSnowflakeRows({ ...query, weight: null }, measurements.table.flatMap(row =>
+    measurements.columns.map(column => ({ OPTION_ID: row.optionId, COLUMN_ID: column.id,
+      VALUE: row.values[column.id], BASE: row.bases[column.id] }))));
+}
 
 const breakoutQuery: AnalyticsQueryRequest = {
   dataset: "ecofocus_2025",
@@ -96,6 +107,10 @@ describe("buildAnalysisStatisticsContext", () => {
       comparisonMode: "wave",
       comparisonDatasets: ["ecofocus_2024"]
     });
+    result.statistics.significanceExecutionPlan = { ...result.statistics.significanceExecutionPlan, status: "deferred", providerCanExecute: false,
+      reasonCodes: ["wave_comparison_unsupported"], unmetPrerequisites: ["wave_support"] };
+    result.statistics.significanceExecutionReport = { ...result.statistics.significanceExecutionReport!, status: "deferred", inputAccepted: true,
+      reasonCodes: ["wave_comparison_unsupported"], unmetPrerequisites: ["wave_support"] };
     const view = buildAnalysisStatisticsContext(tileFromResult(result));
 
     expect(view.executionDiagnostics).toMatchObject({
@@ -193,20 +208,13 @@ describe("buildAnalysisStatisticsContext", () => {
     expect(view.executionDiagnostics.message).toContain("1 comparison pair has insufficient base");
   });
 
-  it("preserves placeholder significance interpretation", () => {
-    const result = runMockAnalyticsQuery({
-      ...summaryQuery,
-      question: "Q15_TOP2_BRAND_PRIORITIES",
-      metric: "percent_selected"
-    });
+  it("suppresses unsupported placeholder claims from unverified mock estimates", () => {
+    const result = runMockMeasurements({ ...summaryQuery, weight: null, question: "Q15_TOP2_BRAND_PRIORITIES", metric: "percent_selected" });
     const view = buildAnalysisStatisticsContext(tileFromResult(result));
-
-    expect(view.status).toBe("placeholder");
-    expect(view.message).toContain("placeholder significance");
-    expect(view.executionDiagnostics).toMatchObject({
-      status: "unsupported",
-      label: "No execution basis"
-    });
+    expect(view.status).toBe("none");
+    expect(view.label).toBe("Significance unavailable");
+    expect(view.message).toContain("rounded or unverified");
+    expect(result.annotations).toEqual([]);
   });
 
   it("preserves no-test summary-only interpretation", () => {

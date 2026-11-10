@@ -1,0 +1,15 @@
+# Validate background profile replies before display
+
+Numeric and categorical profile workers now validate the complete shape needed by their renderers, not just the reported row totals. Numeric responses require finite-or-null summaries, consistent exclusion/distinct counts, up to ten contiguous finite bins with correct endpoints/closed-last-boundary/count mass, and a short dense text-warning list. Categorical responses require dense top-ten text-labelled categories, unique IDs, positive integer counts, consistent visible/omitted/valid totals and percentages agreeing with their own count/base within binary64 rounding tolerance. The existing categorical unavailable response remains supported.
+
+The shared message handler catches validator exceptions, settles the job as a background failure and terminates the worker. Malformed replies do not reach a chart/table renderer or wait for the thirty-second watchdog. Retry uses the existing job path; there is no synchronous statistical fallback, source repair, save or new service call.
+
+Fault injection reproduced four pre-correction cases: a count-consistent numeric reply missing its distribution was accepted; an object category label was accepted; an impossible percentage was accepted; and a throwing validator escaped the event handler. Current built-in worker producers normally emit valid profiles. No ordinary live user-data failure, browser exploit, corrupt persisted study or malicious native Worker is established by these tests.
+
+Validation is structural and internally count-consistent. It does not independently recalculate a worker's mean, median, distribution or category counts from source values, authenticate its script, sandbox arbitrary in-memory JavaScript, bound total browser memory, or establish native Worker timing. Existing source-input verification remains separate and unchanged. Histogram bins/top categories retain the existing producer limit of ten; numeric warning messages are limited to sixteen. No statistical formula, raw category interpretation, data-preparation recipe, saved-result contract or storage schema is changed.
+
+The tests include actual producer replies at empty, underflow/overflow and 50,000-row boundaries, malformed reply variants, API failure settlement/termination, and real profile component failure-to-Retry flows with unchanged synthetic sources. Existing cancellation, deadlines, focus and App save/reopen tests remain relevant. No native browser/Office/live backend or production-build acceptance is claimed. Goals 15 and 31 remain partial.
+
+Saved numeric distributions cannot safely be added by reusing version-one preparation recipes: those explicitly support text/category transforms and reject numeric transforms. That charting gap needs a separately reviewed result or preparation contract and end-to-end persistence/export design. This reply correction does not activate such a format.
+
+This isolated proposal preserves the accepted integration, main working files, obsolete staged index and all backups. No canceled staging or denied build/native action is retried; nothing is applied, committed, published, merged or deployed.

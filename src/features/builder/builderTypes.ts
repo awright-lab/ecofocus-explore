@@ -1,3 +1,4 @@
+export type InspectorSurface = "style" | "data" | "insight";
 import type { DashboardCanvasElement, DashboardTile } from "../../../shared/types/dashboard";
 
 export type DesignModal =

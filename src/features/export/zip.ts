@@ -13,7 +13,7 @@ function crc32Table() {
 const table = crc32Table();
 const encoder = new TextEncoder();
 
-function crc32(bytes: Uint8Array) {
+export function crc32(bytes: Uint8Array) {
   let crc = 0xffffffff;
   bytes.forEach((byte) => {
     crc = table[(crc ^ byte) & 0xff] ^ (crc >>> 8);

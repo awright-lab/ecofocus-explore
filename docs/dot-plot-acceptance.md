@@ -1,0 +1,18 @@
+# Saved dot-plot view
+
+Dot plot is available in the existing analysis creation controls and table-to-chart conversion. It compares recorded values on one shared numeric scale without connecting lines or implied confidence intervals. Supported metrics are counts, response percentages, sums and averages, using the same analytical-cell and base validation as the existing table/heatmap paths. It does not recalculate or change a result when switching views.
+
+The view retains every recorded cell within its bounds: up to 30 response rows and six series (180 cells). Series use distinct marker shapes and solid palette/semantic colors. Negative values share a symmetric domain around zero; percentages retain a 0–100 domain. Missing numerical observations have no dot and remain explicitly unavailable in printed values and the complete table. Weighted totals use W rather than claiming respondent sample n. No new survey inference is performed.
+
+Canvas drawings can grow vertically and scroll to include all bounded cells. The existing complete-table dialog provides exact values and bases, keyboard navigation and an accessible alternative. A removed focused plot region returns focus to the persistent complete-values control; unrelated focused inputs are retained. Very long labels, unsafe XML/color tokens, invalid result metadata, unsupported geometry and excessive result dimensions refuse the drawing without modifying the source. Canvas drawing areas are bounded at 16,384 pixels per side; this is an application guard, not a total browser memory guarantee.
+
+The canvas and visual exports share the same SVG body and numeric projection. Fixed-page PDF/PowerPoint exports require the complete dot-plot tile inside the page and refuse content that cannot fit with all points, aliases, series and labels. They do not silently truncate it or clip it at the page edge. PowerPoint preserves the complete rendered dot plot as a visual image; this change does not create an editable native Office scatter-chart object. Excel continues to export analytical values and bases as numbers. Thumbnails use a uniformly scaled complete drawing, and existing non-dot export behavior is retained.
+
+Verification uses synthetic local data only:
+
+- Model and drawing cases cover signed/extreme values, zero and missing denominators, invalid/sparse/duplicate recorded data, all 180 cells, aliases, typography, semantic colors, weighted base labels, XML escaping and fit refusal.
+- The actual application converts a 1,000-row, 30-field study from table to dot plot, preserves exact results and source data through Undo/Redo, opens the complete values, guards canvas keys, saves and cold reopens.
+- The isolated guided preview accepts dot-plot requests while retaining its temporary preview provenance; it is not promoted into a saved source.
+- Four production-generated PDF/PowerPoint/Excel scenarios cover signed sums, an unavailable average, percentages and a single-series count. Independent Decimal calculations check point positions; PDFium reopens and renders every PDF page; ZIP/XML inspection and numeric worksheet-plan comparisons check generated files. Dense canvas evidence includes all 180 cells.
+
+Independent review, native browser/assistive-technology/touch, Office visual rendering and operating-system download acceptance remain open. This is progress toward goal 31, not completion of all analytical chart types, uncertainty visualization or live Snowflake verification. Existing recovery/restore activation and publication restrictions remain unchanged. Nothing is merged or deployed by this change.

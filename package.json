@@ -11,6 +11,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:journey": "vitest run src/features/quality/__tests__/localStudyJourney.test.tsx",
     "test:watch": "vitest",
     "typecheck": "tsc -b"
   },
@@ -30,6 +31,7 @@
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "jsdom": "^29.1.1",
     "netlify-cli": "^23.5.0",
     "typescript": "~5.9.3",
     "vite": "^7.1.7",

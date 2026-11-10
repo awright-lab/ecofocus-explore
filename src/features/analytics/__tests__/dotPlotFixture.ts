@@ -1,0 +1,2 @@
+import {heatmapFixture} from './heatmapFixture';
+export async function dotPlotFixture(){const f=await heatmapFixture();f.draft.id='synthetic-dot-report';f.tile.id='synthetic-dot-tile';f.tile.name=f.tile.title='Synthetic dot plot';f.tile.visualization='dot_plot';f.tile.query.chartType='dot_plot';f.tile.result.query.chartType='dot_plot';f.tile.appearance.showValueLabels=true;f.tile.appearance.showBases=true;return f;}
