@@ -1,0 +1,149 @@
+- dialog "Your report, at a glance":
+  - banner:
+    - text: REPORT NAVIGATOR
+    - heading "Your report, at a glance" [level=2]
+    - paragraph: Explore pages or find an exact object. Opening hidden or locked objects keeps them hidden or locked.
+    - paragraph: "Current page 2: Chapter 2 · Research findings"
+    - button "Close report navigator": Close ✕
+  - group "Browse mode":
+    - button "Page overview"
+    - button "Find objects" [pressed]
+  - text: Search object names and written text
+  - searchbox "Search object names and written text"
+  - text: Page
+  - combobox "Page":
+    - option "All pages" [selected]
+    - option "1. Chapter 1 · Research findings"
+    - option "2. Chapter 2 · Research findings"
+    - option "3. Chapter 3 · Research findings"
+    - option "4. Chapter 4 · Research findings"
+    - option "5. Chapter 5 · Research findings"
+    - option "6. Chapter 6 · Research findings"
+    - option "7. Chapter 7 · Research findings"
+    - option "8. Chapter 8 · Research findings"
+    - option "9. Chapter 9 · Research findings"
+    - option "10. Chapter 10 · Research findings"
+    - option "11. Chapter 11 · Research findings"
+    - option "12. Chapter 12 · Research findings"
+    - option "13. Chapter 13 · Research findings"
+    - option "14. Chapter 14 · Research findings"
+    - option "15. Chapter 15 · Research findings"
+    - option "16. Chapter 16 · Research findings"
+    - option "17. Chapter 17 · Research findings"
+    - option "18. Chapter 18 · Research findings"
+    - option "19. Chapter 19 · Research findings"
+    - option "20. Chapter 20 · Research findings"
+    - option "21. Chapter 21 · Research findings"
+    - option "22. Chapter 22 · Research findings"
+    - option "23. Chapter 23 · Research findings"
+    - option "24. Chapter 24 · Research findings"
+    - option "25. Chapter 25 · Research findings"
+    - option "26. Chapter 26 · Research findings"
+    - option "27. Chapter 27 · Research findings"
+    - option "28. Chapter 28 · Research findings"
+    - option "29. Chapter 29 · Research findings"
+    - option "30. Chapter 30 · Research findings"
+    - option "31. Chapter 31 · Research findings"
+    - option "32. Chapter 32 · Research findings"
+    - option "33. Chapter 33 · Research findings"
+    - option "34. Chapter 34 · Research findings"
+    - option "35. Chapter 35 · Research findings"
+    - option "36. Chapter 36 · Research findings"
+    - option "37. Chapter 37 · Research findings"
+    - option "38. Chapter 38 · Research findings"
+    - option "39. Chapter 39 · Research findings"
+    - option "40. Chapter 40 · Research findings"
+    - option "41. Chapter 41 · Research findings"
+    - option "42. Chapter 42 · Research findings"
+    - option "43. Chapter 43 · Research findings"
+    - option "44. Chapter 44 · Research findings"
+    - option "45. Chapter 45 · Research findings"
+    - option "46. Chapter 46 · Research findings"
+    - option "47. Chapter 47 · Research findings"
+    - option "48. Chapter 48 · Research findings"
+    - option "49. Chapter 49 · Research findings"
+    - option "50. Chapter 50 · Research findings"
+    - option "51. Chapter 51 · Research findings"
+    - option "52. Chapter 52 · Research findings"
+    - option "53. Chapter 53 · Research findings"
+    - option "54. Chapter 54 · Research findings"
+    - option "55. Chapter 55 · Research findings"
+    - option "56. Chapter 56 · Research findings"
+    - option "57. Chapter 57 · Research findings"
+    - option "58. Chapter 58 · Research findings"
+    - option "59. Chapter 59 · Research findings"
+    - option "60. Chapter 60 · Research findings"
+    - option "61. Chapter 61 · Research findings"
+    - option "62. Chapter 62 · Research findings"
+    - option "63. Chapter 63 · Research findings"
+    - option "64. Chapter 64 · Research findings"
+    - option "65. Chapter 65 · Research findings"
+    - option "66. Chapter 66 · Research findings"
+    - option "67. Chapter 67 · Research findings"
+    - option "68. Chapter 68 · Research findings"
+    - option "69. Chapter 69 · Research findings"
+    - option "70. Chapter 70 · Research findings"
+    - option "71. Chapter 71 · Research findings"
+    - option "72. Chapter 72 · Research findings"
+    - option "73. Chapter 73 · Research findings"
+    - option "74. Chapter 74 · Research findings"
+    - option "75. Chapter 75 · Research findings"
+    - option "76. Chapter 76 · Research findings"
+    - option "77. Chapter 77 · Research findings"
+    - option "78. Chapter 78 · Research findings"
+    - option "79. Chapter 79 · Research findings"
+    - option "80. Chapter 80 · Research findings"
+    - option "81. Chapter 81 · Research findings"
+    - option "82. Chapter 82 · Research findings"
+    - option "83. Chapter 83 · Research findings"
+    - option "84. Chapter 84 · Research findings"
+    - option "85. Chapter 85 · Research findings"
+    - option "86. Chapter 86 · Research findings"
+    - option "87. Chapter 87 · Research findings"
+    - option "88. Chapter 88 · Research findings"
+    - option "89. Chapter 89 · Research findings"
+    - option "90. Chapter 90 · Research findings"
+    - option "91. Chapter 91 · Research findings"
+    - option "92. Chapter 92 · Research findings"
+    - option "93. Chapter 93 · Research findings"
+    - option "94. Chapter 94 · Research findings"
+    - option "95. Chapter 95 · Research findings"
+    - option "96. Chapter 96 · Research findings"
+    - option "97. Chapter 97 · Research findings"
+    - option "98. Chapter 98 · Research findings"
+    - option "99. Chapter 99 · Research findings"
+    - option "100. Chapter 100 · Research findings"
+  - text: Object type
+  - combobox "Object type":
+    - option "All types" [selected]
+    - option "All analyses"
+    - option "Charts"
+    - option "Tables"
+    - option "Text"
+    - option "Shape"
+    - option "Image"
+  - text: Visibility
+  - combobox "Visibility":
+    - option "Visible and hidden" [selected]
+    - option "Visible only"
+    - option "Hidden only"
+  - text: Lock status
+  - combobox "Lock status":
+    - option "Locked and unlocked" [selected]
+    - option "Locked only"
+    - option "Unlocked only"
+  - status: 2001–2001 of 2001 objects. Names, source labels and authored text only; no analytical data is searched.
+  - list:
+    - listitem:
+      - 'button "Find text Research note, object 2001 of 2001, page 100: Chapter 100 · Research findings. Visible · Locked."':
+        - text: text
+        - strong: Research note
+        - text: "Page 100: Chapter 100 · Research findings · Visible · Locked Synthetic insight 2000: customers value clear information."
+  - contentinfo:
+    - navigation "Object results pagination":
+      - 'button "Object results pagination: first"': First
+      - 'button "Object results pagination: previous"': Previous
+      - text: Page 81 of 81
+      - 'button "Object results pagination: next" [disabled]': Next
+      - 'button "Object results pagination: last" [disabled]': Last
+    - text: Read-only navigation · Escape to close

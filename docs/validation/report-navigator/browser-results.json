@@ -1,0 +1,47 @@
+{
+  "browser": "156.0.8078.4",
+  "fixture": {
+    "pages": 100,
+    "objects": 2001,
+    "searchMatches": 2000
+  },
+  "sidebarPreviews": 12,
+  "desktopPreviews": 24,
+  "maxObjectResults": 25,
+  "quickSearchHandoffBeyond20": true,
+  "keyboardPaginationRetainsBoundaryFocus": true,
+  "openMs": 517,
+  "warmOpenMs": 184,
+  "searchMs": 83,
+  "lastPageMs": 136,
+  "lastLabel": "Find text Research note, object 2000 of 2000, page 100: Chapter 100 · Research findings. Visible · Locked.",
+  "hiddenSelection": "Select Shape Research note, object 20 on page 1: Chapter 1 · Research findings. Hidden.",
+  "narrowOverflow": {
+    "scroll": 372,
+    "client": 372
+  },
+  "zoom": 2,
+  "zoomBefore": {
+    "width": 1280,
+    "height": 900,
+    "dpr": 1
+  },
+  "zoomAfter": {
+    "width": 640,
+    "height": 450,
+    "dpr": 2
+  },
+  "zoomOverflow": {
+    "scroll": 622,
+    "client": 622
+  },
+  "unnamedAccessibleControls": 0,
+  "unchanged": {
+    "draft": true,
+    "datasets": true,
+    "snapshots": true
+  },
+  "errors": [],
+  "apiRequests": [],
+  "externalRequests": []
+}

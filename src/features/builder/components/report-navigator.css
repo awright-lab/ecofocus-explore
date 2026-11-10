@@ -1,0 +1,55 @@
+.report-navigator-backdrop { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 24px; background: #102c29b8; backdrop-filter: blur(5px); }
+.report-navigator { width: min(1200px, 100%); max-height: calc(100dvh - 48px); display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: #f5f7f4; color: #183b35; border: 1px solid #bdcbc2; border-radius: 20px; box-shadow: 0 24px 100px #102c2966; font: 14px/1.5 system-ui, sans-serif; }
+.report-navigator *, .navigator-pagination * { box-sizing: border-box; }
+.report-navigator button, .navigator-pagination button { cursor: pointer; font: inherit; border: 1px solid #bacbc2; border-radius: 8px; padding: 8px 12px; background: white; color: #183b35; }
+.report-navigator button:disabled, .navigator-pagination button:disabled, .navigator-pagination button[aria-disabled="true"] { opacity: .45; cursor: default; }
+.report-navigator :focus-visible, .navigator-pagination :focus-visible, .report-browse-button:focus-visible { outline: 3px solid #0c7462; outline-offset: 3px; }
+.navigator-header { display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; padding: 24px 28px 16px; }
+.navigator-header h2 { margin: 4px 0 8px; font-size: clamp(22px, 3vw, 32px); line-height: 1.2; letter-spacing: -.025em; }
+.navigator-header p { margin: 0; max-width: 760px; color: #536a61; }
+.navigator-header > button { flex-shrink: 0; }
+.navigator-eyebrow { font-size: 11px; font-weight: 750; letter-spacing: .15em; color: #386a57; }
+.navigator-toolbar { padding: 0 28px 16px; display: grid; gap: 14px; border-bottom: 1px solid #d6dfd8; }
+.navigator-modes { display: flex; gap: 8px; flex-wrap: wrap; }
+.navigator-modes button[aria-pressed="true"] { background: #184f41; color: white; border-color: #184f41; }
+.navigator-search, .navigator-filters label { display: grid; gap: 5px; min-width: 0; font-weight: 600; }
+.navigator-search input, .navigator-filters select { width: 100%; min-width: 0; font: inherit; padding: 10px 12px; border: 1px solid #b8c7be; border-radius: 8px; color: #183b35; background: white; }
+.navigator-filters { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 12px; }
+.navigator-content { overflow: auto; padding: 0 28px 24px; min-height: 0; }
+.navigator-count { color: #536a61; font-size: 13px; }
+.navigator-page-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.report-navigator .navigator-page-card { padding: 0; text-align: left; overflow: hidden; border-color: #d0dbd2; box-shadow: 0 2px 5px #183b3508; }
+.navigator-page-card[aria-current="page"] { border: 2px solid #23745e; }
+.navigator-page-preview { aspect-ratio: 1280/760; background: #e6ebe5; overflow: hidden; display: grid; place-items: center; border-bottom: 1px solid #d6dfd8; }
+.navigator-page-preview svg { display: block; width: 100%; height: 100%; }
+.navigator-preview-error { padding: 20px; font-size: 13px; }
+.navigator-page-caption { display: flex; align-items: flex-start; gap: 10px; padding: 14px; }
+.navigator-page-caption > div { flex: 1; min-width: 0; }
+.navigator-page-caption strong, .navigator-object strong { display: block; font-weight: 650; overflow-wrap: anywhere; }
+.navigator-page-caption small, .navigator-object small { display: block; color: #536a61; margin-top: 3px; }
+.navigator-page-number { border-radius: 6px; padding: 1px 7px; background: #e7eee7; font-weight: 650; }
+.navigator-current { font-size: 11px; color: #185841; background: #e0efe3; padding: 3px 6px; border-radius: 4px; }
+.navigator-object-list { padding: 0; margin: 0; list-style: none; display: grid; gap: 8px; }
+.report-navigator .navigator-object { width: 100%; display: grid; grid-template-columns: 85px minmax(0, 1fr) auto; gap: 16px; text-align: left; padding: 16px; border-color: #d0dbd2; }
+.navigator-object-type { text-transform: capitalize; color: #386a57; font-size: 12px; }
+.navigator-excerpt { display: block; margin-top: 8px; color: #4f5f55; overflow-wrap: anywhere; }
+.report-navigator footer { padding: 14px 28px; border-top: 1px solid #d6dfd8; display: grid; gap: 6px; background: #fff; }
+.report-navigator footer > small { color: #536a61; text-align: center; }
+.navigator-pagination { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
+.navigator-pagination span { font-size: 12px; }
+.navigator-empty { padding: 40px 20px; text-align: center; }
+.report-browse-button { width: 100%; margin: 0 0 12px; padding: 12px; border: 1px solid #abc3b5; border-radius: 10px; background: #e5efe7; color: #184f41; font-weight: 650; text-align: left; cursor: pointer; }
+@media (max-width: 800px) { .navigator-page-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .navigator-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px), (max-height: 650px) { .report-navigator-backdrop { padding: 8px; } .report-navigator { max-height: calc(100dvh - 16px); border-radius: 12px; overflow: auto; display: block; } .navigator-header { padding: 16px; gap: 10px; } .navigator-toolbar { padding: 0 16px 12px; } .navigator-content { padding: 0 16px 16px; overflow: visible; } .report-navigator footer { padding: 10px 16px; } }
+@media (max-width: 480px) { .navigator-page-grid { grid-template-columns: minmax(0, 1fr); } .navigator-page-caption { flex-wrap: wrap; } .report-navigator .navigator-object { grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .navigator-object-type { grid-column: 1 / -1; } .navigator-pagination { gap: 5px; } .navigator-pagination button { padding: 8px; } }
+/* Size the dialog to its fixed container, including when the document is zoomed. */
+.report-navigator-backdrop { container-type: size; grid-template-rows: minmax(0, 1fr); }
+.report-navigator { max-height: 100%; }
+@container (max-height: 650px) {
+  .report-navigator { display: block; overflow: auto; }
+  .navigator-content { overflow: visible; }
+}
+@container (max-width: 800px) { .navigator-page-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .navigator-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 480px) { .navigator-page-grid { grid-template-columns: minmax(0, 1fr); } .navigator-filters { grid-template-columns: minmax(0, 1fr); } }
+
+.navigator-pagination button[aria-disabled="true"]:focus-visible { opacity: 1; }
