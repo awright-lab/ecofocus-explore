@@ -1,5 +1,54 @@
 # Layer-preserving PowerPoint export validation
 
+## Negative-chart compatibility guard (November 10, 2026)
+
+PR #3 follow-up on `f3e87f0`: native-chart eligibility now rejects any **available**
+negative cell. Vertical, grouped and stacked charts with signed values use one
+complete transparent tile image at the original z-index. Other supported shapes,
+text and nonnegative charts remain editable. No values, bases, source records or
+report state are rewritten. Unavailable cells still use analytical availability,
+not their stale numeric transport values, and are never converted into zeros.
+
+This conservative guard follows a reproduced compatibility issue: LibreOfficeDev
+26.8.0.0.alpha0 drew a native -20 bar above zero even though the package retained
+-20. The existing SVG renderer correctly uses signed domains and separate positive
+and negative stacks, so the guard reuses that renderer instead of altering native
+series data. The low-level chart serializer still has exact-value tests; it is not
+called for signed charts by the production export plan.
+
+The original layered fixture is now split into independently query-backed positive
+and signed synthetic CSV fixtures. Native chart/package/order tests use the
+nonnegative fixture (20, 10, 0, 20). New regressions check:
+
+- Every supported native bar type, including a negative cell after positive cells.
+- Tiny negative values, exact zero/negative zero, tiny positive values, and
+  unavailable means with a stale negative transport value.
+- Signed and all-negative chart geometry, exact values, stable object order,
+  preflight inventory, editable surrounding objects and nonnegative native charts.
+- No native chart part for a signed tile, contiguous IDs for remaining native
+  charts, and no source mutations during export.
+
+Both optional real-PNG layer checks passed with Sharp 0.35.5. The new three-slide
+signed deck was opened by LibreOfficeDev 26.8.0.0.alpha0 and exported to PDF. The
+[side-by-side comparison](signed-comparison.png) shows SVG references at left and
+PowerPoint-file renders at right. Negative bars correctly extend below zero in
+vertical, grouped and stacked charts; positive bars extend above it. Transparent
+tile backgrounds preserve the backdrop, and foreground text remains an editable
+DrawingML object (also present in PDF text extraction). Seven nonzero bars sampled
+at 25%, 50% and 75% of height match the reference color within 3/255 RGB. Text
+metrics differ slightly; pixel identity is not claimed.
+
+Reproduce both PNG integration checks with `ECOFOCUS_PPTX_SHARP` as described below.
+The signed deck and reference images are written under the `signed` subdirectory
+of `ECOFOCUS_PPTX_ARTIFACTS`. The tests use only synthetic data.
+
+Microsoft PowerPoint desktop/web and interactive chart editing remain unverified.
+This follow-up does not merge, deploy, or write production data. The historical
+validation below predates the guard; its native signed-chart claims describe that
+older revision only.
+
+## Original validation before the guard
+
 Base: `codex/beta-reliability-audit` at `f9b32129bfba62a9d42fb5a0e17db5802a3ee919`.
 The separate report-refresh PR was neither merged nor cherry-picked. The original
 workspace and its uncommitted changes were left in place. The target branch later advanced to recovery commit `0d155ff`. This export branch

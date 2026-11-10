@@ -1,9 +1,17 @@
-import { dotPlotFixture } from '../../analytics/__tests__/dotPlotFixture';
+import { importDatasetBuffer } from '../../data/datasetImportModel';
+import { runImportedDatasetQuery } from '../../data/importedDatasetAnalytics';
 import { initialDashboard } from '../../document/documentSeeds';
 
 export const tinyPng='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII=';
-export async function layeredFixture() {
-  const {draft,tile}=await dotPlotFixture();
+export async function layeredFixture({signed=false}:{signed?:boolean}={}) {
+  // Keep native-positive and signed-raster fixtures independently query-backed.
+  const {dataset}=await importDatasetBuffer(new TextEncoder().encode(`Answer,Banner,Amount\nA,X,${signed?-20:20}\nA,Y,10\nB,X,0\nB,Y,20\n`).buffer,'synthetic-layers.csv');
+  if(!dataset)throw Error('fixture');
+  for(const field of dataset.fields)Object.assign(field,field.sourceColumn==='Amount'?{type:'numeric',modelingRole:'candidate_measure'}:{type:'categorical',modelingRole:'candidate_dimension',eligibleForBanner:true,eligibleForFilter:true});
+  const result=runImportedDatasetQuery({dataset,field:dataset.fields[0],bannerField:dataset.fields[1],measureField:dataset.fields[2],metric:'sum',chartType:'grouped_bar'});
+  const draft=structuredClone(initialDashboard);draft.id='synthetic-layered-report';draft.importedDatasets=[dataset];draft.savedAudiences=[];draft.pages=draft.pages.slice(0,1);
+  const tile=draft.pages[0].tiles[0];tile.query=structuredClone(result.query);tile.result=result;tile.derivedOutput=undefined;tile.source={kind:'importedField',id:'layered-source',datasetId:dataset.id,fieldId:dataset.fields[0].id,label:'Answer'};
+  Object.assign(tile.appearance,{showBases:true,axisLabelOverrides:{},titleX:18,titleY:10,titleWidth:1100,titleFontSize:18,axisFontSize:12,labelFontSize:12});
   tile.id='chart';tile.title=tile.name='Editable chart';tile.visualization='grouped_bar';tile.query.chartType=tile.result.query.chartType='grouped_bar';
   tile.appearance.showValueLabels=false;tile.appearance.background='transparent';tile.appearance.chartBackground='transparent';tile.layout={x:240,y:150,width:800,height:500,zIndex:2};
   const page=draft.pages[0];page.background='#e8f3eb';

@@ -115,7 +115,16 @@ export function canReconstructTileAsNativePptxChart(tile: DashboardTile) {
   // become the native hex parser's opaque white default.
   const background = tile.appearance.chartBackground;
   if (background && background !== "transparent" && !/^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(background)) return false;
-  return tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
+  let hasAvailableValue = false;
+  for (const row of tile.result.table) for (const column of tile.result.columns) {
+    const cell = analyticalCell(tile.result, row, column.id);
+    if (cell.status !== "available") continue;
+    // Some Office-compatible renderers paint negative native bars above zero.
+    // Preserve signed geometry in the existing transparent SVG/PNG tile layer.
+    if (cell.value < 0) return false;
+    hasAvailableValue = true;
+  }
+  return hasAvailableValue;
 }
 
 export function buildNativePptxChartDescriptor(tile: DashboardTile, chartId: number, shapeId: number, relationshipId: string): PptxNativeChartDescriptor {

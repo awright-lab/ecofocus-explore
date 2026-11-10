@@ -1,15 +1,16 @@
 import { expect, it } from "vitest";
 import { initialDashboard } from "../../document/documentSeeds";
-import { dotPlotFixture } from "../../analytics/__tests__/dotPlotFixture";
+import { layeredFixture } from "./pptxLayerFixture";
 import { reviewPptxEditability } from "../pptxEditability";
 import { buildPptxBlob } from "../coreDocumentExports";
 import { buildReportPreflight } from "../reportPreflight";
 
 async function fixture() {
- const { draft, tile } = await dotPlotFixture();
+ const { draft, tile } = await layeredFixture();
  tile.visualization = "grouped_bar"; tile.query.chartType = tile.visualization; tile.result.query.chartType = tile.visualization;
  tile.appearance.showValueLabels = false; tile.layout.zIndex = 10;
  const page = draft.pages[0];
+ page.tiles = [tile];
  page.elements = [{ ...structuredClone(initialDashboard.pages[0].elements[0]), id: "foreground", name: "Foreground", type: "rectangle", content: "", layout: { x: 20, y: 20, width: 100, height: 100, zIndex: 20 } }];
  return { draft, page, tile };
 }

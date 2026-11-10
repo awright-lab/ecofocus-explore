@@ -33,3 +33,37 @@ it.skipIf(!runtime)('generates a representative synthetic deck with real transpa
  const parts=await packageParts(deck);expect(parts.has('ppt/charts/chart3.xml')).toBe(true);expect(parts.has('ppt/charts/chart4.xml')).toBe(false);
  expect(JSON.stringify(pages)).toBe(before);
 },60_000);
+
+it.skipIf(!runtime)('renders signed bar charts as transparent images while keeping foreground objects editable',async()=>{
+ const sharp=createRequire(runtime!)('sharp');
+ const out=join(process.env.ECOFOCUS_PPTX_ARTIFACTS??'/tmp/ecofocus-layered-pptx','signed');mkdirSync(out,{recursive:true});
+ const pages=[];
+ for(const [index,kind] of (['vertical_bar','grouped_bar','stacked_bar'] as const).entries()){
+   const {page,tile,foreground}=await layeredFixture({signed:true});page.id=kind;page.title=kind;page.order=index+1;
+   page.tiles=[tile];tile.title=tile.name=`Signed ${kind}`;tile.visualization=tile.query.chartType=tile.result.query.chartType=kind;
+   if(kind==='vertical_bar')tile.result.columns=tile.result.columns.slice(0,1);
+   foreground.layout={...foreground.layout,x:680,y:440,width:450};foreground.content='Editable foreground';
+   pages.push(page);
+   const svg=buildPageVisualSvg(page);writeFileSync(join(out,`expected-${index+1}.svg`),svg);writeFileSync(join(out,`expected-${index+1}.png`),await sharp(Buffer.from(svg)).png().toBuffer());
+ }
+ const before=JSON.stringify(pages);let index=0;
+ const deck=await buildPptxBlob(pages,async(svg,width,height)=>{
+   const png=await sharp(Buffer.from(svg)).resize(width,height).png().toBuffer();
+   writeFileSync(join(out,`layer-${++index}.svg`),svg);writeFileSync(join(out,`layer-${index}.png`),png);
+   if(svg.includes('data-value="-20"')){
+     const {data,info}=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+     expect(data[info.channels-1]).toBe(0);
+     expect(svg).toContain('data-value="0"');
+     expect(svg).not.toContain('#e8f3eb');
+   }
+   return `data:image/png;base64,${png.toString('base64')}`;
+ });
+ writeFileSync(join(out,'synthetic-signed.pptx'),new Uint8Array(await deck.arrayBuffer()));
+ const parts=await packageParts(deck);expect([...parts.keys()].some(path=>path.startsWith('ppt/charts/'))).toBe(false);
+ for(let slide=1;slide<=pages.length;slide++){
+   const content=new TextDecoder().decode(parts.get(`ppt/slides/slide${slide}.xml`));
+   expect(content.match(/<p:sp>/g)).toHaveLength(2);expect(content.match(/<p:pic>/g)).toHaveLength(2);
+   expect(content).toContain('Editable foreground');
+ }
+ expect(JSON.stringify(pages)).toBe(before);
+},60_000);
