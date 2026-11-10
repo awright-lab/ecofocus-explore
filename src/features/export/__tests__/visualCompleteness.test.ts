@@ -126,7 +126,7 @@ describe.skipIf(!hasRaster)("actual offline raster and document generation", () 
         const number = ++index, png = await sharp(Buffer.from(svg)).resize(width, height).png().toBuffer();
         const jpeg = await sharp(png).jpeg({ quality: 92 }).toBuffer();
         save(`${prefix}-${number}.svg`, svg); save(`${prefix}-${number}.png`, png); save(`${prefix}-${number}.jpg`, jpeg);
-        return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+        return prefix === "pptx" ? `data:image/png;base64,${png.toString("base64")}` : `data:image/jpeg;base64,${jpeg.toString("base64")}`;
       };
     };
     const pdf = new Uint8Array(await (await buildPdfBlob(pages, raster("pdf"))).arrayBuffer());

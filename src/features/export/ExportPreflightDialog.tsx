@@ -42,9 +42,10 @@ export function ExportPreflightDialog({ dashboard, onClose, activePageId, onShow
           <h3>PowerPoint editability</h3>
           <p>This is a composition check, not a PowerPoint rendering test or export approval. Resolve the checks above and inspect the generated file before sharing.</p>
           {selected.pptxEditability.available ? <>
-            <p>{selected.pptxEditability.mode === "complete_visual" ? "One complete slide image" : selected.pptxEditability.editableObjects + selected.pptxEditability.editableCharts > 0 ? "Slide image with editable overlays" : "Slide image without editable overlays"}</p>
-            <p>{selected.pptxEditability.editableObjects} editable text or shape objects; {selected.pptxEditability.editableCharts} editable chart bodies; {selected.pptxEditability.imageObjects} objects included only in the slide image.</p>
-            <p>The background and chart titles, labels outside the chart body, and context remain in the slide image. Image-only content stays editable in the builder.</p>
+            <p>{selected.pptxEditability.mode === "complete_visual" ? "One complete slide image" : selected.pptxEditability.editableObjects + selected.pptxEditability.editableCharts > 0 ? "Ordered transparent image layers with editable objects" : "Ordered image layers without editable objects"}</p>
+            <p>{selected.pptxEditability.editableObjects} editable text or shape objects; {selected.pptxEditability.editableCharts} editable chart bodies; {selected.pptxEditability.imageObjects} objects included only in image layers.</p>
+            <p>{selected.pptxEditability.rasterLayers} raster image layers preserve the page background and image-only content. Native chart layout and text wrapping may differ in PowerPoint.</p>
+            <p>The background and chart titles, labels outside the chart body, and context remain in image layers. These layers follow the report stacking order; tables and unsupported objects remain images. Image-only content stays editable in the builder.</p>
             {selected.pptxEditability.reason && <p>{selected.pptxEditability.reason}</p>}
             {selected.pptxEditability.detailsOmitted ? <p>Individual object details are omitted above the 500-object inspection limit. The exporter uses a complete slide image.</p> : selected.pptxEditability.objects.length > 0 && <details><summary>Object editability ({selected.pptxEditability.objects.length})</summary><ul>{selected.pptxEditability.objects.map((object, index) => <li key={index}>{object.name}: {object.mode}</li>)}</ul></details>}
           </> : <p>Object editability could not be inspected. The report was kept unchanged; export still performs its own validation.</p>}

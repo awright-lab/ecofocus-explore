@@ -94,10 +94,14 @@ function chartTitleXml(tile: DashboardTile) {
   return `<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="1400" b="1"/><a:t>${escapeXml(title)}</a:t></a:r></a:p></c:rich></c:tx><c:layout/><c:overlay val="0"/></c:title>`;
 }
 
+function chartFillXml(color: string) {
+  return color === 'transparent' ? '<a:noFill/>' : `<a:solidFill><a:srgbClr val="${hexColor(color,"FFFFFF")}"/></a:solidFill>`;
+}
+
 function chartXml(tile: DashboardTile) {
   const categories = tile.result.table.map((row) => ownAxisLabel(tile.appearance,row.optionId) ?? row.label);
   const grouping = tile.visualization === "stacked_bar" ? "stacked" : "clustered";
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:lang val="en-US"/><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>${seriesXml(tile, categories)}<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls><c:gapWidth val="140"/><c:overlap val="${tile.visualization === "stacked_bar" ? "100" : "0"}"/><c:axId val="100001"/><c:axId val="100002"/></c:barChart><c:catAx><c:axId val="100001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>${chartTextProperties(tile.appearance.axisFontSize,tile.appearance.xAxisTextColor)}<c:crossAx val="100002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="100002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/>${tile.appearance.showGrid ? `<c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="${hexColor(tile.appearance.gridColor)}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>` : ""}<c:numFmt formatCode="${tile.result.metric.valueFormat === "percent" ? "0&quot;%&quot;" : "General"}" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>${chartTextProperties(tile.appearance.axisFontSize,tile.appearance.yAxisTextColor)}<c:crossAx val="100001"/><c:crosses val="autoZero"/></c:valAx><c:spPr><a:solidFill><a:srgbClr val="${hexColor(tile.appearance.chartBackground,"FFFFFF")}"/></a:solidFill></c:spPr></c:plotArea>${tile.visualization === "vertical_bar" ? "" : `<c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/>${chartTextProperties(tile.appearance.axisFontSize,tile.appearance.labelColor)}</c:legend>`}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:spPr><a:solidFill><a:srgbClr val="${hexColor(tile.appearance.chartBackground,"FFFFFF")}"/></a:solidFill></c:spPr><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:lang val="en-US"/><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>${seriesXml(tile, categories)}<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls><c:gapWidth val="140"/><c:overlap val="${tile.visualization === "stacked_bar" ? "100" : "0"}"/><c:axId val="100001"/><c:axId val="100002"/></c:barChart><c:catAx><c:axId val="100001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:numFmt formatCode="General" sourceLinked="1"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>${chartTextProperties(tile.appearance.axisFontSize,tile.appearance.xAxisTextColor)}<c:crossAx val="100002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx><c:valAx><c:axId val="100002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/>${tile.appearance.showGrid ? `<c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="${hexColor(tile.appearance.gridColor)}"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>` : ""}<c:numFmt formatCode="${tile.result.metric.valueFormat === "percent" ? "0&quot;%&quot;" : "General"}" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>${chartTextProperties(tile.appearance.axisFontSize,tile.appearance.yAxisTextColor)}<c:crossAx val="100001"/><c:crosses val="autoZero"/></c:valAx><c:spPr>${chartFillXml(tile.appearance.chartBackground)}</c:spPr></c:plotArea>${tile.visualization === "vertical_bar" ? "" : `<c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/>${chartTextProperties(tile.appearance.axisFontSize,tile.appearance.labelColor)}</c:legend>`}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/></c:chart><c:spPr>${chartFillXml(tile.appearance.chartBackground)}</c:spPr><c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings></c:chartSpace>`;
 }
 
 function graphicFrameXml(tile: DashboardTile, shapeId: number, relationshipId: string) {
@@ -107,7 +111,20 @@ function graphicFrameXml(tile: DashboardTile, shapeId: number, relationshipId: s
 
 export function canReconstructTileAsNativePptxChart(tile: DashboardTile) {
   if (tile.hidden || !supportedNativeChartTypes.has(tile.visualization) || chartNeedsGradientFallback(tile)) return false;
-  return tile.result.table.some(row=>tile.result.columns.some(column=>analyticalCell(tile.result,row,column.id).status === "available"));
+  // Unsupported CSS paints must stay in the transparent raster layer, never
+  // become the native hex parser's opaque white default.
+  const background = tile.appearance.chartBackground;
+  if (background && background !== "transparent" && !/^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(background)) return false;
+  let hasAvailableValue = false;
+  for (const row of tile.result.table) for (const column of tile.result.columns) {
+    const cell = analyticalCell(tile.result, row, column.id);
+    if (cell.status !== "available") continue;
+    // Some Office-compatible renderers paint negative native bars above zero.
+    // Preserve signed geometry in the existing transparent SVG/PNG tile layer.
+    if (cell.value < 0) return false;
+    hasAvailableValue = true;
+  }
+  return hasAvailableValue;
 }
 
 export function buildNativePptxChartDescriptor(tile: DashboardTile, chartId: number, shapeId: number, relationshipId: string): PptxNativeChartDescriptor {

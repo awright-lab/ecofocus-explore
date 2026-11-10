@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';import { createRoot,type Root } from 'react-dom/client';import { afterEach,beforeEach,expect,it,vi } from 'vitest';
-vi.mock('../../../export/pageVisualExport',async original=>({...await original<typeof import('../../../export/pageVisualExport')>(),renderPageVisualImages:vi.fn(async(pages:Array<{id:string;title:string}>)=>pages.map(page=>({pageId:page.id,title:page.title,dataUrl:'data:image/jpeg;base64,/9j/2Q=='})))}));
+vi.mock('../../../export/pageVisualExport',async original=>({...await original<typeof import('../../../export/pageVisualExport')>(),renderPageVisualImages:vi.fn(async(pages:Array<{id:string;title:string}>,options?:{transparent?:boolean})=>pages.map(page=>({pageId:page.id,title:page.title,dataUrl:options?.transparent?'data:image/png;base64,iVBORw0KGgo=':'data:image/jpeg;base64,/9j/2Q=='})))}));
 import { exportCoreDocument } from '../../../export/coreDocumentExports';
 import { createPublishedSnapshot,createReportRecord,normalizeDashboardWorkspace } from '../../../document/workspacePersistence';
 import { inspectReportObjectMove } from '../reportObjectMove';

@@ -15,12 +15,15 @@ export interface PageVisualImage {
 }
 
 export interface PageVisualRenderOptions {
+  includeBackground?: boolean;
+  transparent?: boolean;
   includeElement?: (element: DashboardCanvasElement) => boolean;
   includeTile?: (tile: DashboardTile) => boolean;
   includeTileBody?: (tile: DashboardTile) => boolean;
   rasterizeSvg?: SvgRasterizer;
 }
 
+/** Injected PowerPoint rasterizers must return PNG data URLs to preserve layer alpha. */
 export type SvgRasterizer = (svg: string, width: number, height: number) => Promise<string>;
 
 function escapeXml(value: unknown) {
@@ -186,7 +189,7 @@ function pageVisualSvg(
       .map((tile) => render(tile,()=>({z:tile.layout.zIndex,svg:analysisTileSvg(tile,options.includeTileBody?options.includeTileBody(tile):true)}))),
   ].filter((object): object is {z:number;svg:string}=>object!==null).sort((a, b) => a.z - b.z);
 
-  const background=render(undefined,()=>pageBackgroundSvg(page));
+  const background=options.includeBackground===false?null:render(undefined,()=>pageBackgroundSvg(page));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}">${background??''}${objects.map((object) => object.svg).join("")}</svg>`;
 }
 
@@ -227,13 +230,15 @@ export async function renderPageVisualImages(
         const context = canvas.getContext("2d");
         if (!context)
           throw new Error("Canvas rendering is not available for export.");
-        context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, canvas.width, canvas.height);
+        if (!options.transparent) {
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+        }
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         return {
           pageId: page.id,
           title: page.title,
-          dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+          dataUrl: options.transparent ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.92),
         };
       } finally {
         URL.revokeObjectURL(url);

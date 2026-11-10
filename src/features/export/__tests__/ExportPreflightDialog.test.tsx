@@ -31,12 +31,12 @@ it("explains slide editability without export and updates the inventory when cha
  const original = JSON.stringify(value), panel = await mount(<ExportPreflightDialog dashboard={value} onClose={() => undefined} />);
  try {
   const inventory = panel.host.querySelector('[aria-label="PowerPoint editability"]')!;
-  expect(inventory.textContent).toContain("1 editable text or shape objects; 0 editable chart bodies; 0 objects included only in the slide image");
+  expect(inventory.textContent).toContain("1 editable text or shape objects; 0 editable chart bodies; 0 objects included only in image layers");
   expect(inventory.textContent).toContain("Synthetic shape: Editable object");
   expect(inventory.textContent).toContain("not a PowerPoint rendering test or export approval");
   const select = panel.host.querySelector("select")!; await act(async () => { select.value = "empty-inventory"; select.dispatchEvent(new Event("change", { bubbles: true })); });
   expect(inventory.textContent).toContain("0 editable text or shape objects"); expect(inventory.querySelector("details")).toBeNull();
-  expect(inventory.textContent).toContain("Slide image without editable overlays"); expect(inventory.textContent).not.toContain("Slide image with editable overlays");
+  expect(inventory.textContent).toContain("Ordered image layers without editable objects"); expect(inventory.textContent).not.toContain("Ordered transparent image layers with editable objects");
   expect(JSON.stringify(value)).toBe(original); expect(before).not.toBe(original);
  } finally { await panel.close(); }
 });
