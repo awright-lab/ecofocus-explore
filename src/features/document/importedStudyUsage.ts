@@ -4,6 +4,7 @@ import { narrativeStudyIds } from "../narratives/narrativeEvidence";
 import type { DashboardDraft, DashboardTile, DashboardWorkspace } from "../../../shared/types/dashboard";
 
 export interface ImportedStudyUsage { reportId: string; reportTitle: string; location: string }
+export interface ImportedStudySafeguard extends ImportedStudyUsage { reason: "unreadable_insight_plans" }
 
 function refStudyIds(ref: AnalyticsQueryRequest["sourceRef"]): string[] {
   return ref?.datasetId && ["imported_file", "workspace_database"].includes(ref.kind) ? [ref.datasetId] : [];
@@ -47,7 +48,6 @@ export function draftImportedStudyReferences(draft: DashboardDraft): Array<{ dat
   return references;
 }
 function draftLocations(draft: DashboardDraft, datasetId: string) {
-  if(savedReportInsightPlans(draft).issue)return ['Unreadable saved insight plans; review their source dependencies before removing any study.'];
   return draftImportedStudyReferences(draft).filter(reference => reference.datasetId === datasetId).map(reference => reference.location);
 }
 
@@ -68,7 +68,21 @@ export function importedStudyUsage(workspace: DashboardWorkspace, datasetId: str
   return usage;
 }
 
+// Unknown dependency safeguards are not known study references. Keep them
+// separate so quarantine never hides otherwise readable report dependencies.
+export function importedStudySafeguards(workspace: DashboardWorkspace, datasetId: string): ImportedStudySafeguard[] {
+  const safeguards: ImportedStudySafeguard[] = [];
+  function add(draft: DashboardDraft, reportId: string, reportTitle: string, prefix = "") {
+    if (savedReportInsightPlans(draft).issue) safeguards.push({ reportId, reportTitle, reason: "unreadable_insight_plans", location: `${prefix}Unreadable saved insight plans; review their source dependencies before removing any study.` });
+  }
+  for (const report of workspace.reports) add(report.draft, report.id, report.title);
+  for (const snapshot of workspace.publishedSnapshots) if (!snapshot.dashboard.importedDatasets.some(study => study.id === datasetId)) add(snapshot.dashboard, snapshot.reportId, snapshot.title, `Snapshot ${snapshot.versionLabel}: `);
+  return safeguards;
+}
+
 export function importedStudyRemovalBlocker(workspace: DashboardWorkspace, datasetId: string): string | null {
+  const safeguards = importedStudySafeguards(workspace, datasetId);
+  if (safeguards.length) return `Study removal is blocked by unreadable source dependencies: ${safeguards.slice(0, 3).map(item => `${item.reportTitle} - ${item.location}`).join("; ")}${safeguards.length > 3 ? "; additional reports require review" : ""}. Its data has been kept.`;
   const usage = importedStudyUsage(workspace, datasetId);
   if (!usage.length) return null;
   const details = usage.slice(0, 3).map(item => `${item.reportTitle} — ${item.location}`).join("; ");
@@ -77,7 +91,7 @@ export function importedStudyRemovalBlocker(workspace: DashboardWorkspace, datas
 
 export function editorStudyRemovalBlocker(datasetId: string, history: DashboardDraft[], future: DashboardDraft[], isLoading: boolean): string | null {
   if (isLoading) return "Wait for the running analysis to finish before removing a study. Its data has been kept.";
-  if ([...history, ...future].some(draft => draftLocations(draft, datasetId).length > 0 || draft.importedDatasets.some(dataset => dataset.id === datasetId))) {
+  if ([...history, ...future].some(draft => !!savedReportInsightPlans(draft).issue || draftLocations(draft, datasetId).length > 0 || draft.importedDatasets.some(dataset => dataset.id === datasetId))) {
     return "Undo or Redo can still restore this study or an analysis that uses it. Its data has been kept. Save your report and reopen it before removing an unused study; this ends the current editing history.";
   }
   return null;

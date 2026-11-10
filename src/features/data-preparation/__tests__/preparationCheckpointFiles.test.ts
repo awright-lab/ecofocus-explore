@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
-import { exportPreparationCheckpointFile, importPreparationCheckpointFile, inspectPreparationCheckpointFile, restorePreparationCheckpoint, savePreparationCheckpoint } from "../preparationCheckpoint";
+import { exportPreparationCheckpointFile, importPreparationCheckpointFile, inspectPreparationCheckpointFile, restorePreparationCheckpoint, retirePreparationCheckpointWithBackup, savePreparationCheckpoint } from "../preparationCheckpoint";
 import { previewPreparation } from "../preparationModel";
 class MemoryStorage implements Storage {
   values = new Map<string, string>(); get length() { return this.values.size; }
@@ -51,4 +51,35 @@ it("retains both differently edited files when their imports interleave before t
   const f = await fixture(), target = new MemoryStorage(), b = JSON.parse(f.text), c = JSON.parse(b.raw); c.editor.to = "Version B concurrent target"; b.raw = JSON.stringify(c); const textB = JSON.stringify(b), set = target.setItem.bind(target); let importedB: ReturnType<typeof importPreparationCheckpointFile> | undefined;
   vi.spyOn(target, "setItem").mockImplementationOnce((key, raw) => { importedB = importPreparationCheckpointFile(target, f.report, textB); set(key, raw); });
   const importedA = importPreparationCheckpointFile(target, f.report, f.text); expect(importedB).toBeDefined(); expect(importedA.key).not.toBe(importedB!.key); expect(target.length).toBe(2); expect(JSON.parse(target.getItem(importedA.key)!).editor.to).toBe(f.editor.to); expect(JSON.parse(target.getItem(importedB!.key)!).editor.to).toBe("Version B concurrent target"); expect(f.storage.getItem(f.key)).toBe(JSON.parse(f.text).raw);
+});
+
+it("retires only the exact backed-up checkpoint, frees one of eight slots and restores its file as a separate copy", async () => {
+  const f = await fixture(), source = structuredClone(f.source); f.storage.setItem("workspace", "unchanged report and snapshots");
+  for (let i = 1; i < 8; i++) await savePreparationCheckpoint(f.storage, f.report, { ...f.editor, title: `Kept ${i}` }, () => [f.source]);
+  const before = new Map(f.storage.values), writes = vi.spyOn(f.storage, "setItem");
+  expect(retirePreparationCheckpointWithBackup(f.storage, f.report, f.key, f.text)).toEqual({ removed: true, key: f.key });
+  expect(writes).not.toHaveBeenCalled(); expect(f.storage.getItem(f.key)).toBeNull(); expect(f.storage.length).toBe(8);
+  for (const [key, raw] of before) if (key !== f.key) expect(f.storage.getItem(key)).toBe(raw);
+  const imported = importPreparationCheckpointFile(f.storage, f.report, f.text); expect(imported.key).not.toBe(f.key); expect(await restorePreparationCheckpoint(f.storage, f.report, imported.key, () => [f.source])).toEqual(f.editor);
+  await expect(savePreparationCheckpoint(f.storage, f.report, f.editor, () => [f.source])).rejects.toThrow("eight recovery checkpoints"); expect(f.storage.length).toBe(9); expect(f.source).toEqual(source); expect(f.text).toBe(JSON.stringify(JSON.parse(f.text), null, 2));
+});
+it.each(["wrong-key", "wrong-report", "changed-browser", "changed-file", "malformed-file", "damaged-browser", "missing-browser"])("refuses retirement with %s before any removal", async reason => {
+  const f = await fixture(); let key = f.key, report = f.report, text = f.text;
+  if (reason === "wrong-key") key += "x";
+  if (reason === "wrong-report") report = "another-report";
+  if (reason === "changed-browser") { const c = JSON.parse(f.storage.getItem(f.key)!); c.editor.to = "Newer browser text"; f.storage.setItem(f.key, JSON.stringify(c)); }
+  if (reason === "changed-file") { const wrapper = JSON.parse(text), c = JSON.parse(wrapper.raw); c.editor.to = "Different file text"; wrapper.raw = JSON.stringify(c); text = JSON.stringify(wrapper); }
+  if (reason === "malformed-file") text = "not JSON";
+  if (reason === "damaged-browser") f.storage.setItem(f.key, "unreadable raw checkpoint");
+  if (reason === "missing-browser") f.storage.removeItem(f.key);
+  const before = new Map(f.storage.values), remove = vi.spyOn(f.storage, "removeItem");
+  expect(() => retirePreparationCheckpointWithBackup(f.storage, report, key, text)).toThrow(); expect(remove).not.toHaveBeenCalled(); expect(f.storage.values).toEqual(before);
+});
+it.each(["denied", "ignored", "applied-then-threw", "readback-failure"])("reports uncertain %s removal honestly and retains the exact recovery file", async reason => {
+  const f = await fixture(), text = f.text, raw = f.storage.getItem(f.key), remove = f.storage.removeItem.bind(f.storage), get = f.storage.getItem.bind(f.storage); let removed = false;
+  vi.spyOn(f.storage, "removeItem").mockImplementation(key => { if (reason === "denied") throw Error("Synthetic denied removal"); if (reason === "ignored") return; remove(key); removed = true; if (reason === "applied-then-threw") throw Error("Synthetic lost acknowledgement"); });
+  vi.spyOn(f.storage, "getItem").mockImplementation(key => { if (reason === "readback-failure" && removed) throw Error("Synthetic failed readback"); return get(key); });
+  expect(() => retirePreparationCheckpointWithBackup(f.storage, f.report, f.key, text)).toThrow("could not be confirmed"); expect(f.text).toBe(text); expect(JSON.parse(text).raw).toBe(raw);
+  expect(f.storage.values.has(f.key)).toBe(reason === "denied" || reason === "ignored");
+  const recovered = new MemoryStorage(), copy = importPreparationCheckpointFile(recovered, f.report, text); expect(await restorePreparationCheckpoint(recovered, f.report, copy.key, () => [f.source])).toEqual(f.editor);
 });

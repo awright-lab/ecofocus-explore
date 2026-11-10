@@ -26,7 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Rnd } from "react-rnd";
-import { canvasHeight, canvasWidth } from "../builderConstants";
+import { canvasHeight, canvasWidth, chartFrameMinimum } from "../builderConstants";
 import {
   buildCompositionGuideObjects,
   buildCompositionGuideState,
@@ -255,8 +255,8 @@ const CanvasTileFrame = memo(function CanvasTileFrame({
       bounds="parent"
       scale={canvasScale}
       dragHandleClassName="tile-drag-handle"
-      minWidth={320}
-      minHeight={220}
+      minWidth={chartFrameMinimum.width}
+      minHeight={chartFrameMinimum.height}
       size={{ width: tile.layout.width, height: tile.layout.height }}
       position={{ x: tile.layout.x, y: tile.layout.y }}
       style={{ zIndex: tile.layout.zIndex }}
@@ -344,6 +344,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
   onOpenInsertPanel,
   onBringForward,
   onDuplicateSelection,
+  onMoveSelection,
   onDeleteSelection,
   onAddPage,
   onSetActivePage,
@@ -382,6 +383,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
   onOpenInsertPanel: () => void;
   onBringForward: () => void;
   onDuplicateSelection: () => void;
+  onMoveSelection?: (trigger?:HTMLButtonElement) => void;
   onDeleteSelection: () => void;
   onAddPage: () => void;
   onSetActivePage: (pageId: string) => void;
@@ -719,6 +721,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
             <button type="button" onClick={onDuplicateSelection}>
               Duplicate
             </button>
+            {onMoveSelection && <button type="button" aria-disabled={multiSelectionSummary.count > 1 || !!selectedTile?.locked || !!selectedElement?.locked} title="Move one unlocked object to another report page" onClick={event=>{if(multiSelectionSummary.count <= 1 && !selectedTile?.locked && !selectedElement?.locked)onMoveSelection(event.currentTarget);}}>Move to page</button>}
             <button
               type="button"
               className="danger-action"

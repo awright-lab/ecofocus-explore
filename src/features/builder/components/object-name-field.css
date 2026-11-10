@@ -1,0 +1,6 @@
+.object-name-field { display: grid; gap: 8px; min-width: 0; }
+.object-name-field input, .object-name-field button { min-height: 40px; }
+.object-name-field small, .object-name-field p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.object-name-field button:focus-visible { outline: 3px solid #167566; outline-offset: 2px; }
+.object-name-field button[aria-disabled="true"] { opacity: .65; }
+.report-object-internal-name { overflow-wrap: anywhere; }

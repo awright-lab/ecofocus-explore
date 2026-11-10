@@ -1,12 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { exportPreparationCheckpointFile, importPreparationCheckpointFile, inspectPreparationCheckpointFile, type CheckpointFileInspection } from "./preparationCheckpoint";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { exportPreparationCheckpointFile, importPreparationCheckpointFile, inspectPreparationCheckpointFile, retirePreparationCheckpointWithBackup, type CheckpointFileInspection } from "./preparationCheckpoint";
 
-type Props = { reportId: string; selectedKey: string; busy: boolean; onImported: (key: string) => void };
-export default function CheckpointFiles({ reportId, selectedKey, busy, onImported }: Props) {
+type Props = { reportId: string; selectedKey: string; busy: boolean; onImported: (key: string) => void; onRemoved?: () => void };
+export default function CheckpointFiles({ reportId, selectedKey, busy, onImported, onRemoved }: Props) {
   const input = useRef<HTMLInputElement | null>(null), heading = useRef<HTMLHeadingElement | null>(null), cancel = useRef<HTMLButtonElement | null>(null);
   const sequence = useRef(0), reader = useRef<FileReader | null>(null), currentReport = useRef(reportId); currentReport.current = reportId;
   const [reading, setReading] = useState(false), [message, setMessage] = useState("");
   const [inspection, setInspection] = useState<{ text: string; info: CheckpointFileInspection } | null>(null);
+  const retirementContext = useMemo(() => ({ reportId, selectedKey }), [reportId, selectedKey]);
+  const [removalReview, setRemovalReview] = useState<{ context: typeof retirementContext; text: string } | null>(null);
+  const matchingIdentity = !!inspection && inspection.info.key === selectedKey;
+  const removalReviewed = matchingIdentity && removalReview?.context === retirementContext && removalReview.text === inspection?.text;
+  function retire() {
+    if (busy || reading || !inspection || !matchingIdentity || !removalReviewed) return;
+    setRemovalReview(null);
+    try { retirePreparationCheckpointWithBackup(window.localStorage, reportId, selectedKey, inspection.text); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Checkpoint removal could not be confirmed. Refresh the list; your inspected backup file was kept."); return; }
+    setMessage("Only the selected browser checkpoint was removed after exact backup comparison. Other checkpoints, studies, saved reports and the current editor were unchanged. Keep the inspected file; Import inspected checkpoint can restore a separate browser copy later.");
+    try { onRemoved?.(); }
+    catch { setMessage("The selected browser checkpoint was removed, but the list could not refresh. Refresh recovery checkpoints before further action. Your inspected file, studies and editor were kept."); }
+  }
   function returnFromCancel() {
     if (document.activeElement !== cancel.current) return;
     const target = input.current && !input.current.disabled ? input.current : heading.current;
@@ -18,7 +31,7 @@ export default function CheckpointFiles({ reportId, selectedKey, busy, onImporte
   }, [reportId]);
   function inspect(file: File | undefined) {
     sequence.current++; const attempt = sequence.current, boundReport = reportId, pending = reader.current; reader.current = null; pending?.abort();
-    setInspection(null); setReading(false); setMessage("");
+    setInspection(null); setRemovalReview(null); setReading(false); setMessage("");
     if (!file) return;
     if (file.size > 512 * 1024) { setMessage("Checkpoint files must be at most 512 KiB. No file contents were loaded or imported."); return; }
     let next: FileReader; try { next = new FileReader(); } catch { setMessage("Checkpoint file reading is unavailable. Nothing was imported."); return; } reader.current = next; setReading(true);
@@ -68,7 +81,12 @@ export default function CheckpointFiles({ reportId, selectedKey, busy, onImporte
       <label>Checkpoint recipe and editor text (unencrypted)<textarea readOnly rows={6} value={inspection.info.editorText}/></label>
       <button disabled={busy || reading} onClick={importFile}>Import inspected checkpoint</button>
     </div>}
+    <section className="preparation-retirement" aria-label="Remove a backed-up browser checkpoint"><h5>Free a checkpoint slot safely</h5>
+      <p>First download the selected checkpoint and inspect that same file above. Removal requires its exact current contents and your explicit choice. Keep the file: this removes only its browser checkpoint, not a study, report, preparation history or editor choices. Unreadable checkpoints cannot be removed here. Storage removal is not a transaction across tabs; close other editing tabs first.</p>
+      <label className="preparation-retirement-check"><input type="checkbox" aria-disabled={busy || reading || !matchingIdentity} checked={removalReviewed} onChange={event => { if (!busy && !reading && matchingIdentity && inspection) setRemovalReview(event.target.checked ? { context: retirementContext, text: inspection.text } : null); }}/>I retained this inspected backup file and want to remove only its matching browser checkpoint.</label>
+      <button type="button" aria-disabled={busy || reading || !removalReviewed} onClick={retire}>Remove backed-up browser checkpoint</button>
+    </section>
     {message && <p role="status">{message}</p>}
-    <p>Imports never replace conflicting records or remove old copies. The eight-checkpoint limit includes unreadable records; an exact existing copy uses no new slot. These controls do not delete checkpoints.</p>
+    <p>Imports never replace conflicting records or remove old copies. The eight-checkpoint limit includes unreadable records; an exact existing copy uses no new slot. The separate removal action above requires an inspected exact backup and explicit acknowledgement. No checkpoint is removed automatically.</p>
   </section>;
 }

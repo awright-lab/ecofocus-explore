@@ -66,9 +66,17 @@ it('keeps disclosure targets valid for opaque source identities, including unpai
 });
 it('reports search results, finds internal analysis names and exposes an actionable empty state', async () => {
   await setup(); await input('Searchable internal name'); expect(host.querySelector('[role="status"]')?.textContent).toContain('2 of 2 pages');
+  const match = host.querySelector<HTMLButtonElement>('.report-object-match')!;
+  expect(match.textContent).toContain('Analysis name: Searchable internal name');
+  const description = document.getElementById(match.getAttribute('aria-describedby')!); expect(description?.textContent).toBe('Analysis name: Searchable internal name');
   await input('missing'); expect(host.querySelector('[role="status"]')?.textContent).toContain('0 of 2 pages'); expect(host.textContent).toContain('No pages match');
   const search = host.querySelector('input')!; expect(document.getElementById(search.getAttribute('aria-describedby')!)).toBe(host.querySelector('[role="status"]'));
   await input('First'); expect(host.querySelector('[role="status"]')?.textContent).toContain('1 of 2 pages');
+});
+it('shows distinct analysis names as accessible tree descriptions without replacing their shared title', async () => {
+  const {props,render}=await setup(); const second=structuredClone(props.activePage.tiles[0]);second.id='other-tile';second.name='Second analysis name';second.layout.zIndex=3;props.activePage.tiles.push(second);await act(async()=>render());await click('Show objects on page 1: First');
+  const tree=host.querySelector('.report-page-object-list')!, buttons=Array.from(tree.querySelectorAll<HTMLButtonElement>('.report-page-object-select')).filter(node=>node.getAttribute('aria-label')?.startsWith('Select analysis Repeated,'));expect(buttons).toHaveLength(2);expect(buttons.every(node=>node.querySelector('span')?.textContent==='Repeated')).toBe(true);
+  const names=buttons.map(node=>document.getElementById(node.getAttribute('aria-describedby')!)?.textContent);expect(names).toEqual(['Analysis name: Searchable internal name','Analysis name: Second analysis name']);expect(new Set(buttons.map(node=>node.getAttribute('aria-describedby'))).size).toBe(2);
 });
 it('protects IME composition and restores focus after keyboard rename cancellation', async () => {
   const { props } = await setup(); await startRename();

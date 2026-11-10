@@ -1,3 +1,6 @@
+import { ReportObjectMoveDialog } from "./components/ReportObjectMoveDialog";
+import { captureReportObjectMove, moveReportObject, type ReportObjectMoveBinding } from "./components/reportObjectMove";
+import { inspectStudyUsage } from "../document/studyUsageInspection";
 import {newImportIdentityIssue} from "../document/newImportIdentity";
 import {checkLocalStudyDuplicate,isLocalFileCopyCandidate} from "../data/localStudyDuplicate";
 import { useClosingPanelFocus } from "./hooks/useClosingPanelFocus";
@@ -316,6 +319,7 @@ export default function BuilderApp() {
   const [activeProductMode, setActiveProductMode] =
     useState<WorkspaceProductMode>("story");
   const [storyBuilderOpen,setStoryBuilderOpen] = useState(false);
+  const [objectMoveReview,setObjectMoveReview] = useState<{binding:ReportObjectMoveBinding;context:string;trigger?:HTMLButtonElement}|null>(null);
   const [linkedViewsOpen,setLinkedViewsOpen] = useState(false);
   const [linearModelOpen,setLinearModelOpen] = useState(false);
   const [multiResponseOpen,setMultiResponseOpen] = useState(false);
@@ -1043,6 +1047,26 @@ export default function BuilderApp() {
     getDocumentEditVersion,
     openPublishedSnapshot: openPublishedDashboardSnapshot,
   });
+
+  function openObjectMoveReview(trigger?:HTMLButtonElement) {
+    if (viewerContext.current || navigationOwner.current || activeMultiSelectedObjects.length > 1) return;
+    try {
+      const item = selectedTile ?? selectedElement;
+      if (!item) return;
+      const binding = captureReportObjectMove(getCurrentImportDocument(), activePage.id, selectedTile ? "tile" : "element", item.id);
+      setObjectMoveReview({ binding, context: getEditorContextVersion(), trigger });
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "This object cannot be moved safely."); }
+  }
+  function objectMoveIsCurrent() { return !!objectMoveReview && !viewerContext.current && !navigationOwner.current && objectMoveReview.context === getEditorContextVersion() && getCurrentImportDocument() === objectMoveReview.binding.report; }
+  function applyObjectMove(targetId:string,reviewKey:string,reviewed:boolean) {
+    if (!objectMoveReview || !objectMoveIsCurrent()) return false;
+    const { binding } = objectMoveReview;
+    const changed = setDashboard(current => objectMoveIsCurrent() ? moveReportObject(current,binding,targetId,reviewKey,reviewed) : current);
+    if (!changed) return false;
+    setActivePageId(targetId);
+    if (binding.kind === "tile") selectTile(binding.objectId); else selectElement(binding.objectId);
+    return true;
+  }
 
   const changeInsightPlans=useCallback((update:(draft:DashboardDraft)=>DashboardDraft)=>{
     if(!importOwnerMounted.current||viewerContext.current||navigationOwner.current)return false;
@@ -2013,6 +2037,7 @@ export default function BuilderApp() {
             importDataset={importDataset}
             updateImportedDatasetField={updateImportedDatasetField}
             removeImportedDataset={removeImportedDataset}
+            inspectImportedDataset={datasetId => inspectStudyUsage(workspace, datasetId, { reportId: activeReportId, draft: dashboard, history, future, isLoading })}
             openGuidedDataQuery={openGuidedDataQuery}
             filteredVariableSets={filteredVariableSets}
             filteredQuestions={filteredQuestions}
@@ -2143,6 +2168,7 @@ export default function BuilderApp() {
           onOpenInsertPanel={openInsertPanel}
           onBringForward={bringSelectionForward}
           onDuplicateSelection={duplicateSelectedItem}
+            onMoveSelection={openObjectMoveReview}
           onDeleteSelection={deleteSelectedItem}
           onAddPage={addCanvasPage}
           onSetActivePage={setActivePageId}
@@ -2548,6 +2574,7 @@ export default function BuilderApp() {
           />
         </Suspense>
       )}
+      {objectMoveReview && <ReportObjectMoveDialog report={dashboard} binding={objectMoveReview.binding} isContextCurrent={objectMoveIsCurrent} returnFocus={objectMoveReview.trigger} onClose={()=>setObjectMoveReview(null)} onApply={applyObjectMove}/>}
     </main>
   );
 }

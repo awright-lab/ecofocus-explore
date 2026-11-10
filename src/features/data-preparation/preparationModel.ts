@@ -25,10 +25,14 @@ function canonical(value: unknown): unknown {
   if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().filter(key => (value as Record<string, unknown>)[key] !== undefined).map(key => [key, canonical((value as Record<string, unknown>)[key])]));
   return value;
 }
-export async function preparationFingerprint(source: ImportedDatasetRecord): Promise<string> {
+export function preparationFingerprintInput(source: ImportedDatasetRecord): string {
   const issue = preparationSourceIssue(source); if (issue) throw Error(issue);
-  const bytes = new TextEncoder().encode(JSON.stringify(canonical({ id: source.id, title: source.title, importedAt: source.importedAt, fileName: source.fileName, fileType: source.fileType, rowCount: source.rowCount, fieldCount: source.fieldCount, fields: source.fields, rows: source.rows })));
-  if (bytes.length > 20 * 1024 * 1024) throw Error("This preparation supports at most 20 MiB of source values and metadata. Original data is preserved.");
+  const text = JSON.stringify(canonical({ id: source.id, title: source.title, importedAt: source.importedAt, fileName: source.fileName, fileType: source.fileType, rowCount: source.rowCount, fieldCount: source.fieldCount, fields: source.fields, rows: source.rows }));
+  if (new TextEncoder().encode(text).length > 20 * 1024 * 1024) throw Error("This preparation supports at most 20 MiB of source values and metadata. Original data is preserved.");
+  return text;
+}
+export async function preparationFingerprint(source: ImportedDatasetRecord): Promise<string> {
+  const bytes = new TextEncoder().encode(preparationFingerprintInput(source));
   if (!globalThis.crypto?.subtle) throw Error("Source checking is unavailable in this browser. No prepared study was created.");
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -79,10 +83,11 @@ export async function previewPreparation(source: ImportedDatasetRecord, steps: P
   dataset.notes = [...source.notes, `Prepared copy of ${source.title}; original import ${source.importedAt}; ${steps.length} reversible preparation steps. Altered raw-code labels were removed to avoid misleading meanings.`];
   return { sourceFingerprint, recipe, dataset: normalizeImportedDataset(dataset, 0), changedCells: changed.size, affectedRespondents: affected.size, steps: counts, examples };
 }
-export async function verifyPreparedStudy(source: ImportedDatasetRecord, prepared: ImportedDatasetRecord): Promise<void> {
+export async function verifyPreparedStudy(source: ImportedDatasetRecord, prepared: ImportedDatasetRecord, signal?: AbortSignal): Promise<void> {
+  const abort = () => { if (signal?.aborted) throw new DOMException("Preparation verification canceled. Stored studies are kept.", "AbortError"); }; abort();
   assertStudyPreparation(prepared.preparation); const recipe = prepared.preparation;
   if (!recipe || recipe.sourceDatasetId !== source.id || recipe.sourceImportedAt !== source.importedAt || await preparationFingerprint(source) !== recipe.sourceFingerprint) throw Error("The original preparation source is missing, replaced or changed. The saved prepared copy remains intact; it was not rebound.");
-  const replay = await previewPreparation(source, recipe.steps, prepared.title, undefined, prepared.id);
+  abort(); const replay = await previewPreparation(source, recipe.steps, prepared.title, signal, prepared.id); abort();
   if (JSON.stringify(canonical({ fields: replay.dataset.fields, rows: replay.dataset.rows })) !== JSON.stringify(canonical({ fields: prepared.fields, rows: prepared.rows }))) throw Error("The prepared copy no longer matches its recorded steps. It remains intact; review the original source separately.");
 }
 export function samePreparedStudy(left: ImportedDatasetRecord, right: ImportedDatasetRecord): boolean {

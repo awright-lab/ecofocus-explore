@@ -1,4 +1,5 @@
 import type React from "react";
+import { ObjectNameField } from "./ObjectNameField";
 import { NarrativeEvidencePanel } from "../../narratives/NarrativeEvidencePanel";
 import { ColorField, rangeFill } from "../../design-system/DesignControls";
 import { fontFamilies } from "../builderConstants";
@@ -43,10 +44,7 @@ export function ElementInspector(props: BuilderInspectorProps) {
                   helper="Inserted from the local image asset library. This image element can be edited independently."
                 />
               )}
-              <label>
-                Layer name
-                <input value={selectedElement.name} onChange={(event) => updateSelectedElement({ name: event.target.value })} />
-              </label>
+              <ObjectNameField key={`element:${selectedElement.id}`} label="Layer name" name={selectedElement.name} onApply={name => updateSelectedElement({ name })} />
               {selectedElement.type !== "rectangle" && selectedElement.type !== "circle" && (
                 <>
                   <label>
@@ -362,7 +360,7 @@ export function TileContainerInspector(props: BuilderInspectorProps) {
 }
 
 export function TileAnalysisInspector(props: BuilderInspectorProps) {
-  const { selectedTile } = props;
+  const { selectedTile, updateSelectedTile } = props;
 
   if (!selectedTile) {
     return null;
@@ -375,6 +373,7 @@ export function TileAnalysisInspector(props: BuilderInspectorProps) {
         <strong>{selectedTile.title || selectedTile.name}</strong>
         <small>Data setup, imported query details, weights, filters, provenance, and derived outputs now live in the Data rail.</small>
       </div>
+      <ObjectNameField key={`tile:${selectedTile.id}`} label="Analysis name" name={selectedTile.name} onApply={name => updateSelectedTile({ name })} />
       <details className="tile-style-folder" open>
         <summary>
           <strong>Display</strong>

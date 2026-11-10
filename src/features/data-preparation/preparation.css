@@ -3,3 +3,9 @@
 .preparation-dialog > [hidden] { display: none !important; }
 .preparation-discard { padding: 24px; }
 .preparation-discard > div { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+
+.preparation-retirement{margin:18px 0;padding:14px;border:1px solid #cbdcd1;border-radius:8px;background:#f7faf8}.preparation-retirement h5{font-size:16px;margin:0 0 8px}.preparation-dialog .preparation-retirement-check{flex-direction:row;align-items:flex-start;font-weight:500}.preparation-retirement-check input{margin-top:5px;accent-color:#23634e}.preparation-retirement [aria-disabled=true]{opacity:.55;cursor:not-allowed}
+
+.preparation-dialog .preparation-code-picker p{font-size:13px}.preparation-code-picker code{white-space:pre-wrap;overflow-wrap:anywhere}.preparation-code-picker .preparation-choices{max-height:300px}.preparation-code-picker .preparation-choices span{white-space:pre-wrap;overflow-wrap:anywhere}.preparation-code-pages{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.preparation-code-picker [aria-disabled=true]{opacity:.6;cursor:default}.preparation-code-picker h4{margin-bottom:6px}.preparation-selected-codes{max-height:220px;overflow:auto;padding-left:20px}.preparation-dialog .preparation-selected-codes li{padding:7px 0}.preparation-selected-codes button{margin-left:10px}.preparation-dialog .preparation-code-picker label{font-weight:500}
+
+.preparation-dialog .preparation-code-exact{flex-direction:row;align-items:center}

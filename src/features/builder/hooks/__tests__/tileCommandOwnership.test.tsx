@@ -164,3 +164,25 @@ it("creates a sample follow-up from exactly its illustrative preview without sel
  expect(findingFollowUps(tile,tile.result.table[0].optionId,tile.result.columns[0].id,[]).unavailable).toBeNull();
  await act(async()=>{expect(await commands.rerunTileAnalysis(tile,query)).toBe(true);});expect(fetch).not.toHaveBeenCalled();expect(current.pages[2].tiles[0].result.table).toEqual(preview.table);expect(current.pages[2].tiles[0].result.metadataRefs.source).toEqual(source);
 });
+import { normalizeDashboard } from '../../../document/documentModel';
+import { calculateLocalAnalysis, type LocalAnalysisRequest } from '../../../data/localAnalysisModel';
+import { loadDashboardWorkspace, saveDashboardWorkspace, normalizeDashboardWorkspace, createReportRecord } from '../../../document/workspacePersistence';
+class CreationWorker {
+ static instances:CreationWorker[]=[]; request:LocalAnalysisRequest|null=null; terminated=false;
+ onmessage:((event:MessageEvent)=>void)|null=null;onerror:((event:ErrorEvent)=>void)|null=null;onmessageerror:((event:MessageEvent)=>void)|null=null;
+ constructor(){CreationWorker.instances.push(this);}postMessage(request:LocalAnalysisRequest){this.request=structuredClone(request);}terminate(){this.terminated=true;}
+ complete(){this.onmessage?.({data:{type:'complete',result:calculateLocalAnalysis(this.request!)}} as MessageEvent);}
+}
+async function creationReady(){for(let i=0;i<100&&!CreationWorker.instances[0]?.request;i++)await act(async()=>new Promise(resolve=>setTimeout(resolve,5)));expect(CreationWorker.instances[0]?.request).toBeTruthy();}
+it('inserts the real background result through the document command and preserves source after workspace save/reopen',async()=>{
+ const f=await setup('imported'),before=structuredClone(f.dataset);CreationWorker.instances=[];vi.stubGlobal('Worker',CreationWorker);let pending!:Promise<string|null>;
+ await act(async()=>{pending=commands.addTileFromImportedDatasetField(f.dataset,f.dataset.fields[0],'table','count',{background:{signal:new AbortController().signal}});});await creationReady();await act(async()=>CreationWorker.instances[0].complete());expect(await pending).toBeTruthy();expect(current.pages[0].tiles).toHaveLength(1);
+ const tile=current.pages[0].tiles[0],expected=runImportedDatasetQuery({dataset:f.dataset,field:f.dataset.fields[0],chartType:'table',metric:'count'});expect(tile.result).toEqual(expected);expect(tile.query).toEqual(expected.query);expect(tile.source?.datasetId).toBe(f.dataset.id);expect(fetch).not.toHaveBeenCalled();expect(f.dataset).toEqual(before);
+ const workspace=normalizeDashboardWorkspace({reports:[createReportRecord({...current,importedDatasets:[f.dataset]})],importedDatasets:[f.dataset]});window.localStorage.clear();expect(saveDashboardWorkspace(workspace)).toBe(true);const reopened=loadDashboardWorkspace();expect(reopened.reports[0].draft.pages[0].tiles[0].result).toEqual(normalizeDashboard(current).pages[0].tiles[0].result);expect(reopened.importedDatasets[0].rows).toEqual(f.dataset.rows);window.localStorage.clear();
+});
+it.each(['cancel','navigate','source change'] as const)('never inserts a background result after %s',async kind=>{
+ const f=await setup('imported'),before=structuredClone(current),abort=new AbortController();CreationWorker.instances=[];vi.stubGlobal('Worker',CreationWorker);let pending!:Promise<string|null>;
+ await act(async()=>{pending=commands.addTileFromImportedDatasetField(f.dataset,f.dataset.fields[0],'table','count',{background:{signal:abort.signal}});});await creationReady();
+ if(kind==='cancel')await act(async()=>abort.abort());if(kind==='navigate')await act(async()=>f.changePage('next_page'));if(kind==='source change')f.dataset.rows[0].Answer='Changed';
+ const rejected=kind==='source change'?expect(pending).rejects.toThrow('changed'):null;await act(async()=>CreationWorker.instances[0].complete());if(rejected)await rejected;else expect(await pending).toBeNull();expect(current).toEqual(before);expect(select).not.toHaveBeenCalled();expect(fetch).not.toHaveBeenCalled();
+});

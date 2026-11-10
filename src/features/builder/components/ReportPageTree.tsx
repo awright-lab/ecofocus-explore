@@ -273,8 +273,9 @@ export function ReportPageTree({
           const key = reportObjectMatchKey(match), label = match.kind === "tile" ? match.object.title || match.object.name : match.object.name;
           const type = match.kind === "tile" ? getChartTypeLabel(match.object.visualization) : elementTypeLabel(match.object);
           const excerptId = `${outlineId}-search-excerpt-${matchIndex}`;
+          const internalName = match.kind === "tile" && match.object.name !== label ? match.object.name : "", nameId = `${outlineId}-search-name-${matchIndex}`;
           const selected = match.page.id === activePage.id && (match.kind === "tile" ? selectedTileId === match.object.id : selectedElementId === match.object.id);
-          return <li key={key}><button type="button" className="report-object-match" ref={node => searchResultRef(key, node)} aria-pressed={selected} aria-label={`Find ${type} ${label}, matching object ${matchIndex + 1} of ${search.total}, page ${match.page.order}: ${match.page.title}. ${objectStatus(match.object)}.`} aria-describedby={match.excerpt ? excerptId : undefined} onClick={() => chooseSearchMatch(match)}><strong>{label}</strong><small>Page {match.page.order}: {match.page.title} · {type} · {objectStatus(match.object)}</small>{match.excerpt && <small id={excerptId}>{match.excerpt}</small>}</button></li>;
+          return <li key={key}><button type="button" className="report-object-match" ref={node => searchResultRef(key, node)} aria-pressed={selected} aria-label={`Find ${type} ${label}, matching object ${matchIndex + 1} of ${search.total}, page ${match.page.order}: ${match.page.title}. ${objectStatus(match.object)}.`} aria-describedby={[match.excerpt ? excerptId : "", internalName ? nameId : ""].filter(Boolean).join(" ") || undefined} onClick={() => chooseSearchMatch(match)}><strong>{label}</strong><small>Page {match.page.order}: {match.page.title} · {type} · {objectStatus(match.object)}</small>{internalName && <small id={nameId} className="report-object-internal-name">Analysis name: {internalName}</small>}{match.excerpt && <small id={excerptId}>{match.excerpt}</small>}</button></li>;
         })}</ul>
       </section>}
       <nav className="page-list report-page-tree" aria-label="Report pages and objects">
@@ -389,8 +390,9 @@ export function ReportPageTree({
                                 onChange={(event) => toggleTreeMultiSelect(event, page, { id: item.id, type: "tile" })}
                               />
                             </label>
-                            <button type="button" className="report-page-object-select" aria-label={`Select analysis ${item.title || item.name}, ${context}. ${objectStatus(item)}.`} aria-pressed={page.id === activePage.id && selectedTileId === item.id} onClick={() => selectPageTile(page, item)}>
+                            <button type="button" className="report-page-object-select" aria-label={`Select analysis ${item.title || item.name}, ${context}. ${objectStatus(item)}.`} aria-describedby={item.name && item.name !== (item.title || item.name) ? `${outlineId}-object-name-${pageIndex}-${objectIndex}` : undefined} aria-pressed={page.id === activePage.id && selectedTileId === item.id} onClick={() => selectPageTile(page, item)}>
                               <span>{item.title || item.name}</span>
+                              {item.name && item.name !== (item.title || item.name) && <small className="report-object-internal-name" id={`${outlineId}-object-name-${pageIndex}-${objectIndex}`}>Analysis name: {item.name}</small>}
                               <small>{getChartTypeLabel(item.visualization)} · {objectStatus(item)}</small>
                             </button>
                             <div className="report-page-object-actions" role="group" aria-label={`Actions for analysis ${item.title || item.name}, ${context}`}>

@@ -106,6 +106,7 @@ export const historyLimit = 40;
 export const defaultGridSize = 40;
 export const canvasWidth = 1280;
 export const canvasHeight = 760;
+export const chartFrameMinimum = Object.freeze({ width: 320, height: 220 });
 
 export const fontFamilies = [
   { label: "Inter", value: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif" },

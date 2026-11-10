@@ -62,9 +62,19 @@ export function buildResultEvidence(tile: DashboardTile, rowId: string, columnId
     ...(imported?[{label:"Recorded audience",value:result.localExecution&&!receipt?"Unverified recorded audience snapshot; refresh before using its provenance":imported.audience?audienceSummary(imported.audience):"No audience predicate recorded; other filters or exclusions may apply"}]:[]),
     ...(imported?.datasetImportedAt && Number.isFinite(Date.parse(imported.datasetImportedAt)) ? [{ label: "Study import event", value: imported.datasetImportedAt }] : []),
     { label: "Data version", value: receipt?`SHA-256 analysis-input version: ${receipt.sourceDigest}`:result.localExecution?"Recorded source version is unverified":"No immutable content version recorded" },
-    ...(receipt?[{label:"Versioned execution",value:receipt.executedAt},{label:"Source-version scope",value:`All ${receipt.coverage.sourceRows} source rows projected onto ${receipt.projectedFieldCount} of ${receipt.sourceFieldCount} fields used by this analysis; includes their metadata, import identity and query. Not a hash of unrelated columns or source authentication.`}]:[]),
+    ...(receipt?[{label:"Versioned execution",value:receipt.executedAt},{label:"Source-version scope",value:`All ${receipt.coverage.sourceRows} source rows projected onto ${receipt.projectedFieldCount} of ${receipt.sourceFieldCount} fields used by this analysis; includes their metadata, import identity and query. ${receipt.preparation?'Includes the recorded preparation recipe and its original-study fingerprint; not source authentication.':'Not a hash of unrelated columns or source authentication.'}`}]:[]),
     { label: "Statistical testing", value: resultInferenceLabel(result) },
   ];
+  if (receipt?.preparation) {
+    const lineage = receipt.preparation, recipe = lineage.recipe;
+    facts.push(
+      { label: "Preparation source", value: `${lineage.sourceTitle} (${recipe.sourceDatasetId})` },
+      { label: "Preparation source import event", value: recipe.sourceImportedAt },
+      { label: "Preparation source version", value: `SHA-256 original preparation inputs: ${recipe.sourceFingerprint}. Covers the original study identity, fields and all rows, not source authentication.` },
+      { label: "Preparation verification", value: "At this execution the complete prepared fields and rows matched replay of this recorded recipe from the retained original. This receipt does not recheck current studies or prove historical source authenticity." },
+      { label: "Recorded preparation recipe", value: JSON.stringify(recipe, null, 2) },
+    );
+  }
   let explanation: string;
   if (result.metric.id === "average") {
     explanation = calculation ? noDenominator ? "No valid numeric observations were recorded for this cell. Its zero placeholder is not an observed average." : "The recorded numeric total divided by the valid observations produced this average. These inputs were retained separately from the displayed average." : unverifiedWeight ? "The saved weighting status is unconfirmed. Do not reconstruct a numerator or interpret its recorded base as an unweighted observation count." : weighted ? "A weighted average uses weighted values and weighting totals. The separate calculation inputs were not retained here, so no weighted numerator or denominator is reconstructed." : "An average divides the numeric total by the valid observations for that cell. Compatible calculation inputs are unavailable and are not reconstructed from this average.";

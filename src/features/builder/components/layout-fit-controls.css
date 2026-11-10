@@ -1,0 +1,6 @@
+.layout-fit { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--panel-border, #cbd5d0); border-radius: 10px; }
+.layout-fit h3, .layout-fit p { margin: 0; }
+.layout-fit p { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.layout-fit button { min-height: 40px; white-space: normal; }
+.layout-fit button:focus-visible { outline: 3px solid #167566; outline-offset: 2px; }
+.layout-fit button[aria-disabled="true"] { opacity: .65; }

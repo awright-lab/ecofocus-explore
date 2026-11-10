@@ -1,14 +1,18 @@
 import { resultIdentityIssue } from "../../../../shared/analytics/resultIdentities";
-import { useEffect,useId, useMemo, useState } from "react";
+import { useCallback, useEffect,useId, useMemo, useRef, useState, type RefObject } from "react";
 import {localExecutionSignature,verifyLocalExecution} from "../../../../shared/analytics/localExecutionEvidence";
 import type { DashboardTile } from "../../../../shared/types/dashboard";
 import { buildResultEvidence, resultRowLabelOverride } from "../../analytics/resultEvidence";
-export default function ResultEvidencePanel({ tile,startOpen=false }: { tile: DashboardTile;startOpen?:boolean }) {
-  const issue = resultIdentityIssue(tile.result);
-  if (issue) return <details className="result-evidence-panel" data-canvas-keyboard-scope="controls"><summary>Explain a result</summary><p role="alert">{issue}</p></details>;
-  return <ValidResultEvidencePanel tile={tile} startOpen={startOpen}/>;
+function RecordedRecipe({ value, fallback }: { value: string; fallback: RefObject<HTMLElement | null> }) {
+  const previous = useRef<HTMLTextAreaElement | null>(null);
+  const ref = useCallback((node: HTMLTextAreaElement | null) => { if (!node && previous.current === document.activeElement && fallback.current?.isConnected) fallback.current.focus(); previous.current = node; }, [fallback]);
+  return <textarea ref={ref} aria-label="Recorded preparation recipe (JSON)" readOnly rows={8} value={value} style={{ width: "100%", boxSizing: "border-box", fontFamily: "ui-monospace, monospace" }}/>;
 }
-function ValidResultEvidencePanel({ tile,startOpen }: { tile: DashboardTile;startOpen:boolean }) {
+export default function ResultEvidencePanel({ tile,startOpen=false }: { tile: DashboardTile;startOpen?:boolean }) {
+  const issue = resultIdentityIssue(tile.result), summary = useRef<HTMLElement | null>(null);
+  return <details open={startOpen} className="result-evidence-panel" data-canvas-keyboard-scope="controls"><summary ref={summary}>Explain a result</summary>{issue ? <p role="alert">{issue}</p> : <ValidResultEvidencePanel tile={tile} fallback={summary}/>}</details>;
+}
+function ValidResultEvidencePanel({ tile, fallback }: { tile: DashboardTile; fallback: RefObject<HTMLElement | null> }) {
   const receiptSignature=localExecutionSignature(tile.result),[checkedReceipt,setCheckedReceipt]=useState<{signature:string;valid:boolean}|null>(null);
   useEffect(()=>{if(!tile.result.localExecution)return;let canceled=false;verifyLocalExecution(tile.result).then(valid=>{if(!canceled)setCheckedReceipt({signature:receiptSignature,valid});});return()=>{canceled=true;};},[receiptSignature]);
   const receiptVerified=!!tile.result.localExecution&&checkedReceipt?.signature===receiptSignature&&checkedReceipt.valid;
@@ -40,8 +44,7 @@ function ValidResultEvidencePanel({ tile,startOpen }: { tile: DashboardTile;star
   const columnPositions = new Map(columns.map((item, index) => [item.id, index + 1]));
   if (column && !visibleColumns.some(item => item.id === column.id)) visibleColumns.push(column);
   const evidence = useMemo(() => row && column ? buildResultEvidence(tile, row.optionId, column.id,receiptVerified) : null, [tile, row?.optionId, column?.id,receiptVerified,receiptSignature]);
-  return <details open={startOpen} className="result-evidence-panel" data-canvas-keyboard-scope="controls">
-    <summary>Explain a result</summary>
+  return <>
     <p>Choose a row and column to inspect the recorded value and its context.</p>
     {!evidence ? <p>No result cells are available to explain.</p> : <>
       {rows.length > 20 && <label htmlFor={`${prefix}-search`}>Find a result row<input id={`${prefix}-search`} value={search} onChange={event => updateSelection({ search: event.target.value })} /></label>}
@@ -56,11 +59,11 @@ function ValidResultEvidencePanel({ tile,startOpen }: { tile: DashboardTile;star
         {tile.result.localExecution&&!receiptVerified&&<p role="status">{checkedReceipt?.signature===receiptSignature?'Recorded execution evidence could not be verified. No source-version or exclusion facts are asserted from it.':'Checking the recorded local execution evidence…'}</p>}
         <h3>{evidence.heading}</h3>
         {!evidence.settingsCurrent && <p className="result-evidence-warning" role="status">The edited settings differ from the saved result. This explanation describes the saved result; refresh the analysis to apply your edits.</p>}
-        <dl>{evidence.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>
+        <dl>{evidence.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.label === "Recorded preparation recipe" ? <RecordedRecipe value={fact.value} fallback={fallback}/> : fact.value}</dd></div>)}</dl>
         <p>{evidence.explanation}</p>
         {evidence.cellWarnings.map(warning => <p key={warning} className="result-evidence-warning" role="status">{warning}</p>)}
         {evidence.warnings.length > 0 && <details><summary>Notes for the whole result ({evidence.warnings.length})</summary><ul>{evidence.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></details>}
       </section>
     </>}
-  </details>;
+  </>;
 }

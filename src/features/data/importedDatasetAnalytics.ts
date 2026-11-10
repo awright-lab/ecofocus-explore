@@ -731,7 +731,7 @@ function slug(value: string, fallback: string) {
   return normalized || fallback;
 }
 
-function importedSourceIdentity(config: ImportedDatasetQueryConfig, intersectionAudience?: SavedImportedAudience): ImportedAnalyticsSourceIdentity {
+export function importedSourceIdentity(config: ImportedDatasetQueryConfig, intersectionAudience?: SavedImportedAudience): ImportedAnalyticsSourceIdentity {
   return {
     kind: "imported",
     datasetImportedAt: config.dataset.importedAt,

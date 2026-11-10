@@ -1,0 +1,37 @@
+// @vitest-environment jsdom
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { webcrypto } from "node:crypto";
+import { StudyUsageDialog } from "../StudyUsageDialog";
+import { inspectStudyUsage } from "../../../document/studyUsageInspection";
+import { formulaFixture } from "../../../metrics/__tests__/formulaFixture";
+import { createPublishedSnapshot, createReportRecord, normalizeDashboardWorkspace } from "../../../document/workspacePersistence";
+let root: Root, host: HTMLDivElement, opener: HTMLButtonElement, outside: HTMLButtonElement;
+beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); host = document.createElement("div"); opener = document.createElement("button"); opener.textContent = "Open usage"; outside = document.createElement("button"); outside.textContent = "Outside"; document.body.append(opener, outside, host); opener.focus(); root = createRoot(host); });
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); opener.remove(); outside.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+function button(text: string) { const found = Array.from(document.querySelectorAll("button")).find(b => b.textContent === text); if (!found) throw Error(text); return found; }
+async function click(text: string) { await act(async () => { const b = button(text); b.focus(); b.click(); }); }
+async function find(value: string) { await act(async () => { const input = document.querySelector<HTMLInputElement>('input[type="search"]')!; input.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); }
+async function fixture() { const f = await formulaFixture(40, 12), workspace = createPublishedSnapshot(normalizeDashboardWorkspace({ reports: [createReportRecord(f.draft)], importedDatasets: [f.dataset] }), f.draft).workspace; workspace.reports[0].draft.pages[0].tiles = Array.from({ length: 45 }, (_, i) => ({ ...workspace.reports[0].draft.pages[0].tiles[0], id: `item-${i}`, title: `Analysis ${i}` })); const props = { datasetId: f.dataset.id, inspect: vi.fn((id: string) => inspectStudyUsage(workspace, id)), onClose: vi.fn() }; await act(async () => root.render(<StudyUsageDialog {...props}/>)); return { ...f, workspace, props }; }
+it("pages and searches all recorded references, distinguishes owned copies and never changes the supplied workspace", async () => {
+  const f = await fixture(), before = JSON.stringify(f.workspace); expect(document.querySelectorAll("tbody tr")).toHaveLength(20); await click("Next usage records"); expect(document.querySelectorAll("tbody tr")).toHaveLength(20); await click("Next usage records"); expect(document.querySelectorAll("tbody tr")).toHaveLength(5); expect(document.activeElement).toBe(button("Next usage records")); expect(button("Next usage records").getAttribute("aria-disabled")).toBe("true");
+  await find("ANALYSIS 42"); expect(document.querySelectorAll("tbody tr")).toHaveLength(1); expect(document.querySelector("tbody")!.textContent).toContain("Analysis 42"); await find(""); await click("Historical copies (1)"); expect(document.querySelectorAll("tbody tr")).toHaveLength(1); expect(document.body.textContent).toContain("does not prove the same data version"); expect(JSON.stringify(f.workspace)).toBe(before); expect(f.props.inspect).toHaveBeenCalledOnce();
+});
+it("keeps a labelled snapshot until explicit refresh, retains it on failure, and uses the latest inspector", async () => {
+  const f = await fixture(); f.workspace.reports[0].draft.pages[0].tiles = []; await act(async () => root.render(<StudyUsageDialog {...f.props}/>)); expect(document.querySelectorAll("tbody tr")).toHaveLength(20); await click("Refresh study usage"); expect(document.querySelectorAll("tbody tr")).toHaveLength(0); expect(document.body.textContent).toContain("Other retention and removal checks may still apply");
+  const changed = { ...f.props, inspect: vi.fn(() => { throw Error("Synthetic source unavailable"); }) }; await act(async () => root.render(<StudyUsageDialog {...changed}/>)); await click("Refresh study usage"); expect(document.body.textContent).toContain("Previous inspection kept"); expect(document.body.textContent).toContain(f.dataset.id); expect(document.activeElement).toBe(button("Refresh study usage"));
+});
+it("withholds alternate-source results and preserves a stable region when records become unavailable", async () => {
+  const f = await fixture(), region = document.querySelector<HTMLElement>('[aria-label="Study usage records"]')!; region.focus(); f.workspace.reports[0].draft.pages[0].tiles = []; await act(async () => { button("Refresh study usage").click(); }); expect(document.activeElement).toBe(region); expect(document.querySelectorAll("tbody tr")).toHaveLength(0);
+  await act(async () => root.render(<StudyUsageDialog {...f.props} datasetId="another-study"/>)); expect(document.body.textContent).not.toContain(`Study ID: ${f.dataset.id}`); await click("Refresh study usage"); expect(document.body.textContent).toContain("missing or ambiguous");
+});
+it("keeps valid references and unknown-plan safeguards in separate counted views", async () => {
+  const f = await fixture(); Object.assign(f.workspace.reports[0].draft, { insightReviewPlans: [{ broken: true }] }); const before = JSON.stringify(f.workspace); await click("Refresh study usage"); expect(document.body.textContent).toContain("complete source dependencies are unknown");
+  expect(button("Current references (45)")).toBeDefined(); expect(button("Needs review (1)")).toBeDefined(); expect(document.querySelectorAll("tbody tr")).toHaveLength(20); expect(document.querySelector("tbody")!.textContent).toContain("Analysis 0"); expect(document.querySelector("tbody")!.textContent).not.toContain("Unreadable"); await find("Analysis 42"); expect(document.querySelectorAll("tbody tr")).toHaveLength(1); await find("");
+  await click("Needs review (1)"); expect(document.querySelectorAll("tbody tr")).toHaveLength(1); expect(document.querySelector("tbody")!.textContent).toContain("Unreadable saved insight plans"); expect(document.querySelector("tbody")!.textContent).not.toContain("Analysis 0"); expect(JSON.stringify(f.workspace)).toBe(before);
+});
+it.each(["owned", "outside", "blur"])("restores only %s close focus without stealing a deliberate later move", async focus => {
+  const f = await fixture(); await act(async () => { const b = button("Close study usage"); b.focus(); b.click(); if (focus === "outside") outside.focus(); else if (focus === "blur") b.blur(); }); expect(f.props.onClose).toHaveBeenCalledOnce(); await act(async () => root.unmount()); root = createRoot(host); expect(document.activeElement).toBe(focus === "owned" ? opener : focus === "outside" ? outside : document.body);
+});
+it("traps keyboard focus and dismisses with Escape", async () => { const f = await fixture(), last = button("Next usage records"), first = button("Close study usage"); last.focus(); await act(async () => last.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }))); expect(document.activeElement).toBe(first); await act(async () => first.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }))); expect(f.props.onClose).toHaveBeenCalledOnce(); });

@@ -131,3 +131,19 @@ export function importPreparationCheckpointFile(storage: Storage, reportId: stri
   if (storage.getItem(copyKey) !== copyRaw) throw Error("Checkpoint import acknowledgement could not be confirmed. A stored copy may remain; refresh before retrying. No older copy was removed.");
   return { key: copyKey, alreadyPresent: false };
 }
+
+// Explicitly retire only an immutable, valid checkpoint whose exact file was inspected.
+// This is a synchronous localStorage operation, not a multi-tab compare-and-delete transaction.
+export function retirePreparationCheckpointWithBackup(storage: Storage, reportId: string, key: string, inspectedFileText: string) {
+  const backup = checkpointFile(inspectedFileText, reportId);
+  if (backup.key !== key) throw Error("The inspected file belongs to another checkpoint. Download and inspect the selected checkpoint first; no browser copy was removed.");
+  const raw = storage.getItem(key); decode(raw, reportId, key);
+  if (raw !== backup.raw) throw Error("The selected browser checkpoint differs from the inspected file. Both copies were kept; download and inspect its current exact backup before removal.");
+  try {
+    storage.removeItem(key);
+    if (storage.getItem(key) !== null) throw Error();
+  } catch {
+    throw Error("Browser checkpoint removal could not be confirmed. Your inspected backup file is unchanged. Refresh the checkpoint list before any further action; no study or editor was changed.");
+  }
+  return { removed: true as const, key };
+}

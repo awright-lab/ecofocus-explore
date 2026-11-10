@@ -320,7 +320,7 @@ export function LayoutInspector(props: BuilderInspectorProps) {
                   <span>Place the selected item low on the canvas for sources or supporting notes.</span>
                 </button>
               </div>
-              <LayoutFields key={selectedTile ? `tile:${selectedTile.id}` : `element:${selectedElement!.id}`} layout={(selectedTile ?? selectedElement!).layout} locked={(selectedTile ?? selectedElement!).locked} onApply={updateSelectedLayout} />
+              <LayoutFields key={selectedTile ? `tile:${selectedTile.id}` : `element:${selectedElement!.id}`} layout={(selectedTile ?? selectedElement!).layout} locked={(selectedTile ?? selectedElement!).locked} itemKind={selectedTile ? "chart" : "element"} onApply={updateSelectedLayout} />
             </>
           )}
 
@@ -473,7 +473,7 @@ export function TileOptionsInspector(props: BuilderInspectorProps) {
         <strong>{selectedTile.visualization === "horizontal_bar" ? "Horizontal bars" : getPaletteId(selectedTile.appearance.palette) === "custom" ? "Custom chart" : "Chart options"}</strong>
         <small>Position, size, spacing, labels, and chart-specific behavior.</small>
       </div>
-      <LayoutFields key={`tile:${selectedTile.id}`} layout={selectedTile.layout} locked={selectedTile.locked} onApply={updateSelectedLayout} />
+      <LayoutFields key={`tile:${selectedTile.id}`} layout={selectedTile.layout} locked={selectedTile.locked} itemKind="chart" onApply={updateSelectedLayout} />
       {selectedTile.visualization !== "table" && selectedTile.visualization !== "dot_plot" && (
         <>
           <label>
@@ -529,7 +529,7 @@ export function ElementOptionsInspector(props: BuilderInspectorProps) {
         <strong>{selectedElement.name}</strong>
         <small>Position, size, text behavior, and object-specific settings.</small>
       </div>
-      <LayoutFields key={`element:${selectedElement.id}`} layout={selectedElement.layout} locked={selectedElement.locked} onApply={updateSelectedLayout} />
+      <LayoutFields key={`element:${selectedElement.id}`} layout={selectedElement.layout} locked={selectedElement.locked} itemKind="element" onApply={updateSelectedLayout} />
       {selectedElement.type === "text" && (
         <>
           <label>

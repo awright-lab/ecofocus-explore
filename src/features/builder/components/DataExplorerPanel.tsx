@@ -1,3 +1,5 @@
+import { StudyUsageDialog } from "./StudyUsageDialog";
+import { LocalRowsDialog } from "./LocalRowsDialog";
 import { researchSearchMatcher } from "../../data/researchSearch";
 import { ResearchQuestionCatalog } from "./ResearchQuestionCatalog";
 import { fieldTreeWindow } from "./fieldTreeWindow";
@@ -114,6 +116,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
   const [managedMenuKey, setManagedMenuKey] = useState<string | null>(null);
   const [libraryMode, setLibraryMode] = useState<"guided" | "browse">("guided");
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [usageInspectionId, setUsageInspectionId] = useState<string | null>(null);
+  const [rowInspectionId, setRowInspectionId] = useState<string | null>(null);
   const [expandedLibrarySections, setExpandedLibrarySections] = useState<Record<LibrarySectionId, boolean>>({
     connected: true,
     datasets: true,
@@ -583,9 +587,11 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         <small>{dataset.meta} · {dataset.sourceLabel}</small>
                       </div>
                     </button>
-                    {dataset.imported && (
+                    {dataset.imported && <div className="dataset-inspection-actions">
+                      <button className="local-row-inspection-open" type="button" aria-label={`Inspect stored rows for dataset ${index + 1}: ${dataset.title}`} onClick={() => setRowInspectionId(dataset.id)}>Inspect rows</button>
+                      {props.inspectImportedDataset && <button className="study-usage-open" type="button" aria-label={`Inspect study usage for dataset ${index + 1}: ${dataset.title}`} onClick={() => setUsageInspectionId(dataset.id)}>Where used</button>}
                       <StudyRemovalButton title={dataset.title} onRemove={() => deleteImportedDataset(dataset.id)} />
-                    )}
+                    </div>}
                   </div>
                 ))}
               </div>
@@ -854,6 +860,8 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           )}
         </div>
       </div>
+      {usageInspectionId !== null && props.inspectImportedDataset && <StudyUsageDialog key={usageInspectionId} datasetId={usageInspectionId} inspect={props.inspectImportedDataset} onClose={() => setUsageInspectionId(null)}/>}
+      {rowInspectionId !== null && <LocalRowsDialog studyId={rowInspectionId} dataset={importedDatasets.filter(item => item.id === rowInspectionId).length === 1 ? importedDatasets.find(item => item.id === rowInspectionId) : undefined} onClose={() => setRowInspectionId(null)}/>}
     </>
   );
 }

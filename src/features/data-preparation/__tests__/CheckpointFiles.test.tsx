@@ -78,3 +78,34 @@ it.each(["cancel", "read-error"])("can choose the same unchanged file again afte
   await act(async () => complete(pending[1], f.text)); expect(document.querySelector<HTMLTextAreaElement>("textarea")!.value).toContain("Unencrypted synthetic target A"); expect(f.props.onImported).not.toHaveBeenCalled(); expect(localStorage.getItem(f.key)).toBe(before);
   await act(async () => complete(pending[0], f.text)); expect(document.querySelector<HTMLTextAreaElement>("textarea")!.value).toContain("Unencrypted synthetic target A"); expect(f.props.onImported).not.toHaveBeenCalled(); expect(localStorage.getItem(f.key)).toBe(before);
 });
+
+function removalCheck() { return Array.from(document.querySelectorAll("label")).find(n => n.textContent?.includes("I retained this inspected backup file"))!.querySelector<HTMLInputElement>("input")!; }
+it("requires an inspected same-identity file and explicit acknowledgement before removing only the backed-up copy", async () => {
+  const f = await fixture(), onRemoved = vi.fn(), raw = localStorage.getItem(f.key); await act(async () => root.render(<CheckpointFiles {...f.props} onRemoved={onRemoved}/>)); localStorage.setItem("workspace", "unchanged report");
+  await click("Remove backed-up browser checkpoint"); expect(localStorage.getItem(f.key)).toBe(raw); expect(onRemoved).not.toHaveBeenCalled();
+  await choose(new File([f.text], "exact-backup.json")); await until(() => !!document.querySelector('[aria-label="Checkpoint file inspection"]'));
+  await click("Remove backed-up browser checkpoint"); expect(localStorage.getItem(f.key)).toBe(raw);
+  await act(async () => removalCheck().click()); expect(removalCheck().checked).toBe(true); await click("Remove backed-up browser checkpoint");
+  expect(localStorage.getItem(f.key)).toBeNull(); expect(localStorage.getItem("workspace")).toBe("unchanged report"); expect(onRemoved).toHaveBeenCalledOnce(); expect(f.props.onImported).not.toHaveBeenCalled(); expect(document.activeElement).toBe(button("Remove backed-up browser checkpoint")); expect(button("Remove backed-up browser checkpoint").getAttribute("aria-disabled")).toBe("true"); expect(document.body.textContent).toContain("Only the selected browser checkpoint was removed");
+  await click("Import inspected checkpoint"); const key = f.props.onImported.mock.calls[0][0]; expect(key).not.toBe(f.key); expect(JSON.parse(localStorage.getItem(key)!).editor).toEqual(JSON.parse(raw!).editor);
+});
+it("invalidates consent on selection round-trips and file replacement; another identity cannot authorize removal", async () => {
+  const f = await fixture(), keyB = await savePreparationCheckpoint(localStorage, f.props.reportId, { ...f.editor, title: "Checkpoint B" }, () => [f.source]), before = localStorage.getItem(f.key);
+  await choose(new File([f.text], "A.json")); await until(() => !!document.querySelector("textarea")); await act(async () => removalCheck().click()); expect(removalCheck().checked).toBe(true);
+  await act(async () => root.render(<CheckpointFiles {...f.props} selectedKey={keyB}/>)); expect(removalCheck().checked).toBe(false); await click("Remove backed-up browser checkpoint"); expect(localStorage.getItem(keyB)).not.toBeNull();
+  await act(async () => root.render(<CheckpointFiles {...f.props}/>)); expect(removalCheck().checked).toBe(false); await act(async () => removalCheck().click());
+  await choose(new File([exportPreparationCheckpointFile(localStorage, f.props.reportId, keyB)], "B.json")); await until(() => document.querySelector("textarea")?.value.includes("Checkpoint B") ?? false); expect(removalCheck().checked).toBe(false); await act(async () => removalCheck().click()); expect(removalCheck().checked).toBe(false); await click("Remove backed-up browser checkpoint"); expect(localStorage.getItem(f.key)).toBe(before);
+});
+it("rechecks exact browser contents at action time and refuses a changed checkpoint without removing it", async () => {
+  const f = await fixture(), onRemoved = vi.fn(); await act(async () => root.render(<CheckpointFiles {...f.props} onRemoved={onRemoved}/>)); await choose(new File([f.text], "A.json")); await until(() => !!document.querySelector("textarea")); await act(async () => removalCheck().click());
+  const c = JSON.parse(localStorage.getItem(f.key)!); c.editor.to = "Updated after file inspection"; const changed = JSON.stringify(c); localStorage.setItem(f.key, changed); await click("Remove backed-up browser checkpoint"); expect(localStorage.getItem(f.key)).toBe(changed); expect(document.body.textContent).toContain("differs from the inspected file"); expect(onRemoved).not.toHaveBeenCalled(); expect(removalCheck().checked).toBe(false);
+});
+it.each(["owned", "outside", "blur"])("keeps %s focus through removal without disappearing controls", async focus => {
+  const f = await fixture(); await choose(new File([f.text], "A.json")); await until(() => !!document.querySelector("textarea")); await act(async () => removalCheck().click());
+  const b = button("Remove backed-up browser checkpoint"); await act(async () => { b.focus(); b.click(); if (focus === "outside") outside.focus(); else if (focus === "blur") b.blur(); }); expect(localStorage.getItem(f.key)).toBeNull(); expect(document.activeElement).toBe(focus === "owned" ? b : focus === "outside" ? outside : document.body);
+});
+it("clears consent on uncertain removal and requests refresh rather than claiming success or retrying", async () => {
+  const f = await fixture(), onRemoved = vi.fn(); await act(async () => root.render(<CheckpointFiles {...f.props} onRemoved={onRemoved}/>)); await choose(new File([f.text], "A.json")); await until(() => !!document.querySelector("textarea")); await act(async () => removalCheck().click());
+  const original = Storage.prototype.removeItem, remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(function(this: Storage, key: string) { original.call(this, key); throw Error("Synthetic lost removal acknowledgement"); });
+  await click("Remove backed-up browser checkpoint"); expect(localStorage.getItem(f.key)).toBeNull(); expect(document.body.textContent).toContain("could not be confirmed"); expect(document.body.textContent).toContain("Refresh the checkpoint list"); expect(onRemoved).not.toHaveBeenCalled(); expect(removalCheck().checked).toBe(false); await click("Remove backed-up browser checkpoint"); expect(remove).toHaveBeenCalledOnce();
+});

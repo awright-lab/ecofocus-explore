@@ -14,6 +14,7 @@ import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
 import { buildDerivedOutputMetadata, buildDerivedOutputResponse, buildDerivedOutputTitle, type DerivedOutputConfig, type DerivedOutputKind } from "../components/derivedOutputModel";
 import { buildTileQueryStatus } from "../components/inspectorTileQueryModel";
 import { runImportedDatasetQueryForRuntime } from "../../data/importedDatasetRuntimeQuery";
+import { runLocalAnalysisJob, type LocalAnalysisControl } from "../../data/localAnalysisJob";
 import { assertSavedImportedTileSource, runSavedImportedQuery } from "../../data/savedImportedQuery";
 import { importedFieldDisplayLabel } from "../../data/datasetModelingModel";
 import {
@@ -294,6 +295,7 @@ export function useBuilderTileCommands({
     nextVisualization: ChartType,
     nextMetric: Metric,
     options?: {
+      background?: LocalAnalysisControl;
       destination?: AnalysisDestination;
       groupingScope?: "all_respondents";
       isCurrent?: () => boolean;
@@ -310,7 +312,7 @@ export function useBuilderTileCommands({
     setError(null);
 
     try {
-      const response = await runImportedDatasetQueryForRuntime({
+      const config = {
         dataset,
         field,
         groupingScope: options?.groupingScope,
@@ -319,18 +321,21 @@ export function useBuilderTileCommands({
         filter: options?.filter,
         chartType: nextVisualization,
         metric: nextMetric
-      });
-      if (!operation.isCurrent()) return null;
+      };
+      const accepted = options?.background ? await runLocalAnalysisJob(config, options.background) : null;
+      const response = accepted ? accepted.result : await runImportedDatasetQueryForRuntime(config);
+      if (!operation.isCurrent() || options?.background?.signal.aborted || accepted && !accepted.sourceStillCurrent()) return null;
       const tileId = makeTileId();
       const selectedLayout = selectedTile?.layout ?? selectedElement?.layout;
       const measureField = options?.measureField ?? null;
       const isMeasureTile = (nextMetric === "average" || nextMetric === "sum") && measureField;
-      const fieldLabel = importedFieldDisplayLabel(field);
-      const measureLabel = importedFieldDisplayLabel(measureField);
+      const snapshotSource = accepted && response.metadataRefs.source?.kind === "imported" ? response.metadataRefs.source : null;
+      const fieldLabel = snapshotSource?.primaryFieldLabel ?? importedFieldDisplayLabel(field);
+      const measureLabel = snapshotSource?.measureFieldLabel ?? importedFieldDisplayLabel(measureField);
       const tileLabel = isMeasureTile
         ? `${nextMetric === "sum" ? "Sum of" : "Average"} ${measureLabel} by ${fieldLabel}`
         : fieldLabel;
-      const sourceLabel = `${dataset.title}: ${tileLabel}`;
+      const sourceLabel = `${snapshotSource?.datasetLabel ?? dataset.title}: ${tileLabel}`;
       const sourceRef = response.metadataRefs.source?.sourceRef;
       const tile: DashboardTile = {
         id: tileId,
@@ -358,8 +363,10 @@ export function useBuilderTileCommands({
         result: response
       };
 
-      return insertCreatedAnalysis(tile, operation.ownsContext, options?.destination);
+      // Closing a successful dialog must not invalidate an accepted deferred updater.
+      return insertCreatedAnalysis(tile, () => operation.ownsContext() && (!accepted || accepted.sourceStillCurrent()), options?.destination);
     } catch (queryError) {
+      if (options?.background && operation.isCurrent() && !options.background.signal.aborted) throw queryError;
       if (operation.isCurrent()) setError(queryError instanceof Error ? queryError.message : "Something went wrong creating this imported-data view.");
       return null;
     } finally {

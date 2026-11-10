@@ -1,3 +1,5 @@
+import { localAnalysisLimits } from "../../data/localAnalysisModel";
+import type { LocalAnalysisProgress } from "../../data/localAnalysisJob";
 import { formatPercentageSample } from "../../../../shared/analytics/percentagePrecision";
 import { researchSearchMatcher } from "../../data/researchSearch";
 import { analysisViewRecommendations } from "../../analytics/analysisViewRecommendations";
@@ -82,6 +84,12 @@ export function GuidedDataQueryModal({
   const importedGroupingRef = useRef<HTMLSelectElement | null>(null);
   const [fieldSearch, setFieldSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [creationMode, setCreationMode] = useState<"foreground" | "background">("foreground");
+  const [creationProgress, setCreationProgress] = useState<LocalAnalysisProgress | null>(null);
+  const creationControl = useRef<AbortController | null>(null);
+  const cancelCreationRef = useRef<HTMLButtonElement | null>(null);
+  const createActionRef = useRef<HTMLButtonElement | null>(null);
+  const creationConfigRef = useRef<ImportedDatasetQueryConfig | null>(null);
   const [creationError, setCreationError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const currentPageHasRoom = useMemo(() => !props.activePage || findAnalysisPlacement(props.activePage) !== null, [props.activePage]);
@@ -89,8 +97,14 @@ export function GuidedDataQueryModal({
   const destinationAvailable = destination === "new_page" || currentPageHasRoom;
   const active = useRef(true);
   const requestSequence = useRef(0);
-  useEffect(() => { active.current = true; return () => { active.current = false; requestSequence.current += 1; }; }, []);
-  function dismiss() { active.current = false; requestSequence.current += 1; onClose(); }
+  useEffect(() => { active.current = true; return () => { active.current = false; requestSequence.current += 1; creationControl.current?.abort(); }; }, []);
+  function dismiss() { active.current = false; requestSequence.current += 1; creationControl.current?.abort(); onClose(); }
+  function cancelCalculation() {
+    requestSequence.current += 1;
+    creationControl.current?.abort(); creationControl.current = null;
+    setCreating(false); setCreationProgress(null);
+    setCreationError("Background creation canceled. Your setup, report and source were kept.");
+  }
   useModalAccessibility(modalRef, dismiss);
   const {
     importedDatasets,
@@ -372,12 +386,26 @@ export function GuidedDataQueryModal({
   const metricSummary = defaultDataset.metrics.find((item) => item.id === metric)?.label ?? metric;
   const weightSummary = weight ? defaultDataset.weights.find((item) => item.id === weight)?.label ?? weight : "Unweighted";
 
+  const backgroundCreationAvailable = datasetMode === "imported" && importedDataset?.sourceType === "local_file" && !importedDataset.remote
+    && !!importedDataset.rows && importedDataset.rows.length === importedDataset.rowCount
+    && importedDataset.rowCount >= localAnalysisLimits.threshold && importedDataset.rowCount <= localAnalysisLimits.rows
+    && importedDataset.fieldCount <= localAnalysisLimits.totalFields;
+  creationConfigRef.current = importedDataset && importedField ? {
+    dataset: importedDataset, field: importedField, groupingScope,
+    measureField: importedQueryMode === "measure" ? importedMeasureField : null, bannerField: importedBannerField,
+    filter: importedFilter, metric: effectiveImportedMetric,
+    chartType: outputMode === "table" ? "table" : selectedChart === "table" ? supportedChartType(selectedChartTypes) : selectedChart
+  } : null;
+
   async function createOutput(mode: GuidedOutputMode) {
-    if (!canCreate || !destinationAvailable || creating || isLoading || backgroundPreview.busy || showCompletePreview || !active.current) return;
+    if (!canCreate || !destinationAvailable || creating || creationControl.current || isLoading || backgroundPreview.busy || showCompletePreview || !active.current) return;
     const request = ++requestSequence.current;
-    const isCurrent = () => active.current && requestSequence.current === request;
+    const controller = new AbortController(); creationControl.current = controller;
+    const background = creationMode === "background" && backgroundCreationAvailable;
+    if (background && document.activeElement === createActionRef.current) cancelCreationRef.current?.focus();
+    const isCurrent = () => active.current && requestSequence.current === request && !controller.signal.aborted;
     setCreating(true);
-    setCreationError(null);
+    setCreationError(null); setCreationProgress(null);
     try {
     const nextChartType = mode === "table"
       ? "table"
@@ -385,6 +413,11 @@ export function GuidedDataQueryModal({
     if (datasetMode === "imported") {
       if (!importedDataset || !importedField) return;
       const created = await addTileFromImportedDatasetField(importedDataset, importedField, nextChartType, effectiveImportedMetric, {
+        background: background ? {
+          signal: controller.signal,
+          getCurrentConfig: () => creationConfigRef.current,
+          onProgress: progress => { if (isCurrent()) setCreationProgress(previous => previous?.phase === "preparing" && progress.phase === "preparing" && Math.floor(previous.done / previous.total * 20) === Math.floor(progress.done / progress.total * 20) ? previous : progress); }
+        } : undefined,
         destination,
         groupingScope,
         isCurrent,
@@ -402,7 +435,7 @@ export function GuidedDataQueryModal({
     if (created) { onClose(); onCreated?.(created); }
     else setCreationError("The analysis could not be created. Check the setup and try again; your selections are kept.");
     } catch (error) { if (isCurrent()) setCreationError(error instanceof Error ? error.message : "Analysis failed. Please try again."); }
-    finally { if (isCurrent()) setCreating(false); }
+    finally { if (creationControl.current === controller) creationControl.current = null; if (isCurrent()) { setCreating(false); setCreationProgress(null); } }
   }
 
   async function importStudy(file: File | undefined) {
@@ -480,7 +513,7 @@ export function GuidedDataQueryModal({
         </header>
 
         {onStartQuestion&&!showCompletePreview&&<div className="guided-query-question-entry"><button type="button" disabled={creating||importing} onClick={()=>{dismiss();onStartQuestion();}}>Start with a business question</button><small>Question, audience, reviewed result and editable insight pages.</small></div>}
-        <div className="guided-query-body" hidden={showCompletePreview} style={showCompletePreview ? { display: "none" } : undefined}>
+        <fieldset className="guided-query-body" disabled={creating} aria-label="Analysis setup and preview" hidden={showCompletePreview} style={{ border: 0, margin: 0, minWidth: 0, ...(showCompletePreview ? { display: "none" } : {}) }}>
           <section className="guided-query-step">
             <div className="guided-query-step__header">
               <span>1</span>
@@ -637,6 +670,13 @@ export function GuidedDataQueryModal({
           {!currentPageHasRoom && <p>This page has no clear space for a full-size analysis. A new page keeps existing objects in place.</p>}
           {!destinationAvailable && <p role="alert">Choose a new page or make space on the current page before creating this analysis.</p>}
             </div>
+            {backgroundCreationAvailable && <label>Calculation mode
+              <select value={creationMode} onChange={event => setCreationMode(event.target.value as "foreground" | "background")}>
+                <option value="foreground">This tab (existing calculation)</option>
+                <option value="background">Background worker with cancel</option>
+              </select>
+              <small>Background mode calculates a fresh result from selected columns: up to 50,000 rows, four fields and 5,000 result cells. If unavailable, choose this tab. The temporary preview is never saved.</small>
+            </label>}
             <div className="guided-query-output-toggle" aria-label="Output type">
               <button type="button" aria-pressed={outputMode === "table"} className={outputMode === "table" ? "active" : ""} onClick={() => setOutputMode("table")}>Table</button>
               <button type="button" aria-pressed={outputMode === "chart"} className={outputMode === "chart" ? "active" : ""} onClick={() => setOutputMode("chart")}>Chart</button>
@@ -930,7 +970,7 @@ export function GuidedDataQueryModal({
               </> : previewFailure ? <p role="alert">{previewFailure}</p> : <p>{importedDataset?.remote?.provider === "netlify" ? "This study is queried securely on the server when you create the analysis." : backgroundPreviewRequired ? "Choose Calculate preview in background to inspect this setup before creating." : "Choose a supported question and calculation to preview the results."}</p>}
             </section>
           </aside>
-        </div>
+        </fieldset>
 
         {showCompletePreview && previewTile && <section ref={bindCompleteRegion} tabIndex={-1} role="region" aria-label="Complete analysis preview" className="guided-complete-preview" data-canvas-keyboard-scope="controls">
           <header><div><h3>Temporary preview</h3><p>{datasetMode === "seeded" ? "Illustrative sample results. " : "Calculated for the current setup. "}Nothing has been added to your report.</p></div>
@@ -938,13 +978,15 @@ export function GuidedDataQueryModal({
           <ResultTableBrowser tile={previewTile} fallback={modalRef} preview />
         </section>}
         <footer className="guided-query-footer" hidden={showCompletePreview} style={showCompletePreview ? { display: "none" } : undefined}>
-          {creating && <p role="status">Closing will ignore this analysis result; the request may finish in the background.</p>}
+          {creating && <p role="status">{creationMode === "background" && backgroundCreationAvailable
+            ? creationProgress?.phase === "preparing" ? `Preparing selected columns: ${creationProgress.done.toLocaleString()} of ${creationProgress.total.toLocaleString()} rows.` : "Calculating a fresh analysis in a background worker. You can cancel and keep your setup."
+            : "Closing will ignore this analysis result; the request may finish in the background."}</p>}
           {isLoading && !creating && <p role="status">A data request is still finishing. Your setup is kept; creation will be available when it settles.</p>}
           {(creationError || props.error) && <p role="alert" className="analysis-create-error">{creationError || props.error}</p>}
           <small>{canCreate ? `The table/chart will be placed on ${destination === "new_page" ? "a new page" : "the current page"} and selected for editing.` : previewFailure ?? importedSupport.reason}</small>
           <div>
-            <button type="button" className="secondary" onClick={dismiss}>Cancel</button>
-            <button type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || !destinationAvailable || isLoading || creating || importing || backgroundPreview.busy || showCompletePreview}>
+            <button ref={cancelCreationRef} type="button" className="secondary" onClick={creating && creationMode === "background" && backgroundCreationAvailable ? cancelCalculation : dismiss}>{creating && creationMode === "background" && backgroundCreationAvailable ? "Cancel calculation" : "Cancel"}</button>
+            <button ref={createActionRef} type="button" onClick={() => void createOutput(outputMode)} disabled={!canCreate || !destinationAvailable || isLoading || creating || importing || backgroundPreview.busy || showCompletePreview}>
               {creating ? "Creating analysis..." : isLoading ? "Waiting for data request" : `${outputMode === "table" ? "Create table" : "Create chart"}${destination === "new_page" ? " on new page" : ""}`}
             </button>
           </div>

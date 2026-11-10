@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { initialDashboard } from "../documentSeeds";
 import { importDatasetBuffer } from "../../data/datasetImportModel";
 import { runImportedDatasetQuery } from "../../data/importedDatasetAnalytics";
 import { createReportRecord, normalizeDashboardWorkspace, removeWorkspaceImportedDataset } from "../workspacePersistence";
-import { importedStudyUsage, editorStudyRemovalBlocker } from "../importedStudyUsage";
+import { importedStudyUsage, importedStudySafeguards, importedStudyRemovalBlocker, editorStudyRemovalBlocker } from "../importedStudyUsage";
 
 async function fixture() {
  const parsed=await importDatasetBuffer(new TextEncoder().encode("Answer,Spend\nYes,10\nNo,20\n").buffer,"synthetic.csv");
@@ -65,3 +65,31 @@ describe("dependency-aware study removal",()=>{
  });
 });
 
+
+it("retains a valid Responses reference alongside unreadable-plan safeguards without counting the warning as a reference", async () => {
+  const f = await fixture(); f.tile.title = "Responses"; Object.assign(f.workspace.reports[0].draft, { insightReviewPlans: [{ unsupported: true }] }); const before = JSON.stringify(f.workspace);
+  const known = importedStudyUsage(f.workspace, f.dataset.id), safeguards = importedStudySafeguards(f.workspace, f.dataset.id);
+  expect(known).toHaveLength(1); expect(known[0].location).toContain(": Responses"); expect(known[0].location).not.toContain("Unreadable"); expect(safeguards).toHaveLength(1); expect(safeguards[0].reason).toBe("unreadable_insight_plans"); expect(safeguards[0].location).toContain("Unreadable saved insight plans");
+  expect(importedStudyRemovalBlocker(f.workspace, f.dataset.id)).toContain("unreadable source dependencies"); expect(() => removeWorkspaceImportedDataset(f.workspace, f.dataset.id)).toThrow("Unreadable saved insight plans"); expect(JSON.stringify(f.workspace)).toBe(before);
+});
+it("keeps a readable source identity in an otherwise quarantined saved plan as a known reference", async () => {
+  const f = await fixture(); Object.assign(f.workspace.reports[0].draft, { insightReviewPlans: [{ plan: { datasetId: f.dataset.id } }] });
+  expect(importedStudyUsage(f.workspace, f.dataset.id).map(item => item.location)).toEqual(expect.arrayContaining(["Saved insight review plans", expect.stringContaining(": ")])); expect(importedStudySafeguards(f.workspace, f.dataset.id)).toHaveLength(1);
+});
+it("separates known legacy-snapshot references from their unknown-plan safeguards", async () => {
+  const f = await fixture(), historical = structuredClone(f.workspace.reports[0].draft); Object.assign(historical, { insightReviewPlans: [{ unsupported: true }] }); historical.importedDatasets = []; f.workspace.publishedSnapshots = [{ id: "legacy-unknown", reportId: historical.id, title: historical.title, versionLabel: "v-old", publishedAt: "2026-11-09T00:00:00.000Z", viewerPath: "#legacy", dashboard: historical }]; f.workspace.reports[0].draft.pages[0].tiles = [];
+  expect(importedStudyUsage(f.workspace, f.dataset.id)).toEqual([expect.objectContaining({ location: expect.stringContaining("Snapshot v-old:") })]); expect(importedStudySafeguards(f.workspace, f.dataset.id)).toEqual([expect.objectContaining({ location: expect.stringContaining("Snapshot v-old: Unreadable") })]); expect(() => removeWorkspaceImportedDataset(f.workspace, f.dataset.id)).toThrow("Unreadable");
+});
+it("does not turn a snapshot's independent unreadable plans into a mutable-library dependency when it owns its study", async () => {
+  const f = await fixture(), historical = structuredClone(f.workspace.reports[0].draft); Object.assign(historical, { insightReviewPlans: [{ unsupported: true }] }); f.workspace.publishedSnapshots = [{ id: "owned-unknown", reportId: historical.id, title: historical.title, versionLabel: "v-owned", publishedAt: "2026-11-09T00:00:00.000Z", viewerPath: "#owned", dashboard: historical }]; f.workspace.reports[0].draft.pages[0].tiles = []; const before = JSON.stringify(f.workspace);
+  expect(importedStudyUsage(f.workspace, f.dataset.id)).toEqual([]); expect(importedStudySafeguards(f.workspace, f.dataset.id)).toEqual([]); const removed = removeWorkspaceImportedDataset(f.workspace, f.dataset.id); expect(removed.importedDatasets).toEqual([]); expect(removed.publishedSnapshots).toEqual(f.workspace.publishedSnapshots); expect(JSON.stringify(f.workspace)).toBe(before);
+});
+it("preserves Undo/Redo retention for unreadable plans even without another identifiable source reference", async () => {
+  const f = await fixture(), historical = structuredClone(f.workspace.reports[0].draft); historical.pages[0].tiles = []; historical.importedDatasets = []; Object.assign(historical, { insightReviewPlans: [{ unsupported: true }] }); const before = JSON.stringify(historical);
+  expect(editorStudyRemovalBlocker(f.dataset.id, [historical], [], false)).toContain("Undo or Redo"); expect(editorStudyRemovalBlocker(f.dataset.id, [], [historical], false)).toContain("Undo or Redo"); expect(JSON.stringify(historical)).toBe(before);
+});
+
+it("enumerates valid references without executing an unreadable-plan getter while keeping removal blocked", async () => {
+  const f = await fixture(), draft = f.workspace.reports[0].draft, get = vi.fn(() => { throw Error("Do not execute saved metadata"); }); Object.defineProperty(draft, "insightReviewPlans", { enumerable: true, configurable: true, get });
+  expect(importedStudyUsage(f.workspace, f.dataset.id)).toHaveLength(1); expect(importedStudySafeguards(f.workspace, f.dataset.id)).toHaveLength(1); expect(() => removeWorkspaceImportedDataset(f.workspace, f.dataset.id)).toThrow("Unreadable saved insight plans"); expect(get).not.toHaveBeenCalled(); expect(Object.getOwnPropertyDescriptor(draft, "insightReviewPlans")?.get).toBe(get);
+});

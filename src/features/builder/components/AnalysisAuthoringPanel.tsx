@@ -1,3 +1,5 @@
+import type { StudyUsageInspection } from "../../document/studyUsageInspection";
+import type { LocalAnalysisControl } from "../../data/localAnalysisJob";
 import type { AnalysisDestination } from "../analysisPlacement";
 import { lazy, memo, Suspense, useMemo, useState } from "react";
 import { BuilderPanel } from "./BuilderChrome";
@@ -118,6 +120,7 @@ export type AnalysisAuthoringPanelProps = {
     updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner" | "researchTopic" | "researchConcepts">>
   ) => boolean | void;
   removeImportedDataset: (datasetId: string) => string | null;
+  inspectImportedDataset?: (datasetId: string) => StudyUsageInspection;
   openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];
   filteredQuestions: typeof defaultDataset.questions;
@@ -192,6 +195,7 @@ export type AnalysisAuthoringPanelProps = {
     chartType: ChartType,
     metric: Metric,
     options?: {
+      background?: LocalAnalysisControl;
       destination?: AnalysisDestination;
       groupingScope?: "all_respondents";
       isCurrent?: () => boolean;
