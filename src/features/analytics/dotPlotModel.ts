@@ -3,7 +3,7 @@ import { buildHeatmapModel } from "./heatmapModel";
 
 export const dotPlotLimits = { rows: 30, columns: 6, cells: 180 } as const;
 export const dotPlotExplanation = "Dots show recorded values on one shared scale. Marker shapes distinguish series; missing values have no dot. No confidence intervals, significance or trends are implied.";
-export const pairedDotPlotExplanation = "Paired dots compare two recorded groups on one shared scale. Circles and outlined squares identify the groups, including equal values. A connector joins available values within the same answer; it does not imply time, change, significance or causation. Missing values have no dot; connectors require two available values. No confidence intervals are shown.";
+export const pairedDotPlotExplanation = "Paired dots compare two recorded groups on one shared scale. Circles and outlined squares identify the groups, including equal values. A connector joins available values within the same answer; it does not imply time, change, significance or causation. Missing values have no dot; connectors require two available values. No confidence intervals are shown. Connecting groups does not imply paired respondents.";
 export type DotPlotModel = { status: "unavailable"; reason: string } | {
   status: "ready"; minimum: number; maximum: number;
   cells: Array<Array<{ value: number | null; base: number | null; fraction: number | null }>>;

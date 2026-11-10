@@ -6,7 +6,7 @@ import { barPaintSvg } from "./chartPaintExport";
 import { ownAxisLabel } from "../design-system/axisLabels";
 import { chartColor } from "../design-system/reportColors";
 import { analyticalBase, analyticalCell } from "../../../shared/analytics/resultCells";
-import { dotIntervalExplanation } from "../analytics/dotPlotIntervals";
+import { dotIntervalExplanation, dotIntervals } from "../analytics/dotPlotIntervals";
 import type { DashboardTile } from "../../../shared/types/dashboard";
 import { formatValue, supportsDonutResult } from "../builder/components/CanvasRenderers";
 import { importedMeasureBasesNeedRefresh } from "../data/importedDatasetAnalytics";
@@ -79,6 +79,7 @@ export function analysisVisualLayout(tile: DashboardTile) {
 }
 
 function check(tile: DashboardTile) {
+  if(tile.appearance.dotPlotIntervals!==undefined)dotIntervals(tile);
   const precisionIssue = percentagePrecisionIssue(tile.result);
   if (precisionIssue) throw Error(precisionIssue);
   if (tile.visualization === "dot_plot") {

@@ -1603,7 +1603,7 @@ export function TileAnalysisDisplaySection(props: BuilderInspectorProps) {
                     <option value="small_multiples">Small multiples (one panel per group)</option>
                     <option value="slope" disabled={selectedTile.result.columns.length !== 2}>Slope chart (two groups)</option>
                   </select>
-                  <small>Paired dots and slope charts require exactly two groups. Small multiples repeat every answer on the same scale. Connectors do not imply time, respondent pairing or significance. Intervals require Separate series.</small>
+                  <small>Paired dots and slope charts require exactly two groups. Small multiples repeat every answer on the same scale. Connectors do not imply time, respondent pairing or significance. Individual intervals support Separate series, paired dots and Small multiples after an explicit independent, unweighted respondent declaration. Slope charts do not support intervals.</small>
                 </label>}
                 {selectedTile.visualization === "dot_plot" && <DotPlotIntervalControl tile={selectedTile} onChange={updateSelectedAppearance} />}
                 <label><input type="checkbox" checked={selectedTile.appearance.showGrid} onChange={(event) => updateSelectedAppearance({ showGrid: event.target.checked })} /> {selectedTile.visualization === "table" ? "Table guides" : "Chart grid"}</label>
