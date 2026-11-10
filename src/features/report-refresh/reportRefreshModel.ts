@@ -1,3 +1,4 @@
+import { validateWaveMapping, type WaveFieldMapping } from './reportRefreshMapping';
 import { withSafeInference } from '../../../shared/analytics/inferenceSafety';
 import type { DatasetSourceRef } from '../../../shared/types/dataSource';
 import type { AnalyticsQueryResponse } from '../../../shared/types/analytics';
@@ -16,7 +17,7 @@ export interface ReportRefreshContext { draft: DashboardDraft; studies: Imported
 export interface WaveCellChange { label: string; before: number | null; after: number | null; beforeBase: number | null; afterBase: number | null; unit: string }
 export interface ReportRefreshPreview {
   sourceTitle: string; targetTitle: string; reportTitle: string;
-  mappings: Array<{ column: string; label: string }>;
+  mappings: Array<{ column: string; label: string; targetLabel: string; categories: Array<{source:string;target:string}> }>;
   analyses: Array<{ title: string; changes: WaveCellChange[] }>;
   retainedText: string[]; retainedLibraryReferences: string[]; linkedClaims: number;
 }
@@ -30,7 +31,7 @@ function completeStudy(study: ImportedDatasetRecord) {
       study.rows.length !== study.rowCount || study.fieldCount !== study.fields.length || !study.fields.length || Object.hasOwn(study,'rowStorage'))
     fail('Choose complete, original local studies with 1–50,000 rows. Remote, prepared and incomplete studies need a dedicated review.');
   if(study.sourceRef && (study.sourceRef.kind!=='imported_file'||study.sourceRef.provider!=='local_file'||study.sourceRef.datasetId!==study.id))fail('The local study has conflicting source provenance. Review the source before refreshing this report.');
-  if (new Set(study.fields.map(field=>field.id)).size !== study.fields.length) fail('The study has ambiguous field identities.');
+  if (new Set(study.fields.map(field=>field.id)).size !== study.fields.length || new Set(study.fields.map(field=>field.sourceColumn)).size !== study.fields.length) fail('The study has ambiguous field identities.');
 }
 function assertLocalReferences(references:Array<DatasetSourceRef|undefined>,source:ImportedDatasetRecord) {
   const expected=normalizeDatasetSourceRefForImportedDataset(source);
@@ -74,7 +75,7 @@ function includes(a:unknown,b:unknown):boolean {
 function contextBinding(context: ReportRefreshContext) { return recoveryImportSignature(context); }
 
 /** Explicit, local, descriptive refresh. No inference, source replacement or publication. */
-export async function previewReportRefresh(context: ReportRefreshContext, targetId: string, title: string, options: {signal?: AbortSignal; getCurrentContext?:()=>ReportRefreshContext} = {}): Promise<ReportRefreshPreview> {
+export async function previewReportRefresh(context: ReportRefreshContext, targetId: string, title: string, options: {signal?: AbortSignal; getCurrentContext?:()=>ReportRefreshContext; mappings?: WaveFieldMapping[]} = {}): Promise<ReportRefreshPreview> {
   assertRecoveryImportData(context); // Validate original objects before reads, spreads or serialization.
   const binding=contextBinding(context), frozen=JSON.parse(binding) as ReportRefreshContext;
   const {draft,studies}=frozen;
@@ -88,10 +89,14 @@ export async function previewReportRefresh(context: ReportRefreshContext, target
   if (!source || !target || source.id===target.id) fail('Choose a different imported wave for this local report.');
   completeStudy(source); completeStudy(target);
   if (source.fileType!==target.fileType) fail('These waves use different file formats. Review their missing-value and code conventions separately.');
+  if(tiles.some(tile=>tile.query.weight!==null || tile.result.weighting.applied))fail('Weighted report refresh is unsupported. Create and review an unweighted report separately.');
   const pendingClaims=draft.pages.flatMap(page=>page.elements).filter(element=>{const state=narrativeState(element,draft.pages);return state && !state.current;});
   if(pendingClaims.length) fail('Review the original report’s stale linked claims before using it as a reporting template.');
   const mapped=new Map<string,ImportedDatasetField>();
+  const explicitMappings=options.mappings ? clone(options.mappings) : undefined;
+  if(explicitMappings && (new Set(explicitMappings.map(item=>item.sourceFieldId)).size!==explicitMappings.length || explicitMappings.some(item=>!source.fields.some(field=>field.id===item.sourceFieldId)))) fail("The field mapping contains duplicate or unknown source fields.");
   function mapField(field: ImportedDatasetField) {
+    if(explicitMappings){const validated=validateWaveMapping(source!,target!,field,explicitMappings);mapped.set(field.id,validated.field);return validated.field;}
     const matches=target!.fields.filter(candidate=>candidate.sourceColumn===field.sourceColumn);
     if(matches.length!==1 || source!.fields.filter(candidate=>candidate.sourceColumn===field.sourceColumn).length!==1 || fieldContext(field)!==fieldContext(matches[0]))
       fail(`Review the question or answer mapping for “${field.label}” (${field.sourceColumn}). Exact, unambiguous metadata is required; no field was substituted.`);
@@ -116,7 +121,14 @@ export async function previewReportRefresh(context: ReportRefreshContext, target
     const oldResult=runImportedDatasetQuery(oldConfig);
     if(!sameCells(tile.result,oldResult))fail(`“${tile.title || tile.name}” no longer matches its source. Refresh and review the original analysis first.`);
     const config={...oldConfig,dataset:target,field:oldConfig.groupingScope==='all_respondents'?allRespondentsGroupingField(target):mapField(oldConfig.field),measureField:oldConfig.measureField?mapField(oldConfig.measureField):null,bannerField:oldConfig.bannerField?mapField(oldConfig.bannerField):null,filter:oldConfig.filter?{field:mapField(oldConfig.filter.field),value:oldConfig.filter.value}:null};
+    if(explicitMappings && oldConfig.filter) fail('Filters require a separate category review; remove the filter in a separate report copy before mapping renamed categories.');
     const result=withSafeInference(runImportedDatasetQuery(config)),before=cells(oldResult),after=cells(result);
+    if(explicitMappings){
+      const remap=(raw:string,fieldId:string|undefined)=>{if(!fieldId)return raw;const entry=explicitMappings.find(item=>item.sourceFieldId===fieldId);const value=JSON.parse(raw);if(value===null)return raw;const category=entry?.categories.find(item=>item.target===value);return category?JSON.stringify(category.source):raw;};
+      const aligned=new Map<string,WaveCellChange>();
+      for(const [key,value] of after){const [row,column]=JSON.parse(key);aligned.set(JSON.stringify([remap(row,oldConfig.groupingScope==='all_respondents'?undefined:oldConfig.field.id),column==='summary'?column:remap(column,oldConfig.bannerField?.id)]),value);}
+      after.clear();for(const [key,value] of aligned)after.set(key,value);
+    }
     if(!getCompatibleChartTypes(result).includes(tile.visualization))fail('The new results are incompatible with the original chart. Review the visualization in a separate copy first.');
     const changes=[...new Set([...before.keys(),...after.keys()])].map(key=>{const a=before.get(key),b=after.get(key);return{label:b?.label??a!.label,before:a?.before??null,after:b?.before??null,beforeBase:a?.beforeBase??null,afterBase:b?.beforeBase??null,unit:(a??b)!.unit};});
     totalPreviewCells+=changes.length;if(totalPreviewCells>5_000)fail('The combined report preview exceeds 5,000 cells. Review a smaller report rather than truncating its results.');
@@ -129,8 +141,8 @@ export async function previewReportRefresh(context: ReportRefreshContext, target
   next.id=`wave-report-${crypto.randomUUID()}`;next.title=title.trim();next.status='draft';next.publishMetadata={publishCount:0,versionLabel:'Draft'};
   // The writer must retain every embedded source at workspace level before dropping draft copies.
   next.importedDatasets=[];
-  next.waveRefresh={version:1,sourceReportId:draft.id,sourceReportTitle:draft.title,sourceStudy:{datasetId:source.id,importedAt:source.importedAt},targetStudy:{datasetId:target.id,importedAt:target.importedAt},fieldMappings:[...mapped].map(([id,field])=>({sourceFieldId:id,targetFieldId:field.id,sourceColumn:field.sourceColumn})),declaration:'The user reviewed the mappings, descriptive result changes, retained claims and libraries, and question meaning, sampling and populations. This is not statistical validation or publication approval.'};
-  const preview:ReportRefreshPreview={sourceTitle:source.title,targetTitle:target.title,reportTitle:next.title,mappings:[...mapped].map(([id,field])=>({column:field.sourceColumn,label:source.fields.find(item=>item.id===id)!.label})),analyses,
+  next.waveRefresh={version:1,sourceReportId:draft.id,sourceReportTitle:draft.title,sourceStudy:{datasetId:source.id,importedAt:source.importedAt},targetStudy:{datasetId:target.id,importedAt:target.importedAt},categoryMappings:explicitMappings,fieldMappings:[...mapped].map(([id,field])=>({sourceFieldId:id,targetFieldId:field.id,sourceColumn:field.sourceColumn})),declaration:'The user reviewed the mappings, descriptive result changes, retained claims and libraries, and question meaning, sampling and populations. This is not statistical validation or publication approval.'};
+  const preview:ReportRefreshPreview={sourceTitle:source.title,targetTitle:target.title,reportTitle:next.title,mappings:[...mapped].map(([id,field])=>({column:field.sourceColumn,label:source.fields.find(item=>item.id===id)!.label,targetLabel:field.label,categories:explicitMappings?.find(item=>item.sourceFieldId===id)?.categories??[]})),analyses,
     retainedText:draft.pages.flatMap(page=>[`Page title: ${page.title}`,...page.tiles.map(tile=>`Analysis title: ${tile.title||tile.name}`),...page.elements.filter(element=>element.type==='text').map(element=>element.content)]),
     retainedLibraryReferences:[...new Set(draftImportedStudyReferences({...draft,pages:[],importedDatasets:[]}).map(ref=>ref.location))],
     linkedClaims:draft.pages.flatMap(page=>page.elements).filter(element=>element.evidence!==undefined).length};
