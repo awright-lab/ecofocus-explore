@@ -1,5 +1,7 @@
 # Report navigator acceptance record
 
+**PR #5 regression follow-up:** see [follow-up validation](FOLLOWUP.md) for the reserved-ID and active-page fixes, 68 passing focused tests, typecheck and targeted actual-App Chromium checks. The original full-suite/build/scale/zoom results below describe implementation `e4a564f`; they were not rerun for this follow-up.
+
 Base: `origin/codex/beta-reliability-audit` verified at `0d155ffc7919155e90036e8e90dd70533a5dfb04`. Work is isolated on `feat/report-navigator`; existing workspace changes and PRs #2–#4 are not incorporated or altered.
 
 ## Local browser reproduction

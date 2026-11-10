@@ -1,0 +1,41 @@
+{
+  "recordedAt": "2026-11-10T21:36:56.058384+00:00",
+  "parentCommit": "aa6cca634123a45cb27b8864fb279ab81d68ccd8",
+  "sourceSha256": {
+    "src/features/builder/components/ReportPageTree.tsx": "4201b6bfbcd879049267946c1c01cf6a1cbe0c2a9782b7e46d396e10275d1542",
+    "src/features/builder/components/__tests__/ReportNavigatorOutlineRegressions.test.tsx": "789c11cac3aaea0d1db788ed54f07b09c176550f809e6244be8fe5276b35c50f",
+    "docs/validation/report-navigator/verify-outline-followup.mjs": "d15dd9fc6a8aa0d01dfc4eb2793e6169e932e24773d9aaae9656316268f7b130"
+  },
+  "focused": {
+    "filesPassed": 10,
+    "testsPassed": 68,
+    "exitCode": 0,
+    "flags": "--maxWorkers=2 --testTimeout=20000"
+  },
+  "typecheck": {
+    "command": "npm run typecheck",
+    "exitCode": 0
+  },
+  "browser": {
+    "runner": "verify-outline-followup.mjs",
+    "new": "followup-browser-new.json",
+    "duplicate": "followup-browser-duplicate.json",
+    "exitCode": 0,
+    "viewport": "1680x1050",
+    "freshProfiles": true
+  },
+  "notRerun": [
+    "full suite",
+    "production build",
+    "100-page browser scale journey",
+    "narrow and 200% browser zoom",
+    "automated accessibility-tree audit"
+  ],
+  "notVerified": [
+    "actual screen reader",
+    "touch",
+    "Firefox/Safari",
+    "live providers"
+  ],
+  "diffWhitespaceAndScopeChecks": true
+}

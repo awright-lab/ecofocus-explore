@@ -94,10 +94,11 @@ export function ReportPageTree({
   deletePageById,
   movePage
 }: ReportPageTreeProps) {
-  const [navigatorQuery, setNavigatorQuery] = useState<string | null>(null);
-  const [pageBatch, setPageBatch] = useState(0);
-  const [objectBatches, setObjectBatches] = useState<Record<string, number>>({});
   const pageBatchSize = 12, objectBatchSize = 25;
+  const [navigatorQuery, setNavigatorQuery] = useState<string | null>(null);
+  const [pageBatch, setPageBatch] = useState(() => Math.max(0, Math.floor(sortedPages.findIndex(page => page.id === activePage.id) / pageBatchSize)));
+  const followedActivePageId = useRef(activePage.id);
+  const [objectBatches, setObjectBatches] = useState<Map<string, number>>(() => new Map());
   const [pageSearch, setPageSearch] = useState("");
   const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -117,6 +118,12 @@ export function ReportPageTree({
   const normalizedSearch = pageSearch.trim().toLowerCase();
   const search = searchReportObjects(sortedPages, pageSearch);
   const visiblePages = search.pages;
+  useLayoutEffect(() => {
+    if (followedActivePageId.current === activePage.id) return;
+    followedActivePageId.current = activePage.id;
+    const position = visiblePages.findIndex(page => page.id === activePage.id);
+    if (position >= 0) setPageBatch(Math.floor(position / pageBatchSize));
+  });
   const currentBatch = Math.min(pageBatch, Math.max(0, Math.ceil(visiblePages.length / pageBatchSize) - 1));
   const [searchIssue, setSearchIssue] = useState("");
   const searchResultNodes = useRef(new Map<string, HTMLButtonElement>());
@@ -299,7 +306,7 @@ export function ReportPageTree({
           const isExpanded = expandedPageIds.includes(page.id);
           const objectListId = `${outlineId}-objects-${pageIndex}`;
           const pageObjects = isExpanded ? [...page.tiles, ...page.elements].sort((first, second) => first.layout.zIndex - second.layout.zIndex) : [];
-          const objectBatch = Math.min(objectBatches[page.id] ?? 0, Math.max(0, Math.ceil(pageObjects.length / objectBatchSize) - 1));
+          const objectBatch = Math.min(objectBatches.get(page.id) ?? 0, Math.max(0, Math.ceil(pageObjects.length / objectBatchSize) - 1));
 
           return (
             <div className={page.id === activePage.id ? "report-page-group active" : "report-page-group"} key={page.id}>
@@ -450,7 +457,7 @@ export function ReportPageTree({
                       );
                     })
                   )}
-                  {pageObjects.length > objectBatchSize && <NavigatorPagination page={objectBatch} total={pageObjects.length} size={objectBatchSize} label={`Objects on page ${page.order} pagination`} onChange={next => setObjectBatches(current => ({ ...current, [page.id]: next }))} />}
+                  {pageObjects.length > objectBatchSize && <NavigatorPagination page={objectBatch} total={pageObjects.length} size={objectBatchSize} label={`Objects on page ${page.order} pagination`} onChange={next => setObjectBatches(current => new Map(current).set(page.id, next))} />}
                 </div>
               )}
             </div>
