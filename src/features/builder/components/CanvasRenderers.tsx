@@ -1,3 +1,4 @@
+import { dotIntervals } from "../../analytics/dotPlotIntervals";
 import { formatPercentageNumber } from "../../../../shared/analytics/percentagePrecision";
 import { getBarStyle, chartGradientId, chartPaint, chartHasConicFill } from "../../design-system/chartPaint";
 import { narrativeDisplayText } from "../../narratives/narrativeEvidence";
@@ -1621,6 +1622,7 @@ export function TableView({ tile }: { tile: DashboardTile }) {
 }
 
 export function ChartView({ tile }: { tile: DashboardTile }) {
+  if(tile.visualization!=="dot_plot" && tile.appearance.dotPlotIntervals!==undefined){try{dotIntervals(tile);}catch(error){return <p role="status">{error instanceof Error?error.message:'Individual intervals cannot be represented safely. Turn them off or review the recorded analysis.'}</p>;}}
   tile = { ...tile, result: withSafeInference(tile.result) };
   if (chartHasConicFill(tile)) return <p role="status">Conic fills cannot yet be rendered faithfully. Choose a solid, linear or radial fill to view or export this chart. Your analysis and styling are retained.</p>;
   if (tile.visualization === "table") return <TableView tile={tile} />;

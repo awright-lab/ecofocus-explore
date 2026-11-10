@@ -6,6 +6,6 @@ export function DotPlotIntervalControl({tile,onChange}:{tile:DashboardTile;onCha
   catch (error) { issue = error instanceof Error ? error.message : "Intervals are unavailable."; }
   const enabled = tile.appearance.dotPlotIntervals !== undefined;
   return <div><label><input type="checkbox" aria-label="Show individual 95% Wilson intervals" checked={enabled} disabled={!enabled && !!issue} onChange={event=>onChange({dotPlotIntervals:event.target.checked?{method:dotIntervalMethod,binding}:undefined})}/>
-    I confirm independent, unweighted respondents: show individual 95% Wilson intervals
-  </label><small>{dotIntervalExplanation}</small>{issue && <p role="status">{issue}</p>}</div>;
+    I confirm independent, unweighted respondents without a complex survey design: show individual 95% Wilson intervals
+  </label><small>{dotIntervalExplanation} Intervals are chart overlays; analytical Excel retains values and bases, not these interval drawings. Rendered outputs must fit the complete chart or refuse it.</small>{issue && <p role="status">{issue}</p>}</div>;
 }

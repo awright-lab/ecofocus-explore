@@ -1,3 +1,4 @@
+import { dotIntervals, dotIntervalLabel, dotIntervalSvg, dotIntervalExplanation } from "./dotPlotIntervals";
 import type {DashboardTile} from "../../../shared/types/dashboard";
 import {ownAxisLabel} from "../design-system/axisLabels";
 import {chartColor} from "../design-system/reportColors";
@@ -26,7 +27,7 @@ export function comparisonPlotSvg(tile:DashboardTile, area:Area, format:(value:n
  const model=buildDotPlotModel(tile.result);if(model.status!=="ready")throw Error(model.reason);
  const slope=tile.appearance.dotPlotLayout==="slope";
  if(!slope&&tile.appearance.dotPlotLayout!=="small_multiples")throw Error("Choose a supported comparison layout.");
- if(tile.appearance.dotPlotIntervals!==undefined)throw Error("Choose Separate series before showing intervals; comparison layouts do not show intervals.");
+ const intervals=dotIntervals(tile);
  const a=tile.appearance,axis=a.axisFontSize,valueSize=a.labelFontSize;
  if(![area.x,area.y,area.width,area.height,axis,valueSize].every(Number.isFinite)||axis<=0||valueSize<=0||area.width<200||area.height<100||area.width>16384||area.height>16384)throw Error("The comparison chart needs a valid area within 16,384 pixels per side and valid type sizes.");
  const rows=tile.result.table,cols=tile.result.columns;
@@ -34,10 +35,10 @@ export function comparisonPlotSvg(tile:DashboardTile, area:Area, format:(value:n
  const names=rows.map(r=>ownAxisLabel(a,r.optionId)??r.label),series=cols.map(c=>ownAxisLabel(a,c.id)??c.label);
  if([...names,...series].some(n=>n.length>4096))throw Error("A comparison display label is too long. Shorten its display alias; the source was retained.");
  const prefix=tile.result.weighting.applied?"W":tile.result.query.weight?"base (weight unconfirmed)":"n";
- const printed=model.cells.map(row=>row.map(cell=>`${format(cell.value)}${a.showBases?`; ${cell.base===null?'base unavailable':`${prefix}=${cell.base}`}`:''}`));
+ const printed=model.cells.map((row,r)=>row.map((cell,c)=>`${format(cell.value)}${a.showBases?`; ${cell.base===null?'base unavailable':`${prefix}=${cell.base}`}`:''}${intervals?`; ${a.showBases?'':`n=${intervals[r][c].base}; `}${dotIntervalLabel(intervals[r][c])}`:''}`));
  const char=(s:string)=>Array.from(s).length,axisLine=axis*1.5,valueLine=valueSize*1.5;
  const low=format(model.minimum),high=format(model.maximum),grid=xml(solid(a.gridColor));
- const cellGroup=(r:number,c:number,body:string)=>`<g data-dot-row="${xml(rows[r].optionId)}" data-dot-column="${xml(cols[c].id)}" data-dot-value="${model.cells[r][c].value??'unavailable'}" data-dot-base="${model.cells[r][c].base??'unavailable'}"><title>${xml(`${names[r]} / ${series[c]}: ${printed[r][c]}`)}</title>${body}</g>`;
+ const cellGroup=(r:number,c:number,body:string)=>`<g data-dot-row="${xml(rows[r].optionId)}" data-dot-column="${xml(cols[c].id)}" data-dot-value="${model.cells[r][c].value??'unavailable'}" data-dot-base="${model.cells[r][c].base??'unavailable'}"><title>${xml(`${names[r]} / ${series[c]}: ${printed[r][c]}${intervals?`; ${intervals[r][c].events} events / ${intervals[r][c].base} valid respondents${intervals[r][c].base>0&&intervals[r][c].base<30?'; Small valid base: interpret cautiously':''}`:''}`)}</title>${body}</g>`;
  let svg="";
  if(!slope){
   const longestWord=Math.max(...names.flatMap(n=>n.split(/\s+/u).map(char)));
@@ -66,7 +67,8 @@ export function comparisonPlotSvg(tile:DashboardTile, area:Area, format:(value:n
    rows.forEach((_,r)=>{
     const height=rowHeights[r],cy=top+height/2,cell=model.cells[r][c];
     wrapped[r].forEach((line,i)=>svg+=text(line,x,top+(height-wrapped[r].length*axisLine)/2+axis+i*axisLine,axis,a.yAxisTextColor));
-    let body=cell.fraction===null?'':marker(c,plotX+cell.fraction*plotWidth,cy,color);
+    let body=intervals?dotIntervalSvg(intervals[r][c],cy,fraction=>plotX+fraction*plotWidth,xml(solid(color))):'';
+    if(cell.fraction!==null)body+=marker(c,plotX+cell.fraction*plotWidth,cy,color);
     if(a.showValueLabels)body+=text(printed[r][c],plotX+plotWidth+12,cy+valueSize*.35,valueSize,a.labelColor);
     svg+=cellGroup(r,c,body);top+=height;
    });
@@ -113,5 +115,5 @@ export function comparisonPlotSvg(tile:DashboardTile, area:Area, format:(value:n
    });
   });svg+='</g>';
  }
- return `<g data-dot-layout="${slope?'slope':'small_multiples'}" data-dot-min="${model.minimum}" data-dot-max="${model.maximum}">${svg}</g>`;
+ return `<g data-dot-layout="${slope?'slope':'small_multiples'}" data-dot-min="${model.minimum}" data-dot-max="${model.maximum}">${intervals?`<desc>${xml(dotIntervalExplanation)}</desc>`:''}${svg}</g>`;
 }

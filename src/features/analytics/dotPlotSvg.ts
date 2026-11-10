@@ -2,7 +2,7 @@ import type { DashboardTile } from "../../../shared/types/dashboard";
 import { ownAxisLabel } from "../design-system/axisLabels";
 import { chartColor } from "../design-system/reportColors";
 import { buildDotPlotModel } from "./dotPlotModel";
-import { dotIntervals, dotIntervalLabel } from "./dotPlotIntervals";
+import { dotIntervals, dotIntervalLabel, dotIntervalSvg, dotIntervalExplanation } from "./dotPlotIntervals";
 
 import {DotPlotFitError, xml, solid, text, wrap, marker, type Area} from "./plotSvgPrimitives";
 import {comparisonPlotSvg} from "./comparisonPlotSvg";
@@ -24,7 +24,7 @@ export function dotPlotSvg(tile: DashboardTile, area: Area, format: (value: numb
   if([...names,...series].some(name=>name.length>4096))throw Error('A dot-plot display label is too long. Shorten its display alias; the source was retained.');
   const left=Math.max(70,Math.min(area.width*.28,Math.max(...names.map(n=>Array.from(n).length))*axis*1.1+12));
   const basePrefix=tile.result.weighting.applied?'W':tile.result.query.weight?'base (weight unconfirmed)':'n';
-  const printed=model.cells.map((row,r)=>row.map((cell,c)=>`${format(cell.value)}${tile.appearance.showBases?`; ${cell.base===null?'base unavailable':`${basePrefix}=${cell.base}`}`:''}${intervals?`; ${dotIntervalLabel(intervals[r][c])}`:''}`));
+  const printed=model.cells.map((row,r)=>row.map((cell,c)=>`${format(cell.value)}${tile.appearance.showBases?`; ${cell.base===null?'base unavailable':`${basePrefix}=${cell.base}`}`:''}${intervals?`; ${tile.appearance.showBases?'':`n=${intervals[r][c].base}; `}${dotIntervalLabel(intervals[r][c])}`:''}`));
   const right=tile.appearance.showValueLabels?Math.max(70,...printed.flat().map(v=>Array.from(v).length*valueSize*1.1+12))+(paired?26:0):8;
   const plot={x:area.x+left,y:area.y,width:area.width-left-right-16};
   if(plot.width<100)throw Error('Dot-plot labels and values cannot fit at the selected type sizes. Enlarge the chart, shorten display aliases or hide value labels; nothing was omitted.');
@@ -49,17 +49,15 @@ export function dotPlotSvg(tile: DashboardTile, area: Area, format: (value: numb
   rows.forEach((row,r)=>{
     const height=rowHeights[r];wrapped[r].forEach((line,n)=>svg+=text(line,area.x,top+(height-wrapped[r].length*axisLine)/2+axis+n*axisLine,axis,tile.appearance.yAxisTextColor));
     const pairY=top+height/2,first=model.cells[r][0],second=model.cells[r][1];
-    if(paired&&first.fraction!==null&&second.fraction!==null)svg+=`<line data-dot-pair="${xml(row.optionId)}" x1="${coordinate(first.fraction)}" x2="${coordinate(second.fraction)}" y1="${pairY}" y2="${pairY}" stroke="${xml(solid(tile.appearance.labelColor))}" stroke-opacity="0.45" stroke-width="1.5"/>`;
+    const laneY=(c:number)=>top+(height-columns.length*pointLine)/2+(c+.5)*pointLine;
+    if(paired&&first.fraction!==null&&second.fraction!==null)svg+=`<line data-dot-pair="${xml(row.optionId)}" x1="${coordinate(first.fraction)}" x2="${coordinate(second.fraction)}" y1="${intervals?laneY(0):pairY}" y2="${intervals?laneY(1):pairY}" stroke="${xml(solid(tile.appearance.labelColor))}" stroke-opacity="0.45" stroke-width="1.5"/>`;
     model.cells[r].forEach((cell,c)=>{
       const cy=top+(height-columns.length*pointLine)/2+(c+.5)*pointLine;
-      const intervalCell = intervals?.[r][c], interval = intervalCell?.interval;
-      const detail=`${names[r]} / ${series[c]}: ${printed[r][c]}${intervalCell?`; ${intervalCell.events} events / ${intervalCell.base} valid respondents`:''}`;
+      const intervalCell = intervals?.[r][c];
+      const detail=`${names[r]} / ${series[c]}: ${printed[r][c]}${intervalCell?`; ${intervalCell.events} events / ${intervalCell.base} valid respondents${intervalCell.base>0&&intervalCell.base<30?'; Small valid base: interpret cautiously':''}`:''}`;
       svg+=`<g data-dot-row="${xml(row.optionId)}" data-dot-column="${xml(columns[c].id)}" data-dot-value="${cell.value??'unavailable'}" data-dot-base="${cell.base??'unavailable'}"><title>${xml(detail)}</title>`;
-      if(interval){
-        const lo=coordinate(interval.lower),hi=coordinate(interval.upper),stroke=xml(solid(colors[multi?c:r]));
-        svg+=`<g data-dot-interval="wilson95" data-lower="${interval.lower}" data-upper="${interval.upper}" data-events="${intervalCell!.events}" data-valid-base="${intervalCell!.base}"><line x1="${lo}" x2="${hi}" y1="${cy}" y2="${cy}" stroke="${stroke}" stroke-width="2"/><path d="M${lo} ${cy-5}v10M${hi} ${cy-5}v10" stroke="${stroke}" stroke-width="2" fill="none"/></g>`;
-      }
-      if(cell.fraction!==null)svg+=marker(multi?c:0,coordinate(cell.fraction),paired?pairY:cy,colors[multi?c:r],paired);
+      if(intervalCell)svg+=dotIntervalSvg(intervalCell,cy,coordinate,xml(solid(colors[multi?c:r])));
+      if(cell.fraction!==null)svg+=marker(multi?c:0,coordinate(cell.fraction),paired&&!intervals?pairY:cy,colors[multi?c:r],paired);
       if(tile.appearance.showValueLabels){
         if(paired)svg+=`<g data-dot-label-marker="${xml(columns[c].id)}">${marker(c,plot.x+plot.width+22,cy,colors[c],true)}</g>`;
         svg+=text(printed[r][c],plot.x+plot.width+(paired?36:12),cy+valueSize*.35,valueSize,tile.appearance.labelColor);
@@ -67,7 +65,7 @@ export function dotPlotSvg(tile: DashboardTile, area: Area, format: (value: numb
       svg+='</g>';
     });top+=height;
   });
-  return `<g${paired?' data-dot-layout="paired"':''} data-dot-min="${model.minimum}" data-dot-max="${model.maximum}" data-dot-x="${plot.x}" data-dot-width="${plot.width}">${svg}</g>`;
+  return `<g${paired?' data-dot-layout="paired"':''} data-dot-min="${model.minimum}" data-dot-max="${model.maximum}" data-dot-x="${plot.x}" data-dot-width="${plot.width}">${intervals?`<desc>${xml(dotIntervalExplanation)}</desc>`:''}${svg}</g>`;
 }
 
 /** Canvas/thumbnail may scroll a taller complete drawing; fixed-page exports cannot. */
