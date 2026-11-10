@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-11-10T21:17:22.482704+00:00",
+  "base": "0d155ffc7919155e90036e8e90dd70533a5dfb04",
+  "testedImplementation": "e4a564ff8b33ac2fb0bad781564dceae0b666a75",
+  "focused": {
+    "filesPassed": 9,
+    "testsPassed": 60,
+    "exitCode": 0
+  },
+  "full": {
+    "command": "npm test -- --maxWorkers=2 --testTimeout=20000 --reporter=verbose",
+    "filesPassed": 412,
+    "filesSkipped": 1,
+    "testsPassed": 5588,
+    "testsSkipped": 2,
+    "durationSeconds": 729.9,
+    "exitCode": 0,
+    "defaultTimeoutsSeparatelyVerified": false
+  },
+  "skips": [
+    {
+      "test": "src/features/export/__tests__/visualCompleteness.test.ts: actual offline raster and document generation",
+      "reason": "Optional Sharp raster runtime not configured (ECOFOCUS_EXPORT_RUNTIME)."
+    },
+    {
+      "test": "shared/analytics/__tests__/snowflakeIntegration.test.ts",
+      "reason": "Opt-in live integration disabled (SNOWFLAKE_VERIFY_INTEGRATION); no live service or credentials used."
+    }
+  ],
+  "typecheck": {
+    "command": "npm run typecheck",
+    "exitCode": 0
+  },
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "warning": "Vite reports chunks larger than 500 kB."
+  },
+  "browser": {
+    "runner": "verify-browser.mjs",
+    "results": "browser-results.json",
+    "exitCode": 0,
+    "actualScreenReaderTesting": false
+  },
+  "diffWhitespaceCheck": true,
+  "forbiddenPathCheck": true,
+  "frozenSourceUnchanged": true
+}
