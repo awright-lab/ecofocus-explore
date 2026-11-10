@@ -1,9 +1,9 @@
 import { planPptxLayers } from "./pptxLayerPlan";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
-import { buildPageVisualSvg, dataUrlToBytes, renderPageVisualImages, type PageVisualImage, type SvgRasterizer } from "./pageVisualExport";
-import { buildEditableSlideReconstruction, canReconstructElementInPptx } from "./pptxEditableReconstruction";
-import { buildNativePptxChartDescriptor, canReconstructTileAsNativePptxChart, type PptxNativeChartDescriptor } from "./pptxNativeCharts";
+import { buildPageVisualSvg, dataUrlToBytes, renderPageVisualImages, type SvgRasterizer } from "./pageVisualExport";
+import { editableElementXml } from "./pptxEditableReconstruction";
+import { buildNativePptxChartDescriptor, type PptxNativeChartDescriptor } from "./pptxNativeCharts";
 import { buildZip } from "./zip";
 import type { DashboardDraft, DashboardPage } from "../../../shared/types/dashboard";
 import { assertExportResultsCurrent, assertSpreadsheetText, spreadsheetColumnName } from "./exportIntegrity";
@@ -40,10 +40,6 @@ function visiblePages(pages: DashboardPage[]) {
   return [...pages].sort((a, b) => a.order - b.order);
 }
 
-function visibleTiles(page: DashboardPage) {
-  return page.tiles.filter((tile) => !tile.hidden).sort((a, b) => a.layout.zIndex - b.layout.zIndex);
-}
-
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -53,48 +49,57 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-function visualSlideXml(image: PageVisualImage, index: number, editableXml = "", nativeChartXml = "") {
-  return `${xmlHeader}<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name="Slide ${index}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:pic><p:nvPicPr><p:cNvPr id="2" name="${escapeXml(image.title || `Page ${index}`)} visual fallback"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${slideCx}" cy="${slideCy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>${nativeChartXml}${editableXml}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+function pictureXml(name: string, shapeId: number, relationshipId: string) {
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${shapeId}" name="${escapeXml(name)}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${slideCx}" cy="${slideCy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
 }
-
-function visualSlideRels(index: number, nativeCharts: PptxNativeChartDescriptor[]) {
-  const chartRels = nativeCharts.map((chart) => `<Relationship Id="${chart.slideRelationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart${chart.chartId}.xml"/>`).join("");
-  return `${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/page${index}.jpg"/>${chartRels}</Relationships>`;
+function visualSlideXml(index: number, layers: string) {
+  return `${xmlHeader}<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name="Slide ${index}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${layers}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
 }
 
 export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer) {
-  assertExportResultsCurrent(pages);
-  const sortedPages = visiblePages(pages);
-  // Validate complete raster bodies as well as native data before any rendering.
+  // Export is a read-only snapshot, including across asynchronous rasterization.
+  const sortedPages = visiblePages(structuredClone(pages));
+  assertExportResultsCurrent(sortedPages);
   sortedPages.forEach(page => buildPageVisualSvg(page));
-  const layerPlans = sortedPages.map(planPptxLayers);
-  // Keep the authored render together when splitting the slide into image,
-  // native-chart and editable-object layers would reverse overlapping content.
-  const pageImages = await Promise.all(sortedPages.map(async (page, index) => (
-    await renderPageVisualImages([page], {
-      rasterizeSvg,
-      includeElement: (element) => layerPlans[index].mode === "complete_visual" || !canReconstructElementInPptx(element),
-      includeTileBody: (tile) => layerPlans[index].mode === "complete_visual" || !canReconstructTileAsNativePptxChart(tile)
-    })
-  )[0]));
-  const slideIds = pageImages.map((_, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join("");
-  const rels = pageImages.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("");
   let nextChartId = 1;
-  const chartDescriptorsBySlide = sortedPages.map((page, pageIndex) => (
-    layerPlans[pageIndex].mode === "complete_visual" ? [] : visibleTiles(page)
-      .filter(canReconstructTileAsNativePptxChart)
-      .map((tile, tileIndex) => {
-        const chartId = nextChartId;
-        nextChartId += 1;
-        return buildNativePptxChartDescriptor(tile, chartId, 3 + page.elements.filter(canReconstructElementInPptx).length + tileIndex, `rId${tileIndex + 2}`);
-      })
-  ));
+  const slides: Array<{ xml: string; relationships: string; images: Array<{path:string;content:Uint8Array}>; charts:PptxNativeChartDescriptor[] }> = [];
+  for (const [pageIndex,page] of sortedPages.entries()) {
+    const plan=planPptxLayers(page), objects:string[]=[], relations:string[]=[], images:Array<{path:string;content:Uint8Array}>=[], charts:PptxNativeChartDescriptor[]=[];
+    let shapeId=2, relationshipId=1;
+    async function raster(name:string, options:Parameters<typeof renderPageVisualImages>[1], transparent:boolean) {
+      const image=(await renderPageVisualImages([page],{...options,rasterizeSvg,transparent}))[0];
+      if(transparent && !image.dataUrl.startsWith('data:image/png;base64,'))throw new Error('Transparent PowerPoint layers require PNG rasterization. No opaque replacement was exported.');
+      const extension=image.dataUrl.startsWith('data:image/png;base64,')?'png':'jpg';
+      const path=`ppt/media/page${pageIndex+1}-layer${images.length+1}.${extension}`,rid=`rId${relationshipId++}`;
+      images.push({path,content:dataUrlToBytes(image.dataUrl)});
+      relations.push(`<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${path.split('/').pop()}"/>`);
+      objects.push(pictureXml(name,shapeId++,rid));
+    }
+    if(plan.mode==='complete_visual')await raster(`${page.title} visual fallback`,{},false);
+    else for(const layer of plan.layers) {
+      if(layer.kind==='element'&&layer.editable)objects.push(editableElementXml(layer.element,shapeId++));
+      else if(layer.kind==='background')await raster(`${page.title} background`,{includeElement:()=>false,includeTile:()=>false},true);
+      else if(layer.kind==='element')await raster(layer.element.name||layer.element.type,{includeBackground:false,includeElement:element=>element.id===layer.element.id,includeTile:()=>false},true);
+      else {
+        await raster(`${layer.tile.title||layer.tile.name}${layer.native?' context':''}`,{includeBackground:false,includeElement:()=>false,includeTile:tile=>tile.id===layer.tile.id,includeTileBody:()=>!layer.native},true);
+        if(layer.native){
+          const rid=`rId${relationshipId++}`,chart=buildNativePptxChartDescriptor(layer.tile,nextChartId++,shapeId++,rid);
+          charts.push(chart);objects.push(chart.graphicFrameXml);
+          relations.push(`<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart${chart.chartId}.xml"/>`);
+        }
+      }
+    }
+    slides.push({xml:visualSlideXml(pageIndex+1,objects.join('')),relationships:`${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relations.join('')}<Relationship Id="rId${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>`,images,charts});
+  }
+  const chartDescriptorsBySlide=slides.map(slide=>slide.charts);
+  const slideIds=slides.map((_,index)=>`<p:sldId id="${256+index}" r:id="rId${index+1}"/>`).join('');
+  const rels=slides.map((_,index)=>`<Relationship Id="rId${index+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index+1}.xml"/>`).join('');
   const chartOverrides = chartDescriptorsBySlide.flat().map((chart) => `<Override PartName="/${chart.chartPath}" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`).join("");
-  const overrides = pageImages.map((_, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("");
+  const overrides = slides.map((_, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("");
   const files: Array<{ path: string; content: string | Uint8Array }> = [
     {
       path: "[Content_Types].xml",
-      content: `${xmlHeader}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>${overrides}${chartOverrides}</Types>`
+      content: `${xmlHeader}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>${overrides}${chartOverrides}</Types>`
     },
     {
       path: "_rels/.rels",
@@ -102,11 +107,11 @@ export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRa
     },
     {
       path: "ppt/presentation.xml",
-      content: `${xmlHeader}<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId${pageImages.length + 1}"/></p:sldMasterIdLst><p:sldIdLst>${slideIds}</p:sldIdLst><p:sldSz cx="${slideCx}" cy="${slideCy}" type="custom"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`
+      content: `${xmlHeader}<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId${slides.length + 1}"/></p:sldMasterIdLst><p:sldIdLst>${slideIds}</p:sldIdLst><p:sldSz cx="${slideCx}" cy="${slideCy}" type="custom"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`
     },
     {
       path: "ppt/_rels/presentation.xml.rels",
-      content: `${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}<Relationship Id="rId${pageImages.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/></Relationships>`
+      content: `${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}<Relationship Id="rId${slides.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/></Relationships>`
     },
     {
       path: "ppt/slideMasters/slideMaster1.xml",
@@ -122,15 +127,11 @@ export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRa
     }
   ];
 
-  pageImages.forEach((image, index) => {
-    const editable = layerPlans[index].mode === "complete_visual" ? { editableXml: "" } : buildEditableSlideReconstruction(sortedPages[index], 3);
-    const nativeCharts = chartDescriptorsBySlide[index];
-    files.push({ path: `ppt/slides/slide${index + 1}.xml`, content: visualSlideXml(image, index + 1, editable.editableXml, nativeCharts.map((chart) => chart.graphicFrameXml).join("")) });
-    files.push({ path: `ppt/slides/_rels/slide${index + 1}.xml.rels`, content: visualSlideRels(index + 1, nativeCharts) });
-    files.push({ path: `ppt/media/page${index + 1}.jpg`, content: dataUrlToBytes(image.dataUrl) });
-    nativeCharts.forEach((chart) => {
-      files.push({ path: chart.chartPath, content: chart.chartXml });
-    });
+  slides.forEach((slide,index)=>{
+    files.push({path:`ppt/slides/slide${index+1}.xml`,content:slide.xml});
+    files.push({path:`ppt/slides/_rels/slide${index+1}.xml.rels`,content:slide.relationships});
+    files.push(...slide.images);
+    slide.charts.forEach(chart=>files.push({path:chart.chartPath,content:chart.chartXml}));
   });
 
   return new Blob([buildZip(files)], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });

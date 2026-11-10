@@ -28,17 +28,17 @@ it.each(["hybrid", "overlap", "table"] as const)("matches actual PPTX slide XML 
  if (mode === "table") { tile.visualization = "table"; tile.query.chartType = "table"; tile.result.query.chartType = "table"; }
  const before = JSON.stringify(draft), review = reviewPptxEditability(page);
  expect(review.available).toBe(true); if (!review.available) throw Error("Missing review");
- const parts = await zipText(await buildPptxBlob([page], async () => "data:image/jpeg;base64,/9j/2Q==")), slide = parts.get("ppt/slides/slide1.xml")!;
+ const parts = await zipText(await buildPptxBlob([page], async () => "data:image/png;base64,iVBORw0KGgo=")), slide = parts.get("ppt/slides/slide1.xml")!;
  expect((slide.match(/<p:sp>/g) ?? []).length).toBe(review.editableObjects);
  expect((slide.match(/<p:graphicFrame>/g) ?? []).length).toBe(review.editableCharts);
- expect((slide.match(/<p:pic>/g) ?? []).length).toBe(1);
+ expect((slide.match(/<p:pic>/g) ?? []).length).toBe(2);
  expect(review.imageObjects + review.editableObjects + review.editableCharts).toBe(2);
  expect(buildReportPreflight(draft)[0].pptxEditability).toEqual(review);
  expect(JSON.stringify(draft)).toBe(before);
 });
 it("excludes hidden content and identifies individual image-only chart bodies", async () => {
  const { page, tile } = await fixture(); page.elements[0].hidden = true; tile.visualization = "dot_plot"; tile.query.chartType = "dot_plot"; tile.result.query.chartType = "dot_plot";
- expect(reviewPptxEditability(page)).toMatchObject({ editableObjects: 0, editableCharts: 0, imageObjects: 1, objects: [{ id: tile.id, mode: "Slide image" }] });
+ expect(reviewPptxEditability(page)).toMatchObject({ editableObjects: 0, editableCharts: 0, imageObjects: 1, objects: [{ id: tile.id, mode: "Image layer" }] });
  tile.hidden = true; expect(reviewPptxEditability(page)).toMatchObject({ objects: [], imageObjects: 0 });
 });
 it("bounds object details consistently with exporter policy", async () => {
@@ -66,6 +66,6 @@ it.each(["table", "dot_plot", "image", "empty"] as const)("does not advertise ed
  if (kind === "image") page.elements = [{ ...structuredClone(initialDashboard.pages[0].elements[0]), id: "image", name: "Synthetic image", type: "image", content: "data:image/png;base64,iVBORw0KGgo=", layout: { x: 20, y: 20, width: 100, height: 100, zIndex: 1 } }];
  const before = JSON.stringify(draft), review = reviewPptxEditability(page);
  expect(review).toMatchObject({ available: true, mode: "hybrid", editableObjects: 0, editableCharts: 0, imageObjects: kind === "empty" ? 0 : 1 });
- const parts = await zipText(await buildPptxBlob([page], async () => "data:image/jpeg;base64,/9j/2Q==")), slide = parts.get("ppt/slides/slide1.xml")!;
+ const parts = await zipText(await buildPptxBlob([page], async () => "data:image/png;base64,iVBORw0KGgo=")), slide = parts.get("ppt/slides/slide1.xml")!;
  expect(slide).not.toContain("<p:sp>"); expect(slide).not.toContain("<p:graphicFrame>"); expect(slide).toContain("<p:pic>"); expect(JSON.stringify(draft)).toBe(before);
 });

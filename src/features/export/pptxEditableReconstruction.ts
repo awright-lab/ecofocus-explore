@@ -52,13 +52,13 @@ function pptTextAlign(align: DashboardCanvasElement["style"]["textAlign"]) {
 
 function fillXml(element: DashboardCanvasElement) {
   if (element.style.fill === "transparent" || element.style.opacity <= 0) return "<a:noFill/>";
-  return `<a:solidFill><a:srgbClr val="${hexColor(element.style.fill)}"/></a:solidFill>`;
+  return `<a:solidFill><a:srgbClr val="${hexColor(element.style.fill)}"><a:alpha val="${Math.round(element.style.opacity*1000)}"/></a:srgbClr></a:solidFill>`;
 }
 
 function lineXml(element: DashboardCanvasElement) {
   if (element.style.borderStyle === "none" || element.style.borderWidth <= 0) return "<a:ln><a:noFill/></a:ln>";
   const dash = element.style.borderStyle === "dashed" ? "<a:prstDash val=\"dash\"/>" : element.style.borderStyle === "dotted" ? "<a:prstDash val=\"dot\"/>" : "";
-  return `<a:ln w="${Math.max(1, Math.round(element.style.borderWidth * 12700))}"><a:solidFill><a:srgbClr val="${hexColor(element.style.borderColor, "D9E2EA")}"/></a:solidFill>${dash}</a:ln>`;
+  return `<a:ln w="${Math.max(1, Math.round(element.style.borderWidth * 9525))}"><a:solidFill><a:srgbClr val="${hexColor(element.style.borderColor, "D9E2EA")}"><a:alpha val="${element.type === "text" ? 100000 : Math.round(element.style.opacity*1000)}"/></a:srgbClr></a:solidFill>${dash}</a:ln>`;
 }
 
 function textBodyXml(element: DashboardCanvasElement) {
@@ -79,6 +79,11 @@ function textBodyXml(element: DashboardCanvasElement) {
 
 export function canReconstructElementInPptx(element: DashboardCanvasElement) {
   if (element.hidden || !["text", "rectangle", "circle"].includes(element.type)) return false;
+  // Never replace an unsupported paint with the hex parser's default color.
+  const hex = (color: string) => /^#?(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color);
+  if (element.style.fill !== 'transparent' && !hex(element.style.fill)) return false;
+  if (!hex(element.style.borderColor) || !hex(element.style.textColor) || !Number.isFinite(element.style.opacity) || element.style.opacity < 0 || element.style.opacity > 100) return false;
+  if (element.type !== 'text' && element.content.trim()) return false;
   if (element.content.trim() && element.style.lineHeight !== undefined) {
     try { pptxTextLineSpacing(element.style.fontSize, element.style.lineHeight); }
     catch { return false; } // Keep supported SVG content in the slide image.
@@ -86,13 +91,14 @@ export function canReconstructElementInPptx(element: DashboardCanvasElement) {
   return true;
 }
 
-function editableElementXml(element: DashboardCanvasElement, shapeId: number) {
+export function editableElementXml(element: DashboardCanvasElement, shapeId: number) {
   const { x, y, width, height } = element.layout;
-  const preset = element.type === "circle" ? "ellipse" : "rect";
+  const preset = element.type === "circle" ? "ellipse" : element.style.borderRadius > 0 ? "roundRect" : "rect";
+  const adjustment = preset === "roundRect" ? `<a:gd name="adj" fmla="val ${Math.round(Math.min(0.5,element.style.borderRadius/Math.min(width,height))*100000)}"/>` : "";
   const textBox = element.type === "text" ? " txBox=\"1\"" : "";
   const noTextBody = element.content.trim() ? textBodyXml(element) : "";
 
-  return `<p:sp><p:nvSpPr><p:cNvPr id="${shapeId}" name="${escapeXml(element.name || element.type)}"/><p:cNvSpPr${textBox}/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toSlideX(x)}" y="${toSlideY(y)}"/><a:ext cx="${toSlideWidth(width)}" cy="${toSlideHeight(height)}"/></a:xfrm><a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>${fillXml(element)}${lineXml(element)}</p:spPr>${noTextBody}</p:sp>`;
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${shapeId}" name="${escapeXml(element.name || element.type)}"/><p:cNvSpPr${textBox}/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toSlideX(x)}" y="${toSlideY(y)}"/><a:ext cx="${toSlideWidth(width)}" cy="${toSlideHeight(height)}"/></a:xfrm><a:prstGeom prst="${preset}"><a:avLst>${adjustment}</a:avLst></a:prstGeom>${fillXml(element)}${lineXml(element)}</p:spPr>${noTextBody}</p:sp>`;
 }
 
 export function buildEditableSlideReconstruction(page: DashboardPage, firstShapeId: number): PptxEditableSlideReconstruction {

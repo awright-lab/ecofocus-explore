@@ -64,7 +64,7 @@ async function zipParts(blob: Blob) {
 it("routes the complete SVG to PDF rasterization and emits explicit spacing in the actual PPTX package", async () => {
  const { page, element } = fixture(); element.content = Array.from({ length: 10 }, (_, i) => `LINE-${i + 1}`).join("\n"); const before = structuredClone(page), svgs: string[] = [];
  const raster = async (svg: string) => { svgs.push(svg); return "data:image/jpeg;base64,/9j/2Q=="; }; await buildPdfBlob([page], raster); expect(svgs[0]).toBe(buildPageVisualSvg(page)); expect(positions(svgs[0])).toHaveLength(10);
- const parts = await zipParts(await buildPptxBlob([page], raster)); const slide = parts.get("ppt/slides/slide1.xml")!; expect(slide.match(/<a:lnSpc><a:spcPts val="3000"\/><\/a:lnSpc>/g)).toHaveLength(10); expect(slide).toContain("LINE-10"); expect(page).toEqual(before);
+ const parts = await zipParts(await buildPptxBlob([page], async()=>"data:image/png;base64,iVBORw0KGgo=")); const slide = parts.get("ppt/slides/slide1.xml")!; expect(slide.match(/<a:lnSpc><a:spcPts val="3000"\/><\/a:lnSpc>/g)).toHaveLength(10); expect(slide).toContain("LINE-10"); expect(page).toEqual(before);
 });
 
 it("accepts an exact fractional line-box boundary without allowing a height deficit", () => {
