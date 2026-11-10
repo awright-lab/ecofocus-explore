@@ -1,0 +1,44 @@
+{
+  "browser": "156.0.8078.4",
+  "fixture": {
+    "curated": 3,
+    "saved": 497,
+    "total": 500
+  },
+  "mountedPreviews": {
+    "closed": 0,
+    "gallery": 12,
+    "inspection": 1
+  },
+  "openMs": 291,
+  "searchMs": 69,
+  "lastMatchReached": true,
+  "duplicateNamesAndOpaqueIds": true,
+  "layerOrder": [
+    "shape-0",
+    "stored-analysis",
+    "text-0"
+  ],
+  "cachedAnalyticalValuesPreserved": true,
+  "browsingPreservedDraftSourceAndSnapshots": true,
+  "insertionCopyGeometryAndIdsVerified": true,
+  "undoRedoAndReloadVerified": true,
+  "saveSelectionEditDeleteVerified": true,
+  "narrow": {
+    "client": 372,
+    "scroll": 372
+  },
+  "nativeZoom": {
+    "factor": 2,
+    "cssViewport": "640x450",
+    "devicePixelRatio": 2,
+    "overflow": {
+      "client": 622,
+      "scroll": 622
+    }
+  },
+  "unnamedAccessibleControls": 0,
+  "errors": [],
+  "apiRequests": [],
+  "externalRequests": []
+}
