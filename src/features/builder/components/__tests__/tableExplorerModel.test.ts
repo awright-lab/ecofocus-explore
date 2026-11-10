@@ -20,3 +20,37 @@ it('withholds unsafe imported average bases and reports invalid base metadata wi
 it('bounds a50000x1000 recorded matrix using shared synthetic value maps without materializing50million cells',async()=>{const{tile}=await tableExplorerFixture(),columns=Array.from({length:1000},(_,i)=>({id:`c${i}`,label:`Column ${i}`})),values=Object.fromEntries(columns.map(column=>[column.id,42])),bases=Object.fromEntries(columns.map(column=>[column.id,100]));tile.result.columns=columns;tile.result.table=Array.from({length:50000},(_,i)=>({optionId:`r${i}`,label:`Answer ${i}`,values,bases}));const view=tableExplorerWindow(tile,{...selection,rowPage:1999,columnPage:124});expect(view.rows).toMatchObject({total:50000,start:49976,end:50000});expect(view.columns).toMatchObject({total:1000,start:993,end:1000});expect(view.rows!.positions.length*view.columns!.positions.length).toBe(tableExplorerLimits.rows*tableExplorerLimits.columns);expect(recordedTableCell(tile.result,tile.result.table[49999],'c999')).toMatchObject({value:'42',baseLabel:'n=100'});expect(tile.result.table[49999].values).toBe(values);});
 it('keeps the legacy full canvas table at its exact preview thresholds',async()=>{const{tile}=await tableExplorerFixture();tile.result.table=tile.result.table.slice(0,50);tile.result.columns=tile.result.columns.slice(0,12);expect(needsTableExplorer(tile.result)).toBe(false);tile.result.columns.push({id:'extra',label:'Extra'});expect(needsTableExplorer(tile.result)).toBe(true);});
 it('exports the complete2000-cell matrix after a single-cell display search without changing report data',async()=>{const{draft,tile}=await tableExplorerFixture(),before=structuredClone(draft);expect(tableExplorerWindow(tile,{...selection,rowSearch:'Answer99',columnSearch:'Group19'}).rows!.total).toBe(1);const blob=buildXlsxBlob(draft,draft.pages),bytes=new Uint8Array(await blob.arrayBuffer()),text=new TextDecoder().decode(bytes);expect(text).toContain('Answer99');expect(text).toContain('Group19');const output=process.env.ECOFOCUS_TABLE_ARTIFACTS??join(tmpdir(),'ecofocus-complete-table-artifacts');mkdirSync(output,{recursive:true});writeFileSync(join(output,'complete-table.xlsx'),bytes);writeFileSync(join(output,'complete-table-reference.json'),JSON.stringify({columns:tile.result.columns,rows:tile.result.table.map(row=>({id:row.optionId,label:row.label,values:tile.result.columns.map(column=>row.values[column.id]),bases:tile.result.columns.map(column=>row.bases[column.id])}))}));expect(draft).toEqual(before);});
+it('sorts numeric values stably and filters canonical availability without changing results',async()=>{
+ const{tile}=await tableExplorerFixture('percent_selected'),id=tile.result.columns[0].id;
+ tile.result.table=tile.result.table.slice(0,6); const rows=tile.result.table;
+ [0,-2.5,1.25,1.25,99,0].forEach((v,i)=>{rows[i].values[id]=v;rows[i].bases[id]=50;});rows[4].bases[id]=0;delete rows[5].values[id];
+ const before=structuredClone(tile); const sorted=tableExplorerWindow(tile,{...selection,sort:{kind:'value',columnId:id,direction:'desc'}});
+ expect(sorted.rows!.positions).toEqual([2,3,0,1,4,5]);
+ const available=tableExplorerWindow(tile,{...selection,filter:{columnId:id,status:'available',min:-2.5,max:0}});expect(available.rows!.positions).toEqual([0,1]);
+ const missing=tableExplorerWindow(tile,{...selection,filter:{columnId:id,status:'unavailable',min:null,max:null}});expect(missing.rows!.positions).toEqual([4,5]);expect(tile).toEqual(before);
+});
+it('keeps pins within eight columns across pages and rejects stale column identities',async()=>{
+ const{tile}=await tableExplorerFixture(),pins=[tile.result.columns[0].id,tile.result.columns[19].id];
+ const first=tableExplorerWindow(tile,{...selection,pins}),last=tableExplorerWindow(tile,{...selection,pins,columnPage:99});
+ expect(first.columns!.positions).toHaveLength(8);expect(last.columns!.positions.slice(0,2)).toEqual([0,19]);
+ const all=new Set<number>();for(let page=0;page<first.columns!.pages;page++)for(const p of tableExplorerWindow(tile,{...selection,pins,columnPage:page}).columns!.positions)all.add(p);expect(all.size).toBe(20);
+ tile.result.columns.pop();expect(tableExplorerWindow(tile,{...selection,pins}).issue).toContain('no longer available');
+});
+it('uses exact opaque column identities, bases and annotations through ranking and pins',async()=>{
+ const{tile}=await tableExplorerFixture('percent_selected'),ids=['constructor','__proto__','雪'];
+ for(let j=0;j<ids.length;j++){const old=tile.result.columns[j].id;tile.result.columns[j]={id:ids[j],label:'Duplicate'};for(const row of tile.result.table){Object.defineProperty(row.values,ids[j],{value:row.values[old],writable:true,configurable:true,enumerable:true});Object.defineProperty(row.bases,ids[j],{value:row.bases[old],writable:true,configurable:true,enumerable:true});}}
+ const before=structuredClone(tile),view=tableExplorerWindow(tile,{...selection,pins:[ids[1],ids[2]],sort:{kind:'value',columnId:ids[0],direction:'asc'}});
+ expect(view.columns!.positions.slice(0,2)).toEqual([1,2]);expect(new Set(view.rows!.positions).size).toBe(25);expect(tile.result.table[view.rows!.positions[0]].optionId).toBe(before.result.table[view.rows!.positions[0]].optionId);expect(tile.result.annotations).toEqual(before.result.annotations);expect(tile).toEqual(before);
+});
+it('reaches every eligible answer exactly once across filtered ranked pages',async()=>{
+ const{tile}=await tableExplorerFixture(),id=tile.result.columns[0].id;for(let i=0;i<tile.result.table.length;i++)tile.result.table[i].values[id]=i%7;
+ const config={...selection,sort:{kind:'value' as const,columnId:id,direction:'desc' as const},filter:{columnId:id,status:'available' as const,min:2,max:5}},first=tableExplorerWindow(tile,config),seen:number[]=[];
+ for(let page=0;page<first.rows!.pages;page++)seen.push(...tableExplorerWindow(tile,{...config,rowPage:page}).rows!.positions);
+ const expected=tile.result.table.map((_,i)=>i).filter(i=>i%7>=2&&i%7<=5);expect(seen).toHaveLength(expected.length);expect(new Set(seen)).toEqual(new Set(expected));
+});
+it('sorts duplicate display labels stably and returns to recorded order',async()=>{
+ const{tile}=await tableExplorerFixture();tile.result.table=tile.result.table.slice(0,4);for(let i=0;i<4;i++)tile.result.table[i].label=['B','A','A','C'][i];
+ expect(tableExplorerWindow(tile,{...selection,sort:{kind:'label',direction:'asc'}}).rows!.positions).toEqual([1,2,0,3]);
+ expect(tableExplorerWindow(tile,{...selection,sort:{kind:'label',direction:'desc'}}).rows!.positions).toEqual([3,0,1,2]);
+ expect(tableExplorerWindow(tile,{...selection,sort:null}).rows!.positions).toEqual([0,1,2,3]);
+});
