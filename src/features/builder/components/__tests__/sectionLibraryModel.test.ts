@@ -58,3 +58,16 @@ it("uses element-before-analysis tie order and omits remote image payloads from 
   const image = block.items[1]; if (image.kind === "element") { image.element.type = "image"; image.element.content = "https://example.invalid/secret.png"; }
   expect(sectionPreviewPage(block).elements[0].content).toContain("preview unavailable"); expect(sectionGeometry(block).partial).toContain("not loaded");
 });
+it.each(["oval", "large"])('allows insertion when only the %s preview is unsupported', kind => {
+  const block = sectionBlocks(1)[0], page = structuredClone(initialDashboard.pages[0]);
+  if (kind === "oval") { const item = block.items[0]; if (item.kind !== "element") throw Error("Expected element"); item.element.type = "circle"; item.relativeLayout.width = 250; item.relativeLayout.height = 100; }
+  else {
+    const item = block.items[0]; if (item.kind !== "element") throw Error("Expected element");
+    for (let i = 0; i < 79; i++) { const copy = structuredClone(item); copy.element.id = `extra-${i}`; block.items.push(copy); }
+    block.summary.objectCount = block.items.length; block.summary.elementCount = block.items.length;
+  }
+  const before = JSON.stringify(block), geometry = sectionGeometry(block);
+  expect(geometry.issue).toMatch(kind === "oval" ? /ellipses/ : /80 objects/); expect(geometry.insertionIssue).toBe("");
+  const receipt = inspectSection({ source: "saved", id: block.id, block }, page), result = resolveSectionInsertion(receipt, [], [block], [page], page);
+  expect(result.issue).toBe(""); expect(createObjectsFromCompositionBlock(result.block!, page).elements).toHaveLength(block.items.length); expect(JSON.stringify(block)).toBe(before);
+});

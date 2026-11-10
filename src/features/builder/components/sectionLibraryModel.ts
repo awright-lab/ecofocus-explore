@@ -27,16 +27,17 @@ export function searchSections(curated: SavedCompositionBlock[], saved: SavedCom
 }
 export function sectionGeometry(block: SavedCompositionBlock) {
   const counts = { analyses: 0, text: 0, shapes: 0, images: 0, hidden: 0, locked: 0 };
-  const issues: string[] = [], partial: string[] = [];
+  const issues: string[] = [], unsafe: string[] = [], partial: string[] = [];
+  const reject = (message: string) => { issues.push(message); unsafe.push(message); };
   let minX = 0, minY = 0, maxX = block.summary.width, maxY = block.summary.height;
-  if (![maxX, maxY].every(value => Number.isFinite(value) && value >= 0)) issues.push("Stored dimensions are invalid.");
+  if (![maxX, maxY].every(value => Number.isFinite(value) && value >= 0)) reject("Stored dimensions are invalid.");
   const ids = new Set<string>();
   for (const item of block.items) {
     const object = item.kind === "tile" ? item.tile : item.element, layout = item.relativeLayout;
-    if (!object || !layout) { issues.push("Stored objects or relative geometry are missing."); continue; }
+    if (!object || !layout) { reject("Stored objects or relative geometry are missing."); continue; }
     const key = JSON.stringify([item.kind, object.id]);
-    if (ids.has(key)) issues.push("Object identities are ambiguous."); ids.add(key);
-    if (![layout.x, layout.y, layout.width, layout.height, layout.zIndex].every(Number.isFinite) || layout.width <= 0 || layout.height <= 0) issues.push("Relative geometry is invalid.");
+    if (ids.has(key)) reject("Object identities are ambiguous."); ids.add(key);
+    if (![layout.x, layout.y, layout.width, layout.height, layout.zIndex].every(Number.isFinite) || layout.width <= 0 || layout.height <= 0) reject("Relative geometry is invalid.");
     minX = Math.min(minX, layout.x); minY = Math.min(minY, layout.y); maxX = Math.max(maxX, layout.x + layout.width); maxY = Math.max(maxY, layout.y + layout.height);
     if (object.hidden) counts.hidden++; if (object.locked) counts.locked++;
     if (item.kind === "tile") counts.analyses++;
@@ -46,9 +47,9 @@ export function sectionGeometry(block: SavedCompositionBlock) {
     else issues.push("An object type is unsupported.");
   }
   if (block.items.length > sectionLibraryLimits.previewObjects) issues.push(`Visual preview supports at most ${sectionLibraryLimits.previewObjects} objects per section.`);
-  if (block.summary.objectCount !== block.items.length || block.summary.tileCount !== counts.analyses || block.summary.elementCount !== block.items.length - counts.analyses) issues.push("Stored object counts do not match the section. Resave the block.");
+  if (block.summary.objectCount !== block.items.length || block.summary.tileCount !== counts.analyses || block.summary.elementCount !== block.items.length - counts.analyses) reject("Stored object counts do not match the section. Resave the block.");
   if (Math.max(maxX - minX, maxY - minY) > 100000) issues.push("The stored footprint is too large to preview safely.");
-  return { counts, viewport: { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) }, issue: [...new Set(issues)].join(" "), partial: [...new Set(partial)].join(" ") };
+  return { counts, viewport: { x: minX, y: minY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) }, issue: [...new Set(issues)].join(" "), insertionIssue: [...new Set(unsafe)].join(" "), partial: [...new Set(partial)].join(" ") };
 }
 /** Matches the canvas's stable z-order: elements precede analyses at equal z positions. */
 export function orderedSectionItems(block: SavedCompositionBlock) {
@@ -73,7 +74,7 @@ export function resolveSectionInsertion(receipt: SectionReceipt, curated: SavedC
   if (!resolved.block) return resolved;
   if (!currentSectionDestination(receipt, pages, active)) return { block: null, issue: "The destination changed or is ambiguous. Return to the gallery and review the section for the current page." };
   const geometry = sectionGeometry(resolved.block);
-  if (geometry.issue || !resolved.block.items.length) return { block: null, issue: geometry.issue || "This section is empty; there is nothing to insert." };
+  if (geometry.insertionIssue || !resolved.block.items.length) return { block: null, issue: geometry.insertionIssue || "This section is empty; there is nothing to insert." };
   // Normalize the insertion copy only. Existing callbacks assign sequential z positions in item order.
   return { block: { ...resolved.block, items: orderedSectionItems(resolved.block) }, issue: "" };
 }

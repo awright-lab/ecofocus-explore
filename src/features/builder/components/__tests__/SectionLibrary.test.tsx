@@ -73,3 +73,10 @@ it("shows an unsupported geometry explanation and guards management across a des
   expect(cards()[0].textContent).toContain("Preview unsupported"); await inspect(); expect(button("Insert section").disabled).toBe(true);
   f.props.activePage = structuredClone(f.props.activePage); f.props.pages = [f.props.activePage]; await f.render(); await click("Delete"); expect(f.props.onDelete).not.toHaveBeenCalled(); expect(document.querySelector('[role="alert"]')?.textContent).toContain("report changed");
 });
+it.each(["oval", "large"])('explains an unsupported %s preview but permits explicit insertion', async kind => {
+  const f = await setup(), block = f.props.saved[0], item = block.items[0]; if (item.kind !== "element") throw Error("Expected element");
+  if (kind === "oval") { item.element.type = "circle"; item.relativeLayout.width = 250; item.relativeLayout.height = 100; }
+  else { for (let i = 0; i < 79; i++) { const copy = structuredClone(item); copy.element.id = `extra-${i}`; block.items.push(copy); } block.summary.objectCount = block.items.length; block.summary.elementCount = block.items.length; }
+  await f.render(); await inspect(); expect(document.querySelector(".section-inspection")?.textContent).toContain("You can still insert this section.");
+  expect(button("Insert section").disabled).toBe(false); expect(f.props.onInsertSaved).not.toHaveBeenCalled(); await click("Insert section"); expect(f.props.onInsertSaved).toHaveBeenCalledOnce(); expect(vi.mocked(f.props.onInsertSaved).mock.calls[0][0].items).toHaveLength(block.items.length);
+});
