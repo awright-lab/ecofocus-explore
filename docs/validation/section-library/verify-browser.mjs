@@ -1,0 +1,135 @@
+/** Local-only actual-App section library acceptance. See README.md alongside this file. */
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+const require = createRequire(join(process.cwd(), "package.json"));
+const { createServer } = await import(pathToFileURL(require.resolve("vite")));
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+const out = resolve(process.env.SECTION_LIBRARY_OUTPUT || "docs/validation/section-library");
+const temporary = await mkdtemp(join(tmpdir(), "ecofocus-sections-"));
+await mkdir(out, { recursive: true });
+const server = await createServer({ root: process.cwd(), server: { host: "127.0.0.1", port: 5195, strictPort: true }, logLevel: "error" });
+let context, page;
+try {
+  const { sectionLibraryAppFixture } = await server.ssrLoadModule("/src/features/builder/components/__tests__/sectionLibraryAppFixture.ts");
+  const persistence = await server.ssrLoadModule("/src/features/document/workspacePersistence.ts");
+  const f = await sectionLibraryAppFixture();
+  const workspace = persistence.createPublishedSnapshot(persistence.normalizeDashboardWorkspace({ reports: [persistence.createReportRecord(f.draft)], importedDatasets: [f.dataset] }), f.draft).workspace;
+  let payload; globalThis.window = { localStorage: { setItem: (_key, value) => { payload = value; } } };
+  try { assert.equal(persistence.saveDashboardWorkspace(workspace), true); } finally { delete globalThis.window; }
+  await server.listen();
+  const extension = join(temporary, "extension"); await mkdir(extension);
+  await writeFile(join(extension, "manifest.json"), JSON.stringify({ manifest_version: 3, name: "Local validation zoom", version: "1.0", permissions: ["tabs"], background: { service_worker: "background.js" } }));
+  await writeFile(join(extension, "background.js"), "chrome.runtime.onInstalled.addListener(() => {});");
+  context = await chromium.launchPersistentContext(join(temporary, "profile"), { headless: true, viewport: { width: 1680, height: 1050 }, ...(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}), ignoreDefaultArgs: ["--disable-extensions"], args: ["--no-sandbox", `--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
+  const worker = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker", { timeout: 10000 });
+  const errors = [], apiRequests = [], externalRequests = [];
+  await context.route("**/*", route => {
+    const url = new URL(route.request().url());
+    if (url.hostname === "127.0.0.1" && url.port === "5195" && !url.pathname.startsWith("/.netlify/functions/")) return route.continue();
+    (url.pathname.startsWith("/.netlify/functions/") ? apiRequests : externalRequests).push(url.href); return route.abort();
+  });
+  await context.addInitScript(seed => { if (!sessionStorage.getItem("synthetic-sections-seed")) { localStorage.setItem(seed.key, seed.payload); sessionStorage.setItem("synthetic-sections-seed", "1"); } }, { key: persistence.workspaceStorageKey, payload });
+  page = await context.newPage(); page.setDefaultTimeout(20000); page.on("pageerror", error => errors.push(error.message));
+  await page.goto(`http://127.0.0.1:5195/#/reports/${f.draft.id}`); await page.locator("details.export-menu").waitFor();
+  const readState = () => page.evaluate(async () => {
+    const { loadDashboardWorkspace } = await import("/src/features/document/workspacePersistence.ts"); const w = loadDashboardWorkspace();
+    return { draft: w.reports[0].draft, datasets: w.importedDatasets, snapshots: w.publishedSnapshots };
+  });
+  const waitForSaved = async predicate => {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      const state = await readState();
+      if (predicate(state)) return state;
+      await page.waitForTimeout(100);
+    }
+    throw new Error("Timed out waiting for the expected saved workspace state");
+  };
+  const waitCounts = (elements, tiles) => waitForSaved(state => {
+    const p = state.draft.pages[0]; return p.elements.length === elements && p.tiles.length === tiles;
+  });
+  const before = await readState();
+  await page.getByRole("button", { name: "Styles", exact: true }).click();
+  await page.getByRole("button", { name: "Browse sections", exact: false }).waitFor();
+  const smartBefore = await page.locator(".composition-starter-list.smart").innerText();
+  assert.equal(await page.locator("[data-section-preview]").count(), 0);
+  const start = performance.now(); await page.getByRole("button", { name: "Browse sections", exact: false }).click(); await page.locator(".section-card").first().waitFor();
+  const openMs = Math.round(performance.now() - start);
+  assert.match(await page.locator(".section-count").innerText(), /1–12 of 500/); assert.equal(await page.locator("[data-section-preview]").count(), 12);
+  await page.screenshot({ path: join(out, "gallery-desktop.png") });
+  await page.keyboard.press("Shift+Tab"); assert.equal(await page.getByRole("dialog").evaluate(node => node.contains(document.activeElement)), true);
+  const last = page.getByRole("button", { name: "Sections: Last", exact: true }); await last.focus(); await page.keyboard.press("Enter");
+  assert.equal(await last.evaluate(node => node === document.activeElement), true); assert.equal(await last.getAttribute("aria-disabled"), "true");
+  assert.match(await page.locator(".section-count").innerText(), /493–500 of 500/); assert.equal(await page.locator(".section-card").count(), 8);
+  const query = page.getByLabel("Search sections", { exact: true }), searchStart = performance.now(); await query.fill("section 497");
+  assert.match(await page.locator(".section-count").innerText(), /1–1 of 1/); const searchMs = Math.round(performance.now() - searchStart);
+  await page.locator(".section-card").click(); assert.equal(await page.locator(".section-inspection h3").innerText(), "Reusable insight 497");
+  await page.keyboard.press("Escape"); assert.equal(await page.locator(".section-card").evaluate(node => node === document.activeElement), true);
+  await query.fill(""); await page.getByLabel("Section source", { exact: true }).selectOption("saved"); assert.match(await page.locator(".section-count").innerText(), /of 497/);
+  await page.getByLabel("Section category", { exact: true }).selectOption("image_caption"); assert.equal(await page.locator(".section-card").count(), 1);
+  await page.locator(".section-card").click(); assert.equal(await page.locator(".section-inspection .document-preview image").count(), 1); await page.keyboard.press("Escape");
+  await page.getByLabel("Section category", { exact: true }).selectOption("");
+  const names = await page.locator(".section-card").evaluateAll(nodes => nodes.slice(0, 4).map(node => node.getAttribute("aria-label"))); assert.equal(new Set(names).size, 4);
+  await page.locator(".section-card").first().click(); assert.match(await page.locator(".section-cache-note").innerText(), /does not use the selected study/);
+  const layerOrder = await page.locator(".section-inspection [data-preview-object]").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-preview-object")));
+  assert.deepEqual(layerOrder, ["shape-0", "stored-analysis", "text-0"]);
+  await page.screenshot({ path: join(out, "inspection-desktop.png") });
+  await page.keyboard.press("Escape"); await page.locator(".section-card").nth(1).click();
+  await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: join(out, "inspection-narrow.png") });
+  const narrow = await page.getByRole("dialog").evaluate(node => ({ client: node.clientWidth, scroll: node.scrollWidth })); assert.ok(narrow.scroll <= narrow.client + 1);
+  await page.getByRole("button", { name: "Insert section", exact: true }).scrollIntoViewIfNeeded();
+  const narrowInsert = await page.getByRole("button", { name: "Insert section", exact: true }).boundingBox(); assert.ok(narrowInsert.x >= 0 && narrowInsert.x + narrowInsert.width <= 390);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await worker.evaluate(async () => { const tabs = await chrome.tabs.query({ url: "http://127.0.0.1/*" }); await chrome.tabs.setZoom(tabs[0].id, 2); });
+  await page.waitForFunction(() => innerWidth === 640 && innerHeight === 450 && devicePixelRatio === 2);
+  await page.getByRole("dialog").evaluate(node => { node.scrollTop = 0; }); await page.screenshot({ path: join(out, "inspection-native-200.png") });
+  await page.getByRole("button", { name: "Insert section", exact: true }).scrollIntoViewIfNeeded(); await page.screenshot({ path: join(out, "controls-native-200.png") });
+  const zoom = await page.getByRole("dialog").evaluate(node => ({ client: node.clientWidth, scroll: node.scrollWidth })); assert.ok(zoom.scroll <= zoom.client + 1);
+  const ax = await (await context.newCDPSession(page)).send("Accessibility.getFullAXTree");
+  assert.equal(ax.nodes.filter(node => !node.ignored && ["button", "combobox", "searchbox"].includes(node.role?.value) && !node.name?.value).length, 0);
+  await writeFile(join(out, "accessibility-tree.txt"), await page.getByRole("dialog").ariaSnapshot());
+  await page.keyboard.press("Escape");
+  await worker.evaluate(async () => { const tabs = await chrome.tabs.query({ url: "http://127.0.0.1/*" }); await chrome.tabs.setZoom(tabs[0].id, 1); }); await page.waitForFunction(() => devicePixelRatio === 1);
+  await page.setViewportSize({ width: 1680, height: 1050 });
+  await page.getByRole("dialog").focus(); for (const key of ["Delete", "Backspace", "ArrowRight", "Control+d", "Control+z"]) await page.keyboard.press(key);
+  assert.deepEqual(await readState(), before); assert.equal(await page.locator(".composition-starter-list.smart").innerText(), smartBefore);
+  await page.locator(".section-card").first().click(); await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Block name", { exact: true }).fill("Abandoned name"); await page.keyboard.press("Escape"); assert.equal(await page.getByRole("button", { name: "Edit", exact: true }).evaluate(node => node === document.activeElement), true);
+  assert.deepEqual(await readState(), before);
+  await page.getByRole("button", { name: "Insert section", exact: true }).click(); await waitCounts(2, 2);
+  assert.equal(await page.locator(".section-library-entry button").evaluate(node => node === document.activeElement), true);
+  const inserted = await readState(), p = inserted.draft.pages[0], block = inserted.draft.designLibrary.compositionBlocks[0];
+  assert.deepEqual(p.elements.map(element => element.name), ["Section background", "Section commentary"]); assert.ok(p.elements[0].layout.zIndex < p.tiles[1].layout.zIndex && p.tiles[1].layout.zIndex < p.elements[1].layout.zIndex);
+  assert.equal(p.elements[1].layout.x - p.elements[0].layout.x, 400); assert.notEqual(p.elements[1].id, "text-0");
+  const { lastUsedAt, ...unchangedBlock } = block; assert.equal(typeof lastUsedAt, "number"); const { lastUsedAt: previousUse, ...previousBlock } = before.draft.designLibrary.compositionBlocks[0]; assert.equal(previousUse, undefined); assert.deepEqual(unchangedBlock, previousBlock);
+  const storedResult = before.draft.designLibrary.compositionBlocks[0].items.find(item => item.kind === "tile").tile.result;
+  for (const field of ["query", "labels", "series", "columns", "table", "metric", "weighting"]) assert.deepEqual(p.tiles[1].result[field], storedResult[field]);
+  assert.deepEqual(inserted.datasets, before.datasets); assert.deepEqual(inserted.snapshots, before.snapshots);
+  await page.getByRole("button", { name: "Undo", exact: true }).click(); await waitCounts(0, 1); assert.deepEqual((await readState()).draft.pages, before.draft.pages);
+  await page.getByRole("button", { name: "Redo", exact: true }).click(); await waitCounts(2, 2); assert.deepEqual((await readState()).draft.pages, inserted.draft.pages);
+  await page.reload(); await page.locator("details.export-menu").waitFor(); assert.deepEqual((await readState()).draft.pages, inserted.draft.pages);
+  // Existing save-selection, edit-details and delete commands remain the management path.
+  await page.getByRole("button", { name: "Pages", exact: true }).click();
+  await page.locator('button[aria-label^="Show objects on page"]').click();
+  await page.locator('button[aria-label^="Select analysis Stored synthetic responses,"]').click();
+  await page.getByRole("button", { name: "Styles", exact: true }).click(); await page.getByRole("button", { name: "Save selection as block", exact: true }).click();
+  await waitForSaved(state => state.draft.designLibrary.compositionBlocks.length === 498);
+  await page.getByRole("button", { name: "Browse sections", exact: false }).click(); await page.getByLabel("Section source", { exact: true }).selectOption("saved");
+  await page.getByLabel("Search sections", { exact: true }).fill("Stored synthetic responses block"); assert.equal(await page.locator(".section-card").count(), 1);
+  await page.locator(".section-card").click(); await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Block name", { exact: true }).fill("Reusable managed section"); await page.locator(".section-inspection form textarea").fill("Changed metadata, same stored analysis.");
+  await page.getByRole("button", { name: "Save details", exact: true }).click();
+  await page.getByLabel("Search sections", { exact: true }).fill("Reusable managed section"); await page.locator(".section-card").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click(); assert.equal(await page.locator(".section-card").count(), 0);
+  await page.getByRole("button", { name: "Close section library", exact: true }).click();
+  const final = await waitForSaved(state => state.draft.designLibrary.compositionBlocks.length === 497); assert.equal(final.draft.designLibrary.compositionBlocks.length, 497); assert.deepEqual(final.draft.designLibrary.compositionBlocks, inserted.draft.designLibrary.compositionBlocks); assert.deepEqual(final.draft.pages, inserted.draft.pages); assert.deepEqual(final.datasets, before.datasets); assert.deepEqual(final.snapshots, before.snapshots);
+  assert.deepEqual(errors, []); assert.deepEqual(apiRequests, []); assert.deepEqual(externalRequests, []);
+  const results = { browser: context.browser().version(), fixture: { curated: 3, saved: 497, total: 500 }, mountedPreviews: { closed: 0, gallery: 12, inspection: 1 }, openMs, searchMs, lastMatchReached: true, duplicateNamesAndOpaqueIds: true, layerOrder, cachedAnalyticalValuesPreserved: true, browsingPreservedDraftSourceAndSnapshots: true, insertionCopyGeometryAndIdsVerified: true, undoRedoAndReloadVerified: true, saveSelectionEditDeleteVerified: true, narrow, nativeZoom: { factor: 2, cssViewport: "640x450", devicePixelRatio: 2, overflow: zoom }, unnamedAccessibleControls: 0, errors, apiRequests, externalRequests };
+  await writeFile(join(out, "browser-results.json"), JSON.stringify(results, null, 2) + "\n"); console.log(JSON.stringify(results, null, 2));
+} catch (error) {
+  if (page) await page.screenshot({ path: join(out, "failure.png") }).catch(() => {});
+  throw error;
+} finally { await context?.close(); await server.close(); await rm(temporary, { recursive: true, force: true }); }

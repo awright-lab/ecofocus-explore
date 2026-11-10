@@ -117,12 +117,12 @@ function TilePreview({ tile, clipId }: {tile:DashboardTile;clipId:string}) {
 
 // Lightweight bounded previews preserve document layers and chart/table shape.
 // They are explicitly partial thumbnails, not analytical exports.
-export function DocumentPreview({ page }: { page: DashboardPage }) {
+export function DocumentPreview({ page, viewport = { x: 0, y: 0, width: 1280, height: 760 } }: { page: DashboardPage; viewport?: { x: number; y: number; width: number; height: number } }) {
   const instance=useId().replace(/[^a-zA-Z0-9_-]/g,"_");
   const objects=[...page.elements.map(element=>({kind:"element" as const,id:element.id,layout:element.layout,hidden:element.hidden,element})),...page.tiles.map(tile=>({kind:"tile" as const,id:tile.id,layout:tile.layout,hidden:tile.hidden,tile}))].filter(object=>!object.hidden).sort((left,right)=>left.layout.zIndex-right.layout.zIndex);
-  return <svg viewBox="0 0 1280 760" className="document-preview" aria-label={`Preview of ${page.title}`} role="img">
-    <defs><clipPath id={`${instance}-page`}><rect width="1280" height="760"/></clipPath></defs>
-    <rect width="1280" height="760" fill={page.background||"#fff"}/>
+  return <svg viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`} className="document-preview" aria-label={`Preview of ${page.title}`} role="img">
+    <defs><clipPath id={`${instance}-page`}><rect x={viewport.x} y={viewport.y} width={viewport.width} height={viewport.height}/></clipPath></defs>
+    <rect x={viewport.x} y={viewport.y} width={viewport.width} height={viewport.height} fill={page.background||"#fff"}/>
     <g clipPath={`url(#${instance}-page)`}>{objects.map((object,index)=>{
       if(object.kind==="tile")return <TilePreview key={`tile:${object.id}`} tile={object.tile} clipId={`${instance}-tile-${index}`}/>;
       const element=object.element,{x,y,width,height}=element.layout;

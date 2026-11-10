@@ -17,9 +17,6 @@ import { buildInsertionContextView } from "./insertionContextModel";
 import {
   buildSmartCompositionBlockFromTile,
   buildSmartCompositionStarterViews,
-  buildCompositionBlockLibraryView,
-  buildCompositionStarterLibraryView,
-  compositionBlockCategoryOptions,
   editorialTextBlockRole,
   editorialTextStyleRole,
   type CompositionPlacementSummary,
@@ -35,6 +32,7 @@ const DataWorkbench = lazy(() => import("./DataWorkbench").then(module => ({defa
 const DataExplorerPanel = lazy(() =>
   import("./DataExplorerPanel").then((module) => ({ default: module.DataExplorerPanel }))
 );
+const SectionLibrary = lazy(() => import("./SectionLibrary").then(module => ({ default: module.SectionLibrary })));
 const ReportPageTree = lazy(() =>
   import("./ReportPageTree").then((module) => ({ default: module.ReportPageTree }))
 );
@@ -369,12 +367,6 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
     () => buildInsertionContextView({ activePage, layerItems, selectedTileId, selectedElementId }),
     [activePage, layerItems, selectedElementId, selectedTileId]
   );
-  const [editingCompositionBlockId, setEditingCompositionBlockId] = useState<string | null>(null);
-  const [compositionBlockDraft, setCompositionBlockDraft] = useState({
-    label: "",
-    description: "",
-    category: "custom" as SavedCompositionBlock["category"]
-  });
   const [compositionBlockCue, setCompositionBlockCue] = useState<{
     blockId?: string;
     label: string;
@@ -396,21 +388,6 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
     [query.breakBy, query.comparisonMode, selectedQuestion, selectedTile, selectedVariableSet]
   );
 
-  function startEditingCompositionBlock(block: SavedCompositionBlock) {
-    setEditingCompositionBlockId(block.id);
-    setCompositionBlockDraft({
-      label: block.label,
-      description: block.description,
-      category: block.category
-    });
-  }
-
-  function saveCompositionBlockDraft(block: SavedCompositionBlock) {
-    updateCompositionBlockMetadata(block.id, compositionBlockDraft);
-    setCompositionBlockCue({ blockId: block.id, label: compositionBlockDraft.label.trim() || block.label, action: "updated" });
-    setEditingCompositionBlockId(null);
-  }
-
   function saveSelectionAsCompositionBlock() {
     const block = saveCompositionBlockFromSelection();
     if (block) {
@@ -421,7 +398,9 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
   function insertSavedCompositionBlock(block: SavedCompositionBlock) {
     if (insertCompositionBlock(block)) {
       setCompositionBlockCue({ blockId: block.id, label: block.label, action: "inserted" });
+      return true;
     }
+    return false;
   }
 
   function insertCuratedCompositionStarter(starter: SavedCompositionBlock) {
@@ -440,7 +419,9 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
         placementLabel: result.placement.label,
         helper: "Edit the inserted text, visuals, and spacing like normal page objects."
       });
+      return true;
     }
+    return false;
   }
 
   function insertSmartCompositionStarter(starterId: SmartCompositionStarterId) {
@@ -686,136 +667,16 @@ export const AnalysisAuthoringPanel = memo(function AnalysisAuthoringPanel(props
                       ))}
                     </div>
                   </div>
-                  <div className="smart-starter-group">
-                    <div className="smart-starter-group__header">
-                      <span>General starters</span>
-                      <small>Blank-page section patterns</small>
-                    </div>
-                  <div className="composition-starter-list">
-                    {compositionStarters.map((starter) => {
-                      const starterView = buildCompositionStarterLibraryView(starter);
-                      const isRecent = compositionStarterCue?.starterId === starter.id;
-
-                      return (
-                        <button
-                          type="button"
-                          className={isRecent ? "composition-starter-card recent" : "composition-starter-card"}
-                          key={starter.id}
-                          onClick={() => insertCuratedCompositionStarter(starter)}
-                        >
-                          <span className={`composition-starter-preview ${starterView.previewTone}`}>
-                            <span>{starter.summary.objectCount}</span>
-                            <small>{starterView.categoryLabel}</small>
-                          </span>
-                          <span className="composition-starter-body">
-                            <span className="composition-starter-kicker">{starterView.starterLabel}</span>
-                            <strong>{starter.label}</strong>
-                            <small>{starter.description}</small>
-                            <span className="composition-starter-meta">
-                              {starterView.roleHelper} · {starterView.dimensions}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  </div>
+                  <Suspense fallback={<p role="status">Loading section library…</p>}>
+                    <SectionLibrary curated={compositionStarters} saved={savedCompositionBlocks} pages={sortedPages} activePage={activePage}
+                      onInsertSaved={insertSavedCompositionBlock} onInsertCurated={insertCuratedCompositionStarter}
+                      onUpdate={(block, details) => { updateCompositionBlockMetadata(block.id, details); setCompositionBlockCue({ blockId: block.id, label: details.label, action: "updated" }); }}
+                      onDelete={removeSavedCompositionBlock}/>
+                  </Suspense>
                 </div>
-                <div className="explorer-section-card composition-library-card" data-style-category="layouts">
-                  <div className="explorer-section-header">
-                    <strong>Composition blocks</strong>
-                    <small>{savedCompositionBlocks.length} saved</small>
-                  </div>
-                  <small className="composition-library-helper">
-                    Save selected objects as reusable, editable page-building blocks. Inserted blocks are copies, not live-linked instances.
-                  </small>
-                  {compositionBlockCue && (
-                    <div className={`composition-block-feedback ${compositionBlockCue.action}`}>
-                      <strong>
-                        {compositionBlockCue.action === "saved"
-                          ? "Block saved"
-                          : compositionBlockCue.action === "updated"
-                            ? "Block details updated"
-                            : compositionBlockCue.action === "inserted"
-                              ? "Block inserted"
-                              : "Block deleted"}
-                      </strong>
-                      <small>{compositionBlockCue.label}</small>
-                    </div>
-                  )}
-                  <div className="composition-block-list">
-                    {savedCompositionBlocks.length === 0 ? (
-                      <div className="composition-block-empty">
-                        <strong>Start with a reusable story pattern.</strong>
-                        <small>Select a title area, callout, chart plus commentary, or image caption group, then save it as a block.</small>
-                      </div>
-                    ) : (
-                      savedCompositionBlocks.map((block) => {
-                        const blockView = buildCompositionBlockLibraryView(block);
-                        const isEditing = editingCompositionBlockId === block.id;
-                        const isRecent = compositionBlockCue?.blockId === block.id;
-
-                        return (
-                          <div className={isRecent ? "composition-block-card recent" : "composition-block-card"} key={block.id}>
-                            <div className={`composition-block-preview ${blockView.previewTone}`}>
-                              <span>{block.summary.objectCount}</span>
-                              <small>{blockView.categoryLabel}</small>
-                            </div>
-                            <div className="composition-block-body">
-                              {isEditing ? (
-                                <div className="composition-block-edit">
-                                  <label>
-                                    Block name
-                                    <input value={compositionBlockDraft.label} onChange={(event) => setCompositionBlockDraft((current) => ({ ...current, label: event.target.value }))} />
-                                  </label>
-                                  <label>
-                                    Editorial role
-                                    <select
-                                      value={compositionBlockDraft.category}
-                                      onChange={(event) => setCompositionBlockDraft((current) => ({ ...current, category: event.target.value as SavedCompositionBlock["category"] }))}
-                                    >
-                                      {compositionBlockCategoryOptions.map((option) => (
-                                        <option key={option.id} value={option.id}>
-                                          {option.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                  <label>
-                                    Description
-                                    <textarea value={compositionBlockDraft.description} onChange={(event) => setCompositionBlockDraft((current) => ({ ...current, description: event.target.value }))} />
-                                  </label>
-                                  <div className="brand-card-actions">
-                                    <button type="button" className="secondary" onClick={() => saveCompositionBlockDraft(block)}>Save details</button>
-                                    <button type="button" className="secondary" onClick={() => setEditingCompositionBlockId(null)}>Cancel</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="composition-block-heading">
-                                    <span>{blockView.categoryLabel}</span>
-                                    <strong>{block.label}</strong>
-                                  </div>
-                                  <small>{blockView.structureLabel} · {blockView.mix || blockView.objectSummary} · {blockView.dimensions}</small>
-                                  <p>{block.description || blockView.roleHelper}</p>
-                                  <div className="composition-block-meta-row">
-                                    <span>{blockView.roleHelper}</span>
-                                    <small>{blockView.recency}</small>
-                                  </div>
-                                  <div className="brand-card-actions">
-                                    <button type="button" className="secondary" onClick={() => insertSavedCompositionBlock(block)}>Insert</button>
-                                    <button type="button" className="secondary" onClick={() => startEditingCompositionBlock(block)}>Edit</button>
-                                    <button type="button" className="secondary" onClick={() => removeSavedCompositionBlock(block)}>Delete</button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
+                {compositionBlockCue && <div className={`composition-block-feedback ${compositionBlockCue.action}`} data-style-category="layouts" role="status">
+                  <strong>{compositionBlockCue.action === "saved" ? "Block saved" : compositionBlockCue.action === "updated" ? "Block details updated" : compositionBlockCue.action === "inserted" ? "Block inserted" : "Block deleted"}</strong><small>{compositionBlockCue.label}</small>
+                </div>}
                 <div className="explorer-section-card" data-style-category="assets">
                   <div className="explorer-section-header">
                     <strong>Image assets</strong>

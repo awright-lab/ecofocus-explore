@@ -1,0 +1,28 @@
+- dialog "Browse sections":
+  - banner:
+    - text: DESIGN LIBRARY
+    - heading "Browse sections" [level=2]
+    - paragraph: Reusable layouts with stored content. Choose a section to inspect before inserting.
+    - button "Close section library": Close ✕
+  - region "Section inspection":
+    - button "← Back to gallery"
+    - img "Preview of Reusable insight": Stored commentary · editable report copy
+    - paragraph: "Partial visual preview: text and analytical marks may be shortened; gradients, borders and effects may be simplified. Relative positions, sizes and layer order are preserved when supported."
+    - text: Saved block
+    - heading "Reusable insight" [level=3]
+    - paragraph: "Long description without clipping: AverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenwordAverylongunbrokenword Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context. Full editorial context."
+    - term: Category
+    - definition: Callout
+    - term: Stored dimensions
+    - definition: 800 × 300 report units
+    - term: Objects
+    - definition: 2 total · 0 analyses · 1 text · 1 shapes · 0 images
+    - term: Stored status
+    - definition: 0 hidden · 0 locked
+    - term: Destination reviewed
+    - definition: "Page 1: The big picture"
+    - paragraph: Insert creates an editable copy. Existing insertion behavior makes copied objects visible and unlocked. Hidden objects are omitted from this stored-content preview.
+    - button "Insert section"
+    - button "Edit"
+    - button "Delete"
+  - contentinfo: Browsing does not insert content. Escape returns to the gallery.
