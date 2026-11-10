@@ -1,10 +1,10 @@
+import { ReportNavigator, NavigatorPagination, NavigatorPreview } from "./ReportNavigator";
 import { searchReportObjects, reportObjectMatchKey, resolveReportObjectMatch, type ReportObjectMatch } from "./reportObjectSearch";
 import "./report-object-search.css";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type React from "react";
 import { themePreviewBackground } from "../builderHelpers";
 import { getChartTypeLabel } from "../../analytics/analyticsDisplay";
-import { DocumentPreview } from "../../document/DocumentPreview";
 import type { DashboardCanvasElement, DashboardPage, DashboardTile, PageTemplatePreset, PageThemePreset } from "../../../../shared/types/dashboard";
 import type { MultiSelectedObject, ReportTreeSelectionCue } from "../builderTypes";
 
@@ -94,6 +94,10 @@ export function ReportPageTree({
   deletePageById,
   movePage
 }: ReportPageTreeProps) {
+  const [navigatorQuery, setNavigatorQuery] = useState<string | null>(null);
+  const [pageBatch, setPageBatch] = useState(0);
+  const [objectBatches, setObjectBatches] = useState<Record<string, number>>({});
+  const pageBatchSize = 12, objectBatchSize = 25;
   const [pageSearch, setPageSearch] = useState("");
   const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -104,6 +108,8 @@ export function ReportPageTree({
   const outlineId = useId();
   useEffect(() => {
     if (!pendingPageFocus.current) return;
+    const position = searchReportObjects(sortedPages, pageSearch).pages.findIndex(page => page.id === pendingPageFocus.current);
+    if (position >= 0 && Math.floor(position / pageBatchSize) !== pageBatch) { setPageBatch(Math.floor(position / pageBatchSize)); return; }
     const target = pageButtons.current.get(pendingPageFocus.current) ?? searchInput.current;
     pendingPageFocus.current = null;
     target?.focus();
@@ -111,6 +117,7 @@ export function ReportPageTree({
   const normalizedSearch = pageSearch.trim().toLowerCase();
   const search = searchReportObjects(sortedPages, pageSearch);
   const visiblePages = search.pages;
+  const currentBatch = Math.min(pageBatch, Math.max(0, Math.ceil(visiblePages.length / pageBatchSize) - 1));
   const [searchIssue, setSearchIssue] = useState("");
   const searchResultNodes = useRef(new Map<string, HTMLButtonElement>());
   const displacedSearchResult = useRef<HTMLButtonElement | null>(null);
@@ -197,6 +204,7 @@ export function ReportPageTree({
   }
 
   function selectPageTile(page: DashboardPage, tile: DashboardTile) {
+    setPageBatch(Math.max(0, Math.floor(visiblePages.findIndex(item => item.id === page.id) / pageBatchSize)));
     setActivePageId(page.id);
     recordReportTreeSelectionCue({
       objectId: tile.id,
@@ -210,6 +218,7 @@ export function ReportPageTree({
   }
 
   function selectPageElement(page: DashboardPage, element: DashboardCanvasElement) {
+    setPageBatch(Math.max(0, Math.floor(visiblePages.findIndex(item => item.id === page.id) / pageBatchSize)));
     setActivePageId(page.id);
     recordReportTreeSelectionCue({
       objectId: element.id,
@@ -247,6 +256,8 @@ export function ReportPageTree({
       <div className="panel-title">
         <h2>Pages</h2>
       </div>
+      <button type="button" className="report-browse-button" onClick={() => setNavigatorQuery("")}>Browse report <span aria-hidden="true">↗</span></button>
+      {navigatorQuery !== null && <ReportNavigator pages={sortedPages} activePageId={activePage.id} initialQuery={navigatorQuery} onClose={() => setNavigatorQuery(null)} onPage={page => { setPageBatch(Math.max(0, Math.floor(visiblePages.findIndex(item => item.id === page.id) / pageBatchSize))); setActivePageId(page.id); selectPage(); }} onObject={match => { setPageBatch(Math.max(0, Math.floor(visiblePages.findIndex(item => item.id === match.page.id) / pageBatchSize))); if (match.kind === "tile") selectPageTile(match.page, match.object); else selectPageElement(match.page, match.object); }} />}
       <div className="report-tree-summary">
         <div>
           <span>Report tree</span>
@@ -261,14 +272,15 @@ export function ReportPageTree({
       </div>
       <label>
         Search pages
-        <input type="search" maxLength={200} ref={searchInput} value={pageSearch} aria-describedby={`${outlineId}-status`} onChange={(event) => { setPageSearch(event.target.value); setSearchIssue(""); }} onKeyDown={event => { if (event.key === "Escape" && pageSearch && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); setPageSearch(""); setSearchIssue(""); } }} placeholder="Page, chart name, or written text" />
+        <input type="search" maxLength={200} ref={searchInput} value={pageSearch} aria-describedby={`${outlineId}-status`} onChange={(event) => { setPageSearch(event.target.value); setPageBatch(0); setSearchIssue(""); }} onKeyDown={event => { if (event.key === "Escape" && pageSearch && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); setPageSearch(""); setSearchIssue(""); } }} placeholder="Page, chart name, or written text" />
       </label>
       <p id={`${outlineId}-status`} role="status">{visiblePages.length} of {sortedPages.length} pages. {normalizedSearch && `${search.total} matching objects. `}Open a page before changing its objects.</p>
       {search.issue && <p className="report-object-search-note" role="status">{search.issue}</p>}
       {searchIssue && <p role="alert">{searchIssue}</p>}
       {normalizedSearch && search.matches.length > 0 && <section className="report-object-search-results" aria-label="Matching report objects" data-canvas-keyboard-scope="controls">
         <h3>Jump to a matching object</h3>
-        <p className="report-object-search-note">{search.textIncluded ? "Search finds page titles, object names, source field labels, and authored text." : "These matches include names and source field labels only."} {search.total > search.matches.length && `Showing the first ${search.matches.length} of ${search.total} objects; refine your search for more. `}The page tree below remains available.</p>
+        <p className="report-object-search-note">{search.textIncluded ? "Search finds page titles, object names, source field labels, and authored text." : "These matches include names and source field labels only."} {search.total > search.matches.length && `Showing the first ${search.matches.length} of ${search.total} objects. Browse all matches to see every result. `}The page tree below remains available.</p>
+        <button type="button" onClick={() => setNavigatorQuery(pageSearch)}>Browse all {search.total} matching objects</button>
         <ul>{search.matches.map((match, matchIndex) => {
           const key = reportObjectMatchKey(match), label = match.kind === "tile" ? match.object.title || match.object.name : match.object.name;
           const type = match.kind === "tile" ? getChartTypeLabel(match.object.visualization) : elementTypeLabel(match.object);
@@ -279,14 +291,15 @@ export function ReportPageTree({
         })}</ul>
       </section>}
       <nav className="page-list report-page-tree" aria-label="Report pages and objects">
-        {visiblePages.map((page) => {
+        {visiblePages.slice(currentBatch * pageBatchSize, (currentBatch + 1) * pageBatchSize).map((page) => {
           const pageIndex = sortedPages.findIndex((item) => item.id === page.id);
           const isFirstPage = pageIndex <= 0;
           const isLastPage = pageIndex === sortedPages.length - 1;
           const isRenaming = renamingPageId === page.id;
           const isExpanded = expandedPageIds.includes(page.id);
           const objectListId = `${outlineId}-objects-${pageIndex}`;
-          const pageObjects = [...page.tiles, ...page.elements].sort((first, second) => first.layout.zIndex - second.layout.zIndex);
+          const pageObjects = isExpanded ? [...page.tiles, ...page.elements].sort((first, second) => first.layout.zIndex - second.layout.zIndex) : [];
+          const objectBatch = Math.min(objectBatches[page.id] ?? 0, Math.max(0, Math.ceil(pageObjects.length / objectBatchSize) - 1));
 
           return (
             <div className={page.id === activePage.id ? "report-page-group active" : "report-page-group"} key={page.id}>
@@ -327,7 +340,7 @@ export function ReportPageTree({
                       <small className="report-page-provenance">{pageProvenanceLabel(page)}</small>
                       <small className="report-page-master">{pageMasterLabel(page)}</small>
                     </div>
-                    <div className="report-page-thumbnail" aria-hidden="true"><DocumentPreview page={page} /></div>
+                    <div className="report-page-thumbnail" aria-hidden="true"><NavigatorPreview page={page} /></div>
                   </button>
                 )}
                 <div className="report-page-node-actions" aria-label={`Page actions for ${page.title}`}>
@@ -374,7 +387,8 @@ export function ReportPageTree({
                   {pageObjects.length === 0 ? (
                     <small className="report-page-object-empty">No objects on this page yet.</small>
                   ) : (
-                    pageObjects.map((item, objectIndex) => {
+                    pageObjects.slice(objectBatch * objectBatchSize, (objectBatch + 1) * objectBatchSize).map((item, localIndex) => {
+                      const objectIndex = objectBatch * objectBatchSize + localIndex;
                       const context = `object ${objectIndex + 1} on page ${page.order}: ${page.title}`;
                       if ("visualization" in item) {
                         const multiSelected = isMultiSelected({ id: item.id, type: "tile" });
@@ -436,6 +450,7 @@ export function ReportPageTree({
                       );
                     })
                   )}
+                  {pageObjects.length > objectBatchSize && <NavigatorPagination page={objectBatch} total={pageObjects.length} size={objectBatchSize} label={`Objects on page ${page.order} pagination`} onChange={next => setObjectBatches(current => ({ ...current, [page.id]: next }))} />}
                 </div>
               )}
             </div>
@@ -443,6 +458,7 @@ export function ReportPageTree({
         })}
         {visiblePages.length === 0 && <div className="empty-state compact">No pages match {search.textIncluded ? "that search" : "the names-only search"}.</div>}
       </nav>
+      {visiblePages.length > pageBatchSize && <NavigatorPagination page={currentBatch} total={visiblePages.length} size={pageBatchSize} onChange={setPageBatch} label="Pages outline pagination" />}
       <div className="brand-card-actions">
         <button type="button" className="secondary" onClick={() => addPage()}>
           New page

@@ -1,0 +1,11 @@
+{
+  "src/features/builder/components/ReportNavigator.tsx": "5988a6c72a1c569c6907a7f2ca1d0eb62f5c72f5393759dc4219312bf14fa2da",
+  "src/features/builder/components/ReportPageTree.tsx": "a53f5e13b5e61d9569434fe78b3aa3bda7a647c5235ec376d6c5052d3ea82712",
+  "src/features/builder/components/__tests__/ReportNavigator.test.tsx": "29b372cbbdf4df48e129df0b8d1d1ff5de62f568b9db80386b764fdb52092b03",
+  "src/features/builder/components/__tests__/ReportNavigatorOutline.test.tsx": "97e15bb05f4ef76553a405a50c5a1dfc5c42bac5eb9f2a62104e19a85dc4fa3e",
+  "src/features/builder/components/__tests__/ReportNavigatorParent.test.tsx": "a833a25a04f05e6b9a1431f7a5cc14fb32c8101b59c7dfde1d07021baf930e17",
+  "src/features/builder/components/__tests__/reportNavigatorFixture.ts": "15b51a0fa7de3c5d34e3d4fa727f3f3d9512f110c48a7c2b29007cb17d80754e",
+  "src/features/builder/components/__tests__/reportNavigatorSearch.test.ts": "b38a1d842857fed16ee29f6523ec25e7621df09fe54e2398d2e2b9fcb30340b3",
+  "src/features/builder/components/report-navigator.css": "b242376d98d98e0504db6d865ba11854ce529bf5a7df11128e8d15c6fc641f23",
+  "src/features/builder/components/reportObjectSearch.ts": "6ed490ad157d8145393e877ace988fc89041a55397422c795bd056367cd85789"
+}
