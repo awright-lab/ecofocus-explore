@@ -1,3 +1,4 @@
+import { failedWorkspaceRecoveryJournal } from "./failedWorkspaceRecoveryJournal";
 import { createStoredRecoveryDownload, inspectStoredWorkspaceCopies, type StoredRecoveryCopy } from "./storedWorkspaceRecovery";
 import { WorkspaceBackupButton } from "./WorkspaceBackupButton";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -59,6 +60,7 @@ export function WorkspaceLoadRecovery({ inspectCopies = inspectStoredWorkspaceCo
 export function WorkspaceSaveRecovery() {
   const pending = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.getPending);
   const failure = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.getFailure);
+  const recovery = useSyncExternalStore(failedWorkspaceRecoveryJournal.subscribe, failedWorkspaceRecoveryJournal.getSnapshot);
 
   useEffect(() => {
     function protectUnsavedWork(event: BeforeUnloadEvent) {
@@ -79,6 +81,12 @@ export function WorkspaceSaveRecovery() {
           ? "Saving is paused to protect the newer saved workspace. Your edits remain in this tab. Download a backup of these edits before reopening the latest saved workspace; retrying will not overwrite it."
           : workspaceSaveFailureMessage}</p>
       </div>
+      {recovery.source === pending && <div role="status">
+        <p>{recovery.status === "retained" ? "A separate recovery copy was retained in this browser. The main save still failed. This copy is local and unencrypted; it is not a cloud backup."
+          : recovery.status === "saving" ? "Retaining a separate recovery copy. Keep this tab open until it is confirmed."
+          : "A recovery copy could not be confirmed. Storage may be unavailable, full, or at its retention limit. Your edits remain in this tab; download a backup."}</p>
+        {recovery.status === "failed" && <button type="button" onClick={() => failedWorkspaceRecoveryJournal.retry()}>Retry retaining recovery copy</button>}
+      </div>}
       {failure !== "conflict" && <button type="button" onClick={() => workspaceSaveSession.retry()}>Retry saving</button>}
       <WorkspaceBackupButton getWorkspace={workspaceSaveSession.getPending} />
     </aside>

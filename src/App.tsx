@@ -1,3 +1,4 @@
+import { RetainedFailedWorkspaceRecovery } from "./features/document/RetainedFailedWorkspaceRecovery";
 import { DeferredWorkspaceHistoryRecovery } from "./features/document/DeferredWorkspaceHistoryRecovery";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { parseWorkspaceRoute } from "./features/document/workspacePersistence";
@@ -46,6 +47,7 @@ export default function App() {
 
   const recoveryDock = <div className="workspace-recovery-dock">
     <WorkspaceSaveRecovery />
+    <RetainedFailedWorkspaceRecovery />
     <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
     <DeferredWorkspaceHistoryRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
   </div>;

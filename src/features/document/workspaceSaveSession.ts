@@ -1,3 +1,4 @@
+import { failedWorkspaceRecoveryJournal } from "./failedWorkspaceRecoveryJournal";
 import type { DashboardWorkspace } from "../../../shared/types/dashboard";
 import { loadDashboardWorkspace, readStoredWorkspaceCopy, writeDashboardWorkspaceVersion } from "./workspacePersistence";
 
@@ -30,11 +31,16 @@ export function createWorkspaceSaveSession(
   write: (workspace: DashboardWorkspace) => boolean | { version: string } = writeDashboardWorkspaceVersion,
   read = loadDashboardWorkspace,
   readVersion: (() => string | null) | undefined = write === writeDashboardWorkspaceVersion && read === loadDashboardWorkspace ? readStoredWorkspaceCopy : undefined,
-  memory: SessionMemory = newSessionMemory()
+  memory: SessionMemory = newSessionMemory(),
+  retainRecovery?: (workspace: DashboardWorkspace) => void
 ) {
+  function retain(workspace: DashboardWorkspace | null) {
+    if (workspace) { try { retainRecovery?.(workspace); } catch { /* Recovery must not change the primary save outcome. */ } }
+  }
   function remember(workspace: DashboardWorkspace | null) {
     if (workspace === null) { memory.expectedVersion = undefined; memory.failure = null; }
     memory.pending = workspace;
+    retain(workspace);
     memory.listeners.forEach((listener) => listener());
   }
   function save(workspace: DashboardWorkspace, recoveryWorkspace = workspace) {
@@ -55,6 +61,7 @@ export function createWorkspaceSaveSession(
     } catch { /* Treat blocked storage like a failed save. */ }
     if (saved) memory.failure = null;
     memory.pending = saved ? null : recoveryWorkspace;
+    retain(memory.pending);
     memory.listeners.forEach((listener) => listener());
     return saved;
   }
@@ -100,7 +107,7 @@ export function createBrowserWorkspaceSaveSession(hot?: WorkspaceSessionHotConte
     hot.data.workspaceSessionMemory = memory;
     hot.dispose(data => { data.workspaceSessionMemory = memory; });
   }
-  return createWorkspaceSaveSession(undefined, undefined, undefined, memory);
+  return createWorkspaceSaveSession(undefined, undefined, undefined, memory, failedWorkspaceRecoveryJournal.retain);
 }
 
 const hot = (import.meta as ImportMeta & { hot?: WorkspaceSessionHotContext | false }).hot;

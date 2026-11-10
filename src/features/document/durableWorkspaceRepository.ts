@@ -153,13 +153,22 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
         request.onsuccess = guard(tx, () => { assertHead(request.result, workspaceId); done(request.result ?? null); });
       });
     },
+    // Read-only discovery across workspaces, including when legacy startup fails.
+    // Invalid metadata fails inspection rather than falsely reporting no copies.
+    async pendingAll() {
+      return transaction<PendingWorkspaceDraft[]>([pendingStore], "readonly", (tx, done) => {
+        const request = tx.objectStore(pendingStore).getAll();
+        request.onsuccess = guard(tx, () => { const values = request.result as PendingWorkspaceDraft[]; values.forEach(assertDraft); done(values); });
+      });
+    },
     async pending(workspaceId: string) {
       return transaction<PendingWorkspaceDraft[]>([pendingStore], "readonly", (tx, done) => {
         const request = tx.objectStore(pendingStore).index("workspaceId").getAll(workspaceId);
         request.onsuccess = guard(tx, () => { const values = request.result as PendingWorkspaceDraft[]; values.forEach(assertDraft); done(values); });
       });
     },
-    async stage(value: PendingWorkspaceDraft) {
+    async stage(value: PendingWorkspaceDraft, limits?: { maxDrafts: number; maxPayloadCharacters: number }) {
+      if (limits && (!Number.isSafeInteger(limits.maxDrafts) || limits.maxDrafts < 1 || !Number.isSafeInteger(limits.maxPayloadCharacters) || limits.maxPayloadCharacters < 1)) throw new Error("Invalid recovery retention limits.");
       assertDraft(value); const draft = { ...value }, digest = await workspaceDraftDigest(draft);
       return transaction<{ kind: "staged" } | { kind: "superseded" } | { kind: "saved"; revision: number }>([headsStore, pendingStore, receiptsStore], "readwrite", (tx, done) => {
         reconcile(tx, draft, digest, result => {
@@ -175,7 +184,17 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
                 done({ kind: "staged" }); return;
               }
             }
-            store.put(draft); done({ kind: "staged" });
+            if (!limits) { store.put(draft); done({ kind: "staged" }); return; }
+            // Check capacity in the same transaction as the write. Never evict
+            // another editor's unresolved copy to make space for this one.
+            const inventory = store.getAll();
+            inventory.onsuccess = guard(tx, () => {
+              const drafts = inventory.result as PendingWorkspaceDraft[]; drafts.forEach(assertDraft);
+              const others = drafts.filter(item => item.workspaceId !== draft.workspaceId || item.editorId !== draft.editorId);
+              const characters = others.reduce((total, item) => total + item.payload.length, draft.payload.length);
+              if (others.length >= limits.maxDrafts || characters > limits.maxPayloadCharacters) throw new Error("Recovery storage limit reached. Existing copies were preserved; download a backup.");
+              store.put(draft); done({ kind: "staged" });
+            });
           });
         });
       });
