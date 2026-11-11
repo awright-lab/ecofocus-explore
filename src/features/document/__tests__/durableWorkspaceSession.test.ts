@@ -78,3 +78,96 @@ it("does not replay an edit that was submitted while an uncertain retry already 
   const retry = session.retry(); await tick(); const later = session.save(workspace("During retry")); receipt.resolve({ kind: "saved", revision: 1 });
   expect(await retry).toEqual({ kind: "saved", revision: 2 }); expect(await later).toEqual({ kind: "saved", revision: 2 }); expect(repo.stage).toHaveBeenCalledTimes(3); expect(repo.stage.mock.calls[2][0]).toMatchObject({ sequence: 2, expectedRevision: 1 }); expect(session.getSnapshot().pendingPayload).toBeNull();
 });
+
+it("bounds a burst to one active operation and the newest pending capture with explicit supersession", async () => {
+  const repo = repository(), commit = deferred<DurableCommitResult>(); repo.commit.mockReturnValueOnce(commit.promise);
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  const first = session.save(workspace("First"));
+  const burst = Array.from({ length: 100 }, (_, index) => session.save(workspace(`Edit ${index}`)));
+  expect(await Promise.all(burst.slice(0, -1))).toEqual(Array.from({ length: 99 }, () => ({ kind: "superseded" })));
+  expect(repo.stage).toHaveBeenCalledTimes(1);
+  commit.resolve({ kind: "saved", revision: 1 });
+  expect(await first).toEqual({ kind: "saved", revision: 1 });
+  expect(await burst[99]).toEqual({ kind: "saved", revision: 2 });
+  expect(repo.stage.mock.calls.map(([op]) => [op.sequence, op.expectedRevision])).toEqual([[1, null], [101, 1]]);
+  expect(decodeDurableWorkspace(repo.stage.mock.calls[1][0].payload, "synthetic").label).toBe("Edit 99");
+});
+it("retains exact pre-destructive bytes including extensions through failure and uncertain retry", async () => {
+  const repo = repository(); repo.commit.mockRejectedValueOnce(new Error("Unknown outcome"));
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  const before = Object.assign(workspace("Before"), { futureExtension: { opaque: ["keep", 7] } });
+  const target = workspace("After"); const expectedBefore = encodeDurableWorkspace(before);
+  await expect(session.save(target, before)).rejects.toThrow("Unknown outcome"); before.futureExtension.opaque[0] = "changed";
+  const original = structuredClone(repo.stage.mock.calls[0][0]);
+  expect(original.recoveryPayload).toBe(expectedBefore); expect(original.payload).toBe(encodeDurableWorkspace(target));
+  expect(session.getSnapshot()).toMatchObject({ pendingPayload: original.payload, pendingRecoveryPayload: expectedBefore });
+  repo.stage.mockResolvedValueOnce({ kind: "saved", revision: 1 });
+  expect(await session.retry()).toEqual({ kind: "saved", revision: 1 });
+  expect(repo.stage.mock.calls[1][0]).toEqual(original); expect(repo.commit).toHaveBeenCalledTimes(1);
+  expect(session.getSnapshot().pendingRecoveryPayload).toBeNull();
+});
+it("never lets an older acknowledgement clear the newest pre-operation recovery bytes", async () => {
+  const repo = repository(), firstCommit = deferred<DurableCommitResult>(), secondCommit = deferred<DurableCommitResult>();
+  repo.commit.mockReturnValueOnce(firstCommit.promise).mockReturnValueOnce(secondCommit.promise);
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  const first = session.save(workspace("First")); const before = workspace("Before destructive edit");
+  const second = session.save(workspace("After destructive edit"), before);
+  firstCommit.resolve({ kind: "saved", revision: 1 }); await first;
+  expect(session.getSnapshot().pendingRecoveryPayload).toBe(encodeDurableWorkspace(before));
+  secondCommit.resolve({ kind: "saved", revision: 2 }); await second;
+  expect(session.getSnapshot().pendingRecoveryPayload).toBeNull();
+});
+it("shares retry work and coalesces new edits without replacing uncertain operation identity", async () => {
+  const repo = repository(); repo.commit.mockRejectedValueOnce(new Error("Unknown"));
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  await expect(session.save(workspace("First"), workspace("Original"))).rejects.toThrow("Unknown");
+  const original = structuredClone(repo.stage.mock.calls[0][0]), stage = deferred<Awaited<ReturnType<Repo["stage"]>>>(); repo.stage.mockReturnValueOnce(stage.promise);
+  const retry = session.retry(); expect(session.retry()).toBe(retry);
+  const middle = session.save(workspace("Middle")), newest = session.save(workspace("Newest")); expect(await middle).toEqual({ kind: "superseded" });
+  stage.resolve({ kind: "saved", revision: 1 });
+  expect(await retry).toEqual({ kind: "saved", revision: 2 }); expect(await newest).toEqual({ kind: "saved", revision: 2 });
+  expect(repo.stage.mock.calls[1][0]).toEqual(original); expect(repo.stage.mock.calls.map(([op]) => op.sequence)).toEqual([1, 1, 3]);
+});
+it("settles queued saves immediately on close without waiting for an unresolved commit", async () => {
+  const repo = repository(), commit = deferred<DurableCommitResult>(); repo.commit.mockReturnValueOnce(commit.promise);
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  const active = session.save(workspace("Active")), queued = session.save(workspace("Queued")); await tick();
+  session.close(); expect(await queued).toEqual({ kind: "blocked", reason: "closed" });
+  commit.resolve({ kind: "saved", revision: 1 }); await active; expect(repo.stage).toHaveBeenCalledTimes(1);
+});
+it("rejects an invalid recovery workspace without displacing an already captured pending save", async () => {
+  const repo = repository(), commit = deferred<DurableCommitResult>(); repo.commit.mockReturnValueOnce(commit.promise);
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  const active = session.save(workspace("Active")), queued = session.save(workspace("Queued"));
+  await expect(session.save(workspace("Invalid"), { ...workspace(), id: "different" })).rejects.toThrow("another workspace");
+  expect(decodeDurableWorkspace(session.getSnapshot().pendingPayload!, "synthetic").label).toBe("Queued");
+  commit.resolve({ kind: "saved", revision: 1 }); await active; expect((await queued).kind).toBe("saved");
+});
+it("does not start a second operation from a synchronous saving subscriber", async () => {
+  const repo = repository(), commit = deferred<DurableCommitResult>(); repo.commit.mockReturnValueOnce(commit.promise);
+  const session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  let queued: ReturnType<typeof session.save> | undefined, submitted = false;
+  session.subscribe(() => { if (session.getSnapshot().saving && !submitted) { submitted = true; queued = session.save(workspace("From listener")); } });
+  const first = session.save(workspace("First")); await tick(); expect(repo.stage).toHaveBeenCalledTimes(1);
+  commit.resolve({ kind: "saved", revision: 1 }); await first; expect(await queued).toEqual({ kind: "saved", revision: 2 });
+  expect(repo.stage.mock.calls.map(([op]) => op.expectedRevision)).toEqual([null, 1]);
+});
+it("does not stage or commit when a synchronous saving subscriber closes the session", async () => {
+  const repo = repository(), session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  session.subscribe(() => { if (session.getSnapshot().saving) session.close(); });
+  expect(await session.save(workspace())).toEqual({ kind: "blocked", reason: "closed" });
+  expect(repo.stage).not.toHaveBeenCalled(); expect(repo.commit).not.toHaveBeenCalled();
+  expect(session.getSnapshot()).toMatchObject({ mode: "closed", saving: false });
+});
+it("does not commit when a synchronous durable-stage subscriber closes the session", async () => {
+  const repo = repository(), session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  session.subscribe(() => { if (session.getSnapshot().pendingDurable) session.close(); });
+  expect(await session.save(workspace())).toEqual({ kind: "blocked", reason: "closed" });
+  expect(repo.stage).toHaveBeenCalledTimes(1); expect(repo.commit).not.toHaveBeenCalled();
+});
+it("does not stage when a synchronous capture subscriber closes the session", async () => {
+  const repo = repository(), session = createDurableWorkspaceSession(repo, "synthetic", "editor"); await session.open();
+  session.subscribe(() => { if (session.getSnapshot().pendingPayload) session.close(); });
+  expect(await session.save(workspace())).toEqual({ kind: "blocked", reason: "closed" });
+  expect(repo.stage).not.toHaveBeenCalled(); expect(repo.commit).not.toHaveBeenCalled();
+});

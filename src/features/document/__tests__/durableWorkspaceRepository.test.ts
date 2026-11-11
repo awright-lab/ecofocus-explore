@@ -46,3 +46,16 @@ it("fails closed before opening storage when secure hashing is unavailable", asy
   await expect(repository.stage(valid)).rejects.toThrow("Secure hashing");
   await expect(repository.commit(valid)).rejects.toThrow("Secure hashing"); expect(open).not.toHaveBeenCalled();
 });
+
+it("binds pre-operation recovery bytes into receipt identity while preserving legacy digests", async () => {
+  const original = await workspaceDraftDigest(valid);
+  expect(await workspaceDraftDigest({ ...valid, recoveryPayload: undefined })).toBe(original);
+  const inputs = ["", "original", "modified", "\ud800", "\ufffd"];
+  const digests = await Promise.all(inputs.map(recoveryPayload => workspaceDraftDigest({ ...valid, recoveryPayload })));
+  expect(new Set([original, ...digests]).size).toBe(inputs.length + 1);
+});
+it.each([null, 7, {}, []])("rejects malformed pre-operation recovery metadata before storage access (%j)", async recoveryPayload => {
+  const open = vi.fn(), repo = createDurableWorkspaceRepository("synthetic-probe", { open } as unknown as IDBFactory);
+  const invalid = { ...valid, recoveryPayload } as PendingWorkspaceDraft;
+  await expect(repo.stage(invalid)).rejects.toThrow("Invalid pending"); await expect(repo.commit(invalid)).rejects.toThrow("Invalid pending"); expect(open).not.toHaveBeenCalled();
+});

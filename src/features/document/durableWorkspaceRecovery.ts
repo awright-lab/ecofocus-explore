@@ -30,7 +30,7 @@ type Inspection = { workspace: DashboardWorkspace; error: null } | { workspace: 
 export type DurableRecoveryInspection = {
   kind: "empty" | "ready" | "needs_recovery";
   saved: ({ record: DurableWorkspaceHead } & Inspection) | null;
-  candidates: Array<{ draft: PendingWorkspaceDraft; base: "current" | "changed" } & Inspection>;
+  candidates: Array<{ draft: PendingWorkspaceDraft; base: "current" | "changed"; preOperation: ({ payload: string } & Inspection) | null } & Inspection>;
 };
 
 // Read-only startup preparation. Never selects, merges, clears, re-stages or
@@ -43,6 +43,6 @@ export async function inspectDurableWorkspaceRecovery(repository: { inspect(work
     catch (error) { return { workspace: null, error: error instanceof Error ? error.message : "The saved workspace could not be read safely." }; }
   };
   const saved = snapshot.head ? { record: snapshot.head, ...decode(snapshot.head.payload) } : null;
-  const candidates = snapshot.pending.map(draft => ({ draft, base: (snapshot.head?.revision ?? null) === draft.expectedRevision ? "current" as const : "changed" as const, ...decode(draft.payload) }));
+  const candidates = snapshot.pending.map(draft => ({ draft, base: (snapshot.head?.revision ?? null) === draft.expectedRevision ? "current" as const : "changed" as const, ...decode(draft.payload), preOperation: draft.recoveryPayload === undefined ? null : { payload: draft.recoveryPayload, ...decode(draft.recoveryPayload) } }));
   return { kind: !saved && !candidates.length ? "empty" : saved?.workspace && !candidates.length ? "ready" : "needs_recovery", saved, candidates };
 }
