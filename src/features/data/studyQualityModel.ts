@@ -1,14 +1,14 @@
 import type { ImportedDatasetField, ImportedDatasetRecord } from '../../../shared/types/dashboard';
 import { importedRawFieldValue } from './importedRawValue';
 
-export const studyQualityCellLimit=5_000_000;
+export const studyQualityCellLimit=20_000;
 export type QualityField = { id:string; label:string; sourceColumn:string; kind:'numeric'|'categorical'|'other'; blank:number; nonblank:number; valid:number|null; invalid:number|null; distinct:number|null; issue?:string };
 export type QualitySnapshot = { dataset:ImportedDatasetRecord; rows:ImportedDatasetRecord['rows']; fields:ImportedDatasetField[]; schema:string; rowRefs:ImportedDatasetRecord['rows']; rowTexts:string[]; values:string[][]; summaries:QualityField[] };
 export function studyQualityEligibility(dataset:ImportedDatasetRecord):string|null {
  if(dataset.sourceType!=='local_file'||dataset.remote||(dataset.sourceRef&&(dataset.sourceRef.kind!=='imported_file'||dataset.sourceRef.provider!=='local_file'||dataset.sourceRef.datasetId!==dataset.id)))return 'Study quality is unavailable for remote or inconsistent source identities. No data was downloaded.';
  if(dataset.importStatus&&!['local_ready','ready'].includes(dataset.importStatus.status))return 'The local study is not ready for a complete review. Retry when all rows and fields are available.';
  if(!Number.isSafeInteger(dataset.rowCount)||dataset.rowCount<0||!Number.isSafeInteger(dataset.fieldCount)||dataset.fieldCount<0||dataset.rows.length!==dataset.rowCount||dataset.previewRows.length>dataset.rowCount||dataset.fields.length!==dataset.fieldCount)return 'A complete local row and field snapshot is required. Preview rows cannot establish study-wide counts.';
- if(dataset.rowCount>1_000_000||dataset.fieldCount>10_000||!Number.isSafeInteger(dataset.rowCount*dataset.fieldCount)||dataset.rowCount*dataset.fieldCount>studyQualityCellLimit)return 'This study exceeds the review limits (1,000,000 rows, 10,000 fields or 5,000,000 cells). The study was not changed.';
+ if(dataset.rowCount>20_000||dataset.fieldCount>200||!Number.isSafeInteger(dataset.rowCount*dataset.fieldCount)||dataset.rowCount*dataset.fieldCount>studyQualityCellLimit)return 'This study exceeds the review limits (20,000 rows, 200 fields or 20,000 cells). The study was not changed.';
  const ids=new Set<string>(),columns=new Set<string>();for(const field of dataset.fields){if(!field||typeof field.id!=='string'||!field.id.trim()||ids.has(field.id)||typeof field.label!=='string'||typeof field.sourceColumn!=='string'||!field.sourceColumn.trim()||columns.has(field.sourceColumn))return 'Field identities or source columns are missing or ambiguous. Review the study before calculating.';ids.add(field.id);columns.add(field.sourceColumn);}
  return null;
 }

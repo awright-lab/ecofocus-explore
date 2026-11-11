@@ -8,12 +8,14 @@ export function runStudyQualityJob(dataset:ImportedDatasetRecord,options:{signal
  return new Promise((resolve,reject)=>{
   const issue=studyQualityEligibility(dataset);if(issue){reject(new Error(issue));return;}
   const rows=dataset.rows,fields=[...dataset.fields],schema=qualitySchema(dataset),rowRefs:ImportedDatasetRecord['rows']=[],rowTexts:string[]=[],values=fields.map(()=>[] as string[]),summaries:QualityField[]=[];
+  if(schema.length>128_000){reject(new Error('The study field metadata exceeds the 128,000-character review limit.'));return;}
+  let capturedText=0,capturedValues=0;
   let timer:ReturnType<typeof setTimeout>|undefined,deadline:ReturnType<typeof setTimeout>|undefined,worker:WorkerLike|null=null,done=false,index=0,row=0;
   function finish(error?:Error,snapshot?:QualitySnapshot){if(done)return;done=true;if(timer!==undefined)clearTimeout(timer);if(deadline!==undefined)clearTimeout(deadline);options.signal.removeEventListener('abort',cancel);worker?.terminate();if(error)reject(error);else resolve(snapshot!);}
   function cancel(){finish(new DOMException('Study quality review canceled.','AbortError'));}
   function context(){if(studyQualityEligibility(dataset)||dataset.rows!==rows||qualitySchema(dataset)!==schema||fields.some((field,i)=>dataset.fields[i]!==field))throw new Error('The study or its schema changed. Refresh to review the current snapshot.');}
   if(options.signal.aborted){cancel();return;}options.signal.addEventListener('abort',cancel,{once:true});
-  function prepare(){try{context();let budget=2000;while(index<fields.length&&budget>0){while(row<rows.length&&budget>0){if(index===0){rowRefs.push(rows[row]);rowTexts.push(JSON.stringify(rows[row]));}const value=importedRawFieldValue(rows[row],fields[index]);if(typeof value!=='string')throw new Error('A stored value is not text. The study was not changed.');values[index].push(value);row++;budget--;}if(row===rows.length){index++;row=0;}}
+  function prepare(){try{context();let budget=2000;while(index<fields.length&&budget>0){while(row<rows.length&&budget>0){if(index===0){const text=JSON.stringify(rows[row]);capturedText+=text.length;if(capturedText>1_000_000)throw new Error('The stored row snapshot exceeds the 1,000,000-character review limit.');rowRefs.push(rows[row]);rowTexts.push(text);}const value=importedRawFieldValue(rows[row],fields[index]);if(typeof value!=='string')throw new Error('A stored value is not text. The study was not changed.');capturedValues+=value.length;if(capturedValues>1_000_000)throw new Error('The stored values exceed the 1,000,000-character review limit.');values[index].push(value);row++;budget--;}if(row===rows.length){index++;row=0;}}
    options.onProgress?.({phase:'preparing',done:index*rows.length+row,total:fields.length*rows.length});if(done)return;context();if(index<fields.length){timer=setTimeout(prepare,0);return;}
    worker=(options.createWorker??(()=>new Worker(new URL('./studyQuality.worker.ts',import.meta.url),{type:'module'})))();index=0;
    worker.onerror=worker.onmessageerror=()=>finish(new Error('Background study review is unavailable. Retry without changing the study.'));
@@ -26,7 +28,7 @@ export function runStudyQualityJob(dataset:ImportedDatasetRecord,options:{signal
     else throw new Error('The background review could not verify a field. Retry.');
     index++;options.onProgress?.({phase:'calculating',done:index,total:fields.length});if(index===fields.length){verify();return;}send();
    }catch(error){finish(error instanceof Error?error:new Error('Study review failed.'));}};
-   if(!fields.length){for(const item of rows){rowRefs.push(item);rowTexts.push(JSON.stringify(item));}verify();return;}send();
+   if(!fields.length){for(const item of rows){const text=JSON.stringify(item);capturedText+=text.length;if(capturedText>1_000_000)throw new Error('The stored row snapshot exceeds the 1,000,000-character review limit.');rowRefs.push(item);rowTexts.push(text);}verify();return;}send();
   }catch(error){finish(error instanceof Error?error:new Error('Study review could not start.'));}}
   function send(){if(done)return;try{context();worker!.postMessage({index,values:values[index],field:fields[index]});}catch(error){finish(error instanceof Error?error:new Error('Study review could not start.'));}}
   function verify(){if(done)return;options.onProgress?.({phase:'verifying',done:0,total:fields.length*rows.length});timer=setTimeout(()=>{if(done)return;const snapshot={dataset,rows,fields,schema,rowRefs,rowTexts,values,summaries};if(!qualitySnapshotCurrent(snapshot,dataset)){finish(new Error('The study changed during review. Refresh to review the current snapshot.'));return;}finish(undefined,snapshot);},0);}
