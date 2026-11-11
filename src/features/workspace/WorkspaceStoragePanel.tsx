@@ -3,7 +3,7 @@ import { WorkspaceStorageInventory, formatStorageSize as size } from "./Workspac
 import { readOriginStorageEstimate, type OriginStorageEstimate } from "./originStorageEstimate";
 import { workspaceSaveSession } from "../document/workspaceSaveSession";
 import type { DashboardWorkspace } from "../../../shared/types/dashboard";
-import { measureWorkspaceStorage, readStoredWorkspaceCopy } from "../document/workspacePersistence";
+import { measureWorkspaceStorage } from "../document/workspacePersistence";
 
 export function WorkspaceStoragePanel({ workspace }: { workspace: DashboardWorkspace }) {
   const [result, setResult] = useState<{ workspace: DashboardWorkspace; summary: ReturnType<typeof measureWorkspaceStorage>; savedReadFailed: boolean } | null>(null);
@@ -11,10 +11,15 @@ export function WorkspaceStoragePanel({ workspace }: { workspace: DashboardWorks
   const [capacity, setCapacity] = useState<OriginStorageEstimate | null>(null), [readingCapacity, setReadingCapacity] = useState(false);
   const pendingSave = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
   const panel = useRef<HTMLDetailsElement>(null), measureButton = useRef<HTMLButtonElement>(null), displaced = useRef<Element | null>(null);
-  const requestOwner = useRef(0);
-  useEffect(() => () => { requestOwner.current += 1; }, []);
+  const requestOwner = useRef(0), measureOwner = useRef(0);
+  const [measuring, setMeasuring] = useState(false);
+  useEffect(() => () => { requestOwner.current += 1; measureOwner.current += 1; }, []);
   useLayoutEffect(() => {
-    const previous = displaced.current; displaced.current = null;
+    const previous = displaced.current;
+    // Starting an async measurement renders before the inventory is replaced.
+    // Keep its focus owner through that intermediate frame.
+    if (previous?.isConnected && measuring) return;
+    displaced.current = null;
     if (previous && !previous.isConnected && (!document.activeElement || document.activeElement === document.body)) measureButton.current?.focus();
   });
   async function checkCapacity() {
@@ -23,19 +28,23 @@ export function WorkspaceStoragePanel({ workspace }: { workspace: DashboardWorks
     if (owner !== requestOwner.current) return;
     setCapacity(result); setReadingCapacity(false);
   }
-  function measure() {
+  async function measure() {
+    const owner = ++measureOwner.current;
+    setMeasuring(true);
     displaced.current = panel.current?.contains(document.activeElement) ? document.activeElement : null;
     try {
       let saved: string | null = null, savedReadFailed = false;
-      try { saved = readStoredWorkspaceCopy(); } catch { savedReadFailed = true; }
+      try { saved = await workspaceSaveSession.readSavedWorkspaceCopy(); } catch { savedReadFailed = true; }
+      if (owner !== measureOwner.current) return;
       setResult({ workspace, summary: measureWorkspaceStorage(workspace, saved), savedReadFailed }); setError(null);
-    } catch { setResult(null); setError("Storage details could not be measured. Your data has not been changed."); }
+    } catch { if (owner === measureOwner.current) { setResult(null); setError("Storage details could not be measured. Your data has not been changed."); } }
+    finally { if (owner === measureOwner.current) setMeasuring(false); }
   }
   const summary = result?.summary;
   return <details ref={panel} className="workspace-storage-panel" onBlurCapture={event => { if (displaced.current === event.target) displaced.current = null; }}>
     <summary>Workspace storage</summary>
     <p>See how current studies and historical snapshots contribute to your browser save.</p>
-    <button ref={measureButton} type="button" className="workspace-home-secondary" onClick={measure}>{result ? "Refresh storage details" : "Measure storage details"}</button>
+    <button ref={measureButton} type="button" className="workspace-home-secondary" disabled={measuring} onClick={() => void measure()}>{measuring ? "Measuring storage..." : result ? "Refresh storage details" : "Measure storage details"}</button>
     <button type="button" className="workspace-home-secondary" onClick={() => void checkCapacity()}>Check browser storage estimate</button>
     {readingCapacity && <p role="status">Reading browser storage estimate…</p>}
     {capacity && <div className="workspace-storage-panel__result" aria-label="Browser storage estimate">

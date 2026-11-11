@@ -203,20 +203,23 @@ const VersionedResultReview = lazy(() => import("../analytics/VersionedResultRev
 const CalculatedMetricBuilder = lazy(() => import("../metrics/CalculatedMetricBuilder"));
 const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
 
-export default function BuilderApp() {
+export default function BuilderApp({ initialWorkspace }: { initialWorkspace?: DashboardWorkspace } = {}) {
   const closingPanelFocus = useClosingPanelFocus();
   const inspectorCloseRef = useRef<HTMLButtonElement>(null);
   const [exportIssueFocus, setExportIssueFocus] = useState<{ target: ExportIssueTarget; trigger: Element | null; canMoveFocus: () => boolean } | null>(null);
   const designModalRef = useRef<HTMLDivElement | null>(null);
-  const [workspace, setWorkspace] = useState(() => workspaceSaveSession.load());
+  const [workspace, setWorkspace] = useState(() => initialWorkspace ?? workspaceSaveSession.load());
   const workspaceRef = useRef(workspace);
   const importOwnerMounted = useRef(true);
   const fileImportBusy=useRef(false);
   const navigationOwner = useRef<{ token: symbol; editVersion: number } | null>(null);
   const [isReportTransitionPending, setIsReportTransitionPending] = useState(false);
-  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; navigationOwner.current = null; }; }, []);
+  // Fast Refresh replays effects without replacing this editor's refs/state.
+  // Keep its pending operation owner so acknowledgement can release the pause.
+  // An actual unmount still revokes UI updates through the mounted guard.
+  useEffect(() => { importOwnerMounted.current = true; return () => { importOwnerMounted.current = false; }; }, []);
   const hasUnsavedWorkspace = useSyncExternalStore(workspaceSaveSession.subscribe, workspaceSaveSession.hasPending);
-  const saveDashboardWorkspace = workspaceSaveSession.save;
+  const autosavesInFlight = useRef(0);
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
   const initialRoute = parseWorkspaceRoute();
   const initialReport =
@@ -703,33 +706,37 @@ export default function BuilderApp() {
   }, []);
 
   function captureEditorWorkspace() {
-    const current=workspaceRef.current,retained=reportRefreshSource.current,record=current.reports.find(item=>item.id===activeReportId);
+    const current=workspaceRef.current, dashboard=getCurrentImportDocument(), retained=reportRefreshSource.current,record=current.reports.find(item=>item.id===dashboard.id);
+    const activeReportId=dashboard.id;
     if(retained?.reportId===activeReportId && record && JSON.stringify(dashboard)===retained.draft && JSON.stringify(record.draft)===retained.draft)
       return current.activeReportId===activeReportId?current:{...current,activeReportId};
     return upsertDraftReport(current,dashboard,activeReportId);
   }
 
-  async function saveBeforeReportTransition(nextWorkspace: DashboardWorkspace, onSaved: () => void, recoveryWorkspace = nextWorkspace, onLateStored?: () => void) {
+  async function saveBeforeReportTransition(nextWorkspace: DashboardWorkspace, onSaved: () => void, recoveryWorkspace = nextWorkspace, onLateStored?: () => void, isCurrent = () => true) {
     if (navigationOwner.current) return false;
     const token = Symbol("report-transition");
+    const route = window.location.hash;
     const version = getDocumentEditVersion();
+    const context = getEditorContextVersion();
     navigationOwner.current = { token, editVersion: version };
     setIsReportTransitionPending(true);
     workspaceRef.current = recoveryWorkspace;
     setWorkspace(recoveryWorkspace);
     setSaveState("Saving...");
-    const ownsTransition = () => importOwnerMounted.current && navigationOwner.current?.token === token && getDocumentEditVersion() === version && workspaceRef.current === recoveryWorkspace;
+    const ownsTransition = () => importOwnerMounted.current && window.location.hash === route && isCurrent() && getEditorContextVersion() === context && navigationOwner.current?.token === token && getDocumentEditVersion() === version && workspaceRef.current === recoveryWorkspace;
     try {
       const saved = await workspaceSaveSession.saveAsync(nextWorkspace, recoveryWorkspace);
       if (!ownsTransition()) {
         if (saved) onLateStored?.();
         return false;
       }
-      if (!saved) { setSaveState("Not saved"); return false; }
+      if (!saved) { setSaveState("Not saved"); setError(workspaceSaveFailureMessage); return false; }
+      setSaveState("Saved just now");
       onSaved();
       return true;
     } catch {
-      if (ownsTransition()) { workspaceSaveSession.remember(recoveryWorkspace); setSaveState("Not saved"); }
+      if (ownsTransition()) { workspaceSaveSession.remember(recoveryWorkspace); setSaveState("Not saved"); setError(workspaceSaveFailureMessage); }
       return false;
     } finally {
       if (navigationOwner.current?.token === token) { navigationOwner.current = null; if (importOwnerMounted.current) setIsReportTransitionPending(false); }
@@ -878,12 +885,19 @@ export default function BuilderApp() {
       }
       return;
     }
+    const editVersion = getDocumentEditVersion(), route = window.location.hash;
+    let captured: DashboardWorkspace | undefined;
+    const ownsAutosave = () => importOwnerMounted.current && !navigationOwner.current && window.location.hash === route && getDocumentEditVersion() === editVersion && (!captured || workspaceRef.current === captured);
     return scheduleAcknowledgedWorkspaceAutosave({
       capture: () => captureEditorWorkspace(),
-      onCaptured: setWorkspace,
-      save: (nextWorkspace) => workspaceSaveSession.saveAsync(nextWorkspace),
-      onRejected: (nextWorkspace) => workspaceSaveSession.remember(nextWorkspace),
-      onState: setSaveState,
+      onCaptured: (nextWorkspace) => { captured = nextWorkspace; workspaceRef.current = nextWorkspace; setWorkspace(nextWorkspace); },
+      save: async (nextWorkspace) => {
+        autosavesInFlight.current += 1;
+        try { return await workspaceSaveSession.saveAsync(nextWorkspace); }
+        finally { autosavesInFlight.current -= 1; }
+      },
+      onRejected: (nextWorkspace) => { if (ownsAutosave()) workspaceSaveSession.remember(nextWorkspace); },
+      onState: (state) => { if (ownsAutosave()) setSaveState(state); },
     });
   }, [dashboard, activeReportId, publishedSnapshot, setSaveState, isReportTransitionPending, getDocumentEditVersion]);
 
@@ -891,18 +905,26 @@ export default function BuilderApp() {
     if (!hasUnsavedWorkspace && saveState === "Not saved") setSaveState("Saved locally");
   }, [hasUnsavedWorkspace, saveState, setSaveState]);
 
-  // Flush the debounce before route unmounts or the tab closes. The session
-  // buffer also lets hash/back navigation retain failed writes in this tab.
+  // Route changes must retain the command-time editor before async boot reads it.
+  // Unload cannot rely on starting (or completing) an asynchronous write.
   useEffect(() => {
     if (publishedSnapshot) return;
-    function flush(event?: BeforeUnloadEvent) {
-      const next = captureEditorWorkspace();
-      if (!saveDashboardWorkspace(next) && event) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
+    function flush(event: BeforeUnloadEvent) {
+      const current = getCurrentImportDocument();
+      const stored = workspaceRef.current.reports.find(report => report.id === current.id)?.draft;
+      const dirty = workspaceSaveSession.hasPending() || navigationOwner.current !== null || autosavesInFlight.current > 0 || JSON.stringify(current) !== JSON.stringify(stored);
+      if (!dirty) return;
+      workspaceSaveSession.remember(captureEditorWorkspace());
+      event.preventDefault();
+      event.returnValue = "";
     }
-    function flushRoute() { flush(); }
+    async function flushRoute() {
+      const next = captureEditorWorkspace();
+      workspaceRef.current = next;
+      workspaceSaveSession.remember(next);
+      try { await workspaceSaveSession.saveAsync(next); }
+      catch { /* The synchronous capture is retained; never replace newer recovery. */ }
+    }
     window.addEventListener("beforeunload", flush);
     window.addEventListener("hashchange", flushRoute);
     window.addEventListener("popstate", flushRoute);
@@ -1292,47 +1314,47 @@ export default function BuilderApp() {
         deferredWorkspaceImports.remember(parsed);setError("The complete file is kept for copy review. Return to the workspace and choose Add recovered studies to reuse an existing copy or keep it separate. No study was added here.");return null;
       }
       const nextWorkspace = upsertWorkspaceImportedDataset(base,parsed);
-      workspaceRef.current=nextWorkspace;setWorkspace(nextWorkspace);
-      const saved = saveDashboardWorkspace(nextWorkspace);setError(saved ? null : workspaceSaveFailureMessage);
-      return parsed;
+      const saved = await saveBeforeReportTransition(nextWorkspace, () => setError(null));
+      return saved ? parsed : null;
     }finally{fileImportBusy.current=false;}
   }
 
-  function updateImportedDatasetField(
+  async function updateImportedDatasetField(
     datasetId: string,
     fieldId: string,
     updates: Parameters<typeof updateWorkspaceImportedDatasetField>[3],
   ) {
+    if (!importOwnerMounted.current || viewerContext.current || navigationOwner.current) return false;
     editorContextEpoch.current += 1;
     setIsLoading(false);
-    const currentWorkspace = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
+    const currentWorkspace = captureEditorWorkspace();
     const nextWorkspace = updateWorkspaceImportedDatasetField(
       currentWorkspace,
       datasetId,
       fieldId,
       updates,
     );
-    setWorkspace(nextWorkspace);
-    const saved = saveDashboardWorkspace(nextWorkspace);
-    setError(saved ? null : workspaceSaveFailureMessage);
-    return saved;
+    return saveBeforeReportTransition(nextWorkspace, () => setError(null));
   }
 
-  function removeImportedDataset(datasetId: string) {
+  async function removeImportedDataset(datasetId: string) {
+    if (!importOwnerMounted.current || viewerContext.current || navigationOwner.current) return "Resolve the pending workspace save before removing a study.";
     try {
       const editorBlocker = editorStudyRemovalBlocker(datasetId, history, future, isLoading);
       if (editorBlocker) return editorBlocker;
       // Include changes not yet reached by the autosave timer in the dependency
       // check. A failed write retains the pre-removal state for backup/retry.
-      const currentWorkspace = upsertDraftReport(workspaceRef.current, dashboard, activeReportId);
+      const currentWorkspace = captureEditorWorkspace();
       const nextWorkspace = removeWorkspaceImportedDataset(currentWorkspace, datasetId);
-      if (!saveDashboardWorkspace(nextWorkspace, currentWorkspace)) return workspaceSaveFailureMessage;
-      setWorkspace(nextWorkspace);
-      // Workspace deletion is not a canvas edit. Preserve existing history but
-      // do not add an undo entry that could resurrect a removed embedded copy.
-      setDashboard(nextWorkspace.reports.find(report => report.id === activeReportId)!.draft, false);
-      setError(null);
-      return null;
+      const saved = await saveBeforeReportTransition(nextWorkspace, () => {
+        workspaceRef.current = nextWorkspace;
+        setWorkspace(nextWorkspace);
+        // Workspace deletion is not a canvas edit. Preserve existing history but
+        // do not add an undo entry that could resurrect a removed embedded copy.
+        setDashboard(nextWorkspace.reports.find(report => report.id === activeReportId)!.draft, false);
+        setError(null);
+      }, currentWorkspace);
+      return saved ? null : "The removal was not applied to this editor. " + workspaceSaveFailureMessage;
     } catch (error) {
       return error instanceof Error ? error.message : "This study could not be removed. Its data has been kept.";
     }
@@ -2384,8 +2406,8 @@ export default function BuilderApp() {
         if(signal.aborted||!importOwnerMounted.current||window.location.hash!==route||getDocumentEditVersion()!==editVersion||workspaceRef.current!==snapshot)return "The workspace changed or preparation was canceled. No prepared study was added; review and retry.";
         const existing=currentWorkspace.importedDatasets.find(study=>study.id===preview.dataset.id);
         if(existing&&!samePreparedStudy(existing,preview.dataset))return "A different study already uses this identity. Existing data is preserved; create a fresh preview.";
-        const next=upsertWorkspaceImportedDataset(currentWorkspace,existing??preview.dataset);workspaceRef.current=next;setWorkspace(next);
-        const saved=saveDashboardWorkspace(next);setError(saved?null:workspaceSaveFailureMessage);
+        const next=upsertWorkspaceImportedDataset(currentWorkspace,existing??preview.dataset);
+        const saved=await saveBeforeReportTransition(next,()=>setError(null),next,undefined,()=>!signal.aborted);
         return saved?null:workspaceSaveFailureMessage;
       }}/></Suspense>}
       {calculatedMetricOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading calculated metrics...</div>}><CalculatedMetricBuilder key={dashboard.id} draft={dashboard} selectedTileId={selectedTile?.id} onClose={()=>setCalculatedMetricOpen(false)} onChange={setDashboard} onNavigate={(pageId,tileId)=>{setActivePageId(pageId);selectTile(tileId);}} onCreateAnalysis={()=>{setCalculatedMetricOpen(false);openGuidedDataQuery({sourceMode:"imported"});}}/></Suspense>}

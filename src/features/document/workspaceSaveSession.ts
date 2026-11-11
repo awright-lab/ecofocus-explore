@@ -65,20 +65,31 @@ export function createWorkspaceSaveSession(
     memory.listeners.forEach((listener) => listener());
     return saved;
   }
+  function load() {
+    if (memory.pending) return memory.pending;
+    // Do not adopt a newer baseline on route remount: older mounted state may
+    // still attempt an autosave. A new browser load starts a fresh session.
+    const version = readVersion?.();
+    const workspace = read();
+    if (readVersion && memory.expectedVersion === undefined) memory.expectedVersion = version;
+    return workspace;
+  }
+  async function saveAsync(workspace: DashboardWorkspace, recoveryWorkspace = workspace) {
+    return save(workspace, recoveryWorkspace);
+  }
   return {
     save,
-    // Awaitable acknowledgement boundary for consumers migrating to the
-    // transactional adapter. Legacy writes still complete synchronously here.
-    saveAsync: async (workspace: DashboardWorkspace, recoveryWorkspace = workspace) => save(workspace, recoveryWorkspace),
-    load: () => {
-      if (memory.pending) return memory.pending;
-      // Do not adopt a newer baseline on route remount: older mounted state may
-      // still attempt an autosave. A new browser load starts a fresh session.
-      const version = readVersion?.();
-      const workspace = read();
-      if (readVersion && memory.expectedVersion === undefined) memory.expectedVersion = version;
-      return workspace;
-    },
+    // These are the application acknowledgement boundaries. The legacy adapter
+    // still completes synchronously internally; a later durable adapter must
+    // retain pending data before its first await and resolve only after commit.
+    saveAsync,
+    load,
+    loadAsync: async () => load(),
+    retryAsync: async () => memory.pending ? saveAsync(memory.pending) : true,
+    // Ownership guards may observe this token, but must never adopt it as a
+    // write baseline. The storage adapter remains responsible for concurrency.
+    readVersion: () => readVersion ? readVersion() : memory.expectedVersion ?? null,
+    readSavedWorkspaceCopy: async () => readVersion ? readVersion() : null,
     getFailure: () => memory.failure,
     getPending: () => memory.pending,
     hasPending: () => memory.pending !== null,

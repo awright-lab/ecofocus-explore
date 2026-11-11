@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Search, BookOpen } from "lucide-react";
 import type { AnalysisAuthoringPanelProps } from "./AnalysisAuthoringPanel";
@@ -73,15 +73,24 @@ export function ResearchQuestionCatalog({ importedDatasets, updateImportedDatase
   </div>, document.body);
 }
 
-function ResearchLabelsEditor({ entry, onSave }: { entry: ResearchCatalogEntry; onSave: (updates: ReturnType<typeof parseResearchLabels>) => boolean | void }) {
+function ResearchLabelsEditor({ entry, onSave }: { entry: ResearchCatalogEntry; onSave: (updates: ReturnType<typeof parseResearchLabels>) => boolean | void | Promise<boolean | void> }) {
   const [topic, setTopic] = useState(entry.field?.researchTopic ?? "");
   const [concepts, setConcepts] = useState(entry.concepts.join(", "));
   const [message, setMessage] = useState("");
-  return <form className="research-catalog-labels" onSubmit={event => {
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false), revision = useRef(0), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  return <form className="research-catalog-labels" onSubmit={async event => {
     event.preventDefault();
+    if (busy.current) return;
+    const version = revision.current;
+    const isCurrent = () => mounted.current && revision.current === version;
+    busy.current = true; setPending(true); setMessage("Saving discovery labels...");
     try {
-      const saved = onSave(parseResearchLabels(topic, concepts));
+      const saved = await onSave(parseResearchLabels(topic, concepts));
+      if (!isCurrent()) return;
       setMessage(saved === false ? "Labels remain in memory, but the workspace could not be saved. Close this dialog to use workspace recovery and retry saving." : saved === true ? "Discovery labels saved in this browser." : "Labels applied in this browser workspace. Check workspace save status for persistence.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Labels could not be applied."); }
-  }}><h4>Organize this question</h4><p>Declare labels for discovery. This changes no answers, values, or analysis settings.</p><label>Question topic<input value={topic} maxLength={120} onChange={event => { setTopic(event.target.value); setMessage(""); }}/></label><label>Question concepts<input value={concepts} maxLength={1640} placeholder="e.g. confidence, purchase intent" onChange={event => { setConcepts(event.target.value); setMessage(""); }}/></label><small>Separate concepts with commas; up to 20 labels of 80 characters.</small><button type="submit">Apply discovery labels</button><p role="status">{message}</p></form>;
+    } catch (error) { if (isCurrent()) setMessage(error instanceof Error ? error.message : "Labels could not be applied."); }
+    finally { busy.current = false; if (mounted.current) setPending(false); }
+  }}><h4>Organize this question</h4><p>Declare labels for discovery. This changes no answers, values, or analysis settings.</p><label>Question topic<input value={topic} maxLength={120} onChange={event => { revision.current += 1; setTopic(event.target.value); setMessage(""); }}/></label><label>Question concepts<input value={concepts} maxLength={1640} placeholder="e.g. confidence, purchase intent" onChange={event => { revision.current += 1; setConcepts(event.target.value); setMessage(""); }}/></label><small>Separate concepts with commas; up to 20 labels of 80 characters.</small><button type="submit" disabled={pending}>Apply discovery labels</button><p role="status">{message}</p></form>;
 }
