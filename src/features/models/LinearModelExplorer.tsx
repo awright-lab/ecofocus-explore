@@ -6,6 +6,8 @@ import { importedFieldDisplayLabel } from "../data/datasetModelingModel";
 import { eligibleModelFields, resolveLinearModelContext, type LinearModelPlan, type ModelSourceContext } from "./linearModelContext";
 import { runLinearModelJob, type LinearModelRun, type ModelProgress } from "./linearModelJob";
 import { LinearModelDiagnostics } from "./LinearModelDiagnostics";
+import { CorrelationExplorer } from "./CorrelationExplorer";
+import "./correlation.css";
 import "./linear-model.css";
 
 export default function LinearModelExplorer({ draft, studies, onClose }: { draft: DashboardDraft; studies: ImportedDatasetRecord[]; onClose: () => void }) {
@@ -22,6 +24,7 @@ export default function LinearModelExplorer({ draft, studies, onClose }: { draft
   const query = search.trim().toLocaleLowerCase(), matches = fields.filter(field => !query || `${field.label} ${field.variableLabel ?? ""} ${field.sourceColumn}`.toLocaleLowerCase().includes(query));
   const visible = fields.filter(field => field.id === plan.outcomeId || plan.predictorIds.includes(field.id) || matches.slice(0, 200).includes(field));
   let issue = ""; try { resolveLinearModelContext(current.current); } catch (problem) { issue = problem instanceof Error ? problem.message : "Review the model settings."; }
+  let correlationIssue = ""; try { resolveLinearModelContext({ ...current.current, plan: { ...plan, seed: 12345 } }); } catch (problem) { correlationIssue = problem instanceof Error ? problem.message : "Review the measurement selections."; }
   const activeRun = run && run.sourceStillCurrent() ? run : null;
   function update(change: Partial<LinearModelPlan>) { generation.current++; abort.current?.abort(); setProgress(null); setError(""); setPlan(previous => ({ ...previous, ...change })); }
   function chooseStudy(id: string) { const chosen = studies.find(study => study.id === id); update({ datasetId: id, importedAt: chosen?.importedAt ?? "", outcomeId: "", predictorIds: [], audienceId: "" }); setSearch(""); }
@@ -50,6 +53,7 @@ export default function LinearModelExplorer({ draft, studies, onClose }: { draft
         <label>Reproducible split seed<input type="number" min="1" max="4294967295" step="1" value={Number.isFinite(plan.seed) ? plan.seed : ""} onChange={event => update({ seed: event.target.value === "" ? NaN : Number(event.target.value) })} /></label>
         <details open><summary>Method and limitations</summary><p>Ordinary least squares with an intercept, centered and scaled predictors, and QR factorization. A reproducible shuffle reserves approximately 20% of complete rows for holdout evaluation; the rest fit the model. At least 50 complete audience rows and three distinct outcome values are required. These product guards do not establish statistical reliability.</p><p>Only rows with all selected numeric values are used. Missing values are not replaced with zero. Currency, thousands separators and percentages follow import parsing; percentages are percentage points. Review units first. Magnitudes above 1e12, training standard deviations below 1e-150, constant predictors and near-singular designs are refused. Rescale unsupported units before fitting.</p><p>Weights, complex sampling, clustering, repeated observations, time-based splits, confidence intervals and significance tests are not supported. Repeatedly tuning against the same holdout can overfit it; use fresh external validation before decisions. Association does not establish causation.</p></details>
       </div></div>
+      <CorrelationExplorer context={current.current} issue={correlationIssue} getCurrentContext={() => current.current}/>
       {issue && <p role="status" className="model-notice">{issue}</p>}{error && <p role="alert">{error}</p>}
       {progress && <div role="status"><p>{progress.phase === "preparing" ? "Preparing complete cases" : "Fitting in a background worker"}: {progress.prepared.toLocaleString()} / {progress.total.toLocaleString()} source rows</p><progress max={Math.max(1, progress.total)} value={progress.prepared} /><button type="button" onClick={cancel}>Cancel model fitting</button></div>}
       {run && !activeRun && <p role="alert">The source, audience or settings changed. Previous diagnostics are hidden. Review the current choices and fit again.</p>}

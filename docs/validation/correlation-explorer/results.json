@@ -1,0 +1,39 @@
+{
+  "browser": "156.0.8078.4",
+  "sourceRows": 650,
+  "completeCases": 648,
+  "matrixFields": 2,
+  "mountedPoints": 300,
+  "casePageRows": 50,
+  "lastImportedRow": 650,
+  "elapsedMs": 139,
+  "longTasks": [
+    54,
+    457,
+    72,
+    100,
+    64,
+    87,
+    79,
+    80,
+    94,
+    51,
+    76
+  ],
+  "focusAfterClose": {
+    "tag": "BUTTON",
+    "label": "Find a tool"
+  },
+  "narrow": {
+    "client": 372,
+    "scroll": 372
+  },
+  "zoom": {
+    "client": 622,
+    "scroll": 622
+  },
+  "correlationWorker": true,
+  "reportStudySnapshotsAndExistingModelPreserved": true,
+  "requests": [],
+  "errors": []
+}
