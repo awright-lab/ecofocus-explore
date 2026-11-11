@@ -4263,6 +4263,15 @@ dialog::backdrop {
 .workspace-recovery-dock { position: fixed; z-index: 10000; bottom: 20px; left: 50%; transform: translateX(-50%); width: min(900px, calc(100% - 32px)); max-height: calc(100dvh - 90px); overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .workspace-recovery-dock:empty { display: none; }
 .workspace-recovery-dock > .workspace-save-recovery, .workspace-recovery-dock > .workspace-import-recovery { position: static; transform: none; width: 100%; }
+.workspace-retained-recovery { display: block; }
+.workspace-retained-recovery-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.workspace-retained-recovery h2 { margin: 0; font-size: 16px; }
+.workspace-retained-recovery-heading + div:not([hidden]) { margin-top: 12px; }
+.workspace-retained-recovery p { overflow-wrap: anywhere; }
+.workspace-retained-recovery p + button { margin-top: 12px; }
+.workspace-retained-recovery li { overflow-wrap: anywhere; }
+.workspace-retained-recovery li + li { margin-top: 10px; }
+.workspace-retained-recovery li button { max-width: 100%; overflow-wrap: anywhere; }
 .workspace-history-recovery { padding: 16px; border: 1px solid #76a489; border-radius: 12px; background: #eff8f1; color: #194e3d; box-shadow: 0 8px 30px #0002; }
 .workspace-history-recovery p { margin: 6px 0 12px; }
 .workspace-history-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; }
