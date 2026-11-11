@@ -7,7 +7,16 @@ import { ownAxisLabel } from '../../design-system/axisLabels';
 export const tablePreviewLimits={rows:50,columns:12} as const;
 export const tableExplorerLimits={rows:25,columns:8} as const;
 export function needsTableExplorer(result:AnalyticsQueryResponse){return result.table.length>tablePreviewLimits.rows||result.columns.length>tablePreviewLimits.columns;}
-export interface TableExplorerSelection{rowSearch:string;columnSearch:string;rowPage:number;columnPage:number}
+export type TableSort = {kind:'label';direction:'asc'|'desc'} | {kind:'value';columnId:string;direction:'asc'|'desc'};
+export type TableFilter = {columnId:string;status:'all'|'available'|'unavailable';min:number|null;max:number|null};
+export interface TableExplorerSelection{rowSearch:string;columnSearch:string;rowPage:number;columnPage:number;sort?:TableSort|null;filter?:TableFilter|null;pins?:string[]}
+/** The same availability rules used by the rendered cell, without formatting. */
+export function recordedNumericCell(result:AnalyticsQueryResponse,row:AnalyticsTableRow,columnId:string):number|null{
+ if(!row.values||!row.bases||!Object.hasOwn(row.values,columnId))return null;
+ if(['average','percent_selected','column_percent'].includes(result.metric.id)&&analyticalBase(result,row,columnId)===null)return null;
+ const cell=analyticalCell(result,row,columnId);return cell.status==='available'?cell.value:null;
+}
+
 const normalized=(value:string)=>value.normalize('NFKC').toLowerCase();
 function positions<T>(items:T[],search:string,label:(item:T)=>string[]){
  const terms=normalized(search.trim()).split(/\s+/).filter(Boolean),matches:number[]=[];
@@ -20,9 +29,17 @@ export function tableExplorerWindow(tile:DashboardTile,selection:TableExplorerSe
  const result=tile.result,issue=resultIdentityIssue(result);
  if(issue)return {issue,rows:null,columns:null};
  if(result.table.some(row=>typeof row.label!=='string')||result.columns.some(column=>typeof column.label!=='string'))return {issue:'Recorded row or column labels are invalid. Rerun the analysis; the recorded result has not been changed.',rows:null,columns:null};
- const rows=positions(result.table,selection.rowSearch,row=>[row.label,row.optionId,ownAxisLabel(tile.appearance,row.optionId)??'']);
+ const ids=new Set(result.columns.map(column=>column.id)),pins=selection.pins??[];
+ if((selection.sort?.kind==='value'&&!ids.has(selection.sort.columnId))||(selection.filter&&!ids.has(selection.filter.columnId))||pins.length>2||new Set(pins).size!==pins.length||pins.some(id=>!ids.has(id)))return {issue:'A selected column is no longer available. Reset table exploration and choose again.',rows:null,columns:null};
+ let rows=positions(result.table,selection.rowSearch,row=>[row.label,row.optionId,ownAxisLabel(tile.appearance,row.optionId)??'']);
+ const filter=selection.filter;
+ if(filter)rows=rows.filter(index=>{const value=recordedNumericCell(result,result.table[index],filter.columnId);if(value===null)return filter.status!=='available'&&filter.min===null&&filter.max===null;if(filter.status==='unavailable')return false;return (filter.min===null||value>=filter.min)&&(filter.max===null||value<=filter.max);});
+ const sort=selection.sort;
+ if(sort)rows.sort((a,b)=>{let cmp=0;if(sort.kind==='label'){const left=ownAxisLabel(tile.appearance,result.table[a].optionId)??result.table[a].label,right=ownAxisLabel(tile.appearance,result.table[b].optionId)??result.table[b].label;cmp=left<right?-1:left>right?1:0;}else{const left=recordedNumericCell(result,result.table[a],sort.columnId),right=recordedNumericCell(result,result.table[b],sort.columnId);if(left===null||right===null)return left===right?a-b:left===null?1:-1;cmp=left<right?-1:left>right?1:0;}return (sort.direction==='asc'?cmp:-cmp)||a-b;});
  const columns=positions(result.columns,selection.columnSearch,column=>[column.label,column.id,ownAxisLabel(tile.appearance,column.id)??'']);
- return {issue:null,rows:pageWindow(rows,selection.rowPage,tableExplorerLimits.rows),columns:pageWindow(columns,selection.columnPage,tableExplorerLimits.columns)};
+ const pinPositions=pins.map(id=>result.columns.findIndex(column=>column.id===id));
+ const window=pageWindow(columns.filter(position=>!pins.includes(result.columns[position].id)),selection.columnPage,tableExplorerLimits.columns-pins.length);
+ return {issue:null,rows:pageWindow(rows,selection.rowPage,tableExplorerLimits.rows),columns:{...window,positions:[...pinPositions,...window.positions]}};
 }
 export function recordedTableCell(result:AnalyticsQueryResponse,row:AnalyticsTableRow,columnId:string){
  const values=row.values,bases=row.bases;
