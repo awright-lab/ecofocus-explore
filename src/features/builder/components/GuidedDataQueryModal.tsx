@@ -164,6 +164,8 @@ export function GuidedDataQueryModal({
   const [importedQueryMode, setImportedQueryMode] = useState<ImportedQueryMode>(launchQueryMode);
   const [selectedImportedMeasureFieldId, setSelectedImportedMeasureFieldId] = useState<string | null>(launchContext?.groupingScope === "all_respondents" && launchContext.importedFieldId ? launchField?.id ?? launchContext.importedFieldId : launchMeasureField?.id ?? null);
   const [outputMode, setOutputMode] = useState<GuidedOutputMode>(initialOutputMode);
+  const importSelection = useRef("");
+  importSelection.current = JSON.stringify([datasetMode, selectedImportedDatasetId, selectedImportedFieldId, overallSummarySelected, selectedImportedBannerFieldId, selectedImportedFilterFieldId, selectedImportedFilterValue, importedMetric, importedQueryMode, selectedImportedMeasureFieldId, importedChartType, outputMode, destination, fieldSearch, props.query]);
   const importedDatasetBase = importedDatasets.find((dataset) => dataset.id === selectedImportedDatasetId) ?? null;
   const missingRequestedStudy = datasetMode === "imported" && Boolean(selectedImportedDatasetId) && !importedDatasetBase;
   const importedDataset = useMemo(() => withLaunchFieldSnapshot(importedDatasetBase, launchContext), [importedDatasetBase, launchContext?.importedDatasetId, launchContext?.importedFieldSnapshot]);
@@ -439,10 +441,13 @@ export function GuidedDataQueryModal({
   }
 
   async function importStudy(file: File | undefined) {
-    if (!file) return;
+    if (!file || importing) return;
+    const request = ++requestSequence.current, selection = importSelection.current;
+    const isCurrent = () => active.current && requestSequence.current === request && importSelection.current === selection;
     setImporting(true); setCreationError(null);
     try {
       const dataset = await props.importDataset(file);
+      if (!isCurrent()) return;
       if (!dataset) { setCreationError("We couldn't import this file. Check the format and try again."); return; }
       setDatasetMode("imported");
       setSelectedImportedDatasetId(dataset.id);
@@ -453,8 +458,8 @@ export function GuidedDataQueryModal({
       setSelectedImportedFieldId(firstImportedDimensionField(dataset)?.id ?? "");
       setSelectedImportedMeasureFieldId(firstImportedMeasureField(dataset)?.id ?? null);
       setFieldSearch("");
-    } catch (error) { setCreationError(error instanceof Error ? error.message : "Import failed."); }
-    finally { setImporting(false); if (importRef.current) importRef.current.value = ""; }
+    } catch (error) { if (isCurrent()) setCreationError(error instanceof Error ? error.message : "Import failed."); }
+    finally { if (active.current) setImporting(false); if (importRef.current) importRef.current.value = ""; }
   }
 
   function selectSeededQuestion(questionId: QuestionId) {

@@ -116,8 +116,8 @@ export type AnalysisAuthoringPanelProps = {
     datasetId: string,
     fieldId: string,
     updates: Partial<Pick<ImportedDatasetField, "label" | "type" | "modelingRole" | "eligibleForFilter" | "eligibleForSegment" | "eligibleForBanner" | "researchTopic" | "researchConcepts">>
-  ) => boolean | void;
-  removeImportedDataset: (datasetId: string) => string | null;
+  ) => boolean | void | Promise<boolean | void>;
+  removeImportedDataset: (datasetId: string) => string | null | Promise<string | null>;
   inspectImportedDataset?: (datasetId: string) => StudyUsageInspection;
   openGuidedDataQuery: (options?: GuidedDataQueryLaunchOptions) => void;
   filteredVariableSets: SavedVariableSet[];

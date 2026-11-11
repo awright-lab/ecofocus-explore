@@ -53,3 +53,16 @@ it("clears selection when its source disappears instead of launching another stu
  const dataset=await study(),launch=vi.fn(),render=(datasets:ImportedDatasetRecord[])=>root.render(<ResearchQuestionCatalog importedDatasets={datasets} updateImportedDatasetField={()=>{}} openGuidedDataQuery={launch} applyQuestionSelection={()=>{}} onClose={()=>{}}/>);
  await act(async()=>render([dataset]));await choose("Study",dataset.id);await act(async()=>cards()[0].click());await act(async()=>render([]));expect(document.querySelector('[aria-label="Question details"]')?.textContent).toContain("Start with the question");expect(document.body.textContent).toContain("Unavailable study");expect(Array.from(document.querySelectorAll("button")).some(node=>node.textContent==="Create analysis from this question")).toBe(false);expect(launch).not.toHaveBeenCalled();
 });
+it.each([true,false])("waits for delayed label persistence before feedback (%s)",async saved=>{
+ const dataset=await study();let acknowledge!:(value:boolean)=>void;const update=vi.fn(()=>new Promise<boolean>(resolve=>{acknowledge=resolve;}));
+ await act(async()=>root.render(<ResearchQuestionCatalog importedDatasets={[dataset]} updateImportedDatasetField={update} openGuidedDataQuery={()=>{}} applyQuestionSelection={()=>{}} onClose={()=>{}}/>));
+ await choose("Study",dataset.id);await act(async()=>cards()[0].click());await type(input("Question topic"),"Trust");await act(async()=>button("Apply discovery labels").click());
+ expect(document.body.textContent).toContain("Saving discovery labels");expect(document.body.textContent).not.toContain("Discovery labels saved");expect(button("Apply discovery labels").disabled).toBe(true);
+ await act(async()=>acknowledge(saved));expect(document.body.textContent).toContain(saved?"Discovery labels saved":"workspace could not be saved");
+});
+it("ignores delayed label feedback after newer label edits",async()=>{
+ const dataset=await study();let acknowledge!:(value:boolean)=>void;
+ await act(async()=>root.render(<ResearchQuestionCatalog importedDatasets={[dataset]} updateImportedDatasetField={()=>new Promise<boolean>(resolve=>{acknowledge=resolve;})} openGuidedDataQuery={()=>{}} applyQuestionSelection={()=>{}} onClose={()=>{}}/>));
+ await choose("Study",dataset.id);await act(async()=>cards()[0].click());await type(input("Question topic"),"Old topic");await act(async()=>button("Apply discovery labels").click());await type(input("Question topic"),"New topic");
+ await act(async()=>acknowledge(true));expect(input("Question topic").value).toBe("New topic");expect(document.body.textContent).not.toContain("Discovery labels saved");
+});

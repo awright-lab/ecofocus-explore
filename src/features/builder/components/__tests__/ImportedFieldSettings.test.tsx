@@ -32,3 +32,19 @@ it.each([['categorical', 'candidate_dimension', true], ['text', 'raw_variable', 
   const dataset = await study(), update = vi.fn(); await act(async () => root.render(<ImportedFieldSettings field={dataset.fields[1]} remote={false} onUpdate={update} />)); await choose(type);
   expect(update).toHaveBeenCalledWith({ type, modelingRole: role, eligibleForFilter: eligible, eligibleForSegment: eligible, eligibleForBanner: eligible });
 });
+it.each([true, false])('awaits field persistence and disables repeated changes (saved=%s)', async saved => {
+  const dataset = await study(); let acknowledge!: (saved: boolean) => void;
+  const update = vi.fn(() => new Promise<boolean>(resolve => { acknowledge = resolve; }));
+  await act(async () => root.render(<ImportedFieldSettings field={dataset.fields[1]} remote={false} onUpdate={update}/>));
+  await choose('numeric'); expect(host.querySelector('select')?.disabled).toBe(true); expect(host.textContent).toContain('Saving field settings');
+  await choose('text'); expect(update).toHaveBeenCalledOnce();
+  await act(async () => acknowledge(saved)); expect(host.querySelector('select')?.disabled).toBe(false);
+  expect(Boolean(host.querySelector('[role="alert"]'))).toBe(!saved);
+});
+it('does not show a late failure on a different selected field', async () => {
+  const dataset = await study(); let acknowledge!: (saved: boolean) => void;
+  const update = () => new Promise<boolean>(resolve => { acknowledge = resolve; });
+  await act(async () => root.render(<ImportedFieldSettings field={dataset.fields[1]} remote={false} onUpdate={update}/>)); await choose('numeric');
+  await act(async () => root.render(<ImportedFieldSettings field={dataset.fields[0]} remote={false} onUpdate={update}/>));
+  await act(async () => acknowledge(false)); expect(host.querySelector('[role="alert"]')).toBeNull();
+});

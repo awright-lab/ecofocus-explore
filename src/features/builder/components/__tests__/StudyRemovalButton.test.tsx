@@ -18,3 +18,9 @@ it("keeps an actionable inline dependency error and allows retry",async()=>{
 it("surfaces a storage failure without reporting successful removal",async()=>{
  vi.spyOn(window,"confirm").mockReturnValue(true);await act(async()=>root.render(<StudyRemovalButton title="Synthetic" onRemove={()=>"Could not save; keep this tab open and retry."}/>));await act(async()=>host.querySelector("button")!.click());expect(host.querySelector('[role="alert"]')?.textContent).toContain("Could not save");
 });
+it("waits for removal acknowledgement and blocks repeated requests",async()=>{
+ vi.spyOn(window,"confirm").mockReturnValue(true);let acknowledge!:(message:string|null)=>void;const remove=vi.fn(()=>new Promise<string|null>(resolve=>{acknowledge=resolve;}));
+ await act(async()=>root.render(<StudyRemovalButton title="Synthetic" onRemove={remove}/>));await act(async()=>host.querySelector("button")!.click());
+ expect(host.querySelector("button")!.disabled).toBe(true);await act(async()=>host.querySelector("button")!.click());expect(remove).toHaveBeenCalledOnce();expect(host.querySelector('[role="alert"]')).toBeNull();
+ await act(async()=>acknowledge("Saving failed; rows retained."));expect(host.querySelector('[role="alert"]')?.textContent).toContain("rows retained");expect(host.querySelector("button")!.disabled).toBe(false);
+});

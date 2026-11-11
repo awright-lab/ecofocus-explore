@@ -616,9 +616,10 @@ describe("workspace save recovery UI", () => {
     window.history.replaceState(null, "", `#/reports/${baseline.reports[0].id}`);
     await act(async () => root.render(<App />));
     await act(async () => button("Save snapshot").click());
+    const acknowledgeSnapshot = acknowledge;
     await act(async () => { window.history.pushState(null, "", "#/"); window.dispatchEvent(new HashChangeEvent("hashchange")); });
     expect(host.querySelector(".builder-shell")).toBeNull();
-    await act(async () => acknowledge(true));
+    await act(async () => acknowledgeSnapshot(true));
     expect(deferredWorkspaceHistory.getPending()).toHaveLength(1);
     expect(host.querySelector('[aria-label="Saved history awaiting review"]')).not.toBeNull();
     save.mockRestore(); writeFailure.mockRestore();

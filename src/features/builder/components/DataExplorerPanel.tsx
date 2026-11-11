@@ -308,9 +308,16 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     setSelectedImportedFieldId(firstImportedDimensionField(dataset)?.id ?? dataset?.fields[0]?.id ?? null);
   }
 
-  function deleteImportedDataset(datasetId: string) {
-    const error = removeImportedDataset(datasetId);
+  const selectionContext = useRef("");
+  selectionContext.current = JSON.stringify([leftPanelView, selectedImportedDatasetId, selectedImportedFieldId, sourceSearch]);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+
+  async function deleteImportedDataset(datasetId: string) {
+    const context = selectionContext.current;
+    const error = await removeImportedDataset(datasetId);
     if (error) return error;
+    if (!mounted.current || selectionContext.current !== context) return null;
     const remainingDatasets = importedDatasets.filter((dataset) => dataset.id !== datasetId);
     const nextDataset = remainingDatasets[0] ?? null;
     setSelectedImportedDatasetId(nextDataset?.id ?? null);
@@ -429,10 +436,13 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
 
   async function handleImportFile(file: File | undefined) {
     if (!file) return;
+    if (isImporting) return;
+    const context = selectionContext.current;
     setIsImporting(true);
     setImportFeedback(null);
     try {
       const imported = await importDataset(file);
+      if (!mounted.current || selectionContext.current !== context) return;
       const statusDetail = imported ? importStatusDetail(imported) : "";
       setImportFeedback(imported
         ? imported.rowCount > 0
@@ -441,7 +451,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
         : `Could not import ${file.name}. Check the workspace status message for details.`);
       if (imported) setSelectedImportedDatasetId(imported.id);
     } finally {
-      setIsImporting(false);
+      if (mounted.current) setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -714,7 +724,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                         <span>Selected field</span>
                         <strong>{importedFieldDisplayLabel(activeImportedField)}</strong>
                         <small>{activeImportedFieldSuitability.readiness.label} · {activeImportedFieldSuitability.readiness.bestUse}</small>
-                        {activeImportedDataset && typeof props.updateImportedDatasetField === "function" && <ImportedFieldSettings field={activeImportedField} remote={activeImportedDataset.remote?.provider === "netlify"} onUpdate={updates => props.updateImportedDatasetField(activeImportedDataset.id, activeImportedField.id, updates)} />}
+                        {activeImportedDataset && typeof props.updateImportedDatasetField === "function" && <ImportedFieldSettings key={`${activeImportedDataset.id}:${activeImportedField.id}`} field={activeImportedField} remote={activeImportedDataset.remote?.provider === "netlify"} onUpdate={updates => props.updateImportedDatasetField(activeImportedDataset.id, activeImportedField.id, updates)} />}
                         {activeImportedDataset && (activeImportedField.type === "numeric" || activeImportedField.modelingRole === "candidate_measure") &&
                           <NumericFieldProfile dataset={activeImportedDataset} field={activeImportedField} onSummarize={() => openQueryForImportedField(activeImportedField, "table", "all_respondents")} />}
                         {activeImportedDataset && activeImportedField.type !== "numeric" && activeImportedField.modelingRole !== "candidate_measure" && (activeImportedField.type === "categorical" || activeImportedField.modelingRole === "candidate_dimension") &&

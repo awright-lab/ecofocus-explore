@@ -8,8 +8,8 @@ import type { DashboardWorkspace } from "../shared/types/dashboard";
 import { DeferredWorkspaceImportRecovery } from "./features/document/DeferredWorkspaceImportRecovery";
 import { WorkspaceRouteRecovery, workspaceRouteIssue } from "./features/document/WorkspaceRouteRecovery";
 
-function loadWorkspaceSafely(): DashboardWorkspace | null {
-  try { return workspaceSaveSession.load(); } catch { return null; }
+async function loadWorkspaceSafely(): Promise<DashboardWorkspace | null> {
+  try { return await workspaceSaveSession.loadAsync(); } catch { return null; }
 }
 
 const BuilderApp = lazy(() => import("./features/builder/BuilderApp"));
@@ -19,27 +19,50 @@ const WorkspaceHome = lazy(() =>
 
 export default function App() {
   const [route, setRoute] = useState(() => parseWorkspaceRoute());
-  const [workspace, setWorkspace] = useState(loadWorkspaceSafely);
+  const [workspace, setWorkspace] = useState<DashboardWorkspace | null>(null);
+  const [loading, setLoading] = useState(true);
+  const loadOwner = useRef(0);
+  const opened = useRef(false);
+  const opening = useRef(false);
   const workspaceRevision = useRef(0);
   function commitWorkspace(next: DashboardWorkspace | null) {
     const revision = ++workspaceRevision.current;
+    ++loadOwner.current;
+    opened.current = true;
+    opening.current = false;
+    setLoading(false);
     setWorkspace(next);
     return revision;
   }
   function getWorkspaceRevision() { return workspaceRevision.current; }
 
   useEffect(() => {
-    function handleRouteChange() {
-      // Let the editor flush its debounce before reading the next route's data.
-      queueMicrotask(() => {
-        setRoute(parseWorkspaceRoute());
-        commitWorkspace(loadWorkspaceSafely());
-      });
+    let mounted = true;
+    async function openRoute() {
+      if (!mounted) return;
+      const owner = ++loadOwner.current;
+      const nextRoute = parseWorkspaceRoute();
+      opening.current = true;
+      ++workspaceRevision.current;
+      setLoading(true);
+      const next = await loadWorkspaceSafely();
+      if (!mounted || owner !== loadOwner.current) return;
+      setRoute(nextRoute);
+      commitWorkspace(next);
     }
-
+    function handleRouteChange() {
+      // The editor captures pending work synchronously during route events.
+      // Loading must await the active adapter and never read stale legacy data.
+      queueMicrotask(() => { if (mounted) void openRoute(); });
+    }
+    // Fast Refresh replays effects while preserving a dirty mounted editor.
+    // Re-register listeners without reopening that already initialized route.
+    if (!opened.current || opening.current) void openRoute();
     window.addEventListener("hashchange", handleRouteChange);
     window.addEventListener("popstate", handleRouteChange);
     return () => {
+      mounted = false;
+      ++loadOwner.current;
       window.removeEventListener("hashchange", handleRouteChange);
       window.removeEventListener("popstate", handleRouteChange);
     };
@@ -48,9 +71,10 @@ export default function App() {
   const recoveryDock = <div className="workspace-recovery-dock">
     <WorkspaceSaveRecovery />
     <RetainedFailedWorkspaceRecovery />
-    <DeferredWorkspaceImportRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
-    <DeferredWorkspaceHistoryRecovery workspace={route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
+    <DeferredWorkspaceImportRecovery workspace={!loading && route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
+    <DeferredWorkspaceHistoryRecovery workspace={!loading && route.mode === "home" ? workspace : null} onWorkspaceChange={commitWorkspace} getWorkspaceRevision={getWorkspaceRevision} />
   </div>;
+  if (loading) return <>{recoveryDock}<div className="app-route-loading" role="status">Opening workspace...</div></>;
   if (!workspace) return <>{recoveryDock}<WorkspaceLoadRecovery /></>;
   const routeIssue = workspaceRouteIssue(route, workspace);
   return (
@@ -62,7 +86,7 @@ export default function App() {
         </Suspense>
       ) : (
         <Suspense fallback={<div className="app-route-loading">Loading report...</div>}>
-          <BuilderApp key={`${route.mode}:${route.reportId ?? "active"}`} />
+          <BuilderApp key={`${route.mode}:${route.reportId ?? "active"}`} initialWorkspace={workspace} />
         </Suspense>
       )}
     </>

@@ -2,9 +2,10 @@
 
 ## Scope and current product behavior
 
-This batch does **not** activate IndexedDB as the product's authoritative store.
-`App`, `BuilderApp`, `WorkspaceHome`, and the active localStorage save adapter are
-unchanged. No automatic quota fallback, migration, restore, cleanup, cloud upload,
+The original groundwork batch did **not** activate IndexedDB as the product's
+authoritative store or change `App`, `BuilderApp`, or `WorkspaceHome`. The
+subsequent [async adapter batch](async-workspace-adapter.md) prepares those
+consumers, while the active store remains localStorage. No automatic quota fallback, migration, restore, cleanup, cloud upload,
 or authority-selection marker is introduced. Real workspaces are not touched by
 the synthetic validation. The application's current localStorage size limit is
 therefore not removed by shipping this groundwork alone.
@@ -87,9 +88,11 @@ investigation. No alternative route was used to touch a real user's storage.
 
 1. Async initial boot and route ownership across App and Builder, with explicit
    authority choice and a durable active-head transaction.
-2. Every writer, destructive action, navigation guard, source-version check, and
-   saved-status consumer must await its own acknowledgement. Current synchronous
-   boolean call sites cannot simply be pointed at this session.
+2. Integrate every writer, destructive action, navigation guard, source-version
+   check, and saved-status consumer with the durable adapter's acknowledged
+   result. The async adapter batch prepares Promise<boolean> consumers; it does
+   not map staged/superseded/conflict/uncertain durable statuses or activate a
+   durable reader. Never treat a result object as a successful boolean.
 3. Fail-closed recovery/conflict review and an immutable migration-source archive,
    including raw-byte backup access and current/historical dataset preservation.
 4. Already-running older tabs must not masquerade as writers of the same authority.
