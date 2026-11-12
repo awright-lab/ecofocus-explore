@@ -28,3 +28,5 @@
 .tool-library footer { flex:none; }
 @media(max-width:650px) { .tool-library-body { display:flex; flex-direction:column; overflow:auto; } .tool-library-list { overflow:visible; } .tool-library-detail { overflow:visible; border-left:0; border-top:1px solid #dbe8db; padding:18px 24px; } .tool-library-header { padding:14px 18px 8px; } .tool-library-header h2 { font-size:1.5rem; } .tool-library footer { display:none; } }
 .tool-library-header button { color:#244333; flex:none; min-width:40px; min-height:40px; }
+
+@media(max-width:650px) { .tool-library-body:has(.tool-library-open) .tool-library-detail { order:-1; border-top:0; border-bottom:1px solid #dbe8db; } }

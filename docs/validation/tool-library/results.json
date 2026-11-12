@@ -9,6 +9,8 @@
   "short": true,
   "nativeZoom200": true,
   "savedReportsStudiesSnapshotsUnchanged": true,
+  "unfilteredNarrowAndZoomKeyboard": true,
+  "autosaveRerenderSelection": true,
   "requests": [],
   "errors": []
 }

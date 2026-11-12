@@ -96,29 +96,34 @@ export function StudioCommandMenu({ commands, onClose }: { commands: StudioComma
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const invoked = useRef(false);
+  const focusDetail = useRef(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All tools");
-  const [selected, setSelected] = useState<{ id: string; label: string; group: string; run: () => void } | null>(null);
+  const [selected, setSelected] = useState<{ id: string; label: string; group: string; implementation: string } | null>(null);
   const [message, setMessage] = useState("");
   const matches = searchTools(commands, query, category);
   const current = selected && commands.filter(c => c.id === selected.id);
-  const chosen = current?.length === 1 && current[0].label === selected?.label && current[0].group === selected?.group && current[0].run === selected?.run
+  const chosen = current?.length === 1 && current[0].label === selected?.label && current[0].group === selected?.group && String(current[0].run) === selected?.implementation
     ? matches.find(item => item.command === current[0]) : undefined;
   useEffect(() => {
     ref.current?.showModal();
     return () => { if (!invoked.current && opener.current?.isConnected) opener.current.focus(); };
   }, []);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>(".tool-library-result.selected")?.scrollIntoView({ block: "nearest" });
+    if (!selected) return;
+    const target = window.matchMedia?.("(max-width: 650px)").matches ? ".tool-library-detail" : ".tool-library-result.selected";
+    ref.current?.querySelector<HTMLElement>(target)?.scrollIntoView({ block: "nearest" });
+    if (target === ".tool-library-detail" && focusDetail.current) ref.current?.querySelector<HTMLButtonElement>(".tool-library-open")?.focus();
+    focusDetail.current = false;
   }, [selected]);
   function choose(command: StudioCommand) {
-    setSelected({ id: command.id, label: command.label, group: command.group, run: command.run });
+    setSelected({ id: command.id, label: command.label, group: command.group, implementation: String(command.run) });
     setMessage("");
   }
   function execute() {
     if (invoked.current) return;
     const found = selected && commands.filter(command => command.id === selected.id);
-    if (!selected || !found || found.length !== 1 || found[0].label !== selected.label || found[0].group !== selected.group || found[0].run !== selected.run || !chosen) {
+    if (!selected || !found || found.length !== 1 || found[0].label !== selected.label || found[0].group !== selected.group || String(found[0].run) !== selected.implementation || !chosen) {
       setMessage("This tool changed or its identity is ambiguous. Select a current, uniquely identified tool and try again.");
       return;
     }
@@ -144,7 +149,7 @@ export function StudioCommandMenu({ commands, onClose }: { commands: StudioComma
       {matches.length ? matches.map(({command, info, index}) => {
         const Icon = command.icon ?? ArrowUpRight;
         const isSelected = selected?.id === command.id && selected.label === command.label && selected.group === command.group;
-        return <button type="button" className={isSelected ? 'tool-library-result selected' : 'tool-library-result'} key={index} aria-pressed={isSelected} onClick={() => choose(command)}><span className="tool-library-icon"><Icon size={19}/></span><span><strong>{command.label}</strong><small>{info.category} · {info.description}</small></span><ArrowUpRight size={16}/></button>;
+        return <button type="button" data-tool-command={command.id} className={isSelected ? 'tool-library-result selected' : 'tool-library-result'} key={index} aria-pressed={isSelected} onClick={() => { focusDetail.current = true; choose(command); }}><span className="tool-library-icon"><Icon size={19}/></span><span><strong>{command.label}</strong><small>{info.category} · {info.description}</small></span><ArrowUpRight size={16}/></button>;
       }) : <div className="studio-command-empty">No tools match. Try a broader search or choose All tools.</div>}</section>
       <aside className="tool-library-detail" aria-label="Tool details" aria-live="polite">{chosen ? <><span className="tool-library-kicker">{chosen.info.category}</span><h3>{chosen.command.label}</h3><p>{chosen.info.description}</p><h4>What happens</h4><p>{chosen.info.opens}</p>{chosen.info.limitation && <p className="tool-library-note">{chosen.info.limitation}</p>}
         <button type="button" className="tool-library-open" onClick={execute}>Open tool <ArrowUpRight size={16}/></button></> : <><h3>Choose a tool</h3><p>Select a result to see what it does before opening it.</p>{selected && <p role="alert">This selection is no longer available or is ambiguous. Choose a current tool.</p>}</>}{message && <p role="alert">{message}</p>}</aside></div>

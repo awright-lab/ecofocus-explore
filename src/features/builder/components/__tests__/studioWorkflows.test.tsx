@@ -81,16 +81,18 @@ describe("studio delivery and tool discovery", () => {
   it("invalidates a replaced callback and isolates keyboard input including composition", async () => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
     const first = vi.fn(), replacement = vi.fn(), windowKey = vi.fn();
+    const firstAction = () => first();
+    const changedAction = () => replacement();
     window.addEventListener('keydown', windowKey);
     const make = (run: () => void) => [{ id: 'pages', label: 'Pages', group: 'Workspace', run }];
     try {
-      await act(async () => root.render(<StudioCommandMenu onClose={() => {}} commands={make(first)} />));
+      await act(async () => root.render(<StudioCommandMenu onClose={() => {}} commands={make(firstAction)} />));
       const input = host.querySelector<HTMLInputElement>('input')!;
       await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown', bubbles:true, isComposing:true})));
       expect(host.querySelector('.tool-library-detail')?.textContent).toContain('Choose a tool');
       expect(windowKey).not.toHaveBeenCalled();
       await act(async () => host.querySelector<HTMLButtonElement>('.tool-library-result')!.click());
-      await act(async () => root.render(<StudioCommandMenu onClose={() => {}} commands={make(replacement)} />));
+      await act(async () => root.render(<StudioCommandMenu onClose={() => {}} commands={make(changedAction)} />));
       expect(host.textContent).toContain('no longer available');
       expect(first).not.toHaveBeenCalled(); expect(replacement).not.toHaveBeenCalled();
     } finally { window.removeEventListener('keydown', windowKey); }
