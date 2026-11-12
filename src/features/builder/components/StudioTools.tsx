@@ -16,6 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { LeftPanelView } from "../builderTypes";
+import { categories, searchTools } from "./toolCatalog";
+import "./toolLibrary.css";
 
 export interface StudioCommand {
   id: string;
@@ -90,131 +92,64 @@ export function StudioRail({
   );
 }
 
-export function StudioCommandMenu({
-  commands,
-  onClose,
-}: {
-  commands: StudioCommand[];
-  onClose: () => void;
-}) {
+export function StudioCommandMenu({ commands, onClose }: { commands: StudioCommand[]; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
-  // Capture before the dialog input receives React autoFocus during commit.
   const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const invoked = useRef(false);
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
-  const [group, setGroup] = useState("All tools");
-  const groups = ["All tools", ...new Set(commands.map((command) => command.group))];
-  const matches = commands.filter((command) =>
-    (group === "All tools" || command.group === group) && query.toLowerCase().trim().split(/\s+/).every((word) => `${command.label} ${command.group} ${command.shortcut ?? ""}`.toLowerCase().includes(word)),
-  );
+  const [category, setCategory] = useState("All tools");
+  const [selected, setSelected] = useState<{ id: string; label: string; group: string; run: () => void } | null>(null);
+  const [message, setMessage] = useState("");
+  const matches = searchTools(commands, query, category);
+  const current = selected && commands.filter(c => c.id === selected.id);
+  const chosen = current?.length === 1 && current[0].label === selected?.label && current[0].group === selected?.group && current[0].run === selected?.run
+    ? matches.find(item => item.command === current[0]) : undefined;
   useEffect(() => {
     ref.current?.showModal();
-    return () => { if (opener.current?.isConnected) opener.current.focus(); };
+    return () => { if (!invoked.current && opener.current?.isConnected) opener.current.focus(); };
   }, []);
   useEffect(() => {
-    ref.current
-      ?.querySelectorAll(".studio-command-results > button")
-      [active]?.scrollIntoView({ block: "nearest" });
-  }, [active]);
-  function execute(index: number) {
-    const command = matches[index];
-    if (command) {
-      onClose();
-      command.run();
-    }
+    ref.current?.querySelector<HTMLElement>(".tool-library-result.selected")?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+  function choose(command: StudioCommand) {
+    setSelected({ id: command.id, label: command.label, group: command.group, run: command.run });
+    setMessage("");
   }
-  return (
-    <dialog
-      ref={ref}
-      className="studio-command-dialog"
-      onCancel={onClose}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      aria-label="Find a tool or action"
-    >
-      <div className="studio-command-search">
-        <Search size={21} />
-        <input
-          autoFocus
-          placeholder="What would you like to do?"
-          aria-label="Search commands"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls="studio-command-options"
-          aria-activedescendant={matches[active] ? `command-${matches[active].id}` : undefined}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setActive(0);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              setActive((index) => Math.max(0, Math.min(index + 1, matches.length - 1)));
-            }
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-              setActive((index) => Math.max(index - 1, 0));
-            }
-            if (event.key === "Enter") {
-              event.preventDefault();
-              execute(active);
-            }
-          }}
-        />
-        <button type="button" onClick={onClose} aria-label="Close command menu">
-          <X size={18} />
-        </button>
-      </div>
-      <nav className="command-categories" aria-label="Tool categories">{groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => { setGroup(item); setActive(0); }}>{item}</button>)}</nav>
-      <div className="studio-command-results" role="listbox" id="studio-command-options" aria-label="Matching tools">
-        {matches.length ? (
-          matches.map((command, index) => {
-            const Icon = command.icon ?? ArrowUpRight;
-            return (
-              <button
-                type="button"
-                id={`command-${command.id}`}
-                role="option"
-                aria-selected={active === index}
-                className={active === index ? "active" : ""}
-                key={command.id}
-                onClick={() => execute(index)}
-                onMouseEnter={() => setActive(index)}
-              >
-                <span className="studio-command-icon">
-                  <Icon size={18} />
-                </span>
-                <span>
-                  <strong>{command.label}</strong>
-                  <small>{command.group}</small>
-                </span>
-                {command.shortcut ? (
-                  <kbd>{command.shortcut}</kbd>
-                ) : (
-                  <ArrowUpRight size={15} />
-                )}
-              </button>
-            );
-          })
-        ) : (
-          <div className="studio-command-empty">
-            No matching tools. Try “chart”, “export”, or “pages”.
-          </div>
-        )}
-      </div>
-      <footer>
-        <span>
-          <kbd>↑</kbd>
-          <kbd>↓</kbd> to navigate <kbd>↵</kbd> to select
-        </span>
-        <span>
-          <Command size={13} /> Your whole studio, one search away
-        </span>
-      </footer>
-    </dialog>
-  );
+  function execute() {
+    if (invoked.current) return;
+    const found = selected && commands.filter(command => command.id === selected.id);
+    if (!selected || !found || found.length !== 1 || found[0].label !== selected.label || found[0].group !== selected.group || found[0].run !== selected.run || !chosen) {
+      setMessage("This tool changed or its identity is ambiguous. Select a current, uniquely identified tool and try again.");
+      return;
+    }
+    invoked.current = true;
+    onClose();
+    found[0].run();
+  }
+  return <dialog ref={ref} className="studio-command-dialog tool-library" aria-labelledby="tool-library-title"
+    data-canvas-keyboard-scope="controls" onCancel={event => { event.preventDefault(); onClose(); }}
+    onKeyDown={event => { if (!event.nativeEvent.isComposing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); onClose(); } event.stopPropagation(); }} onKeyUp={event => event.stopPropagation()}
+    onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <header className="tool-library-header"><div><span>YOUR STUDIO</span><h2 id="tool-library-title">Tool Library</h2><p>Find the right starting point for your next task.</p></div>
+      <button type="button" onClick={onClose} aria-label="Close tool library"><X size={20}/></button></header>
+    <div className="studio-command-search"><Search size={20}/><input autoFocus placeholder="Search tasks, tools or keywords" aria-label="Search commands" value={query}
+      onChange={event => { setQuery(event.target.value); setSelected(null); setMessage(""); }}
+      onKeyDown={event => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "ArrowDown" && matches.length) { event.preventDefault(); const i = matches.findIndex(item => item.command.id === selected?.id && item.command.label === selected.label); choose(matches[Math.min(i + 1, matches.length - 1)].command); }
+        if (event.key === "ArrowUp" && matches.length) { event.preventDefault(); const i = matches.findIndex(item => item.command.id === selected?.id && item.command.label === selected.label); choose(matches[Math.max(i - 1, 0)].command); }
+      }}/></div>
+    <nav className="tool-library-categories" aria-label="Tool categories">{categories.filter(item => item !== 'Other tools' || commands.some(c => searchTools([c], '', item).length)).map(item => <button type="button" key={item} aria-pressed={category === item} onClick={() => { setCategory(item); setSelected(null); setMessage(""); }}>{item}</button>)}</nav>
+    <div className="tool-library-body"><section className="tool-library-list" aria-label="Matching tools"><p className="tool-library-count" aria-live="polite">{matches.length} {matches.length === 1 ? 'tool' : 'tools'}</p>
+      {matches.length ? matches.map(({command, info, index}) => {
+        const Icon = command.icon ?? ArrowUpRight;
+        const isSelected = selected?.id === command.id && selected.label === command.label && selected.group === command.group;
+        return <button type="button" className={isSelected ? 'tool-library-result selected' : 'tool-library-result'} key={index} aria-pressed={isSelected} onClick={() => choose(command)}><span className="tool-library-icon"><Icon size={19}/></span><span><strong>{command.label}</strong><small>{info.category} · {info.description}</small></span><ArrowUpRight size={16}/></button>;
+      }) : <div className="studio-command-empty">No tools match. Try a broader search or choose All tools.</div>}</section>
+      <aside className="tool-library-detail" aria-label="Tool details" aria-live="polite">{chosen ? <><span className="tool-library-kicker">{chosen.info.category}</span><h3>{chosen.command.label}</h3><p>{chosen.info.description}</p><h4>What happens</h4><p>{chosen.info.opens}</p>{chosen.info.limitation && <p className="tool-library-note">{chosen.info.limitation}</p>}
+        <button type="button" className="tool-library-open" onClick={execute}>Open tool <ArrowUpRight size={16}/></button></> : <><h3>Choose a tool</h3><p>Select a result to see what it does before opening it.</p>{selected && <p role="alert">This selection is no longer available or is ambiguous. Choose a current tool.</p>}</>}{message && <p role="alert">{message}</p>}</aside></div>
+    <footer>Search by task · Select a tool to inspect it · Escape to close</footer>
+  </dialog>;
 }
 
 export function StudioHelp({ onClose, actions = [] }: { onClose: () => void; actions?: StudioCommand[] }) {

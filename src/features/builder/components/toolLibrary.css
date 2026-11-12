@@ -1,0 +1,30 @@
+.studio-command-dialog.tool-library { width:min(1000px,calc(100vw - 24px)); max-width:none; max-height:calc(100dvh - 24px); height:min(760px,calc(100dvh - 24px)); margin:auto; display:flex; flex-direction:column; color:#243b30; border-radius:18px; }
+.tool-library-header { display:flex; justify-content:space-between; gap:1rem; padding:22px 26px 12px; }
+.tool-library-header span,.tool-library-kicker { font-size:.7rem; font-weight:700; letter-spacing:.11em; color:#557850; text-transform:uppercase; }
+.tool-library-header h2 { font: 400 2rem Georgia,serif; color:#244333; margin:4px 0; }
+.tool-library-header p { margin:0; color:#586d60; }
+.tool-library-header button { align-self:flex-start; background:none; border:0; padding:8px; }
+.tool-library .studio-command-search { margin:0 24px; border:1px solid #b9cbb9; border-radius:10px; padding:12px; }
+.tool-library .studio-command-search:focus-within { outline:3px solid #80a78b; outline-offset:2px; }
+.tool-library .studio-command-search input { font-size:1rem; color:#203b2b; }
+.tool-library-categories { display:flex; gap:8px; overflow-x:auto; padding:14px 24px; flex-shrink:0; }
+.tool-library-categories button { white-space:nowrap; background:#f5f8f2; color:#304c39; border:1px solid #d7e3d5; border-radius:20px; padding:8px 12px; }
+.tool-library-categories button[aria-pressed=true] { background:#285a40; color:white; border-color:#285a40; }
+.tool-library-body { display:grid; grid-template-columns: 1fr 300px; min-height:0; flex:1; border-top:1px solid #e1ebe0; }
+.tool-library-list { overflow:auto; padding:12px 20px; }
+.tool-library-count { margin:0 0 8px; font-size:.8rem; color:#536a5a; }
+.tool-library-result { display:flex; align-items:center; gap:12px; width:100%; border:1px solid transparent; border-radius:10px; padding:12px; text-align:left; color:#233b2c; background:transparent; }
+.tool-library-result:hover,.tool-library-result.selected { background:#edf5eb; border-color:#a5c5aa; }
+.tool-library-result > span:nth-child(2) { display:grid; gap:4px; flex:1; min-width:0; }
+.tool-library-result small { color:#536a5a; line-height:1.4; }
+.tool-library-icon { display:grid; place-items:center; flex:none; width:38px; height:38px; border-radius:10px; background:#e3efe1; }
+.tool-library-detail { overflow:auto; border-left:1px solid #dbe8db; background:#f6f9f4; padding:24px; }
+.tool-library-detail h3 { font:400 1.5rem Georgia,serif; color:#244333; margin:10px 0; }
+.tool-library-detail h4 { margin:24px 0 4px; }
+.tool-library-detail p { line-height:1.5; }
+.tool-library-note { border-left:3px solid #789c6d; padding-left:10px; }
+.tool-library-open { display:inline-flex; align-items:center; gap:10px; background:#285a40; color:white; border:0; border-radius:8px; padding:11px 16px; font-weight:700; }
+.tool-library :is(button,input):focus-visible { outline:3px solid #27734d; outline-offset:2px; }
+.tool-library footer { flex:none; }
+@media(max-width:650px) { .tool-library-body { display:flex; flex-direction:column; overflow:auto; } .tool-library-list { overflow:visible; } .tool-library-detail { overflow:visible; border-left:0; border-top:1px solid #dbe8db; padding:18px 24px; } .tool-library-header { padding:14px 18px 8px; } .tool-library-header h2 { font-size:1.5rem; } .tool-library footer { display:none; } }
+.tool-library-header button { color:#244333; flex:none; min-width:40px; min-height:40px; }
