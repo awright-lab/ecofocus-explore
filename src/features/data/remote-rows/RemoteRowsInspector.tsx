@@ -15,7 +15,7 @@ function next(nav: Navigation, cursor: string): Navigation {
   return { ...nav, cursors, index: cursors.length - 1 };
 }
 export function RemoteRowsInspector({ source, provider, onClose }: Props) {
-  const modal = useRef<HTMLElement>(null), title = useId(), description = useId();
+  const modal = useRef<HTMLElement>(null), selectedHeading = useRef<HTMLHeadingElement>(null), title = useId(), description = useId();
   useModalAccessibility(modal, onClose);
   const key = sourceKey(source), owner: Owner | null = provider && validSource(source) ? { provider, key } : null;
   const latest = useRef({ owner, columns: '' }); latest.current.owner = owner;
@@ -44,7 +44,7 @@ export function RemoteRowsInspector({ source, provider, onClose }: Props) {
     if (!owner || !schema) return;
     const ac = new AbortController(); controllers.current.schema = ac; setSchemaPage(null); setSchemaStatus('Loading field page…');
     const request = { source: { ...source }, cursor: schemaCursor, limit: limits.fields, maxBytes: limits.bytes, signal: ac.signal };
-    void owner.provider.schema(request).then(raw => {
+    void Promise.resolve().then(() => { if (ac.signal.aborted) throw new DOMException('Canceled', 'AbortError'); return owner.provider.schema(request); }).then(raw => {
       if (ac.signal.aborted || !sameOwner(latest.current.owner, owner)) return;
       const value = validateSchema(raw, request);
       if (selectedRef.current.some(f => value.items.some(g => g.id === f.id && (g.label !== f.label || g.sourceColumn !== f.sourceColumn)))) { controllers.current.rows?.abort(); cache.current = []; setSelectedState(null); setRowPage(null); setInspected(null); throw Error('A selected field identity changed. Refresh the inspector.'); }
@@ -61,7 +61,7 @@ export function RemoteRowsInspector({ source, provider, onClose }: Props) {
     if (hit) { cache.current = [hit, ...cache.current.filter(entry => entry !== hit)].slice(0, limits.cache); setRowPage(hit); setRowStatus(''); return () => ac.abort(); }
     setRowPage(null); setRowStatus('Loading row page…');
     const request = { source: { ...source }, cursor: rowCursor, columns: currentColumns, limit: limits.rows, maxBytes: limits.bytes, signal: ac.signal };
-    void owner.provider.rows(request).then(raw => {
+    void Promise.resolve().then(() => { if (ac.signal.aborted) throw new DOMException('Canceled', 'AbortError'); return owner.provider.rows(request); }).then(raw => {
       if (ac.signal.aborted || !sameOwner(latest.current.owner, owner) || latest.current.columns !== columns) return;
       const value = validateRows(raw, request), entry = { owner: rowOwner, cursor: rowCursor, value };
       cache.current = [entry, ...cache.current.filter(item => !(sameOwner(item.owner, rowOwner) && item.cursor === rowCursor))].slice(0, limits.cache); setRowPage(entry); setRowStatus('');
@@ -85,7 +85,9 @@ export function RemoteRowsInspector({ source, provider, onClose }: Props) {
     {schemaStatus && <p role="status">{schemaStatus} <button type="button" onClick={() => setSchemaAttempt(n => n + 1)}>Retry fields</button></p>}
     {schemaCurrent && <><div className="remote-rows-fields">{schemaCurrent.items.map(field => <label key={field.id}><input type="checkbox" checked={selected.some(f => f.id === field.id)} disabled={selected.length >= limits.selected && !selected.some(f => f.id === field.id)} onChange={() => toggle(field)}/><span>{field.label || '(Unlabeled)'} <small>{field.sourceColumn} · {field.id}</small></span></label>)}</div>{!schemaCurrent.items.length && <p>No fields on this page.</p>}</>}
     <div className="remote-rows-controls"><button type="button" disabled={!schema || schema.index === 0} onClick={() => schema && setSchemaNav({ ...schema, index: schema.index - 1 })}>Previous fields</button><button type="button" disabled={!schemaCurrent?.nextCursor} onClick={() => { if (schema && schemaCurrent?.nextCursor) try { setSchemaNav(next(schema, schemaCurrent.nextCursor)); } catch (e) { setSchemaPage(null); setSchemaStatus((e as Error).message); } }}>Next fields</button></div>
-    <p>Selected: {selected.length ? selected.map(f => `${f.label || '(Unlabeled)'} [${f.id}]`).join(', ') : 'none'}. Cursor history is limited to {limits.history} pages.</p>
+    <section aria-label="Selected fields"><h3 ref={selectedHeading} tabIndex={-1}>Selected fields ({selected.length} of {limits.selected})</h3>
+    {selected.length ? <ul className="remote-rows-selected">{selected.map(field => <li key={field.id}><span>{field.label || '(Unlabeled)'} <small>{field.sourceColumn} · {field.id}</small></span><button type="button" aria-label={`Remove selected field ${field.label || '(Unlabeled)'} [${field.id}], source column ${field.sourceColumn}`} onClick={() => { toggle(field); selectedHeading.current?.focus(); }}>Remove</button></li>)}</ul> : <p>No fields selected.</p>}
+    <p>Cursor history is limited to {limits.history} pages.</p></section>
     <h3>Loaded row page</h3><p>No total, full-dataset search, sorting or arbitrary page jumps are provided. At most {limits.rows} rows and {limits.selected} fields are displayed.</p>
     {rowStatus && <p role="status">{rowStatus} {selected.length > 0 && <button type="button" onClick={() => setRowAttempt(n => n + 1)}>Retry rows</button>}</p>}
     {rowCurrent && <><div className="remote-rows-table" tabIndex={0} role="region" aria-label="Loaded remote rows"><table><caption>Current loaded page only. Select a value to inspect it.</caption><thead><tr><th scope="col">Source row</th>{selected.map(f => <th scope="col" key={f.id}>{f.label || '(Unlabeled)'}<small>{f.sourceColumn} · {f.id}</small></th>)}</tr></thead><tbody>{rowCurrent.items.map(row => <tr key={row.position}><th scope="row">{row.position}</th>{selected.map(field => { const has = Object.hasOwn(row.values, field.id), value = has ? JSON.stringify(row.values[field.id]) : 'Missing'; return <td key={field.id}><button type="button" onClick={() => rowOwner && setInspected({ owner: rowOwner, cursor: rowCursor, row, field })} aria-label={`Inspect row ${row.position}, ${field.label} [${field.id}]: ${value.slice(0, 100)}`}>{value.length > 80 ? `${value.slice(0, 80)}…` : value}</button></td>; })}</tr>)}</tbody></table></div>{!rowCurrent.items.length && <p>No rows on this page.</p>}</>}

@@ -14,3 +14,8 @@
 .remote-rows-table :is(th,td) { padding:6px; border:1px solid #d4e1d5; text-align:left; min-width:100px; overflow-wrap:anywhere; }
 .remote-rows-dialog textarea { display:block; box-sizing:border-box; width:100%; }
 @media(max-width:600px) { .remote-rows-dialog { padding:14px; } .remote-rows-dialog header { flex-wrap:wrap; } }
+
+.remote-rows-selected { list-style:none; padding:0; display:grid; gap:6px; max-width:580px; }
+.remote-rows-selected li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px; border:1px solid #d5e2d7; border-radius:6px; }
+.remote-rows-selected small { display:block; overflow-wrap:anywhere; color:#4c6354; }
+.remote-rows-dialog h3[tabindex="-1"]:focus { outline:3px solid #18713e; outline-offset:2px; }
