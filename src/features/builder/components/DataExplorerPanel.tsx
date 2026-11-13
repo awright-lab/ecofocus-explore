@@ -1,3 +1,4 @@
+import { StudyQualityDialog } from "./StudyQualityDialog";
 import { StudyUsageDialog } from "./StudyUsageDialog";
 import { LocalRowsDialog } from "./LocalRowsDialog";
 import { researchSearchMatcher } from "../../data/researchSearch";
@@ -105,6 +106,9 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
     openGuidedDataQuery
   } = props;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const qualityFieldRef = useRef<HTMLDivElement | null>(null);
+  const [qualityStudyId, setQualityStudyId] = useState<string | null>(null);
+  const [qualityFocus, setQualityFocus] = useState(false);
   const variableTreeFrameRef = useRef<number | null>(null);
   const variableTreePendingScrollTopRef = useRef(0);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
@@ -301,6 +305,11 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
       setVariableTreeScrollTop(variableTreePendingScrollTopRef.current);
     });
   }
+
+  useEffect(() => {
+    if (!qualityFocus || !qualityFieldRef.current) return;
+    qualityFieldRef.current.focus(); qualityFieldRef.current.scrollIntoView({block: "nearest"}); setQualityFocus(false);
+  }, [qualityFocus, activeImportedField]);
 
   function selectImportedDataset(datasetId: string) {
     const dataset = importedDatasets.find((item) => item.id === datasetId);
@@ -588,6 +597,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                       </div>
                     </button>
                     {dataset.imported && <div className="dataset-inspection-actions">
+                      <button type="button" aria-label={`Review study quality for dataset ${index + 1}: ${dataset.title}`} onClick={() => setQualityStudyId(dataset.id)}>Review study quality</button>
                       <button className="local-row-inspection-open" type="button" aria-label={`Inspect stored rows for dataset ${index + 1}: ${dataset.title}`} onClick={() => setRowInspectionId(dataset.id)}>Inspect rows</button>
                       {props.inspectImportedDataset && <button className="study-usage-open" type="button" aria-label={`Inspect study usage for dataset ${index + 1}: ${dataset.title}`} onClick={() => setUsageInspectionId(dataset.id)}>Where used</button>}
                       <StudyRemovalButton title={dataset.title} onRemove={() => deleteImportedDataset(dataset.id)} />
@@ -710,7 +720,7 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
                       </div>
                     </div>
                     {activeImportedField && activeImportedFieldSuitability && (
-                      <div className="variable-tree-detail-card">
+                      <div ref={qualityFieldRef} tabIndex={-1} className="variable-tree-detail-card">
                         <span>Selected field</span>
                         <strong>{importedFieldDisplayLabel(activeImportedField)}</strong>
                         <small>{activeImportedFieldSuitability.readiness.label} · {activeImportedFieldSuitability.readiness.bestUse}</small>
@@ -860,6 +870,10 @@ export function DataExplorerPanel(props: AnalysisAuthoringPanelProps) {
           )}
         </div>
       </div>
+      {qualityStudyId !== null && <StudyQualityDialog dataset={importedDatasets.filter(dataset => dataset.id === qualityStudyId).length === 1 ? importedDatasets.find(dataset => dataset.id === qualityStudyId) : undefined} onClose={() => setQualityStudyId(null)} isCurrent={dataset => importedDatasets.filter(item => item.id === dataset.id).length === 1 && importedDatasets.includes(dataset)} onNavigate={(dataset, field) => {
+        if (importedDatasets.filter(item => item.id === dataset.id).length !== 1 || !importedDatasets.includes(dataset) || dataset.fields.filter(item => item.id === field.id).length !== 1 || !dataset.fields.includes(field)) return;
+        setSelectedImportedDatasetId(dataset.id); setSelectedImportedFieldId(field.id); setSourceSearch(""); setLibraryMode("browse"); setExpandedLibrarySections(current => ({...current, fields:true})); setQualityStudyId(null); setQualityFocus(true);
+      }}/>}
       {usageInspectionId !== null && props.inspectImportedDataset && <StudyUsageDialog key={usageInspectionId} datasetId={usageInspectionId} inspect={props.inspectImportedDataset} onClose={() => setUsageInspectionId(null)}/>}
       {rowInspectionId !== null && <LocalRowsDialog studyId={rowInspectionId} dataset={importedDatasets.filter(item => item.id === rowInspectionId).length === 1 ? importedDatasets.find(item => item.id === rowInspectionId) : undefined} onClose={() => setRowInspectionId(null)}/>}
     </>

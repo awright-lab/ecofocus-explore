@@ -1,0 +1,31 @@
+{
+  "browser": "156.0.8078.4",
+  "rows": 10000,
+  "fields": 100,
+  "sparseRows": true,
+  "mountedFields": 20,
+  "elapsedMs": 2917,
+  "longTasks": [
+    84,
+    84,
+    64,
+    384,
+    105,
+    79,
+    255,
+    113,
+    75,
+    58,
+    91
+  ],
+  "narrow": {
+    "client": 374,
+    "scroll": 374
+  },
+  "zoom": {
+    "client": 624,
+    "scroll": 624
+  },
+  "external": [],
+  "errors": []
+}
