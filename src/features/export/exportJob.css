@@ -1,0 +1,4 @@
+.export-job-status { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 10px; border:1px solid #b2cbb7; border-radius:8px; background:#f3f8ef; color:#183d2b; max-width:440px; font-size:12px; }
+.export-job-status button { padding:6px 10px; border:1px solid #285a40; border-radius:6px; background:white; color:#204b34; }
+.export-job-status button:focus-visible { outline:3px solid #267b4c; outline-offset:2px; }
+@media(max-width:900px) { .export-job-status { position:fixed; z-index:900; left:12px; right:12px; bottom:12px; max-width:none; max-height:35dvh; overflow:auto; box-shadow:0 6px 24px #132b1d44; } }

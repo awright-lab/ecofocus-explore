@@ -55,10 +55,11 @@ import {
   datasets,
   filterDimensions,
 } from "./builderConstants";
-import { downloadDashboardExportSpec } from "./builderExportPackage";
+import { useExportJob } from "../export/useExportJob";
 import type { CoreExportTarget } from "../export/coreDocumentExports";
 import {
   BuilderHeader,
+  ExportJobStatus,
   BuilderPanel,
   WorkspaceModeStrip,
   outcomeModeView,
@@ -236,11 +237,12 @@ export default function BuilderApp() {
   const [publishedSnapshot, setPublishedSnapshot] =
     useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
   const invalidateLazyOnReplacement = useRef<() => void>(() => {});
+  const invalidateExportOnReplacement = useRef<(force?: boolean) => void>(() => {});
   const [dashboard, setDashboardState, getDocumentReplacementVersion, getDocumentEditVersion, getCurrentImportDocument] = useDocumentCommandState<DashboardDraft>(() =>
     initialPublishedSnapshot
       ? initialPublishedSnapshot.dashboard
       : normalizeDashboard(initialReport.draft),
-    () => { setIsLoading(false); invalidateLazyOnReplacement.current(); },
+    () => { setIsLoading(false); invalidateLazyOnReplacement.current(); invalidateExportOnReplacement.current(); },
   );
   const {
     history,
@@ -312,7 +314,7 @@ export default function BuilderApp() {
     updateActivePageIdState(id);
   }, [updateActivePageIdState, setIsLoading, dashboard.id]);
   const setViewerMode = useCallback((value: boolean) => {
-    if (viewerContext.current !== value) { invalidateLazyOnReplacement.current(); viewerContext.current = value; editorContextEpoch.current += 1; setIsLoading(false); }
+    if (viewerContext.current !== value) { invalidateExportOnReplacement.current(true); invalidateLazyOnReplacement.current(); viewerContext.current = value; editorContextEpoch.current += 1; setIsLoading(false); }
     updateViewerModeState(value);
   }, [updateViewerModeState, setIsLoading]);
   const getEditorContextVersion = useCallback(() => JSON.stringify([editorContextEpoch.current,getDocumentReplacementVersion()]), [getDocumentReplacementVersion]);
@@ -440,6 +442,9 @@ export default function BuilderApp() {
     () => [...dashboard.pages].sort((a, b) => a.order - b.order),
     [dashboard.pages],
   );
+  const exportReplacementVersion = getDocumentReplacementVersion();
+  const exportJob = useExportJob(dashboard, sortedPages, { reportId: activeReportId, viewer: viewerMode, isCurrent: () => !navigationOwner.current && getCurrentImportDocument().id === activeReportId && viewerContext.current === viewerMode && (!viewerMode || getDocumentReplacementVersion() === exportReplacementVersion) });
+  useEffect(() => { invalidateExportOnReplacement.current = (force = false) => { if (force || getCurrentImportDocument().id !== activeReportId || viewerContext.current !== viewerMode || viewerMode && getDocumentReplacementVersion() !== exportReplacementVersion) exportJob.invalidate(); }; return () => { invalidateExportOnReplacement.current = () => {}; }; }, [activeReportId, viewerMode, exportReplacementVersion, getCurrentImportDocument, getDocumentReplacementVersion, exportJob.invalidate]);
   const activePage = useMemo(
     () =>
       resolveAnalysisPage(sortedPages, activePageId, dashboard.id, analysisPageOrigins.current),
@@ -712,6 +717,7 @@ export default function BuilderApp() {
 
   async function saveBeforeReportTransition(nextWorkspace: DashboardWorkspace, onSaved: () => void, recoveryWorkspace = nextWorkspace, onLateStored?: () => void) {
     if (navigationOwner.current) return false;
+    exportJob.invalidate();
     const token = Symbol("report-transition");
     const version = getDocumentEditVersion();
     navigationOwner.current = { token, editVersion: version };
@@ -1254,16 +1260,7 @@ export default function BuilderApp() {
     setError,
   });
 
-  async function exportDashboardSpec(target: CoreExportTarget) {
-    if (target === "json") {
-      downloadDashboardExportSpec(dashboard, sortedPages);
-      return;
-    }
-
-    const { exportCoreDocument } =
-      await import("../export/coreDocumentExports");
-    await exportCoreDocument(dashboard, sortedPages, target);
-  }
+  function exportDashboardSpec(target: CoreExportTarget) { return exportJob.start(target); }
 
   async function importDataset(file: File) {
     if(viewerMode){setError("Open an editable report before importing a study.");return null;}
@@ -1645,6 +1642,7 @@ export default function BuilderApp() {
       "";
     return (
       <main className="published-shell">
+        {exportJob.view && <ExportJobStatus exportJob={exportJob.view} onCancelExport={exportJob.cancel} onDismissExport={exportJob.dismiss} />}
         <header className="published-header">
           <div className="published-header__copy">
             <span className="published-kicker">
@@ -1915,6 +1913,9 @@ export default function BuilderApp() {
         activePageId={activePageId}
         onShowExportIssue={showExportIssue}
         onExport={exportDashboardSpec}
+        exportJob={exportJob.view}
+        onCancelExport={exportJob.cancel}
+        onDismissExport={exportJob.dismiss}
         onOpenPublished={openPublishedReport}
         onPublish={publishDashboard}
         onUnpublish={unpublishDashboard}
