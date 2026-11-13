@@ -10,7 +10,15 @@ export function calculateCorrelations(cases:NumericModelCase[],fieldCount=(cases
  const columns=Array.from({length:width},(_,index)=>cases.map(item=>index===0?item.outcome:item.predictors[index-1]));
  const ranges=columns.map(values=>values.length?{min:Math.min(...values),max:Math.max(...values)}:null);
  const centered=columns.map(values=>{if(values.length<2)return {values:null,reason:'At least two complete cases are required.'};const total=sum(values);if(total===null)return {values:null,reason:'The mean cannot be verified in the supported range.'};const mean=total/values.length,delta=values.map(value=>value-mean),scale=Math.max(...delta.map(Math.abs)),largest=Math.max(...values.map(Math.abs));if(!Number.isFinite(scale)||scale===0||scale/Math.max(largest,Number.MIN_VALUE)<1e-12)return {values:null,reason:'This field is constant or too close to numerical resolution.'};const norm=Math.sqrt((sum(delta.map(value=>(value/scale)**2))??NaN)/(values.length-1))*scale;if(!Number.isFinite(norm)||norm<1e-150)return {values:null,reason:'Variation is below the supported 1e-150 range; rescale the units.'};return {values:delta.map(value=>value/scale),reason:null};});
- const matrix=columns.map((_,i)=>columns.map((__,j)=>{const x=centered[i],y=centered[j];if(!x.values||!y.values)return {value:null,reason:x.reason??y.reason};const xx=sum(x.values.map(value=>value*value)),yy=sum(y.values.map(value=>value*value)),xy=sum(x.values.map((value,index)=>value*y.values![index]));if(xx===null||yy===null||xy===null||xx<=0||yy<=0)return {value:null,reason:'The coefficient cannot be verified.'};const r=xy/Math.sqrt(xx)/Math.sqrt(yy);return Number.isFinite(r)&&Math.abs(r)<=1+1e-12?{value:Math.max(-1,Math.min(1,r)),reason:null}:{value:null,reason:'The coefficient cannot be verified.'};}));
+ const matrix:CorrelationCell[][]=Array.from({length:width},()=>Array<CorrelationCell>(width));
+ for(let i=0;i<width;i++)for(let j=i;j<width;j++){
+  const x=centered[i],y=centered[j];let cell:CorrelationCell;
+  if(!x.values||!y.values)cell={value:null,reason:x.reason??y.reason};
+  else {const xx=sum(x.values.map(value=>value*value)),yy=sum(y.values.map(value=>value*value)),xy=sum(x.values.map((value,index)=>value*y.values![index]));
+   if(xx===null||yy===null||xy===null||xx<=0||yy<=0)cell={value:null,reason:'The coefficient cannot be verified.'};
+   else {const r=xy/Math.sqrt(xx)/Math.sqrt(yy);cell=Number.isFinite(r)&&Math.abs(r)<=1+1e-12?{value:Math.max(-1,Math.min(1,r)),reason:null}:{value:null,reason:'The coefficient cannot be verified.'};}}
+  matrix[i][j]=cell;matrix[j][i]={...cell};
+ }
  return {matrix,ranges};
 }
 /** Stable, deterministic sample including extrema in both axes. */
