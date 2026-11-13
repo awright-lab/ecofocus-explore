@@ -1,0 +1,18 @@
+{
+  "browser": "156.0.8078.4",
+  "logicalRows": 1000000,
+  "logicalFields": 10000,
+  "renderedRows": 25,
+  "renderedFields": 40,
+  "cacheLimit": 3,
+  "cursorHistoryLimit": 10,
+  "stats": {
+    "schemaRequests": 1,
+    "rowRequests": 2,
+    "maxRowsGenerated": 25,
+    "maxFieldsGenerated": 40,
+    "maxColumnsRequested": 1
+  },
+  "requests": [],
+  "errors": []
+}
