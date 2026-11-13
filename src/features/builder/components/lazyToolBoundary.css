@@ -1,0 +1,6 @@
+.lazy-tool-backdrop { position:fixed; inset:0; z-index:1500; display:grid; place-items:center; padding:16px; background:#14291fc4; }
+.lazy-tool-surface { box-sizing:border-box; width:min(460px,100%); max-height:calc(100dvh - 32px); overflow:auto; background:white; color:#1d3a2a; border-radius:12px; padding:24px; box-shadow:0 20px 60px #102a1c55; }
+.lazy-tool-surface h2 { margin:0 0 12px; color:#214b32; }
+.lazy-tool-surface p { line-height:1.5; }
+.lazy-tool-surface button { border:1px solid #346947; border-radius:7px; color:white; background:#285a40; padding:10px 16px; }
+.lazy-tool-surface :focus-visible { outline:3px solid #1c7b49; outline-offset:3px; }
