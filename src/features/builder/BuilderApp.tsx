@@ -1,3 +1,4 @@
+import { LazyToolBoundary, LazyToolCoordinator, lazyTool } from "./components/LazyToolBoundary";
 import { ReportObjectMoveDialog } from "./components/ReportObjectMoveDialog";
 import { captureReportObjectMove, moveReportObject, type ReportObjectMoveBinding } from "./components/reportObjectMove";
 import { inspectStudyUsage } from "../document/studyUsageInspection";
@@ -34,8 +35,6 @@ import {
   type StudioCommand,
 } from "./components/StudioTools";
 import {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -178,30 +177,30 @@ import type {
 } from "../../../shared/types/dashboard";
 import type { LiveDatasetSourceDescriptor } from "../../../shared/types/dataSource";
 
-const BuilderDesignModal = lazy(() =>
+const BuilderDesignModal = lazyTool(() =>
   import("./components/BuilderDesignModal").then((module) => ({
     default: module.BuilderDesignModal,
   })),
 );
-const GuidedDataQueryModal = lazy(() =>
+const GuidedDataQueryModal = lazyTool(() =>
   import("./components/GuidedDataQueryModal").then((module) => ({
     default: module.GuidedDataQueryModal,
   })),
 );
-const QuestionJourney = lazy(() => import("../journey/QuestionJourney"));
-const LinkedViews = lazy(() => import("../exploration/LinkedViews"));
-const LinearModelExplorer = lazy(() => import("../models/LinearModelExplorer"));
-const MultiResponseExplorer = lazy(() => import("../multi-response/MultiResponseExplorer"));
-const DataPreparation = lazy(() => import("../data-preparation/DataPreparation"));
-const ReportRefresh = lazy(() => import("../report-refresh/ReportRefresh"));
-const WaveReview = lazy(() => import("../wave-review/WaveReview"));
-const ResponseCoding = lazy(() => import("../response-coding/ResponseCoding"));
-const ComparisonReview = lazy(() => import("../significance-review/ComparisonReview"));
-const ReportInsights = lazy(() => import("../significance-review/ReportInsights"));
-const AudienceDiscovery = lazy(() => import("../audience-discovery/AudienceDiscovery"));
-const VersionedResultReview = lazy(() => import("../analytics/VersionedResultReview"));
-const CalculatedMetricBuilder = lazy(() => import("../metrics/CalculatedMetricBuilder"));
-const GuidedStoryBuilder = lazy(() => import("../narratives/GuidedStoryBuilder"));
+const QuestionJourney = lazyTool(() => import("../journey/QuestionJourney"));
+const LinkedViews = lazyTool(() => import("../exploration/LinkedViews"));
+const LinearModelExplorer = lazyTool(() => import("../models/LinearModelExplorer"));
+const MultiResponseExplorer = lazyTool(() => import("../multi-response/MultiResponseExplorer"));
+const DataPreparation = lazyTool(() => import("../data-preparation/DataPreparation"));
+const ReportRefresh = lazyTool(() => import("../report-refresh/ReportRefresh"));
+const WaveReview = lazyTool(() => import("../wave-review/WaveReview"));
+const ResponseCoding = lazyTool(() => import("../response-coding/ResponseCoding"));
+const ComparisonReview = lazyTool(() => import("../significance-review/ComparisonReview"));
+const ReportInsights = lazyTool(() => import("../significance-review/ReportInsights"));
+const AudienceDiscovery = lazyTool(() => import("../audience-discovery/AudienceDiscovery"));
+const VersionedResultReview = lazyTool(() => import("../analytics/VersionedResultReview"));
+const CalculatedMetricBuilder = lazyTool(() => import("../metrics/CalculatedMetricBuilder"));
+const GuidedStoryBuilder = lazyTool(() => import("../narratives/GuidedStoryBuilder"));
 
 export default function BuilderApp() {
   const closingPanelFocus = useClosingPanelFocus();
@@ -236,11 +235,12 @@ export default function BuilderApp() {
   );
   const [publishedSnapshot, setPublishedSnapshot] =
     useState<PublishedDashboardSnapshot | null>(initialPublishedSnapshot);
+  const invalidateLazyOnReplacement = useRef<() => void>(() => {});
   const [dashboard, setDashboardState, getDocumentReplacementVersion, getDocumentEditVersion, getCurrentImportDocument] = useDocumentCommandState<DashboardDraft>(() =>
     initialPublishedSnapshot
       ? initialPublishedSnapshot.dashboard
       : normalizeDashboard(initialReport.draft),
-    () => setIsLoading(false),
+    () => { setIsLoading(false); invalidateLazyOnReplacement.current(); },
   );
   const {
     history,
@@ -312,7 +312,7 @@ export default function BuilderApp() {
     updateActivePageIdState(id);
   }, [updateActivePageIdState, setIsLoading, dashboard.id]);
   const setViewerMode = useCallback((value: boolean) => {
-    if (viewerContext.current !== value) { viewerContext.current = value; editorContextEpoch.current += 1; setIsLoading(false); }
+    if (viewerContext.current !== value) { invalidateLazyOnReplacement.current(); viewerContext.current = value; editorContextEpoch.current += 1; setIsLoading(false); }
     updateViewerModeState(value);
   }, [updateViewerModeState, setIsLoading]);
   const getEditorContextVersion = useCallback(() => JSON.stringify([editorContextEpoch.current,getDocumentReplacementVersion()]), [getDocumentReplacementVersion]);
@@ -343,6 +343,7 @@ export default function BuilderApp() {
         Omit<GuidedDataQueryLaunchOptions, "outputMode">)
     | null
   >(() => initialRoute.mode === "builder" && initialRoute.datasetId ? { outputMode: "table", importedDatasetId: initialRoute.datasetId } : null);
+  const lazyToolsCurrent = !viewerMode;
   const [leftOpen, setLeftOpen] = useState(false);
   const [inspectorPinned, setInspectorPinned] = useState(false);
   const inspectorScope = selectedTileId ? "tile" : selectedElementId ? "element" : multiSelectedObjects.length ? "multi" : "page";
@@ -2293,6 +2294,7 @@ export default function BuilderApp() {
           />
         </div>
       </section>
+      <LazyToolCoordinator invalidateRef={invalidateLazyOnReplacement}>
       {commandOpen && (
         <StudioCommandMenu
           commands={studioCommands}
@@ -2304,14 +2306,8 @@ export default function BuilderApp() {
         { id: "studies", label: "Open the study workspace", group: "2 · Understand your data", run: () => changeProductMode("data") },
         { id: "pages", label: "Organize report pages", group: "3 · Build the story", run: () => chooseTool("pages") }
       ]} />}
-      {designModal && (
-        <Suspense
-          fallback={
-            <div className="builder-modal-loading">
-              Loading design controls...
-            </div>
-          }
-        >
+      {lazyToolsCurrent && designModal && (
+        <LazyToolBoundary key={JSON.stringify([activeReportId, designModal])} name="design controls" onClose={() => setDesignModal(current => current === designModal ? null : current)}>
           <BuilderDesignModal
             designModal={designModal}
             designModalRef={designModalRef}
@@ -2334,9 +2330,9 @@ export default function BuilderApp() {
             applySelectedElementEffectPreset={applySelectedElementEffectPreset}
             applySelectedTileEffectPreset={applySelectedTileEffectPreset}
           />
-        </Suspense>
+        </LazyToolBoundary>
       )}
-      {questionJourneyOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading question workflow...</div>}><QuestionJourney key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialDraft={questionDrafts.current.get(dashboard.id)} onDraftChange={cacheQuestionDraft} onClose={()=>setQuestionJourneyOpen(false)} onImportStudy={()=>{setQuestionJourneyOpen(false);openGuidedDataQuery({sourceMode:"imported"});}} onCreate={(preview,wording)=>{
+      {questionJourneyOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "question workflow"])} name="question workflow" onClose={()=>setQuestionJourneyOpen(false)}><QuestionJourney key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialDraft={questionDrafts.current.get(dashboard.id)} onDraftChange={cacheQuestionDraft} onClose={()=>setQuestionJourneyOpen(false)} onImportStudy={()=>{setQuestionJourneyOpen(false);openGuidedDataQuery({sourceMode:"imported"});}} onCreate={(preview,wording)=>{
         let pages:ReturnType<typeof buildJourneyPages>=[];
         const inserted=setDashboard(current=>{
           if(viewerContext.current||current.id!==preview.setup.reportId)throw new Error("The report changed. Reopen this workflow in the current report; no pages were added.");
@@ -2346,11 +2342,11 @@ export default function BuilderApp() {
         });
         if(!inserted||pages.length!==2)throw new Error("The pages could not be added. Original analyses and your wording are preserved.");
         questionDrafts.current.delete(preview.setup.reportId);setQuestionJourneyOpen(false);setActivePageId(pages[1].id);selectElement(pages[1].elements.find(element=>element.evidence)!.id);
-      }}/></Suspense>}
-      {linkedViewsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading linked views...</div>}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></Suspense>}
-      {linearModelOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading numeric relationships...</div>}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></Suspense>}
-      {multiResponseOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response overlaps...</div>}><MultiResponseExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setMultiResponseOpen(false)}/></Suspense>}
-      {reportRefreshOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading new-wave report review...</div>}><ReportRefresh key={dashboard.id} draft={dashboard} studies={workspace.importedDatasets} onClose={()=>setReportRefreshOpen(false)} onCreate={async preview=>{
+      }}/></LazyToolBoundary>}
+      {linkedViewsOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "linked views"])} name="linked views" onClose={()=>setLinkedViewsOpen(false)}><LinkedViews key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinkedViewsOpen(false)}/></LazyToolBoundary>}
+      {linearModelOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "numeric relationships"])} name="numeric relationships" onClose={()=>setLinearModelOpen(false)}><LinearModelExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setLinearModelOpen(false)}/></LazyToolBoundary>}
+      {multiResponseOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "response overlaps"])} name="response overlaps" onClose={()=>setMultiResponseOpen(false)}><MultiResponseExplorer key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setMultiResponseOpen(false)}/></LazyToolBoundary>}
+      {reportRefreshOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "new-wave report review"])} name="new-wave report review" onClose={()=>setReportRefreshOpen(false)}><ReportRefresh key={dashboard.id} draft={dashboard} studies={workspace.importedDatasets} onClose={()=>setReportRefreshOpen(false)} onCreate={async preview=>{
         if (!importOwnerMounted.current || navigationOwner.current || viewerContext.current) throw Error("Resolve the pending report save before creating a new-wave copy.");
         const pending=workspaceSaveSession.getPending();
         const base=pending??workspaceRef.current;
@@ -2367,14 +2363,14 @@ export default function BuilderApp() {
           setViewerMode(false);
           replaceHash(makeBuilderReportPath(next.report.id));
         });
-      }}/></Suspense>}
-      {waveReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading year comparison...</div>}><WaveReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setWaveReviewOpen(false)}/></Suspense>}
-      {responseCodingOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading response coding...</div>}><ResponseCoding key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={setDashboard} onClose={()=>setResponseCodingOpen(false)}/></Suspense>}
-      {reportInsightsOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading report insights...</div>}><ReportInsights key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} entries={reportInsightQueue.entries} persistent storedIssue={reportInsightQueue.storedIssue} onRemove={reportInsightQueue.remove} onClear={reportInsightQueue.clear} onClose={()=>setReportInsightsOpen(false)} onReviewAnother={()=>{setReportInsightsOpen(false);setComparisonReviewOpen(true);}}/></Suspense>}
-      {comparisonReviewOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading exact group review...</div>}><ComparisonReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onQueueReview={reportInsightQueue.addReviewed} savedQueue onOpenReportInsights={()=>{setComparisonReviewOpen(false);setReportInsightsOpen(true);}} onClose={()=>setComparisonReviewOpen(false)}/></Suspense>}
-      {audienceDiscoveryOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading audience discovery...</div>}><AudienceDiscovery key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={update=>setDashboard(update)} onClose={()=>setAudienceDiscoveryOpen(false)}/></Suspense>}
-      {versionedResultOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading source evidence...</div>}><VersionedResultReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialTileId={selectedTile?.id} onChange={setDashboard} onClose={()=>setVersionedResultOpen(false)}/></Suspense>}
-      {dataPreparationOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading data preparation...</div>}><DataPreparation key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setDataPreparationOpen(false)} onSave={async(preview,signal)=>{
+      }}/></LazyToolBoundary>}
+      {waveReviewOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "year comparison"])} name="year comparison" onClose={()=>setWaveReviewOpen(false)}><WaveReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setWaveReviewOpen(false)}/></LazyToolBoundary>}
+      {responseCodingOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "response coding"])} name="response coding" onClose={()=>setResponseCodingOpen(false)}><ResponseCoding key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={setDashboard} onClose={()=>setResponseCodingOpen(false)}/></LazyToolBoundary>}
+      {reportInsightsOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "report insights"])} name="report insights" onClose={()=>setReportInsightsOpen(false)}><ReportInsights key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} entries={reportInsightQueue.entries} persistent storedIssue={reportInsightQueue.storedIssue} onRemove={reportInsightQueue.remove} onClear={reportInsightQueue.clear} onClose={()=>setReportInsightsOpen(false)} onReviewAnother={()=>{setReportInsightsOpen(false);setComparisonReviewOpen(true);}}/></LazyToolBoundary>}
+      {comparisonReviewOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "exact group review"])} name="exact group review" onClose={()=>setComparisonReviewOpen(false)}><ComparisonReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onQueueReview={reportInsightQueue.addReviewed} savedQueue onOpenReportInsights={()=>{setComparisonReviewOpen(false);setReportInsightsOpen(true);}} onClose={()=>setComparisonReviewOpen(false)}/></LazyToolBoundary>}
+      {audienceDiscoveryOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "audience discovery"])} name="audience discovery" onClose={()=>setAudienceDiscoveryOpen(false)}><AudienceDiscovery key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onChange={update=>setDashboard(update)} onClose={()=>setAudienceDiscoveryOpen(false)}/></LazyToolBoundary>}
+      {versionedResultOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "source evidence"])} name="source evidence" onClose={()=>setVersionedResultOpen(false)}><VersionedResultReview key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} initialTileId={selectedTile?.id} onChange={setDashboard} onClose={()=>setVersionedResultOpen(false)}/></LazyToolBoundary>}
+      {dataPreparationOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "data preparation"])} name="data preparation" onClose={()=>setDataPreparationOpen(false)}><DataPreparation key={dashboard.id} draft={dashboard} studies={workspaceImportedDatasets} onClose={()=>setDataPreparationOpen(false)} onSave={async(preview,signal)=>{
         const snapshot=workspaceRef.current, editVersion=getDocumentEditVersion(), route=window.location.hash;
         const currentWorkspace=upsertDraftReport(snapshot,dashboard,activeReportId);
         const source=currentWorkspace.importedDatasets.find(study=>study.id===preview.recipe.sourceDatasetId);
@@ -2387,9 +2383,9 @@ export default function BuilderApp() {
         const next=upsertWorkspaceImportedDataset(currentWorkspace,existing??preview.dataset);workspaceRef.current=next;setWorkspace(next);
         const saved=saveDashboardWorkspace(next);setError(saved?null:workspaceSaveFailureMessage);
         return saved?null:workspaceSaveFailureMessage;
-      }}/></Suspense>}
-      {calculatedMetricOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading calculated metrics...</div>}><CalculatedMetricBuilder key={dashboard.id} draft={dashboard} selectedTileId={selectedTile?.id} onClose={()=>setCalculatedMetricOpen(false)} onChange={setDashboard} onNavigate={(pageId,tileId)=>{setActivePageId(pageId);selectTile(tileId);}} onCreateAnalysis={()=>{setCalculatedMetricOpen(false);openGuidedDataQuery({sourceMode:"imported"});}}/></Suspense>}
-      {storyBuilderOpen&&!viewerMode&&<Suspense fallback={<div className="builder-modal-loading">Loading story builder...</div>}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
+      }}/></LazyToolBoundary>}
+      {calculatedMetricOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "calculated metrics"])} name="calculated metrics" onClose={()=>setCalculatedMetricOpen(false)}><CalculatedMetricBuilder key={dashboard.id} draft={dashboard} selectedTileId={selectedTile?.id} onClose={()=>setCalculatedMetricOpen(false)} onChange={setDashboard} onNavigate={(pageId,tileId)=>{setActivePageId(pageId);selectTile(tileId);}} onCreateAnalysis={()=>{setCalculatedMetricOpen(false);openGuidedDataQuery({sourceMode:"imported"});}}/></LazyToolBoundary>}
+      {storyBuilderOpen&&lazyToolsCurrent&&<LazyToolBoundary key={JSON.stringify([activeReportId, "story builder"])} name="story builder" onClose={()=>setStoryBuilderOpen(false)}><GuidedStoryBuilder key={dashboard.id} draft={dashboard} initialPlan={storyDrafts.current.get(dashboard.id)} onDraftChange={cacheStoryDraft} onClose={()=>setStoryBuilderOpen(false)} onCreate={plan=>{
         let pages:ReturnType<typeof buildGuidedStoryPages>=[];
         const inserted=setDashboard(current=>{
           if(viewerContext.current||current.id!==plan.reportId)throw new Error("The report changed. Close the story builder and choose the findings again.");
@@ -2398,15 +2394,9 @@ export default function BuilderApp() {
         });
         if(!inserted||!pages.length)throw new Error("The story could not be added. Original analyses are unchanged.");
         storyDrafts.current.delete(plan.reportId);setStoryBuilderOpen(false);setActivePageId(pages[0].id);selectElement(pages[0].elements.find(element=>element.evidence)!.id);
-      }}/></Suspense>}
-      {guidedDataQuery && (
-        <Suspense
-          fallback={
-            <div className="builder-modal-loading">
-              Loading query builder...
-            </div>
-          }
-        >
+      }}/></LazyToolBoundary>}
+      {lazyToolsCurrent && guidedDataQuery && (
+        <LazyToolBoundary key={JSON.stringify([activeReportId, "query builder"])} name="query builder" onClose={closeGuidedDataQuery}>
           <GuidedDataQueryModal
             props={{
               leftPanelView,
@@ -2572,8 +2562,9 @@ export default function BuilderApp() {
             onCreated={revealCreatedAnalysis}
             onStartQuestion={()=>{closeGuidedDataQuery();setQuestionJourneyOpen(true);}}
           />
-        </Suspense>
+        </LazyToolBoundary>
       )}
+      </LazyToolCoordinator>
       {objectMoveReview && <ReportObjectMoveDialog report={dashboard} binding={objectMoveReview.binding} isContextCurrent={objectMoveIsCurrent} returnFocus={objectMoveReview.trigger} onClose={()=>setObjectMoveReview(null)} onApply={applyObjectMove}/>}
     </main>
   );

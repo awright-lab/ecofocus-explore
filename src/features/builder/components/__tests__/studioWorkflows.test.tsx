@@ -3,7 +3,7 @@ import { act, useRef, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BuilderHeader } from "../BuilderChrome";
-import { StudioCommandMenu, StudioHelp } from "../StudioTools";
+import { StudioCommandMenu, StudioHelp, StudioRail } from "../StudioTools";
 import { initialDashboard } from "../../../document/documentSeeds";
 import { createReportRecord } from "../../../document/workspacePersistence";
 import { useModalAccessibility } from "../../hooks/useModalAccessibility";
@@ -42,19 +42,60 @@ describe("studio delivery and tool discovery", () => {
     expect(host.textContent).not.toContain("Preparing PPTX");
   });
 
-  it("filters tool categories and executes the keyboard-selected result", async () => {
+  it("preserves Analyze, Studies, Pages and Styles rail callbacks", async () => {
+    const change = vi.fn(), analyze = vi.fn();
+    await act(async () => root.render(<StudioRail active={null} onChange={change} onSearch={() => {}} onAnalyze={analyze} />));
+    await act(async () => { button("Analyze").click(); button("Studies").click(); button("Pages").click(); button("Styles").click(); });
+    expect(analyze).toHaveBeenCalledOnce();
+    expect(change.mock.calls).toEqual([["data"], ["pages"], ["brand"]]);
+  });
+
+  it("inspects a result before running it exactly once", async () => {
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
-    const create = vi.fn(), exportFile = vi.fn(), close = vi.fn();
-    await act(async () => root.render(<StudioCommandMenu onClose={close} commands={[
-      { id: "table", label: "Create table", group: "Analyze", run: create },
-      { id: "export", label: "Export report", group: "Deliver", run: exportFile }
-    ]} />));
-    await act(async () => button("Deliver").click());
-    const input = host.querySelector<HTMLInputElement>('[aria-label="Search commands"]')!;
-    expect(input.getAttribute("aria-activedescendant")).toBe("command-export");
-    expect(host.querySelectorAll('[role="option"]')).toHaveLength(1);
-    await act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
-    expect(exportFile).toHaveBeenCalledOnce(); expect(create).not.toHaveBeenCalled(); expect(close).toHaveBeenCalledOnce();
+    const run = vi.fn(), close = vi.fn();
+    await act(async () => root.render(<StudioCommandMenu onClose={close} commands={[{id: "pptx", label: "Export PowerPoint", group: "Deliver", run}]} />));
+    const result = host.querySelector<HTMLButtonElement>('.tool-library-result')!;
+    await act(async () => result.click());
+    expect(run).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('Starts the PowerPoint export');
+    const open = Array.from(host.querySelectorAll('button')).find(b => b.textContent?.includes('Open tool'))!;
+    await act(async () => { open.click(); open.click(); });
+    expect(run).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed when commands change or identities are duplicated", async () => {
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
+    const run = vi.fn(), close = vi.fn();
+    const command = {id: "__proto__", label: "Custom", group: "Other", run};
+    const render = (commands: typeof command[]) => root.render(<StudioCommandMenu onClose={close} commands={commands} />);
+    await act(async () => render([command]));
+    await act(async () => host.querySelector<HTMLButtonElement>('.tool-library-result')!.click());
+    await act(async () => render([{...command, label: 'Changed'}]));
+    expect(host.textContent).toContain('no longer available'); expect(run).not.toHaveBeenCalled();
+    await act(async () => render([command, {...command}]));
+    expect(host.textContent).toContain('ambiguous'); expect(run).not.toHaveBeenCalled();
+    await act(async () => render([]));
+    expect(host.textContent).toContain('no longer available');
+  });
+
+  it("invalidates a replaced callback and isolates keyboard input including composition", async () => {
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
+    const first = vi.fn(), replacement = vi.fn(), windowKey = vi.fn();
+    const firstAction = () => first();
+    const changedAction = () => replacement();
+    window.addEventListener('keydown', windowKey);
+    const make = (run: () => void) => [{ id: 'pages', label: 'Pages', group: 'Workspace', run }];
+    try {
+      await act(async () => root.render(<StudioCommandMenu onClose={() => {}} commands={make(firstAction)} />));
+      const input = host.querySelector<HTMLInputElement>('input')!;
+      await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown', bubbles:true, isComposing:true})));
+      expect(host.querySelector('.tool-library-detail')?.textContent).toContain('Choose a tool');
+      expect(windowKey).not.toHaveBeenCalled();
+      await act(async () => host.querySelector<HTMLButtonElement>('.tool-library-result')!.click());
+      await act(async () => root.render(<StudioCommandMenu onClose={() => {}} commands={make(changedAction)} />));
+      expect(host.textContent).toContain('no longer available');
+      expect(first).not.toHaveBeenCalled(); expect(replacement).not.toHaveBeenCalled();
+    } finally { window.removeEventListener('keydown', windowKey); }
   });
 
   it.each(["commands", "help"])("restores the opener after closing %s", async (kind) => {
