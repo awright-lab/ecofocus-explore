@@ -1,0 +1,79 @@
+{
+  "browser": "156.0.8078.4",
+  "sourceRows": 25000,
+  "selectedFields": 7,
+  "completeCases": 25000,
+  "reviewMs": 1390,
+  "selections": [
+    {
+      "ms": 98,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 84,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 80,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 73,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 74,
+      "rowSerializations": 50000
+    }
+  ],
+  "paging": [
+    {
+      "ms": 73,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 69,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 36,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 44,
+      "rowSerializations": 50000
+    },
+    {
+      "ms": 35,
+      "rowSerializations": 50000
+    }
+  ],
+  "renderedPoints": 300,
+  "renderedCases": 50,
+  "longTasks": [
+    69,
+    234,
+    112,
+    212,
+    438,
+    76,
+    170,
+    53,
+    73,
+    101,
+    108,
+    98,
+    58,
+    54,
+    88,
+    77,
+    73,
+    65,
+    69,
+    68,
+    59
+  ],
+  "serializationInstrumentation": "JSON.stringify calls on objects with X0 and X6; instrumentation adds overhead",
+  "external": [],
+  "errors": []
+}
