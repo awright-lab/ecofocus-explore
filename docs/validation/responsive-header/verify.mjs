@@ -1,0 +1,129 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+const require = createRequire(join(process.cwd(), 'package.json'));
+const { createServer, preview } = await import(pathToFileURL(require.resolve('vite')));
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const temp = await mkdtemp(join(tmpdir(), 'responsive-header-'));
+const out = resolve(process.env.HEADER_OUTPUT_DIR || 'docs/validation/responsive-header/integrated');
+await mkdir(out, { recursive: true });
+const ssr = await createServer({root:process.cwd(),server:{middlewareMode:true},logLevel:'error'});
+let app, context;
+try {
+  const {initialDashboard}=await ssr.ssrLoadModule('/src/features/document/documentSeeds.ts');
+  const p=await ssr.ssrLoadModule('/src/features/document/workspacePersistence.ts');
+  const draft=structuredClone(initialDashboard); draft.title='Synthetic responsive report';
+  const workspace=p.createPublishedSnapshot(p.normalizeDashboardWorkspace({reports:[p.createReportRecord(draft)]}),draft).workspace;
+  let payload; globalThis.window={localStorage:{setItem:(_k,v)=>{payload=v;}}};
+  try { assert.equal(p.saveDashboardWorkspace(workspace),true); } finally { delete globalThis.window; }
+  app=await preview({root:process.cwd(),preview:{host:'127.0.0.1',port:5196,strictPort:true},logLevel:'error'});
+  const ext=join(temp,'extension'); await mkdir(ext);
+  await writeFile(join(ext,'manifest.json'),JSON.stringify({manifest_version:3,name:'Synthetic test zoom',version:'1.0',permissions:['tabs'],background:{service_worker:'background.js'}}));
+  await writeFile(join(ext,'background.js'),'chrome.runtime.onInstalled.addListener(()=>{});');
+  context=await chromium.launchPersistentContext(join(temp,'profile'),{headless:true,viewport:{width:390,height:600},...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{}),ignoreDefaultArgs:['--disable-extensions'],args:['--no-sandbox',`--disable-extensions-except=${ext}`,`--load-extension=${ext}`]});
+  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker'), errors=[], external=[];
+  await context.route('**/*',route=>{const u=new URL(route.request().url());if(u.hostname==='127.0.0.1'&&u.port==='5196'&&!u.pathname.startsWith('/.netlify/functions/'))return route.continue();external.push(u.href);return route.abort();});
+  await context.addInitScript(seed=>{
+    window.__holdRaster = false; window.__rasterStarted = 0; window.__failRaster = false;
+    const pending = [], imageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    window.__releaseRaster = () => { window.__holdRaster = false; for (const release of pending.splice(0)) release(); };
+    Object.defineProperty(HTMLImageElement.prototype, 'src', { configurable: true, get: imageSrc.get, set(value) {
+      if (String(value).startsWith('blob:') && window.__holdRaster) { window.__rasterStarted++; pending.push(() => imageSrc.set.call(this, value)); }
+      else imageSrc.set.call(this, value);
+    } });
+    const toDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function(...args) { if (window.__failRaster) throw Error('Synthetic header raster failure'); return toDataURL.apply(this, args); };
+    if(!sessionStorage.getItem('seed')){localStorage.setItem(seed.key,seed.payload);sessionStorage.setItem('seed','1');}}, {key:p.workspaceStorageKey,payload});
+  const page=await context.newPage(), downloads=[];page.setDefaultTimeout(30000);page.on('pageerror',error=>errors.push(error.message));page.on('download',file=>downloads.push(file));
+  await page.goto(`http://127.0.0.1:5196/#/reports/${draft.id}`);await page.locator('.builder-header').waitFor();
+  const capture=process.env.HEADER_BASELINE==='1';
+  const header=page.locator('.builder-header');
+  const measure=async()=>header.evaluate(el=>{const rect=e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};const selectors=['.top-nav','.editor-location','.publish-controls'];return {viewport:innerWidth,header:rect(el),groups:selectors.map(s=>({name:s,...rect(el.querySelector(s))})),actions:[...el.querySelectorAll('.publish-controls > button,.publish-controls > details,.publish-controls > .export-package-confirmation,.publish-controls > .export-error,.publish-controls > .export-job-status,.publish-controls > .quick-edit-controls')].filter(e=>getComputedStyle(e).display!=='none').map(e=>({name:e.getAttribute('aria-label')||e.textContent.trim().slice(0,45),...rect(e)}))};});
+  const narrow=await measure();await page.screenshot({path:join(out,capture?'before-narrow.png':'after-narrow.png')});
+  if(capture){await page.setViewportSize({width:1280,height:900});await worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({url:'http://127.0.0.1/*'});await chrome.tabs.setZoom(tab.id,2);});await page.waitForFunction(()=>devicePixelRatio===2);const zoom=await measure();await page.screenshot({path:join(out,'before-zoom-200.png')});await writeFile(join(out,'before.json'),JSON.stringify({narrow,zoom},null,2));}
+  else {
+    function within(measurement){for(const a of measurement.actions)assert.ok(a.left>=-1&&a.right<=measurement.viewport+1,`${a.name} outside viewport: ${JSON.stringify(a)}`);for(let i=0;i<measurement.actions.length;i++)for(let j=i+1;j<measurement.actions.length;j++){const a=measurement.actions[i],b=measurement.actions[j];assert.ok(!(a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1),`overlap: ${a.name} and ${b.name}`);}}
+    within(narrow);await page.locator('.studio-brand').focus();await page.keyboard.press('Tab');assert.equal(await page.locator('.studio-document-menu summary').evaluate(el=>el===document.activeElement),true);
+    for(const selector of ['details.studio-document-menu','details.studio-preview-menu','details.export-menu']){const details=page.locator(selector),summary=details.locator('summary');await summary.focus();await page.keyboard.press('Enter');await page.waitForFunction(el=>el.open,await details.elementHandle());const menu=details.locator('div').first();const box=await menu.boundingBox();assert.ok(box&&box.x>=-1&&box.x+box.width<=391&&box.y>=-1&&box.y+box.height<=601,`${selector} menu clipped: ${JSON.stringify(box)}`);await page.keyboard.press('Escape');assert.equal(await details.evaluate(el=>el.open),false);assert.equal(await summary.evaluate(el=>el===document.activeElement),true);}
+    await page.locator('.studio-document-menu summary').click();await page.locator('.export-menu summary').click();assert.equal(await page.locator('.studio-document-menu').evaluate(el=>el.open),false);await page.locator('.export-menu summary').press('Escape');
+    await page.getByRole('button',{name:'Find a tool'}).click();const dialog=page.getByRole('dialog',{name:'Tool Library'});await dialog.waitFor();await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});assert.equal(await page.getByRole('button',{name:'Find a tool'}).evaluate(el=>el===document.activeElement),true);
+    const beforeExport=await page.evaluate(key=>localStorage.getItem(key),p.workspaceStorageKey);const exportMenu=page.locator('details.export-menu');await exportMenu.locator('summary').click();const download=page.waitForEvent('download');await exportMenu.getByRole('button',{name:'JSON package'}).click();const file=await download;assert.match(file.suggestedFilename(),/\.json$/);assert.equal(await page.evaluate(key=>localStorage.getItem(key),p.workspaceStorageKey),beforeExport);await page.locator('.export-job-status').filter({hasText:'download initiated'}).waitFor();within(await measure());await exportMenu.locator('summary').focus();await page.keyboard.press('Escape');
+    await page.setViewportSize({width:390,height:400});within(await measure());await page.screenshot({path:join(out,'after-short.png')});await page.locator('details.export-menu summary').click();const shortMenu=await page.locator('details.export-menu > div').boundingBox();assert.ok(shortMenu&&shortMenu.y>=0&&shortMenu.y+shortMenu.height<=401);await page.keyboard.press('Escape');
+    await page.setViewportSize({width:1280,height:900});await worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({url:'http://127.0.0.1/*'});await chrome.tabs.setZoom(tab.id,2);});await page.waitForFunction(()=>devicePixelRatio===2);const zoom=await measure();within(zoom);await page.screenshot({path:join(out,'after-zoom-200.png')});await page.locator('details.export-menu summary').focus();await page.keyboard.press('Enter');const zoomMenu=await page.locator('details.export-menu > div').boundingBox();const vh=await page.evaluate(()=>innerHeight);assert.ok(zoomMenu&&zoomMenu.y>=0&&zoomMenu.y+zoomMenu.height<=vh+1);await page.keyboard.press('Escape');assert.equal(await page.locator('details.export-menu summary').evaluate(el=>el===document.activeElement),true);
+    await worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({url:'http://127.0.0.1/*'});await chrome.tabs.setZoom(tab.id,1);});await page.waitForFunction(()=>devicePixelRatio===1);await page.setViewportSize({width:1440,height:900});within(await measure());await page.screenshot({path:join(out,'after-desktop.png')});await page.setViewportSize({width:390,height:600});await page.evaluate(path=>location.hash=path,workspace.publishedSnapshots[0].viewerPath);await page.getByRole('button',{name:'Back to draft'}).waitFor();const viewer=await page.locator('.published-header').evaluate(el=>{const e=el.getBoundingClientRect(),b=el.querySelector('button').getBoundingClientRect();return {right:e.right,buttonRight:b.right,viewport:innerWidth};});assert.ok(viewer.buttonRight<=viewer.viewport+1);await page.screenshot({path:join(out,'after-viewer.png')});await page.getByRole('button',{name:'Back to draft'}).click();await page.getByRole('button',{name:'Find a tool'}).waitFor();const noticeStates = [];
+    async function dismissNotice() {
+      const dismiss = page.getByRole('button', {name:'Dismiss export notice'});
+      if (await dismiss.count()) {
+        await dismiss.focus(); await page.keyboard.press('Enter');
+        assert.equal(await page.locator('.export-job-status').count(), 0);
+        assert.equal(await page.locator('details.export-menu > summary').evaluate(el => el === document.activeElement), true);
+      }
+    }
+    async function checkNoticeMenus(label) {
+      within(await measure());
+      const status = page.locator('.export-job-status'); await status.waitFor();
+      assert.equal(await status.evaluate(el => getComputedStyle(el).position), 'static');
+      for (const selector of ['details.studio-document-menu', 'details.studio-preview-menu', 'details.export-menu']) {
+        const menu = page.locator(selector), summary = menu.locator('summary');
+        if (!await menu.evaluate(el => el.open)) { await summary.focus(); await page.keyboard.press('Enter'); }
+        await page.waitForFunction(el => el.open, await menu.elementHandle());
+        const panel = menu.locator('div').first(), box = await panel.boundingBox();
+        const viewport = await page.evaluate(() => ({width:innerWidth, height:innerHeight}));
+        assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1, `${label}: menu outside viewport`);
+        // Rectangles alone miss overlays. Hit-test every enabled menu action,
+        // scrolling within the bounded panel so the lower actions are covered too.
+        const actions = panel.locator('button, select, input, a[href]');
+        for (let i=0; i<await actions.count(); i++) {
+          const action = actions.nth(i);
+          if (!await action.isVisible() || !await action.isEnabled()) continue;
+          await action.scrollIntoViewIfNeeded();
+          assert.equal(await action.evaluate(el => { const r=el.getBoundingClientRect(); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return el===hit || el.contains(hit); }), true, `${label}: menu action obscured`);
+        }
+        await summary.focus(); await page.keyboard.press('Escape');
+        assert.equal(await menu.evaluate(el => el.open), false);
+        assert.equal(await summary.evaluate(el => el === document.activeElement), true);
+      }
+      await page.screenshot({path:join(out, `${label}.png`)});
+      noticeStates.push(label);
+    }
+    async function launchPdf() {
+      const menu = page.locator('details.export-menu');
+      if (!await menu.evaluate(el => el.open)) await menu.locator('summary').click();
+      await menu.getByRole('button', {name:'PDF document (.pdf)'}).click();
+    }
+    for (const size of ['short', 'zoom-200']) {
+      await dismissNotice();
+      if (size === 'short') await page.setViewportSize({width:390,height:400});
+      else {
+        await page.setViewportSize({width:1280,height:900});
+        await worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({url:'http://127.0.0.1/*'});await chrome.tabs.setZoom(tab.id,2);});
+        await page.waitForFunction(()=>devicePixelRatio===2);
+      }
+      const stored = await page.evaluate(key=>localStorage.getItem(key), p.workspaceStorageKey), downloadCount = downloads.length;
+      await page.evaluate(()=>{window.__holdRaster=true;window.__rasterStarted=0;});
+      await launchPdf(); await page.waitForFunction(()=>window.__rasterStarted>0);
+      assert.equal(await page.getByRole('button',{name:'Dismiss export notice'}).count(),0);
+      await checkNoticeMenus(`${size}-running`);
+      await page.getByRole('button',{name:'Cancel export'}).focus();await page.keyboard.press('Enter');
+      await page.getByText('Cancel requested. Waiting for the current step to finish.').waitFor();
+      assert.equal(await page.getByRole('button',{name:'Dismiss export notice'}).count(),0);
+      await checkNoticeMenus(`${size}-canceling`);
+      await page.evaluate(()=>window.__releaseRaster());
+      await page.locator('.export-job-status').filter({hasText:'Export canceled'}).waitFor();
+      assert.equal(downloads.length,downloadCount);await checkNoticeMenus(`${size}-canceled`);await dismissNotice();
+      await page.evaluate(()=>window.__failRaster=true);await launchPdf();
+      await page.locator('.export-job-status[role="alert"]').filter({hasText:'Synthetic header raster failure'}).waitFor();
+      assert.equal(downloads.length,downloadCount);await checkNoticeMenus(`${size}-error`);await dismissNotice();
+      await page.evaluate(()=>window.__failRaster=false);
+      const menu=page.locator('details.export-menu');await menu.locator('summary').click();
+      const retry=page.waitForEvent('download');await menu.getByRole('button',{name:'JSON package'}).click();await retry;
+      await page.locator('.export-job-status').filter({hasText:'download initiated'}).waitFor();
+      assert.equal(downloads.length,downloadCount+1);await checkNoticeMenus(`${size}-complete`);await dismissNotice();
+      assert.equal(await page.evaluate(key=>localStorage.getItem(key), p.workspaceStorageKey),stored);
+    }
+    assert.deepEqual(external,[]);assert.deepEqual(errors,[]);await writeFile(join(out,'results.json'),JSON.stringify({browser:context.browser().version(),production:true,narrow,zoom,viewer,short:true,desktop:true,jsonDownloadAndStorageUnchanged:true,keyboardAndFocus:true,sharedNoticeStates:noticeStates,menuOcclusionChecked:true,external,errors},null,2));
+  }
+} finally {if(context)await context.close();if(app)await new Promise(resolve=>app.httpServer.close(resolve));await ssr.close();await rm(temp,{recursive:true,force:true});}

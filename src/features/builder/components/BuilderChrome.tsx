@@ -297,7 +297,15 @@ export const BuilderHeader = memo(function BuilderHeader({
   const sharedExporting = exportJob?.phase === "running" || exportJob?.phase === "canceling";
   const exportBusy = exportJob === undefined ? Boolean(exporting) : sharedExporting;
   return (
-    <header className="builder-header" data-canvas-keyboard-scope="controls">
+    <header className="builder-header" data-canvas-keyboard-scope="controls" onKeyDown={(event) => {
+      if (event.key !== "Escape") return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const menu = target.closest<HTMLDetailsElement>("details.studio-document-menu, details.studio-preview-menu, details.export-menu");
+      if (!menu?.open) return;
+      event.preventDefault(); event.stopPropagation(); menu.open = false;
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    }}>
       <div className="top-nav" aria-label="Product navigation">
         <button
           type="button"
@@ -312,7 +320,7 @@ export const BuilderHeader = memo(function BuilderHeader({
             InsightCanvas<span> / studio</span>
           </strong>
         </button>
-        <details className="studio-document-menu">
+        <details className="studio-document-menu" name="editor-header-menus">
           <summary aria-label="Document menu">
             <MoreHorizontal size={20} />
           </summary>
@@ -400,7 +408,7 @@ export const BuilderHeader = memo(function BuilderHeader({
         {exportJob === undefined && exporting && <span role="status" className="export-progress">Preparing {exporting.toUpperCase()}…</span>}
         {exportJob === undefined && exportError && <div role="alert" className="export-error">Export failed: {exportError}</div>}
         {exportJob && <ExportJobStatus exportJob={exportJob} onCancelExport={onCancelExport} onDismissExport={onDismissExport} />}
-        <details className="studio-preview-menu">
+        <details className="studio-preview-menu" name="editor-header-menus">
           <summary>
             <Presentation size={16} />
             <span>Preview</span>
@@ -446,7 +454,7 @@ export const BuilderHeader = memo(function BuilderHeader({
           <ChromeIcon icon="share" />
           {dashboard.status === "published" ? "Update snapshot" : "Save snapshot"}
         </button>
-        <details className="export-menu">
+        <details className="export-menu" name="editor-header-menus">
           <summary className="export-action">
             <ChromeIcon icon="export" />
             {exportBusy ? "Exporting…" : "Export"}
