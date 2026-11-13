@@ -1,0 +1,234 @@
+{
+  "browser": "156.0.8078.4",
+  "production": true,
+  "narrow": {
+    "viewport": 390,
+    "header": {
+      "left": 0,
+      "right": 390,
+      "top": 0,
+      "bottom": 154,
+      "width": 390,
+      "height": 154
+    },
+    "groups": [
+      {
+        "name": ".top-nav",
+        "left": 12,
+        "right": 378,
+        "top": 8,
+        "bottom": 50,
+        "width": 366,
+        "height": 42
+      },
+      {
+        "name": ".editor-location",
+        "left": 12,
+        "right": 378,
+        "top": 56,
+        "bottom": 71,
+        "width": 366,
+        "height": 15
+      },
+      {
+        "name": ".publish-controls",
+        "left": 12,
+        "right": 378,
+        "top": 77,
+        "bottom": 145,
+        "width": 366,
+        "height": 68
+      }
+    ],
+    "actions": [
+      {
+        "name": "Report colors",
+        "left": 12,
+        "right": 129.21875,
+        "top": 77,
+        "bottom": 107,
+        "width": 117.21875,
+        "height": 30
+      },
+      {
+        "name": "Audiences",
+        "left": 135.21875,
+        "right": 229.265625,
+        "top": 77,
+        "bottom": 107,
+        "width": 94.046875,
+        "height": 30
+      },
+      {
+        "name": "Find a tool",
+        "left": 235.265625,
+        "right": 263.265625,
+        "top": 77,
+        "bottom": 107,
+        "width": 28,
+        "height": 30
+      },
+      {
+        "name": "PreviewReview your deliverableDashboardReport",
+        "left": 12,
+        "right": 55,
+        "top": 117,
+        "bottom": 141,
+        "width": 43,
+        "height": 24
+      },
+      {
+        "name": "Update snapshot",
+        "left": 61,
+        "right": 194.515625,
+        "top": 113,
+        "bottom": 145,
+        "width": 133.515625,
+        "height": 32
+      },
+      {
+        "name": "ExportReview before exportingPowerPoint (.ppt",
+        "left": 200.515625,
+        "right": 295.53125,
+        "top": 113,
+        "bottom": 145,
+        "width": 95.015625,
+        "height": 32
+      },
+      {
+        "name": "Help",
+        "left": 301.53125,
+        "right": 328.53125,
+        "top": 114.5,
+        "bottom": 143.5,
+        "width": 27,
+        "height": 29
+      }
+    ]
+  },
+  "zoom": {
+    "viewport": 640,
+    "header": {
+      "left": 0,
+      "right": 640,
+      "top": 0,
+      "bottom": 216.015625,
+      "width": 640,
+      "height": 216.015625
+    },
+    "groups": [
+      {
+        "name": ".top-nav",
+        "left": 12,
+        "right": 628,
+        "top": 8,
+        "bottom": 50,
+        "width": 616,
+        "height": 42
+      },
+      {
+        "name": ".editor-location",
+        "left": 12,
+        "right": 628,
+        "top": 56,
+        "bottom": 71,
+        "width": 616,
+        "height": 15
+      },
+      {
+        "name": ".publish-controls",
+        "left": 12,
+        "right": 628,
+        "top": 77,
+        "bottom": 207.015625,
+        "width": 616,
+        "height": 130.015625
+      }
+    ],
+    "actions": [
+      {
+        "name": "Report colors",
+        "left": 12,
+        "right": 129.28125,
+        "top": 77,
+        "bottom": 107,
+        "width": 117.28125,
+        "height": 30
+      },
+      {
+        "name": "Audiences",
+        "left": 135.28125,
+        "right": 229.375,
+        "top": 77,
+        "bottom": 107,
+        "width": 94.09375,
+        "height": 30
+      },
+      {
+        "name": "Find a tool",
+        "left": 235.375,
+        "right": 263.375,
+        "top": 77,
+        "bottom": 107,
+        "width": 28,
+        "height": 30
+      },
+      {
+        "name": "Published v1 JSON package downloadedPackages ",
+        "left": 12,
+        "right": 628,
+        "top": 113,
+        "bottom": 169.015625,
+        "width": 616,
+        "height": 56.015625
+      },
+      {
+        "name": "PreviewReview your deliverableDashboardReport",
+        "left": 12,
+        "right": 55,
+        "top": 179.015625,
+        "bottom": 203.015625,
+        "width": 43,
+        "height": 24
+      },
+      {
+        "name": "Update snapshot",
+        "left": 61,
+        "right": 194.5078125,
+        "top": 175.015625,
+        "bottom": 207.015625,
+        "width": 133.5078125,
+        "height": 32
+      },
+      {
+        "name": "ExportReview before exportingPowerPoint (.ppt",
+        "left": 200.5078125,
+        "right": 295.515625,
+        "top": 175.015625,
+        "bottom": 207.015625,
+        "width": 95.0078125,
+        "height": 32
+      },
+      {
+        "name": "Help",
+        "left": 301.515625,
+        "right": 328.515625,
+        "top": 176.515625,
+        "bottom": 205.515625,
+        "width": 27,
+        "height": 29
+      }
+    ]
+  },
+  "viewer": {
+    "right": 390,
+    "buttonRight": 218.875,
+    "viewport": 390
+  },
+  "short": true,
+  "desktop": true,
+  "jsonDownloadAndStorageUnchanged": true,
+  "keyboardAndFocus": true,
+  "external": [],
+  "errors": []
+}

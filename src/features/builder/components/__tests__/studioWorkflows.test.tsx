@@ -42,6 +42,19 @@ describe("studio delivery and tool discovery", () => {
     expect(host.textContent).not.toContain("Preparing PPTX");
   });
 
+  it("closes each header menu on Escape and restores its own summary focus", async () => {
+    await act(async () => root.render(<BuilderHeader {...props(vi.fn())} />));
+    for (const selector of [".studio-document-menu", ".studio-preview-menu", ".export-menu"]) {
+      const menu = host.querySelector<HTMLDetailsElement>(selector)!;
+      const summary = menu.querySelector<HTMLElement>("summary")!;
+      const item = menu.querySelector<HTMLElement>("button, select")!;
+      menu.open = true; item.focus();
+      await act(async () => item.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+      expect(menu.open).toBe(false);
+      expect(document.activeElement).toBe(summary);
+    }
+  });
+
   it("preserves Analyze, Studies, Pages and Styles rail callbacks", async () => {
     const change = vi.fn(), analyze = vi.fn();
     await act(async () => root.render(<StudioRail active={null} onChange={change} onSearch={() => {}} onAnalyze={analyze} />));
