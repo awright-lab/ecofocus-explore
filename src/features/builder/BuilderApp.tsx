@@ -1642,7 +1642,7 @@ export default function BuilderApp() {
       "";
     return (
       <main className="published-shell">
-        {exportJob.view && <ExportJobStatus exportJob={exportJob.view} onCancelExport={exportJob.cancel} />}
+        {exportJob.view && <ExportJobStatus exportJob={exportJob.view} onCancelExport={exportJob.cancel} onDismissExport={exportJob.dismiss} />}
         <header className="published-header">
           <div className="published-header__copy">
             <span className="published-kicker">
@@ -1915,6 +1915,7 @@ export default function BuilderApp() {
         onExport={exportDashboardSpec}
         exportJob={exportJob.view}
         onCancelExport={exportJob.cancel}
+        onDismissExport={exportJob.dismiss}
         onOpenPublished={openPublishedReport}
         onPublish={publishDashboard}
         onUnpublish={unpublishDashboard}

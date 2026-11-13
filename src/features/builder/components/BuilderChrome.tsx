@@ -178,7 +178,14 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
   return <Icon className="chrome-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
-export function ExportJobStatus({ exportJob, onCancelExport }: { exportJob: ExportJobView; onCancelExport?: () => void }) {
+export function ExportJobStatus({ exportJob, onCancelExport, onDismissExport }: { exportJob: ExportJobView; onCancelExport?: () => void; onDismissExport?: (view: ExportJobView) => boolean }) {
+  function dismiss(event: React.MouseEvent<HTMLButtonElement>) {
+    if (!onDismissExport?.(exportJob)) return;
+    if (event.currentTarget.ownerDocument.activeElement === event.currentTarget) {
+      const document = event.currentTarget.ownerDocument;
+      document.querySelector<HTMLElement>('details.export-menu > summary, .published-header__actions button')?.focus();
+    }
+  }
   return <div className="export-job-status" role={exportJob.phase === "error" ? "alert" : "status"}>
           <strong>{exportJob.reportTitle} · {exportJob.target.toUpperCase()}</strong>{' '}
           {exportJob.phase === 'running' && <span>{exportJob.progress.stage === 'rendering' ? `Rendering pages: ${exportJob.progress.completed ?? 0} of ${exportJob.progress.total ?? 0} complete` : exportJob.progress.stage === 'packaging' ? 'Packaging file' : exportJob.progress.stage === 'download' ? 'Starting download' : 'Preparing export'}. Some steps cannot be interrupted immediately.</span>}
@@ -187,6 +194,7 @@ export function ExportJobStatus({ exportJob, onCancelExport }: { exportJob: Expo
           {exportJob.phase === 'canceled' && <span>Export canceled. No download was initiated.</span>}
           {exportJob.phase === 'error' && <span>Export failed: {exportJob.message}</span>}
           {exportJob.phase === 'running' && <button type="button" onClick={onCancelExport}>Cancel export</button>}
+          {onDismissExport && ['complete', 'canceled', 'error'].includes(exportJob.phase) && <button type="button" onClick={dismiss} aria-label="Dismiss export notice">Dismiss</button>}
         </div>;
 }
 
@@ -218,6 +226,7 @@ export const BuilderHeader = memo(function BuilderHeader({
   onShowExportIssue,
   exportJob,
   onCancelExport,
+  onDismissExport,
 }: {
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
@@ -246,6 +255,7 @@ export const BuilderHeader = memo(function BuilderHeader({
   onShowExportIssue?: (target: ExportIssueTarget, canMoveFocus: () => boolean) => boolean;
   exportJob?: ExportJobView | null;
   onCancelExport?: () => void;
+  onDismissExport?: (view: ExportJobView) => boolean;
 }) {
   const readiness = useMemo(
     () => buildPublishReadinessView(dashboard),
@@ -389,7 +399,7 @@ export const BuilderHeader = memo(function BuilderHeader({
         )}
         {exportJob === undefined && exporting && <span role="status" className="export-progress">Preparing {exporting.toUpperCase()}…</span>}
         {exportJob === undefined && exportError && <div role="alert" className="export-error">Export failed: {exportError}</div>}
-        {exportJob && <ExportJobStatus exportJob={exportJob} onCancelExport={onCancelExport} />}
+        {exportJob && <ExportJobStatus exportJob={exportJob} onCancelExport={onCancelExport} onDismissExport={onDismissExport} />}
         <details className="studio-preview-menu">
           <summary>
             <Presentation size={16} />

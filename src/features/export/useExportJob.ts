@@ -16,6 +16,7 @@ function cancelActive() { if (!activeJob) return; activeJob.controller.abort(); 
 export function useExportJob(dashboard: DashboardDraft, pages: DashboardPage[], scope: { reportId: string; viewer: boolean; isCurrent: () => boolean }) {
   const owner = useRef<{ controller: AbortController; scope: string } | null>(null), mounted = useRef(true);
   const [view, setView] = useState<ExportJobView | null>(null);
+  const viewRef = useRef(view); viewRef.current = view;
   const sharedView = useSyncExternalStore(subscribe, () => activeView, () => null);
   const viewScope = useRef('');
   const scopeKey = JSON.stringify([scope.reportId, scope.viewer]);
@@ -23,6 +24,12 @@ export function useExportJob(dashboard: DashboardDraft, pages: DashboardPage[], 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; if (owner.current === activeJob) cancelActive(); }; }, []);
   useEffect(() => { if (owner.current && owner.current.scope !== scopeKey) { cancelActive(); setView(current => current?.phase === 'running' ? { ...current, phase: 'canceling' } : current); } else if (!owner.current) setView(null); }, [scopeKey]);
   function cancel() { cancelActive(); if (mounted.current) setView(current => current?.phase === 'running' ? { ...current, phase: 'canceling' } : current); }
+  function dismiss(expected: ExportJobView) {
+    if (activeJob || viewRef.current !== expected || !['complete', 'canceled', 'error'].includes(expected.phase)) return false;
+    viewRef.current = null;
+    setView(current => current === expected ? null : current);
+    return true;
+  }
   async function start(target: CoreExportTarget) {
     if (activeJob) return;
     const controller = new AbortController(), job = { controller, scope: scopeKey }; owner.current = job; activeJob = job;
@@ -44,5 +51,5 @@ export function useExportJob(dashboard: DashboardDraft, pages: DashboardPage[], 
     } finally { if (owner.current === job) { owner.current = null; if (activeJob === job) { activeJob = null; publishActive(null); } if (mounted.current && latest.current !== job.scope) setView(null); } }
   }
   const visibleView = viewScope.current === scopeKey ? view : view && owner.current && (view.phase === 'running' || view.phase === 'canceling') ? { ...view, phase: 'canceling' as const } : null;
-  return { view: sharedView ?? visibleView, start, cancel, invalidate: cancel };
+  return { view: sharedView ?? visibleView, start, cancel, dismiss, invalidate: cancel };
 }
