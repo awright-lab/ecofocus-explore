@@ -55,6 +55,33 @@ describe("studio delivery and tool discovery", () => {
     }
   });
 
+  it.each(["running", "canceling", "complete", "canceled", "error"] as const)("preserves shared %s export status through menu Escape", async (phase) => {
+    const cancel = vi.fn(), dismiss = vi.fn(() => true), onExport = vi.fn();
+    const view = { target: "pdf" as const, reportTitle: "Synthetic shared export", phase, progress: { stage: "preparing" as const }, message: "Synthetic result" };
+    await act(async () => root.render(<BuilderHeader {...props(onExport)} exportJob={view} onCancelExport={cancel} onDismissExport={dismiss} />));
+    expect(host.querySelectorAll(".export-job-status")).toHaveLength(1);
+    expect(host.querySelector(".export-package-confirmation, .export-error, .export-progress")).toBeNull();
+    for (const selector of [".studio-document-menu", ".studio-preview-menu", ".export-menu"]) {
+      const menu = host.querySelector<HTMLDetailsElement>(selector)!;
+      expect(menu.getAttribute("name")).toBe("editor-header-menus");
+      menu.open = true;
+      const summary = menu.querySelector<HTMLElement>("summary")!;
+      summary.focus();
+      await act(async () => summary.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+      expect(menu.open).toBe(false); expect(document.activeElement).toBe(summary);
+      expect(host.querySelector(".export-job-status")?.textContent).toContain(view.reportTitle);
+    }
+    expect(button("PDF document (.pdf)").disabled).toBe(phase === "running" || phase === "canceling");
+    expect(cancel).not.toHaveBeenCalled(); expect(dismiss).not.toHaveBeenCalled(); expect(onExport).not.toHaveBeenCalled();
+    const status = host.querySelector(".export-job-status")!;
+    if (phase === "running") { await act(async () => status.querySelector<HTMLButtonElement>("button")!.click()); expect(cancel).toHaveBeenCalledOnce(); }
+    else if (phase !== "canceling") {
+      const action = status.querySelector<HTMLButtonElement>('[aria-label="Dismiss export notice"]')!;
+      action.focus(); await act(async () => action.click()); expect(dismiss).toHaveBeenCalledWith(view);
+      expect(document.activeElement).toBe(host.querySelector(".export-menu > summary"));
+    } else expect(status.querySelector("button")).toBeNull();
+  });
+
   it("preserves Analyze, Studies, Pages and Styles rail callbacks", async () => {
     const change = vi.fn(), analyze = vi.fn();
     await act(async () => root.render(<StudioRail active={null} onChange={change} onSearch={() => {}} onAnalyze={analyze} />));

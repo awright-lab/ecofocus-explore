@@ -1,3 +1,5 @@
+import "../../export/exportJob.css";
+import type { ExportJobView } from "../../export/useExportJob";
 import type { ExportIssueTarget } from "../../export/exportIssueTarget";
 import { AudienceControl } from "../../audiences/AudienceControl";
 import { ReportThemeControl } from "./ReportThemeControl";
@@ -176,6 +178,26 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
   return <Icon className="chrome-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
+export function ExportJobStatus({ exportJob, onCancelExport, onDismissExport }: { exportJob: ExportJobView; onCancelExport?: () => void; onDismissExport?: (view: ExportJobView) => boolean }) {
+  function dismiss(event: React.MouseEvent<HTMLButtonElement>) {
+    if (!onDismissExport?.(exportJob)) return;
+    if (event.currentTarget.ownerDocument.activeElement === event.currentTarget) {
+      const document = event.currentTarget.ownerDocument;
+      document.querySelector<HTMLElement>('details.export-menu > summary, .published-header__actions button')?.focus();
+    }
+  }
+  return <div className="export-job-status" role={exportJob.phase === "error" ? "alert" : "status"}>
+          <strong>{exportJob.reportTitle} · {exportJob.target.toUpperCase()}</strong>{' '}
+          {exportJob.phase === 'running' && <span>{exportJob.progress.stage === 'rendering' ? `Rendering pages: ${exportJob.progress.completed ?? 0} of ${exportJob.progress.total ?? 0} complete` : exportJob.progress.stage === 'packaging' ? 'Packaging file' : exportJob.progress.stage === 'download' ? 'Starting download' : 'Preparing export'}. Some steps cannot be interrupted immediately.</span>}
+          {exportJob.phase === 'canceling' && <span>Cancel requested. Waiting for the current step to finish.</span>}
+          {exportJob.phase === 'complete' && <span>{exportJob.message}</span>}
+          {exportJob.phase === 'canceled' && <span>Export canceled. No download was initiated.</span>}
+          {exportJob.phase === 'error' && <span>Export failed: {exportJob.message}</span>}
+          {exportJob.phase === 'running' && <button type="button" onClick={onCancelExport}>Cancel export</button>}
+          {onDismissExport && ['complete', 'canceled', 'error'].includes(exportJob.phase) && <button type="button" onClick={dismiss} aria-label="Dismiss export notice">Dismiss</button>}
+        </div>;
+}
+
 export const BuilderHeader = memo(function BuilderHeader({
   dashboard,
   activeProductMode,
@@ -202,6 +224,9 @@ export const BuilderHeader = memo(function BuilderHeader({
   selectedTileId,
   activePageId,
   onShowExportIssue,
+  exportJob,
+  onCancelExport,
+  onDismissExport,
 }: {
   dashboard: DashboardDraft;
   activeProductMode: WorkspaceProductMode;
@@ -228,6 +253,9 @@ export const BuilderHeader = memo(function BuilderHeader({
   selectedTileId?: string|null;
   activePageId?: string;
   onShowExportIssue?: (target: ExportIssueTarget, canMoveFocus: () => boolean) => boolean;
+  exportJob?: ExportJobView | null;
+  onCancelExport?: () => void;
+  onDismissExport?: (view: ExportJobView) => boolean;
 }) {
   const readiness = useMemo(
     () => buildPublishReadinessView(dashboard),
@@ -255,6 +283,7 @@ export const BuilderHeader = memo(function BuilderHeader({
   }, [exportConfirmation]);
 
   async function handleExport(target: CoreExportTarget) {
+    if (exportJob !== undefined) { await onExport(target); return; }
     if (exportLock.current) return;
     exportLock.current = true;
     setExporting(target); setExportError(null); setExportConfirmation(null);
@@ -265,6 +294,8 @@ export const BuilderHeader = memo(function BuilderHeader({
     finally { exportLock.current = false; setExporting(null); }
   }
 
+  const sharedExporting = exportJob?.phase === "running" || exportJob?.phase === "canceling";
+  const exportBusy = exportJob === undefined ? Boolean(exporting) : sharedExporting;
   return (
     <header className="builder-header" data-canvas-keyboard-scope="controls" onKeyDown={(event) => {
       if (event.key !== "Escape") return;
@@ -365,7 +396,7 @@ export const BuilderHeader = memo(function BuilderHeader({
             <ChromeIcon icon="redo" />
           </button>
         </div>
-        {exportConfirmation && (
+        {exportJob === undefined && exportConfirmation && (
           <div
             className={`export-package-confirmation ${exportConfirmation.status}`}
             role="status"
@@ -374,8 +405,9 @@ export const BuilderHeader = memo(function BuilderHeader({
             <small>{exportConfirmation.helper}</small>
           </div>
         )}
-        {exporting && <span role="status" className="export-progress">Preparing {exporting.toUpperCase()}…</span>}
-        {exportError && <div role="alert" className="export-error">Export failed: {exportError}</div>}
+        {exportJob === undefined && exporting && <span role="status" className="export-progress">Preparing {exporting.toUpperCase()}…</span>}
+        {exportJob === undefined && exportError && <div role="alert" className="export-error">Export failed: {exportError}</div>}
+        {exportJob && <ExportJobStatus exportJob={exportJob} onCancelExport={onCancelExport} onDismissExport={onDismissExport} />}
         <details className="studio-preview-menu" name="editor-header-menus">
           <summary>
             <Presentation size={16} />
@@ -425,14 +457,14 @@ export const BuilderHeader = memo(function BuilderHeader({
         <details className="export-menu" name="editor-header-menus">
           <summary className="export-action">
             <ChromeIcon icon="export" />
-            {exporting ? "Exporting…" : "Export"}
+            {exportBusy ? "Exporting…" : "Export"}
             <ChevronDown size={13} />
           </summary>
           <div>
-            <button type="button" disabled={Boolean(exporting)} data-export-review-trigger="" onClick={() => setPreflightOpen(true)}>Review before exporting</button>
+            <button type="button" disabled={exportBusy} data-export-review-trigger="" onClick={() => setPreflightOpen(true)}>Review before exporting</button>
             <button
               type="button"
-              disabled={Boolean(exporting)}
+              disabled={exportBusy}
               onClick={(event) => {
                 event.currentTarget.closest("details")?.removeAttribute("open");
                 void handleExport("pptx");
@@ -440,13 +472,13 @@ export const BuilderHeader = memo(function BuilderHeader({
             >
               PowerPoint (.pptx)
             </button>
-            <button type="button" disabled={Boolean(exporting)} onClick={() => void handleExport("pdf")}>
+            <button type="button" disabled={exportBusy} onClick={() => void handleExport("pdf")}>
               PDF document (.pdf)
             </button>
-            <button type="button" disabled={Boolean(exporting)} onClick={() => void handleExport("xlsx")}>
+            <button type="button" disabled={exportBusy} onClick={() => void handleExport("xlsx")}>
               Excel tables (.xlsx)
             </button>
-            <button type="button" disabled={Boolean(exporting)} onClick={() => void handleExport("json")}>
+            <button type="button" disabled={exportBusy} onClick={() => void handleExport("json")}>
               JSON package
             </button>
           </div>

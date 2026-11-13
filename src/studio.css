@@ -4385,8 +4385,10 @@ dialog::backdrop {
 }
 @media (max-width: 1100px) {
   .builder-header .export-package-confirmation,
-  .builder-header .export-error {
+  .builder-header .export-error,
+  .builder-header .export-job-status {
     position: static;
+    z-index: auto;
     flex: 1 1 100%;
     max-width: 100%;
     max-height: 25dvh;

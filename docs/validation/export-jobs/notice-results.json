@@ -1,0 +1,22 @@
+{
+  "build": "production vite preview",
+  "browser": "156.0.8078.4",
+  "headerAndLibrarySharedLock": true,
+  "cancelDuringRaster": true,
+  "jsonRetry": true,
+  "snapshotFilenameAndLabel": true,
+  "undoRedoWhileExportPending": true,
+  "reopenedEditedReportAndStudy": true,
+  "terminalDismissAndFocus": true,
+  "errorDismissAtZoom200": true,
+  "postErrorRetry": true,
+  "reportNavigationCanceled": true,
+  "viewerNavigationCanceled": true,
+  "transitionStatusAndDisabledControls": true,
+  "retryAfterEachTransition": true,
+  "keyboard": true,
+  "narrow": true,
+  "nativeZoom200": true,
+  "external": [],
+  "errors": []
+}
