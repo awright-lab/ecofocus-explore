@@ -53,6 +53,22 @@ button.addEventListener('click',async()=>{
   const winner=await a.read('research'),pending=await a.pending('research');assert(winner.revision===2&&pending.length===1,'Conflict journal was lost');const winnerIndex=concurrent.findIndex(value=>value.kind==='saved'),inputs=[draftA,draftB];assert(winner.payload===inputs[winnerIndex].payload&&pending[0].payload===inputs[1-winnerIndex].payload,'Winning or conflicting bytes changed');pass('Concurrent connections preserve the losing editor without overwriting the winner');
   const latest={...first,workspaceId:'sequence',sequence:2,payload:'latest'},old={...first,workspaceId:'sequence',payload:'obsolete'};await a.stage(latest);assert((await a.stage(old)).kind==='superseded','Old sequence replaced a new draft');assert((await a.commit(old)).kind==='superseded','Old commit replaced a new draft');assert((await a.pending('sequence'))[0].payload==='latest','Latest draft lost');pass('Out-of-order same-editor operations cannot replace newer pending work');
   let rejected=false;try{await a.stage({...latest,payload:'reused sequence'});}catch{rejected=true;}assert(rejected&&(await a.pending('sequence'))[0].payload==='latest','Sequence reuse changed stored bytes');pass('Reusing a pending sequence with different content aborts safely');
+  const destructive={...first,workspaceId:'destructive-recovery',payload:'target bytes',recoveryPayload:'original pre-operation bytes'};
+  await a.stage(destructive);await a.close();a=repository();
+  assert((await a.pending(destructive.workspaceId))[0].recoveryPayload===destructive.recoveryPayload,'Pre-operation bytes lost on reopen');
+  rejected=false;try{await a.stage({...destructive,recoveryPayload:'tampered original'});}catch{rejected=true;}
+  assert(rejected&&(await a.pending(destructive.workspaceId))[0].recoveryPayload===destructive.recoveryPayload,'Same-sequence pre-operation bytes were replaced');
+  assert((await a.commit({...destructive,recoveryPayload:'tampered original'})).kind==='superseded','Modified recovery bytes were committed');
+  assert(await a.read(destructive.workspaceId)===null,'Modified operation created a head');
+  assert((await a.commit(destructive)).kind==='saved'&&(await a.read(destructive.workspaceId)).payload===destructive.payload,'Recovery bytes committed in place of target');
+  rejected=false;try{await a.commit({...destructive,recoveryPayload:'tampered original'});}catch{rejected=true;}
+  assert(rejected&&(await a.commit(destructive)).kind==='saved','Receipt did not bind original pre-operation bytes');
+  pass('Pre-operation bytes survive reopen, cannot change under the same identity, and never replace the committed target');
+  const boundedRecovery={...first,workspaceId:'recovery-budget',payload:'x',recoveryPayload:'original'.repeat(100)};
+  const retainedBefore=JSON.stringify(await a.pendingAll());rejected=false;
+  try{await a.stage(boundedRecovery,{maxDrafts:1000,maxPayloadCharacters:boundedRecovery.recoveryPayload.length});}catch{rejected=true;}
+  assert(rejected&&JSON.stringify(await a.pendingAll())===retainedBefore,'Recovery bytes bypassed retention budget or damaged existing journals');
+  pass('Retention budgets include pre-operation recovery bytes and preserve other failed journals');
   const interrupted={...first,editorId:'interrupted',expectedRevision:2,payload:'uncommitted candidate'};await a.stage(interrupted);abortNextCommit=true;rejected=false;try{await a.commit(interrupted);}catch{rejected=true;}
   assert(rejected,'Injected commit abort was acknowledged as a save');assert(JSON.stringify(await a.read('research'))===JSON.stringify(winner),'Aborted head write was retained');assert((await a.pending('research')).some(value=>value.editorId==='interrupted'&&value.payload===interrupted.payload),'Aborted transaction cleared pending recovery');assert(await raw(['research','interrupted'],undefined,'committedOperations')===undefined,'Aborted commit left a false receipt');pass('Abort after head write rolls back head, journal and commit receipt together');
   await raw('damaged',{workspaceId:'damaged',revision:'invalid',payload:'original damaged bytes'});const damaged={...first,workspaceId:'damaged'};await a.stage(damaged);rejected=false;try{await a.commit(damaged);}catch{rejected=true;}assert(rejected&&(await raw('damaged')).payload==='original damaged bytes','Damaged head was overwritten');assert((await a.pending('damaged')).length===1,'Recovery candidate lost');pass('Damaged heads remain intact with a separate pending candidate');

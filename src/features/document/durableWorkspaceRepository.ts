@@ -6,6 +6,7 @@ export interface PendingWorkspaceDraft {
   sequence: number;
   expectedRevision: number | null;
   payload: string;
+  recoveryPayload?: string;
 }
 export interface DurableWorkspaceHead {
   workspaceId: string;
@@ -26,7 +27,7 @@ interface CommitReceipt {
 // distinct opaque strings that TextEncoder alone would replace with U+FFFD.
 export async function workspaceDraftDigest(draft: PendingWorkspaceDraft): Promise<string> {
   if (!globalThis.crypto?.subtle) throw new Error("Secure hashing is unavailable. Keep the pending draft and original save.");
-  const bytes = new TextEncoder().encode(JSON.stringify([draft.expectedRevision, draft.payload]));
+  const bytes = new TextEncoder().encode(JSON.stringify(draft.recoveryPayload === undefined ? [draft.expectedRevision, draft.payload] : [draft.expectedRevision, draft.payload, draft.recoveryPayload]));
   const hash = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -45,7 +46,7 @@ function validRevision(value: unknown): value is number {
 }
 function assertDraft(value: PendingWorkspaceDraft) {
   if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.workspaceId !== "string" || !value.workspaceId.trim() || typeof value.editorId !== "string" || !value.editorId.trim() ||
-      !Number.isSafeInteger(value.sequence) || value.sequence < 1 || (value.expectedRevision !== null && !validRevision(value.expectedRevision)) || typeof value.payload !== "string") {
+      !Number.isSafeInteger(value.sequence) || value.sequence < 1 || (value.expectedRevision !== null && !validRevision(value.expectedRevision)) || typeof value.payload !== "string" || (value.recoveryPayload !== undefined && typeof value.recoveryPayload !== "string")) {
     throw new Error("Invalid pending workspace draft. Existing storage was not changed.");
   }
 }
@@ -55,7 +56,7 @@ function assertHead(value: unknown, workspaceId: string): asserts value is Durab
   if (!head || typeof head !== "object" || Array.isArray(head) || head.workspaceId !== workspaceId || !validRevision(head.revision) || typeof head.payload !== "string") throw new Error("The durable workspace record is damaged. Preserve its storage and recover a separate copy.");
 }
 function sameDraft(a: PendingWorkspaceDraft, b: PendingWorkspaceDraft) {
-  return a.workspaceId === b.workspaceId && a.editorId === b.editorId && a.sequence === b.sequence && a.expectedRevision === b.expectedRevision && a.payload === b.payload;
+  return a.workspaceId === b.workspaceId && a.editorId === b.editorId && a.sequence === b.sequence && a.expectedRevision === b.expectedRevision && a.payload === b.payload && a.recoveryPayload === b.recoveryPayload;
 }
 
 export function createDurableWorkspaceRepository(databaseName: string, factory: IDBFactory = globalThis.indexedDB) {
@@ -191,7 +192,7 @@ export function createDurableWorkspaceRepository(databaseName: string, factory: 
             inventory.onsuccess = guard(tx, () => {
               const drafts = inventory.result as PendingWorkspaceDraft[]; drafts.forEach(assertDraft);
               const others = drafts.filter(item => item.workspaceId !== draft.workspaceId || item.editorId !== draft.editorId);
-              const characters = others.reduce((total, item) => total + item.payload.length, draft.payload.length);
+              const characters = others.reduce((total, item) => total + item.payload.length + (item.recoveryPayload?.length ?? 0), draft.payload.length + (draft.recoveryPayload?.length ?? 0));
               if (others.length >= limits.maxDrafts || characters > limits.maxPayloadCharacters) throw new Error("Recovery storage limit reached. Existing copies were preserved; download a backup.");
               store.put(draft); done({ kind: "staged" });
             });

@@ -59,3 +59,21 @@ it.each([null, [], {}, { kind: "ecofocus-workspace-state", version: 2, workspace
 it("refuses to encode a malformed workspace rather than creating a successful-looking saved envelope", () => {
   expect(() => encodeDurableWorkspace({ ...workspace(), reports: [] })).toThrow(); expect(() => encodeDurableWorkspace(workspace(" "))).toThrow("workspace ID");
 });
+
+it("exposes the exact safe pre-operation candidate separately without choosing or normalizing its bytes", async () => {
+  const before = Object.assign(workspace(), { futureExtension: { untouched: "original" } });
+  const recoveryPayload = encodeDurableWorkspace(before), payload = encodeDurableWorkspace({ ...workspace(), label: "After" });
+  const source = repository({ head: head(), pending: [{ ...draft(payload), recoveryPayload }] });
+  const original = structuredClone(await source.inspect()); const result = await inspectDurableWorkspaceRecovery(source, "synthetic");
+  expect(result.kind).toBe("needs_recovery"); expect(result.candidates[0].workspace?.label).toBe("After");
+  expect(result.candidates[0].preOperation?.payload).toBe(recoveryPayload);
+  expect(result.candidates[0].preOperation?.workspace?.id).toBe("synthetic");
+  expect(JSON.parse(JSON.parse(result.candidates[0].preOperation!.payload).payload).futureExtension).toEqual(before.futureExtension);
+  expect(await source.inspect()).toEqual(original);
+});
+it("keeps damaged pre-operation bytes visible without hiding a valid target candidate", async () => {
+  const result = await inspectDurableWorkspaceRecovery(repository({ head: null, pending: [{ ...draft(encodeDurableWorkspace(workspace())), recoveryPayload: "damaged original" }] }), "synthetic");
+  expect(result.candidates[0].workspace).not.toBeNull();
+  expect(result.candidates[0].preOperation).toMatchObject({ payload: "damaged original", workspace: null });
+  expect(result.candidates[0].preOperation?.error).toBeTruthy();
+});
