@@ -6,6 +6,8 @@
   "snapshotFilenameAndLabel": true,
   "reportNavigationCanceled": true,
   "viewerNavigationCanceled": true,
+  "transitionStatusAndDisabledControls": true,
+  "retryAfterEachTransition": true,
   "keyboard": true,
   "narrow": true,
   "nativeZoom200": true,

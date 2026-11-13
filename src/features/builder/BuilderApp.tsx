@@ -59,6 +59,7 @@ import { useExportJob } from "../export/useExportJob";
 import type { CoreExportTarget } from "../export/coreDocumentExports";
 import {
   BuilderHeader,
+  ExportJobStatus,
   BuilderPanel,
   WorkspaceModeStrip,
   outcomeModeView,
@@ -1641,6 +1642,7 @@ export default function BuilderApp() {
       "";
     return (
       <main className="published-shell">
+        {exportJob.view && <ExportJobStatus exportJob={exportJob.view} onCancelExport={exportJob.cancel} />}
         <header className="published-header">
           <div className="published-header__copy">
             <span className="published-kicker">

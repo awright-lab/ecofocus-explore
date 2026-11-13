@@ -178,6 +178,18 @@ function ChromeIcon({ icon }: { icon: ChromeIconName }) {
   return <Icon className="chrome-icon" aria-hidden="true" strokeWidth={1.9} />;
 }
 
+export function ExportJobStatus({ exportJob, onCancelExport }: { exportJob: ExportJobView; onCancelExport?: () => void }) {
+  return <div className="export-job-status" role={exportJob.phase === "error" ? "alert" : "status"}>
+          <strong>{exportJob.reportTitle} · {exportJob.target.toUpperCase()}</strong>{' '}
+          {exportJob.phase === 'running' && <span>{exportJob.progress.stage === 'rendering' ? `Rendering pages: ${exportJob.progress.completed ?? 0} of ${exportJob.progress.total ?? 0} complete` : exportJob.progress.stage === 'packaging' ? 'Packaging file' : exportJob.progress.stage === 'download' ? 'Starting download' : 'Preparing export'}. Some steps cannot be interrupted immediately.</span>}
+          {exportJob.phase === 'canceling' && <span>Cancel requested. Waiting for the current step to finish.</span>}
+          {exportJob.phase === 'complete' && <span>{exportJob.message}</span>}
+          {exportJob.phase === 'canceled' && <span>Export canceled. No download was initiated.</span>}
+          {exportJob.phase === 'error' && <span>Export failed: {exportJob.message}</span>}
+          {exportJob.phase === 'running' && <button type="button" onClick={onCancelExport}>Cancel export</button>}
+        </div>;
+}
+
 export const BuilderHeader = memo(function BuilderHeader({
   dashboard,
   activeProductMode,
@@ -377,15 +389,7 @@ export const BuilderHeader = memo(function BuilderHeader({
         )}
         {exportJob === undefined && exporting && <span role="status" className="export-progress">Preparing {exporting.toUpperCase()}…</span>}
         {exportJob === undefined && exportError && <div role="alert" className="export-error">Export failed: {exportError}</div>}
-        {exportJob && <div className="export-job-status" role={exportJob.phase === "error" ? "alert" : "status"}>
-          <strong>{exportJob.reportTitle} · {exportJob.target.toUpperCase()}</strong>{' '}
-          {exportJob.phase === 'running' && <span>{exportJob.progress.stage === 'rendering' ? `Rendering pages: ${exportJob.progress.completed ?? 0} of ${exportJob.progress.total ?? 0} complete` : exportJob.progress.stage === 'packaging' ? 'Packaging file' : exportJob.progress.stage === 'download' ? 'Starting download' : 'Preparing export'}. Some steps cannot be interrupted immediately.</span>}
-          {exportJob.phase === 'canceling' && <span>Cancel requested. Waiting for the current step to finish.</span>}
-          {exportJob.phase === 'complete' && <span>{exportJob.message}</span>}
-          {exportJob.phase === 'canceled' && <span>Export canceled. No download was initiated.</span>}
-          {exportJob.phase === 'error' && <span>Export failed: {exportJob.message}</span>}
-          {exportJob.phase === 'running' && <button type="button" onClick={onCancelExport}>Cancel export</button>}
-        </div>}
+        {exportJob && <ExportJobStatus exportJob={exportJob} onCancelExport={onCancelExport} />}
         <details className="studio-preview-menu">
           <summary>
             <Presentation size={16} />
