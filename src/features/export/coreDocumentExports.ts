@@ -1,3 +1,4 @@
+import { checkExport, exportProgress, type ExportControl } from "./exportControl";
 import { planPptxLayers } from "./pptxLayerPlan";
 import { canvasHeight, canvasWidth } from "../builder/builderConstants";
 import { slugifyFileName } from "../builder/components/CanvasRenderers";
@@ -56,7 +57,8 @@ function visualSlideXml(index: number, layers: string) {
   return `${xmlHeader}<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name="Slide ${index}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${layers}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
 }
 
-export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer) {
+export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer, control?: ExportControl) {
+  exportProgress(control, { stage: "preparing" });
   // Export is a read-only snapshot, including across asynchronous rasterization.
   const sortedPages = visiblePages(structuredClone(pages));
   assertExportResultsCurrent(sortedPages);
@@ -64,10 +66,13 @@ export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRa
   let nextChartId = 1;
   const slides: Array<{ xml: string; relationships: string; images: Array<{path:string;content:Uint8Array}>; charts:PptxNativeChartDescriptor[] }> = [];
   for (const [pageIndex,page] of sortedPages.entries()) {
+    exportProgress(control, { stage: "rendering", completed: pageIndex, total: sortedPages.length });
     const plan=planPptxLayers(page), objects:string[]=[], relations:string[]=[], images:Array<{path:string;content:Uint8Array}>=[], charts:PptxNativeChartDescriptor[]=[];
     let shapeId=2, relationshipId=1;
     async function raster(name:string, options:Parameters<typeof renderPageVisualImages>[1], transparent:boolean) {
+      checkExport(control);
       const image=(await renderPageVisualImages([page],{...options,rasterizeSvg,transparent}))[0];
+      checkExport(control);
       if(transparent && !image.dataUrl.startsWith('data:image/png;base64,'))throw new Error('Transparent PowerPoint layers require PNG rasterization. No opaque replacement was exported.');
       const extension=image.dataUrl.startsWith('data:image/png;base64,')?'png':'jpg';
       const path=`ppt/media/page${pageIndex+1}-layer${images.length+1}.${extension}`,rid=`rId${relationshipId++}`;
@@ -89,8 +94,11 @@ export async function buildPptxBlob(pages: DashboardPage[], rasterizeSvg?: SvgRa
         }
       }
     }
+    checkExport(control);
     slides.push({xml:visualSlideXml(pageIndex+1,objects.join('')),relationships:`${xmlHeader}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relations.join('')}<Relationship Id="rId${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>`,images,charts});
   }
+  exportProgress(control, { stage: "rendering", completed: sortedPages.length, total: sortedPages.length });
+  exportProgress(control, { stage: "packaging" });
   const chartDescriptorsBySlide=slides.map(slide=>slide.charts);
   const slideIds=slides.map((_,index)=>`<p:sldId id="${256+index}" r:id="rId${index+1}"/>`).join('');
   const rels=slides.map((_,index)=>`<Relationship Id="rId${index+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index+1}.xml"/>`).join('');
@@ -161,10 +169,19 @@ function concatBytes(chunks: Uint8Array[]) {
   return output;
 }
 
-export async function buildPdfBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer) {
+export async function buildPdfBlob(pages: DashboardPage[], rasterizeSvg?: SvgRasterizer, control?: ExportControl) {
+  exportProgress(control, { stage: "preparing" });
   assertExportResultsCurrent(pages);
   visiblePages(pages).forEach(page => buildPageVisualSvg(page));
-  const pageImages = await renderPageVisualImages(visiblePages(pages), { rasterizeSvg });
+  const orderedPages = visiblePages(pages);
+  const pageImages = control ? [] : await renderPageVisualImages(orderedPages, { rasterizeSvg });
+  if (control) for (const [index, page] of orderedPages.entries()) {
+    exportProgress(control, { stage: "rendering", completed: index, total: orderedPages.length });
+    pageImages.push((await renderPageVisualImages([page], { rasterizeSvg }))[0]);
+    checkExport(control);
+  }
+  exportProgress(control, { stage: "rendering", completed: orderedPages.length, total: orderedPages.length });
+  exportProgress(control, { stage: "packaging" });
   const chunks: Uint8Array[] = [];
   const offsets: number[] = [];
   let byteOffset = 0;
@@ -270,7 +287,8 @@ export function buildXlsxBlob(dashboard: DashboardDraft, pages: DashboardPage[])
   return new Blob([buildZip(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
-export async function exportCoreDocument(dashboard: DashboardDraft, pages: DashboardPage[], target: CoreExportTarget): Promise<CoreExportResult> {
+export async function exportCoreDocument(dashboard: DashboardDraft, pages: DashboardPage[], target: CoreExportTarget, control?: ExportControl): Promise<CoreExportResult> {
+  checkExport(control);
   const baseName = slugifyFileName(dashboard.title);
   const warnings: string[] = [];
   if (target === "json") {
@@ -278,16 +296,23 @@ export async function exportCoreDocument(dashboard: DashboardDraft, pages: Dashb
   }
   if (target === "pptx") {
     warnings.push("PPTX reconstructs supported charts and objects. All analytical rows/series are retained; fonts, effects and Office layout need visual review.");
-    downloadBlob(await buildPptxBlob(pages), `${baseName}-${dashboard.status}.pptx`);
+    const blob = await buildPptxBlob(pages, undefined, control);
+    exportProgress(control, { stage: "download" });
+    downloadBlob(blob, `${baseName}-${dashboard.status}.pptx`);
     return { target, fileName: `${baseName}-${dashboard.status}.pptx`, warnings };
   }
   if (target === "pdf") {
     warnings.push("PDF uses reconstructed page images with complete supported analytical content. Review fonts, effects and layout; it is not a pixel-identical canvas capture.");
-    downloadBlob(await buildPdfBlob(pages), `${baseName}-${dashboard.status}.pdf`);
+    const blob = await buildPdfBlob(pages, undefined, control);
+    exportProgress(control, { stage: "download" });
+    downloadBlob(blob, `${baseName}-${dashboard.status}.pdf`);
     return { target, fileName: `${baseName}-${dashboard.status}.pdf`, warnings };
   }
 
   warnings.push("XLSX exports analytical tables, recorded evidence and authored narrative text; the canvas layout is not reproduced.");
-  downloadBlob(buildXlsxBlob(dashboard, pages), `${baseName}-analysis-${dashboard.status}.xlsx`);
+  exportProgress(control, { stage: "packaging" });
+  const blob = buildXlsxBlob(dashboard, pages);
+  exportProgress(control, { stage: "download" });
+  downloadBlob(blob, `${baseName}-analysis-${dashboard.status}.xlsx`);
   return { target, fileName: `${baseName}-analysis-${dashboard.status}.xlsx`, warnings };
 }
